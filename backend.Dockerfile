@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 
-# System dependencies
-# -------------------
+# Operating system dependencies
+# -----------------------------
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
@@ -15,15 +15,16 @@ RUN apt-get update \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*
 
-# 3. Copy source and install dependencies
-# ---------------------------------------
+# Copy source and install python dependencies
+# ------------------------------------
 
 COPY ./backend /home/backend
-COPY ./db /home/db
 WORKDIR /home/backend
+ENV PYTHONPATH="$PYTHONPATH:."
 
 # Install backend-specific dependencies from repo
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
 ENTRYPOINT ["python"]
 CMD ["app.py"]
+

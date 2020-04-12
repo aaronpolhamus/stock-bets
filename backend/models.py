@@ -1,25 +1,6 @@
 import enum
-import os
 
-from flask import Flask
-from flask_migrate import Migrate, MigrateCommand
-from flask_script import Manager
-from flask_sqlalchemy import SQLAlchemy
-
-app = Flask(__name__)
-
-db_user = os.getenv("DB_USER")
-db_password = os.getenv("DB_PASSWORD")
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-app.config[
-    "SQLALCHEMY_DATABSE_URI"] = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
-db = SQLAlchemy(app)
-
-migrate = Migrate(app, db)
-manager = Manager(app)
-manager.add_command('db', MigrateCommand)
+from app import db
 
 
 class Users(db.Model):
@@ -97,7 +78,3 @@ class Positions(db.Model):
     purchase_time = db.Column(db.DateTime)
     sale_price = db.Column(db.DECIMAL)
     sale_time = db.Column(db.DateTime)
-
-
-if __name__ == '__main__':
-    manager.run()
