@@ -90,7 +90,7 @@ class Positions(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
-    ticker = db.Column(db.Integer, db.Text)  # Only American securities for now
+    ticker = db.Column(db.Text)  # Only American securities for now.
     trade_type = db.Column(db.Enum(TradeTypes))
     shares = db.Column(db.Integer)
     purchase_price = db.Column(db.DECIMAL)
