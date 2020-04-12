@@ -1,23 +1,19 @@
----
 version: '3'
 
 services:
   db:
     image: mysql
     container_name: db
-    command: --default-authentication-plugin=mysql_native_password
     environment:
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD=${DB_PASSWORD}
     ports:
       - 3306:3306
     env_file:
-      - ./docker/dev.env
+      - .env
 
   backend:
-    image: backend
+    image: backend:${TAG}
     container_name: backend
     build:
       context: '.'
@@ -25,7 +21,7 @@ services:
     ports:
       - 5000:5000
     env_file:
-      - ./docker/dev.env
+      - .env
     depends_on:
       - db
 
