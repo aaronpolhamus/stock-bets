@@ -1,6 +1,6 @@
 import enum
 
-from app import db
+from backend.app import db
 
 
 class Users(db.Model):
