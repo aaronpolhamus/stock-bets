@@ -1,14 +1,8 @@
 # DB
 # --
 
-db--build:
-	docker-compose build db
-
 db--up:
 	docker-compose up db
-
-db--upgrade:
-	docker exec -it backend flask db upgrade
 
 # Backend
 # -------
@@ -28,3 +22,8 @@ build:
 up:
 	docker-compose up
 
+stop:
+	docker-compose stop
+
+down:
+	docker-compose down

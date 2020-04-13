@@ -8,6 +8,7 @@ RUN apt-get update \
   curl \
   gnupg \
   libev-dev \
+  netcat \
   python3.7 \
   python3-pip \
   python3-setuptools \
@@ -25,6 +26,4 @@ ENV PYTHONPATH="$PYTHONPATH:/home/backend"
 # Install backend-specific dependencies from repo
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["python"]
-CMD ["app.py"]
-
+ENTRYPOINT ["./docker-entrypoint.sh"]
