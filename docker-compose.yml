@@ -18,31 +18,14 @@ services:
     build:
       context: '.'
       dockerfile: 'backend.Dockerfile'
+    volumes:
+      - ${PWD}/backend:/home/backend
     ports:
       - 5000:5000
     env_file:
       - .env
     depends_on:
       - db
-
-  migrations:
-    image: migrations
-    build:
-      context: "."
-      dockerfile: 'backend.Dockerfile'
-    volumes:
-      - $PWD/backend:/home/stock-bets/backend
-      - $PWD/db:/home/stock-bets/db
-    environment:
-      - DB_HOST=${DB_HOST}
-      - DB_PORT=${DB_PORT}
-      - DB_USER=${DB_USER}
-      - DB_NAME=${DB_NAME}
-      - DB_PASSWORD=${DB_PASSWORD}
-    working_dir: /home
-    env_file:
-      - .env
-    entrypoint: 'python ./db/models.py db migrate; python ./db/models.py db upgrade'
 
 #  frontend:
 #    image: frontend

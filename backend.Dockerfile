@@ -20,7 +20,7 @@ RUN apt-get update \
 
 COPY ./backend /home/backend
 WORKDIR /home/backend
-ENV PYTHONPATH="$PYTHONPATH:."
+ENV PYTHONPATH="$PYTHONPATH:/home/backend"
 
 # Install backend-specific dependencies from repo
 RUN python -m pip install --no-cache-dir -r requirements.txt

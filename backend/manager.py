@@ -1,6 +1,27 @@
+"""For this iteration I'm conflating the definition of our applications database with the Flask-Migrate abstractions
+to manage it. I'd like to do something cleaner, once I have a better understanding of what's going on with flake
+
+Check out this structure:
+https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-to-sqlite-memory-when-i-set-it-to-a-pa
+"""
+
 import enum
 
-from backend.app import db
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_script import Manager
+from flask_migrate import Migrate, MigrateCommand
+
+import config
+
+app = Flask(__name__)
+app.config.from_object(config.BaseConfig)
+db = SQLAlchemy(app)
+
+
+migrate = Migrate(app, db)
+manager = Manager(app)
+manager.add_command('db', MigrateCommand)
 
 
 class Users(db.Model):
@@ -78,3 +99,7 @@ class Positions(db.Model):
     purchase_time = db.Column(db.DateTime)
     sale_price = db.Column(db.DECIMAL)
     sale_time = db.Column(db.DateTime)
+
+
+if __name__ == '__main__':
+    manager.run()
