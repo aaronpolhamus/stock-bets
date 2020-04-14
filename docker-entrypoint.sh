@@ -5,8 +5,8 @@ do
   sleep 1
 done
 
-cd db
+cd webapp/db
 python manager.py db upgrade # generate/update db schema
 
-cd ../app
-python run.py # start the web application
+cd ../..
+python wsgi.py # start the web application

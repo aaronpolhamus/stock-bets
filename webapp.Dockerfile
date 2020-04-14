@@ -19,9 +19,9 @@ RUN apt-get update \
 # Copy source and install python dependencies
 # ------------------------------------
 
-COPY ./webapp /home/webapp
-WORKDIR /home/webapp
-ENV PYTHONPATH="$PYTHONPATH:/home/webapp"
+COPY . /home/stockbets
+WORKDIR /home/stockbets
+ENV PYTHONPATH="$PYTHONPATH:/home/stockbets/webapp"
 
 # Install webapp-specific dependencies from repo
 RUN python -m pip install --no-cache-dir -r requirements.txt

@@ -7,21 +7,7 @@ https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-
 
 import enum
 
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_script import Manager
-from flask_migrate import Migrate, MigrateCommand
-
-import config
-
-app = Flask(__name__)
-app.config.from_object(config.BaseConfig)
-db = SQLAlchemy(app)
-
-
-migrate = Migrate(app, db)
-manager = Manager(app)
-manager.add_command('db', MigrateCommand)
+from . import db
 
 
 class Users(db.Model):
@@ -101,7 +87,3 @@ class Positions(db.Model):
     purchase_time = db.Column(db.DateTime)
     sale_price = db.Column(db.DECIMAL)
     sale_time = db.Column(db.DateTime)
-
-
-if __name__ == '__main__':
-    manager.run()

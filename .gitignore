@@ -131,3 +131,4 @@ dmypy.json
 # other stuff
 .creds
 .idea
+.env # wouldn't want to share all our secret credentials, would we?

@@ -1,6 +1,7 @@
+# TODO: Kill this file by baking it into auth.routes calls
 from flask_login import UserMixin
 
-from db.manager import db
+from models import db
 
 
 class User(UserMixin):
@@ -12,7 +13,7 @@ class User(UserMixin):
 
     @staticmethod
     def get(user_id):
-        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.engine.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if not user:
             return None
 
@@ -21,7 +22,7 @@ class User(UserMixin):
 
     @staticmethod
     def create(name, email, username, profile_pic):
-        db.execute(
+        db.engine.execute(
             "INSERT INTO users (name, email, username, profile_pic)"
             "VALUES (?, ?, ?, ?)",
             (name, email, username, profile_pic),
