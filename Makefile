@@ -4,17 +4,17 @@
 db--up:
 	docker-compose up db
 
-# Backend
-# -------
+# Webapp
+# ------
 
-backend--build:
-	docker-compose build backend
+webapp--build:
+	docker-compose build webapp
 
-backend--up:
-	docker-compose up backend
+webapp--up:
+	docker-compose up webapp
 
-# Application
-# -----------
+# All containers
+# --------------
 
 build:
 	docker-compose build

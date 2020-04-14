@@ -19,11 +19,11 @@ RUN apt-get update \
 # Copy source and install python dependencies
 # ------------------------------------
 
-COPY ./backend /home/backend
-WORKDIR /home/backend
-ENV PYTHONPATH="$PYTHONPATH:/home/backend"
+COPY ./webapp /home/webapp
+WORKDIR /home/webapp
+ENV PYTHONPATH="$PYTHONPATH:/home/webapp"
 
-# Install backend-specific dependencies from repo
+# Install webapp-specific dependencies from repo
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -28,7 +28,9 @@ class Users(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.Text)
     email = db.Column(db.Text)
+    profile_pic = db.Column(db.Text)
     username = db.Column(db.Text)
 
 
