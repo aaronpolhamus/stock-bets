@@ -1,28 +1,21 @@
-import os
+from os import getenv
 
 
 class Config:
-    GOOGLE_DISCOVERY_URL = (
-        "https://accounts.google.com/.well-known/openid-configuration"
-    )
+    GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
 
     # Database configs
     # ----------------
-    db_user = os.getenv("DB_USER")
-    db_password = os.getenv("DB_PASSWORD")
-    db_host = os.getenv("DB_HOST")
-    db_port = os.getenv("DB_PORT")
-    db_name = os.getenv("DB_NAME")
+    db_user = getenv("DB_USER")
+    db_password = getenv("DB_PASSWORD")
+    db_host = getenv("DB_HOST")
+    db_port = getenv("DB_PORT")
+    db_name = getenv("DB_NAME")
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
-    SQLALCHEMY_TRACK_MODIFICATIONS = os.getenv("SQLALCHEMY_TRACK_MODIFICATIONS", False)
+    SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
+    SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO"))
 
     # OAuth credentials
     # -----------------
-    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-
-    # Flask settings
-    # --------------
-    FLASK_APP = "__init__.py"
-    FLASK_ENV = "development"
-    TESTING = True
+    GOOGLE_CLIENT_ID = getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET = getenv("GOOGLE_CLIENT_SECRET")

@@ -11,8 +11,9 @@ def create_app():
     db.init_app(app)
 
     with app.app_context():
-        from auth import auth_routes
+        from webapp.auth import auth_routes
         app.register_blueprint(auth_routes.auth_bp)
-        migrate = Migrate(app, db)
+        # from webapp import models
+        migrate = Migrate(app, db, directory="webapp/migrations")
         db.create_all()
         return app

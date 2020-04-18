@@ -7,7 +7,7 @@ https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-
 
 import enum
 
-from . import db
+from webapp import db
 
 
 class Users(db.Model):

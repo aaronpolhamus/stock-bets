@@ -1,5 +1,4 @@
 import json
-import os
 
 from flask import current_app as app
 from flask import redirect, request, url_for, Blueprint
@@ -14,7 +13,7 @@ from flask_login import (
 from oauthlib.oauth2 import WebApplicationClient
 import requests
 
-from auth.user import User
+from webapp.auth.user import User
 from config import Config
 
 login_manager = LoginManager()

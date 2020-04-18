@@ -1,7 +1,7 @@
 # TODO: Kill this file by baking it into auth.routes calls
 from flask_login import UserMixin
 
-from models import db
+from webapp.models import db
 
 
 class User(UserMixin):
