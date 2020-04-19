@@ -1,26 +1,19 @@
 import json
 
-from flask import current_app as app
 from flask import redirect, request, url_for, Blueprint
 from flask_login import (
-    LoginManager,
     current_user,
     login_required,
     login_user,
     logout_user,
 )
-
 from oauthlib.oauth2 import WebApplicationClient
 import requests
 
-from webapp.auth.user import User
 from config import Config
+from auth.user import User
 
-login_manager = LoginManager()
-login_manager.init_app(app)
 client = WebApplicationClient(Config.GOOGLE_CLIENT_ID)
-
-
 auth_bp = Blueprint("auth_bp", __name__, template_folder="templates", static_folder="static")
 
 
@@ -31,21 +24,14 @@ def get_google_provider_cfg():
         raise SystemExit(e)
 
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.get(user_id)
-
-
 @auth_bp.route("/")
 def index():
     if current_user.is_authenticated:
         return (
-            "<p>Hello, {}! You're logged in! Email: {}</p>"
+            f"<p>Hello, {current_user.name}! You're logged in! Email: {current_user.email}</p>"
             "<div><p>Google Profile Picture:</p>"
-            '<img src="{}" alt="Google profile pic"></img></div>'
-            '<a class="button" href="/logout">Logout</a>'.format(
-                current_user.name, current_user.email, current_user.profile_pic
-            )
+            f"<img src='{current_user.profile_pic}' alt='Google profile pic'></img></div>"
+            "<a class='button' href='/logout'>Logout</a>"
         )
     else:
         return '<a class="button" href="/login">Google Login</a>'
@@ -98,19 +84,17 @@ def callback():
         return "User email not available or not verified by Google.", 400
 
     # Username blank for now. Build this feature later
-    user = User(
-        name=user_name, email=user_email, username=None, profile_pic=picture
-    )
+    user = User(name=user_name, email=user_email, username=None, profile_pic=picture)
 
     if not User.get(user_email):
         User.create(user_name, user_email, None, picture)
 
     login_user(user)
-    return redirect(url_for("index"))
+    return redirect(url_for("auth_bp.index"))
 
 
 @auth_bp.route("/logout")
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for("index"))
+    return redirect(url_for("auth_bp.index"))

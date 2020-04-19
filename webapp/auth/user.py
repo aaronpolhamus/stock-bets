@@ -1,7 +1,6 @@
-# TODO: Kill this file by baking it into auth.routes calls
 from flask_login import UserMixin
 
-from webapp.models import db
+from database.db import db
 
 
 class User(UserMixin):
@@ -11,9 +10,13 @@ class User(UserMixin):
         self.username = username
         self.profile_pic = profile_pic
 
+    @property
+    def id(self):
+        return db.engine.execute("SELECT id FROM users WHERE email = %s;", self.email).fetchone()
+
     @staticmethod
-    def get(user_id):
-        user = db.engine.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    def get(user_email):
+        user = db.engine.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
         if not user:
             return None
 
@@ -24,7 +27,6 @@ class User(UserMixin):
     def create(name, email, username, profile_pic):
         db.engine.execute(
             "INSERT INTO users (name, email, username, profile_pic)"
-            "VALUES (?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s)",
             (name, email, username, profile_pic),
         )
-        db.commit()
