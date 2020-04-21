@@ -8,9 +8,6 @@ services:
       - MYSQL_DATABASE=${DB_NAME}
     ports:
       - 3306:3306
-    env_file:
-      - .env
-      - .flaskenv
     command: --default-authentication-plugin=mysql_native_password
 
   webapp:
@@ -24,5 +21,6 @@ services:
       - 5000:5000
     env_file:
       - .env
+      - .flaskenv
     depends_on:
       - db
