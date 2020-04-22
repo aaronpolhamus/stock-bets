@@ -1,1 +1,1 @@
-FLASK_APP=/home/stock-bets/wsgi.py
+FLASK_APP=/app/wsgi.py

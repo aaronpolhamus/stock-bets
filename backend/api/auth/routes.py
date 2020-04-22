@@ -11,10 +11,10 @@ from oauthlib.oauth2 import WebApplicationClient
 import requests
 
 from config import Config
-from auth.user import User
+from backend.api.auth.user import User
 
 client = WebApplicationClient(Config.GOOGLE_CLIENT_ID)
-auth_bp = Blueprint("auth_bp", __name__, template_folder="templates", static_folder="static")
+auth_bp = Blueprint("auth_bp", __name__)
 
 
 def get_google_provider_cfg():

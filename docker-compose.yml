@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 services:
   db:
@@ -10,13 +10,13 @@ services:
       - 3306:3306
     command: --default-authentication-plugin=mysql_native_password
 
-  webapp:
-    image: webapp
+  backend:
+    image: backend
     build:
-      context: '.'
-      dockerfile: 'webapp.Dockerfile'
+      context: "."
+      dockerfile: "backend.Dockerfile"
     volumes:
-      - ${PWD}:/home/stock-bets
+      - ./backend:/backend
     ports:
       - 5000:5000
     env_file:
@@ -24,3 +24,21 @@ services:
       - .flaskenv
     depends_on:
       - db
+
+  frontend:
+    image: frontend
+    build:
+      context: "."
+      dockerfile: "frontend.Dockerfile"
+    volumes:
+      - ./frontend:/home/frontend
+      - /home/frontend/node_modules
+    ports:
+      - 3000:3000
+    env_file:
+      - .env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    stdin_open: true

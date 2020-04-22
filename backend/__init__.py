@@ -3,7 +3,8 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 
 from database.db import db
-from auth.user import User
+from backend.api.auth.user import User
+from backend.api.auth import routes as auth_routes
 
 
 def create_app():
@@ -19,10 +20,9 @@ def create_app():
         return user
 
     with app.app_context():
-        from webapp.auth import routes as auth_routes
         app.register_blueprint(auth_routes.auth_bp)
         # It's annoying that flask works this way. migrate and models both become part of the application context here
-        migrate = Migrate(app, db, directory="webapp/database/migrations")
-        from database import models
+        migrate = Migrate(app, db, directory="/home/backend/database/migrations")
+        from backend.database import models
         db.create_all()
         return app
