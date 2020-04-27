@@ -1,20 +1,15 @@
-# pull official base image
-FROM node:13.12.0-alpine
-
-# set working directory
-WORKDIR /home/frontend
-
-# add `/app/node_modules/.bin` to $PATH
-ENV PATH /home/frontend/node_modules/.bin:$PATH
-
-# install app dependencies
-COPY ./frontend/package.json /home/frontend
-COPY ./frontend/package-lock.json /home/frontend
+# https://medium.com/@tiangolo/react-in-docker-with-nginx-built-with-multi-stage-docker-builds-including-testing-8cc49d6ec305
+# Stage 0, "build-stage", based on Node.js, to build and compile the frontend
+FROM tiangolo/node-frontend:10 as build-stage
+WORKDIR /app
+COPY ./frontend/package*.json /app/
 RUN npm install
-RUN npm install react-scripts@3.4.1 -g
+COPY ./frontend /app/
+RUN npm run build
 
-# add app
-COPY ./frontend /home/frontend
+# Stage 1, based on Nginx, to have only the compiled app, ready for production with Nginx
+FROM nginx:1.15
+COPY --from=build-stage /app/build/ /usr/share/nginx/html
 
-# start app
-CMD ["npm", "start"]
+# Copy the default nginx.conf provided by tiangolo/node-frontend
+COPY --from=build-stage /nginx.conf /etc/nginx/conf.d/default.conf

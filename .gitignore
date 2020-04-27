@@ -128,7 +128,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# other stuff
-.creds
+# Project-specific ignores 
+# ------------------------
 .idea
-.env # wouldn't want to share all our secret credentials, would we?
+*/node_modules  # these are big, heavy, boilerplate files and there's not reason to version them.
+
+# Related to SSL certs
+ssl.conf
+ssl.crt
+ssl.key

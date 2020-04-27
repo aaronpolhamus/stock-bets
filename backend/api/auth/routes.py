@@ -25,6 +25,7 @@ def get_google_provider_cfg():
 
 
 @auth_bp.route("/")
+@login_required
 def index():
     import flask
     flask.current_app.logger.debug(f"*** DEBUG \n {dir(current_user)}***\n")
