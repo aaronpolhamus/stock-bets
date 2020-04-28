@@ -134,6 +134,5 @@ dmypy.json
 */node_modules  # these are big, heavy, boilerplate files and there's not reason to version them.
 
 # Related to SSL certs
-ssl.conf
-ssl.crt
-ssl.key
+*cert.pem
+*key.pem

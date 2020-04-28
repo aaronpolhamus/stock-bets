@@ -20,7 +20,7 @@ frontend--build:
 	docker-compose build frontend
 
 frontend--up:
-	docker-compose up frontend
+	docker run -p 80:80 frontend
 
 # All containers
 # --------------

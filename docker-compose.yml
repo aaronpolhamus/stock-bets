@@ -13,30 +13,30 @@ services:
   backend:
     image: backend
     build:
-      context: "."
-      dockerfile: "backend.Dockerfile"
+      context: "./backend"
+      dockerfile: "backend/backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
     ports:
       - 5000:5000
     env_file:
-      - .env
-      - .flaskenv
+      - backend/.env
+      - backend/.flaskenv
     depends_on:
       - db
 
   frontend:
     image: frontend
     build:
-      context: "."
-      dockerfile: "frontend.Dockerfile"
+      context: "./frontend"
+      dockerfile: "frontend/frontend.Dockerfile"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
       - 3000:3000
     env_file:
-      - .env
+      - frontend/.env
     environment:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
