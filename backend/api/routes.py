@@ -2,6 +2,7 @@ import requests
 from backend.database.db import db
 from flask import Blueprint, request, jsonify, abort
 from flask_httpauth import HTTPTokenAuth
+import secrets
 
 auth = HTTPTokenAuth()
 routes = Blueprint("routes", __name__)
@@ -29,15 +30,21 @@ def register_user():
     response is the returned value from the React-Google-Login component
     """
     token_id = request.json["tokenId"]
+    # validate the user with Google
     response = requests.post(GOOGLE_VALIDATION_URL, data={"id_token": token_id})
     if response.status_code == 200:
         decoded_json = response.json()
-        user = db.engine.execute("SELECT * FROM users WHERE email = %s", decoded_json["email"]).fetchone()
+        user_email = decoded_json["email"]
+        # if the user is valid, check to see if we already have them in our DB
+        user = db.engine.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
         if not user:
+            # if not, make an entry
             db.engine.execute("INSERT INTO users (name, email, username, profile_pic) VALUES (%s, %s, %s, %s)",
-                              (decoded_json["given_name"], decoded_json["email"], None, decoded_json["picture"]))
+                              (decoded_json["given_name"], user_email, None, decoded_json["picture"]))
 
-        # send back a session token
-        return jsonify(decoded_json)
+        # refresh the user's session token and return to the client for local storage and http auth
+        session_token = secrets.token_hex()
+        db.engine.execute("UPDATE users SET session_token = %s WHERE email = %s;", (session_token, user_email))
+        return jsonify({"session_token": session_token})
 
     abort(response.status_code, "tokenId from Google OAuth failed verification")

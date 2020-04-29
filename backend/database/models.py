@@ -18,6 +18,7 @@ class Users(db.Model):
     email = db.Column(db.Text)
     profile_pic = db.Column(db.Text)
     username = db.Column(db.Text)
+    session_token = db.Column(db.Text)
 
 
 class GameModes(int, enum.Enum):

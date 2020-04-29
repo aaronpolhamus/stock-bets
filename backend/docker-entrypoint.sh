@@ -5,4 +5,6 @@ do
   sleep 1
 done
 
+flask db upgrade # construct the data model
+
 python wsgi.py # start the web application

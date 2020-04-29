@@ -1,46 +1,43 @@
-import React, { Component } from "react";
+import React, { useState } from "react";
 import GoogleLogin from "react-google-login";
 import axios from "axios";
 import { Redirect } from "react-router-dom";
 
-class AlphabetLogin extends Component {   
+function responseError (response) {
+  return (
+    <div>
+      <h1>Google login failed. Here's the response that you got back:</h1>
+      <p>{ response }</p>
+    </div>
+  )
+}
 
-  state = {
-    redirect: false
+export default function AlphabetLogin () { 
+
+  const [redirect, setRedirect] = useState(false); // redirect holds redirect value, and setRedirect is a function to replace the redirect value
+
+  function handleSubmit (response) {
+    axios.post("/register", response).then(
+      api_response => window.sessionStorage.setItem("session_token", api_response.data.session_token)
+    ).then(() => setRedirect(true));
   }
 
-  handleSubmit (response) {
-    axios.post("/register", response)
-      .then(() => this.setState({ redirect: true }));
-  }
-
-  responseError (response) {
-    return (
-      <div>
-        <h1>Google login failed. Here's the response that you got back:</h1>
-        <p>{ response }</p>
-      </div>
+  if (redirect) { 
+    return(
+      <Redirect to="/" />
     )
   }
 
-  render() {
-    const { redirect } = this.state
+  return (
+    <div className="App">
+      <GoogleLogin
+        clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
+        buttonText="Login with Google"
+        onSuccess={handleSubmit}
+        onFailure={responseError}
+        cookiePolicy={"single_host_origin"}
+      />
+    </div>
+  )
 
-    if (redirect) { 
-      return <Redirect to='/'/>
-    }
-
-    return (
-      <div className="App">
-        <GoogleLogin
-          clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
-          buttonText="Login with Google"
-          onSuccess={this.handleSubmit}
-          onFailure={this.responseError}
-          cookiePolicy={"single_host_origin"}        />
-      </div>
-    )
-  }
 };
-
-export default AlphabetLogin;

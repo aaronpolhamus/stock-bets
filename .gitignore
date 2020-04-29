@@ -131,7 +131,7 @@ dmypy.json
 # Project-specific ignores 
 # ------------------------
 .idea
-*/node_modules  # these are big, heavy, boilerplate files and there's not reason to version them.
+**node_modules  # these are big, heavy, boilerplate files and there's not reason to version them.
 
 # Related to SSL certs
 *cert.pem
