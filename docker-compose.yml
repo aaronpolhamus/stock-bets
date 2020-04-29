@@ -14,7 +14,7 @@ services:
     image: backend
     build:
       context: "./backend"
-      dockerfile: "backend/backend.Dockerfile"
+      dockerfile: "backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
     ports:
@@ -29,9 +29,9 @@ services:
     image: frontend
     build:
       context: "./frontend"
-      dockerfile: "frontend/frontend.Dockerfile"
+      dockerfile: "frontend.Dockerfile"
     volumes:
-      - ./frontend:/app
+      - .:/app
       - /app/node_modules
     ports:
       - 3000:3000

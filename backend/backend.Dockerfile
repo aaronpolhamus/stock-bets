@@ -18,7 +18,7 @@ RUN apt-get update \
 
 # Copy source files to container and set working directory
 # --------------------------------------------------------
-COPY ./backend /home/backend
+COPY . /home/backend
 WORKDIR /home/backend
 ENV PYTHONPATH="$PYTHONPATH:/home"
 

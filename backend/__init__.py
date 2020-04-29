@@ -14,7 +14,7 @@ def create_app():
     lm.init_app(app)
 
     with app.app_context():
-        app.register_blueprint(routes.auth_bp)
+        app.register_blueprint(routes.routes)
         # It's annoying that flask works this way. migrate and models both become part of the application context here
         migrate = Migrate(app, db, directory="/home/backend/database/migrations")
         db.create_all()
