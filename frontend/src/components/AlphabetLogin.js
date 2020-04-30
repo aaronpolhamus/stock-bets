@@ -11,7 +11,7 @@ export default function AlphabetLogin () {
   const [redirect, setRedirect] = useState(false); // redirect holds redirect value, and setRedirect is a function to replace the redirect value
 
   function handleSubmit (response) {
-    axios.post("/register", response).then(() => setRedirect(true));
+    axios.post("/login", response).then(() => setRedirect(true));
   }
 
   if (redirect) { 
