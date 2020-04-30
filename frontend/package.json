@@ -8,6 +8,7 @@
     "@testing-library/user-event": "^7.2.1",
     "add": "^2.0.6",
     "axios": "^0.19.2",
+    "js-cookie": "^2.2.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-google-login": "^5.1.10",

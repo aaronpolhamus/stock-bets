@@ -1,26 +1,30 @@
+from datetime import datetime as dt, timedelta
+
+import jwt
 import requests
 from backend.database.db import db
-from flask import Blueprint, request, jsonify, abort
+from config import Config
+from flask import Blueprint, request, make_response
 from flask_httpauth import HTTPTokenAuth
-import secrets
 
-auth = HTTPTokenAuth()
+auth = HTTPTokenAuth(scheme="Bearer")
 routes = Blueprint("routes", __name__)
 
-GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
 
-
-@routes.route("/", methods=["GET"])
-@auth.login_required
+@routes.route("/", methods=["POST"])
 def index():
     """A user with a valid token will get a response with basic profile information to be displayed on their landing
     page. Otherwise the API will return a 401, and the front-end will redirect to the Google Login page"""
-    data = request.get_json()
+    from flask import current_app
+    current_app.logger.debug(f"*** JSON cookies: {dir(request)}")
+    # current_app.logger.debug(f"*** JSON cookies: {request.cookies['session_token']}")
+
     # auth.login_required has already validated the user
 
     # send back basic information for the user's landing page
 
-    pass
+    resp = make_response()
+    return resp
 
 
 @routes.route("/register", methods=["POST"])
@@ -31,7 +35,7 @@ def register_user():
     """
     token_id = request.json["tokenId"]
     # validate the user with Google
-    response = requests.post(GOOGLE_VALIDATION_URL, data={"id_token": token_id})
+    response = requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
     if response.status_code == 200:
         decoded_json = response.json()
         user_email = decoded_json["email"]
@@ -39,12 +43,16 @@ def register_user():
         user = db.engine.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
         if not user:
             # if not, make an entry
-            db.engine.execute("INSERT INTO users (name, email, username, profile_pic) VALUES (%s, %s, %s, %s)",
-                              (decoded_json["given_name"], user_email, None, decoded_json["picture"]))
+            db.engine.execute(
+                "INSERT INTO users (name, email, profile_pic, username, created_at) VALUES (%s, %s, %s, %s, %s)",
+                (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now()))
 
-        # refresh the user's session token and return to the client for local storage and http auth
-        session_token = secrets.token_hex()
-        db.engine.execute("UPDATE users SET session_token = %s WHERE email = %s;", (session_token, user_email))
-        return jsonify({"session_token": session_token})
+        # refresh the user's session token and return to the client for local storage and http aut
+        payload = {"email": user_email, "exp": dt.utcnow() + timedelta(minutes=Config.MINUTES_PER_SESSION)}
+        session_token = jwt.encode(payload, Config.SECRET_KEY, algorithm="HS256").decode("utf-8")
+        resp = make_response()
+        resp.set_cookie("session_token", session_token, secure=True, httponly=True)
+        return resp
 
-    abort(response.status_code, "tokenId from Google OAuth failed verification")
+    make_response("tokenId from Google OAuth failed verification", response.status_code,
+                  {'WWW-Authenticate': "Basic realm='Login Required'"})

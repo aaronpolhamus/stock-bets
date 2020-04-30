@@ -2,10 +2,15 @@ from os import getenv
 
 
 class Config:
-    GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
+    GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
 
-    # Database configs
-    # ----------------
+    # API security
+    # --------
+    SECRET_KEY = getenv("SECRET_KEY")
+    MINUTES_PER_SESSION = int(getenv("MINUTES_PER_SESSION"))  # how long, in minutes, should a user session be?
+
+    # Database
+    # --------
     db_user = getenv("DB_USER")
     db_password = getenv("DB_PASSWORD")
     db_host = getenv("DB_HOST")
@@ -15,11 +20,6 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO"))
 
-    # OAuth credentials
-    # -----------------
-    GOOGLE_CLIENT_ID = getenv("GOOGLE_CLIENT_ID")
-    GOOGLE_CLIENT_SECRET = getenv("GOOGLE_CLIENT_SECRET")
-
-    # Security
-    # --------
-    SECRET_KEY = getenv("SECRET_KEY")
+    # App configurations
+    # ------------------
+    DEBUG_MODE = bool(getenv("DEBUG_MODE") == "True")  # Run the flask app in debug mode? (useful for development)

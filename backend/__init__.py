@@ -14,6 +14,5 @@ def create_app():
         app.register_blueprint(routes.routes)
         # It's annoying that flask works this way. migrate and models both become part of the application context here
         from backend.database import models
-        app.logger.info(f"DB models:\n{models}")
         migrate = Migrate(app, db, directory="/home/backend/database/migrations")
         return app

@@ -1,8 +1,8 @@
-"""initialize data model
+"""initial data model
 
-Revision ID: 570609938096
+Revision ID: 7f973d2726ef
 Revises: 
-Create Date: 2020-04-29 18:18:13.191714
+Create Date: 2020-04-30 00:19:40.531212
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '570609938096'
+revision = '7f973d2726ef'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -35,6 +35,7 @@ def upgrade():
     sa.Column('email', sa.Text(), nullable=True),
     sa.Column('profile_pic', sa.Text(), nullable=True),
     sa.Column('username', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DATETIME(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('game_invites',
