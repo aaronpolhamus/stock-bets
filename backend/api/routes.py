@@ -1,29 +1,41 @@
 from datetime import datetime as dt, timedelta
+from functools import wraps
 
 import jwt
 import requests
 from backend.database.db import db
 from config import Config
-from flask import Blueprint, request, make_response
-from flask_httpauth import HTTPTokenAuth
+from flask import Blueprint, request, make_response, jsonify
 
-auth = HTTPTokenAuth(scheme="Bearer")
 routes = Blueprint("routes", __name__)
 
 
+def authenticate(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        session_token = request.cookies.get('session_token')
+        if not session_token:
+            return make_response("Login to receive valid session_token", 401)
+        try:
+            jwt.decode(session_token, Config.SECRET_KEY)
+            return f(*args, **kwargs)
+        except jwt.ExpiredSignatureError as err:
+            resp = make_response(err, 401)
+        except jwt.InvalidSignatureError as err:
+            resp = make_response(err, 401)
+        return resp
+    return decorated
+
+
 @routes.route("/", methods=["POST"])
+@authenticate
 def index():
-    """A user with a valid token will get a response with basic profile information to be displayed on their landing
-    page. Otherwise the API will return a 401, and the front-end will redirect to the Google Login page"""
-    from flask import current_app
-    current_app.logger.debug(f"*** JSON cookies: {dir(request)}")
-    # current_app.logger.debug(f"*** JSON cookies: {request.cookies['session_token']}")
-
-    # auth.login_required has already validated the user
-
-    # send back basic information for the user's landing page
-
-    resp = make_response()
+    """Return some basic information about the user's profile, games, and bets in order to
+    populate the landing page"""
+    session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_email = session_token["email"]
+    user_info = db.engine.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
+    resp = jsonify({"name": user_info[1], "email": user_info[2], "profile_pic": user_info[3]})
     return resp
 
 
@@ -51,7 +63,7 @@ def register_user():
         payload = {"email": user_email, "exp": dt.utcnow() + timedelta(minutes=Config.MINUTES_PER_SESSION)}
         session_token = jwt.encode(payload, Config.SECRET_KEY, algorithm="HS256").decode("utf-8")
         resp = make_response()
-        resp.set_cookie("session_token", session_token, secure=True, httponly=True)
+        resp.set_cookie("session_token", session_token, httponly=True)
         return resp
 
     make_response("tokenId from Google OAuth failed verification", response.status_code,

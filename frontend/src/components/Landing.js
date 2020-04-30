@@ -1,15 +1,26 @@
 import React from 'react';
+import { Redirect } from 'react-router-dom';
+import {isEmpty, usePostRequest} from "./api";
 
-import '../App.css';
+const Landing = () => {
+  const { data, loading, error } = usePostRequest('/');
+   
+  if (loading) {
+    return <p>Loading...</p>
+  }
 
-export default function Landing() {
-  const resp = fetch('/', {method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({msg: "test"})});
-  console.log(resp)
-  // axios.post("/", JSON.stringify({message: "test"})).then(api_response => console.log(api_response))
+  if ( !isEmpty(error) ) { 
+    if (error.response.status == 401){ 
+      return <Redirect to="/login" />
+    }
+  }
   
   return (
     <div>
-        <h1>Here's the API response: "API RESPONSE HERE" -- what do you want to do now?</h1>    
+      <h1> What's up, { data.name }? Your email is { data.email } </h1> 
+      <img src={ data.profile_pic} />  
     </div>
   );
 };
+
+export default Landing;
