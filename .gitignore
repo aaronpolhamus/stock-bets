@@ -130,6 +130,8 @@ dmypy.json
 
 # Project-specific ignores 
 # ------------------------
+*DS_Store
+stockbets.code-workspace
 .idea
 **node_modules  # these are big, heavy, boilerplate files and there's not reason to version them.
 

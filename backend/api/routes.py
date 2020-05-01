@@ -20,9 +20,9 @@ def authenticate(f):
             jwt.decode(session_token, Config.SECRET_KEY)
             return f(*args, **kwargs)
         except jwt.ExpiredSignatureError:
-            resp = make_response("Session token expired", 401)
+            resp = make_response("Session token expired -- log back in", 401)
         except jwt.InvalidSignatureError:
-            resp = make_response("Couldn't decode sesssion token -- are you a hacker?", 401)
+            resp = make_response("Couldn't decode session token -- are you a hacker?", 401)
         except jwt.DecodeError:
             resp = make_response("Dummy session token to logout", 401)
         return resp

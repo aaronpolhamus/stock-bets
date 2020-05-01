@@ -4,6 +4,9 @@
 db--up:
 	docker-compose up db
 
+db--test_populate:
+	# insert commandd to populate test data here
+
 # backend
 # ------
 
@@ -12,6 +15,10 @@ backend--build:
 
 backend--up:
 	docker-compose up backend
+
+backend--test:
+	docker-compose up backend
+	make db--test_populate
 
 # frontend 
 # --------
