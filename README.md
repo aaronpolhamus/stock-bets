@@ -1,5 +1,5 @@
 # stock-bets
-Stock bets' goal is to make it fun for groups of friends to place competitive, real-money stock market bets. Think of a ross between fantasy football and poker for people who like stocks.
+Stock bets' goal is to make it fun for groups of friends to place competitive, real-money stock market bets. Think of a cross between fantasy football and poker for people who like stocks.
 
 ## Getting started
 * Make sure you have Docker installed and running
@@ -10,7 +10,7 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `DB_HOST` (string): The MySQL database host for the API
   - `DB_PORT` (int): What port to expose the DB on
   - `DB_USER` (string): The user that the backend will use to login to the DB 
-  - `DB_NAME` (string): The name of the DB that we are using
+  - `DB_NAME` (string): The name of the DB that the aapplication will use
   - `DB_PASSWORD` (string): The DB password
   - `SQLALCHEMY_TRACK_MODIFICATIONS` (`True`/`False`): Set to `False` unless you have a really good reason not to
   - `SQLALCHEMY_ECHO` (`True`/`False`): Same here
@@ -30,4 +30,17 @@ cd ..
 make build
 ```
 
-If all environmental variables are properly defined this should be about all there is to it. To start the API server run `make backend-up`. `make backend-bash` and `make db-mysql` are shortcuts to the inside of each of these containers. To run the frontend during local development run `npm start`. It is already configured to run with the backend container as a local server proxy.
+If all environmental variables are properly defined this should be about all there is to it. To start the API server run `make backend-up`. `make backend-bash` and `make db-mysql` are shortcuts to the inside of each of these containers. To run the frontend during local development run `npm start` from the frontend directory. It is already configured to run with the backend container as a local server proxy.
+
+The `stock-bets` app has no toggles in the code of environmental variable that defines whether it is in development, production, testing, or staging. Rather, its behavior in each environment is purely a function of the environmental variables + non-versioned assets that define the resources that it has access to and the way it behaves. Here's a diagram of those non-versioned assets to accompany the description above: 
+```
+/stock-bets
+|
+|__/backend
+|  |__.env
+|  |__.cert.pem
+|  |__.key.pem
+|
+|__/frontend
+   |__.env
+```
