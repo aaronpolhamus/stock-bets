@@ -1,45 +1,46 @@
-# DB
+# db
 # --
 
-db--up:
-	docker-compose up db
+db-build:
+	docker-compose build db
 
-db--test_populate:
-	# insert commandd to populate test data here
+db-up:
+	docker-compose up -d db
+
+db-mysql:
+	docker-compose exec db mysql -uroot
 
 # backend
 # ------
 
-backend--build:
+backend-build:
 	docker-compose build backend
 
-backend--up:
-	docker-compose up backend
+backend-up:
+	docker-compose up -d backend
 
-backend--test:
-	docker-compose up backend
-	make db--test_populate
+backend-logs:
+	docker-compose logs -f backend
+
+backend-bash:
+	docker-compose exec backend bash
+
+backend-test:
+	docker-compose exec backend python -m unittest discover tests
 
 # frontend 
 # --------
 
-frontend--build:
+frontend-build:
 	docker-compose build frontend
 
-frontend--up:
+frontend-up:
 	docker run -p 80:80 frontend
 
-# All containers
+# all containers
 # --------------
-
-build:
-	docker-compose build
-
-up:
-	docker-compose up
+down:
+	docker-compose down
 
 stop:
 	docker-compose stop
-
-down:
-	docker-compose down

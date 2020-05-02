@@ -26,4 +26,4 @@ ENV PYTHONPATH="$PYTHONPATH:/home"
 # -------------------------------------------
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./backend-entrypoint.sh"]
