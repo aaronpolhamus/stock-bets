@@ -18,6 +18,7 @@ class Users(db.Model):
     email = db.Column(db.Text)
     profile_pic = db.Column(db.Text)
     username = db.Column(db.Text)
+    created_at = db.Column(db.DATETIME)
 
 
 class GameModes(int, enum.Enum):

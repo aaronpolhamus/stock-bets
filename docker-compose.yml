@@ -1,26 +1,42 @@
-version: '3'
+version: "3"
 
 services:
   db:
     image: mysql
     environment:
+      - MYSQL_USER=${DB_USER}
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
       - MYSQL_DATABASE=${DB_NAME}
     ports:
       - 3306:3306
-    command: --default-authentication-plugin=mysql_native_password
 
-  webapp:
-    image: webapp
+  backend:
+    image: backend
     build:
-      context: '.'
-      dockerfile: 'webapp.Dockerfile'
+      context: "./backend"
+      dockerfile: "backend.Dockerfile"
     volumes:
-      - ${PWD}:/home/stock-bets
+      - ./backend:/home/backend
     ports:
       - 5000:5000
     env_file:
-      - .env
-      - .flaskenv
+      - backend/.env
+      - backend/.flaskenv
     depends_on:
       - db
+
+  frontend:
+    image: frontend
+    build:
+      context: "./frontend"
+      dockerfile: "frontend.Dockerfile"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    ports:
+      - 3000:3000
+    env_file:
+      - frontend/.env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    stdin_open: true

@@ -1,29 +1,46 @@
-# DB
+# db
 # --
 
-db--up:
-	docker-compose up db
+db-build:
+	docker-compose build db
 
-# Webapp
+db-up:
+	docker-compose up -d db
+
+db-mysql:
+	docker-compose exec db mysql -uroot
+
+# backend
 # ------
 
-webapp--build:
-	docker-compose build webapp
+backend-build:
+	docker-compose build backend
 
-webapp--up:
-	docker-compose up webapp
+backend-up:
+	docker-compose up -d backend
 
-# All containers
+backend-logs:
+	docker-compose logs -f backend
+
+backend-bash:
+	docker-compose exec backend bash
+
+backend-test:
+	docker-compose exec backend python -m unittest discover tests
+
+# frontend 
+# --------
+
+frontend-build:
+	docker-compose build frontend
+
+frontend-up:
+	docker run -p 80:80 frontend
+
+# all containers
 # --------------
-
-build:
-	docker-compose build
-
-up:
-	docker-compose up
+down:
+	docker-compose down
 
 stop:
 	docker-compose stop
-
-down:
-	docker-compose down

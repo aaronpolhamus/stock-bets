@@ -16,14 +16,14 @@ RUN apt-get update \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*
 
+# Copy source files to container and set working directory
+# --------------------------------------------------------
+COPY . /home/backend
+WORKDIR /home/backend
+ENV PYTHONPATH="$PYTHONPATH:/home"
+
 # Copy source and install python dependencies
-# ------------------------------------
-
-COPY . /home/stock-bets
-WORKDIR /home/stock-bets
-ENV PYTHONPATH="$PYTHONPATH:/home/stock-bets/webapp"
-
-# Install webapp-specific dependencies from repo
+# -------------------------------------------
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./backend-entrypoint.sh"]

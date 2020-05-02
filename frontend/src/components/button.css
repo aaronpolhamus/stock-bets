@@ -1,0 +1,38 @@
+:root {
+  --primary: #88d2c8;
+  --danger: #da9763;
+  --warning: #9ff1ad;
+  --success: #95e3c5;
+  --white: #fdfdfd;
+  --dark: #5c4c51;
+}
+
+.btn {
+  font-family: sans-serif;
+  font-weight: 400;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.btn:hover {
+  transform: translateY(-3px);
+}
+
+/* Button colors and styles */
+.btn--primary--solid {
+  background-color: var(--dark);
+  color: var(--primary);
+  border: none;
+}
+
+/* Button sizes */
+.btn--medium {
+  padding: 10px 20px;
+  font-size: 18px;
+}
+
+.btn--small {
+  padding: 15px 30px;
+  font-size: 20px;
+}

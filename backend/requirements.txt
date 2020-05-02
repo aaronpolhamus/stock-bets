@@ -1,8 +1,8 @@
 Flask==1.0.2
-Flask-Login==0.4.1
 Flask-Migrate==2.5.3
 Flask-SQLAlchemy==2.4.1
 oauthlib==3.0.1
+pyjwt==1.7.1
 pymysql==0.9.3
 pyOpenSSL==19.0.0
 requests==2.21.0
