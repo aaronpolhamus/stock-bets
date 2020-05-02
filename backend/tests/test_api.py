@@ -1,4 +1,3 @@
-import os
 import unittest
 import time
 
@@ -7,6 +6,7 @@ import requests
 from sqlalchemy import create_engine
 
 from config import Config
+from backend.database.fixtures.mock_data import make_mock_data
 from backend.api.routes import (
     INVALID_SIGNATURE_ERROR_MSG,
     LOGIN_ERROR_MSG,
@@ -24,7 +24,7 @@ class TestAPI(unittest.TestCase):
         # Establish data base API and setup mock data
         self.conn = create_engine(Config.SQLALCHEMY_DATABASE_URI).connect()
         self.session = requests.Session()
-        os.system("python -m database.fixtures.mock_data")
+        make_mock_data()
 
     def tearDown(self):
         self.session.close()
