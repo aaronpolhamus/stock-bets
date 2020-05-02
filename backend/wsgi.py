@@ -1,4 +1,4 @@
-from backend import create_app
+from backend.app_factory import create_app
 
 from config import Config
 

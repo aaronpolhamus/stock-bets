@@ -25,7 +25,8 @@ MOCK_DATA = {
     ],
 }
 
-if __name__ == '__main__':
+
+def make_mock_data():
     table_names = metadata.tables.keys()
     for table in table_names:
         # first flush all data from all tables
