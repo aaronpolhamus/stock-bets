@@ -23,7 +23,7 @@ const isEmpty = function(data) {
   
 const usePostRequest = (url, payload) => {
   const [data, setData] = useState({});
-  const [loading, setLoading] = useState(true);  
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState({});
   
   const postUrl = async (url, payload) => {
@@ -33,7 +33,6 @@ const usePostRequest = (url, payload) => {
         withCredentials: true,
         data: payload
       })
-      console.log({response})
       setData(response.data)
     }
     catch (error) {
