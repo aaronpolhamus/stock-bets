@@ -16,6 +16,7 @@ INVALID_SIGNATURE_ERROR_MSG = "Couldn't decode session token -- are you a hacker
 LOGIN_ERROR_MSG = "Login to receive valid session_token"
 SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
 MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
+USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
 
 
 def authenticate(f):
@@ -44,7 +45,7 @@ def create_jwt(email, user_id, mins_per_session=Config.MINUTES_PER_SESSION, secr
     return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
 
 
-@routes.route("/login", methods=["POST"])
+@routes.route("/api/login", methods=["POST"])
 def register_user():
     """Following a successful login, this allows us to create a new users. If the user already exists in the DB send
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
@@ -73,9 +74,12 @@ def register_user():
     return make_response(GOOGLE_OAUTH_ERROR_MSG, response.status_code)
 
 
-@routes.route("/", methods=["POST"])
+@routes.route("/api/home", methods=["POST"])
 @authenticate
 def index():
+    from flask import current_app
+    current_app.logger.debug(f"*** hit this endpoint ***")
+
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     decoded_request = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
@@ -85,7 +89,7 @@ def index():
     return resp
 
 
-@routes.route("/logout", methods=["POST"])
+@routes.route("/api/logout", methods=["POST"])
 @authenticate
 def logout():
     """Log user out of the backend by blowing away their session token
@@ -95,20 +99,25 @@ def logout():
     return resp
 
 
-@routes.route("/set_username", methods=["POST"])
+@routes.route("/api/set_username", methods=["POST"])
 @authenticate
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
+    from flask import current_app
+
     decoded_request = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_request["user_id"]
-    candidate_username = decoded_request.get("username")
+    candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
 
-    matches = db.engine.execute("SELECT * FROM users WHERE username = %s", candidate_username)
-    if len(matches) > 0:
-        return jsonify({"status": "taken"})
+    matches = db.engine.execute("SELECT * FROM users WHERE username = %s", candidate_username).fetchone()
+    if matches:
+        make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
+    current_app.logger.debug(f"** User id {user_id}")
+    current_app.logger.debug(f"** Username {candidate_username}")
+    current_app.logger.debug(f"** Request {request.json}")
     db.engine.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
     return jsonify({"status": "upated"})
