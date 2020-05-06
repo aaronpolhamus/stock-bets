@@ -2,21 +2,21 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const isEmpty = function(data) {
-  if(typeof(data) === 'object'){
+  if (typeof(data) === 'object'){
       if(JSON.stringify(data) === '{}' || JSON.stringify(data) === '[]'){
           return true;
-      }else if(!data){
+      } else if (!data) {
           return true;
       }
       return false;
-  }else if(typeof(data) === 'string'){
-      if(!data.trim()){
+  } else if(typeof(data) === 'string'){
+      if (!data.trim()){
           return true;
       }
       return false;
-  }else if(typeof(data) === 'undefined'){
+  } else if (typeof(data) === 'undefined'){
       return true;
-  }else{
+  } else {
       return false;
     }
   }

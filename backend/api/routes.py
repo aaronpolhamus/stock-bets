@@ -104,20 +104,16 @@ def logout():
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
-    from flask import current_app
-
     decoded_request = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_request["user_id"]
     candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
 
-    matches = db.engine.execute("SELECT * FROM users WHERE username = %s", candidate_username).fetchone()
-    if matches:
-        make_response(USERNAME_TAKE_ERROR_MSG, 400)
+    matches = db.engine.execute("SELECT name FROM users WHERE username = %s", candidate_username).fetchone()
+    if matches is None:
+        db.engine.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
+        return jsonify({"status": "upated"})
 
-    current_app.logger.debug(f"** User id {user_id}")
-    current_app.logger.debug(f"** Username {candidate_username}")
-    current_app.logger.debug(f"** Request {request.json}")
-    db.engine.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
-    return jsonify({"status": "upated"})
+    return make_response(USERNAME_TAKE_ERROR_MSG, 400)
+

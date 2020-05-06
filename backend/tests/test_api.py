@@ -1,19 +1,19 @@
-import unittest
 import time
+import unittest
 
 import jwt
 import requests
-from sqlalchemy import create_engine
-
-from config import Config
-from backend.database.fixtures.mock_data import make_mock_data
 from backend.api.routes import (
     INVALID_SIGNATURE_ERROR_MSG,
     LOGIN_ERROR_MSG,
     SESSION_EXP_ERROR_MSG,
     TOKEN_ID_MISSING_MSG,
+    USERNAME_TAKE_ERROR_MSG,
     create_jwt
 )
+from backend.database.fixtures.mock_data import make_mock_data
+from config import Config
+from sqlalchemy import create_engine
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -31,7 +31,7 @@ class TestAPI(unittest.TestCase):
         self.session.close()
         self.conn.close()
 
-    def test_api(self):
+    def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
         # registration error with faked token
         res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token"}, verify=False)
@@ -55,10 +55,8 @@ class TestAPI(unittest.TestCase):
         erase_cookie_msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; HttpOnly; Path=/'
         self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
 
-        # authentication errors
-
         # expired token...
-        session_token = create_jwt(email, 123, mins_per_session=1/60)
+        session_token = create_jwt(email, 123, mins_per_session=1 / 60)
         time.sleep(2)
         res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 401)
@@ -75,12 +73,26 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 401)
         self.assertEqual(res.text, INVALID_SIGNATURE_ERROR_MSG)
 
+    def test_profile_info(self):
         # set username endpoint test
-        user_id, name, email, pic, user_name, created_at = self.conn.execute("SELECT * FROM users WHERE name = 'dummy';").fetchone()
+        user_id, name, email, pic, user_name, created_at = self.conn.execute(
+            "SELECT * FROM users WHERE name = 'dummy';").fetchone()
         self.assertIsNone(user_name)
         session_token = create_jwt(email, user_id)
-        res = self.session.post(f"{HOST_URL}/set_username", json={"username": "dummy"}, cookies={"session_token": session_token}, verify=False)
+        new_user_name = "cheetos"
+        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_user_name},
+                                cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         conn = self.engine.connect()
+        # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
         updated_username = conn.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
-        self.assertEqual("dummy", updated_username)
+        self.assertEqual(new_user_name, updated_username)
+
+        # take username fails with 400 error
+        user_id, name, email, pic, user_name, created_at = self.conn.execute(
+            "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
+        session_token = create_jwt(email, user_id)
+        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_user_name},
+                                cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
