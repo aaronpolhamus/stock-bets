@@ -31,8 +31,6 @@ const Home = () => {
     <div className="App">
       <h1> What's up, { data.name } ( {data.username} )? Your email is { data.email } </h1> 
       <img src={ data.profile_pic} alt="your beautiful profile pic"/>
-      <br></br>
-      <br></br>
       <Button onClick={Logout}>Logout</Button>
     </div>
   );

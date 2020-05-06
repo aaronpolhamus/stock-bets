@@ -4,16 +4,20 @@ import React from 'react'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemText from '@material-ui/core/ListItemText'
+import { NavLink, useLocation } from 'react-router-dom'
 
+function SidebarItem({ label, items, url, depthStep = 10, depth = 0, ...rest }) {
+  const location = useLocation()
 
-function SidebarItem({ label, items, depthStep = 10, depth = 0, ...rest }) {
   return (
     <>
+    <NavLink to={url || location.pathname}>
       <ListItem button dense {...rest}>
         <ListItemText style={{ paddingLeft: depth * depthStep }}>
-          <span>{label}</span>
+          {label}
         </ListItemText>
       </ListItem>
+    </NavLink>
       {Array.isArray(items) ? (
         <List disablePadding dense>
           {items.map((subItem) => (

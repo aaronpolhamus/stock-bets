@@ -5,7 +5,6 @@ import { Redirect } from "react-router-dom";
 const Welcome = () => {
   const [username, setUserName] = useState("")
   const [updated, setUpdated] = useState(false)
-  const [taken, setTaken] = useState(false)
 
   const handleChange = (e) => {
     setUserName(e.target.value)
@@ -13,23 +12,16 @@ const Welcome = () => {
   
   const handleSubmit = async (e) => { 
     e.preventDefault()
-    const response = await axios.post("/api/set_username", {
-      withCredentials: true,
-      username: username
-    })
-    
-    if(response.status === 200){ 
+    try {
+      await axios.post("/api/set_username", {
+        withCredentials: true,
+        username: username
+      })
       setUpdated(true)
-    } else { 
-      console.log("taken")
-      setTaken(true)
     }
-  }
-
-  if (taken) { 
-    // return(
-    //   alert(`'${username}' looks like it's taken, try another one`)
-    // )
+    catch (error) {
+      alert(`'${username}' looks like it's taken, try another one`)
+    }
   }
 
   if (updated) { 
