@@ -5,9 +5,9 @@ Check out this structure:
 https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-to-sqlite-memory-when-i-set-it-to-a-pa
 """
 
-import enum
+from aenum import Enum
 
-from database.db import db
+from backend.database.db import db
 
 
 class Users(db.Model):
@@ -21,35 +21,33 @@ class Users(db.Model):
     created_at = db.Column(db.DATETIME)
 
 
-class GameModes(int, enum.Enum):
-    WINNER_TAKES_ALL = 0
-    CONSOLATION_PRIZE = 1
-    WINNER_TAKES_RETURN = 2
+class GameModes(Enum):
+    WINNER_TAKES_ALL = 0, "Winner takes all"
+    CONSOLATION_PRIZE = 1, "Consolation prize"
+    RETURN_WEIGHTED = 2, "Return-weighted"
 
 
-class Benchmarks(int, enum.Enum):
-    RETURN_RATIO = 0
-    SHARPE_RATIO = 1
+class Benchmarks(Enum):
+    RETURN_RATIO = 0, "Simple return"
+    SHARPE_RATIO = 1, "Sharpe ratio-adjusted"
 
 
 class Games(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
-    opened_at = db.Column(db.DateTime)  # When was the game opened
     title = db.Column(db.Text)
     mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)  # Integer values for n trading days game is live for
-    min_buy = db.Column(db.DECIMAL)
-    max_buy = db.Column(db.DECIMAL)
+    buy_in = db.Column(db.DECIMAL)
     benchmark = db.Column(db.Enum(Benchmarks))
 
 
-class StatusTypes(int, enum.Enum):
-    PENDING = 0
-    ACTIVE = 1
-    FINISHED = 2
-    CANCELLED = 3
+class StatusTypes(Enum):
+    PENDING = 0, "Pending"
+    ACTIVE = 1, "Active"
+    FINISHED = 2, "Finished"
+    CANCELLED = 3, "Cancelled"
 
 
 class GameStatus(db.Model):
@@ -58,7 +56,10 @@ class GameStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     status = db.Column(db.Enum(StatusTypes))
-    timestamp = db.Column(db.DateTime)
+    opened_at = db.Column(db.DateTime)  # When was the game opened
+    open_until = db.Column(db.DateTime)
+    started_at = db.Column(db.DateTime)
+    ends_at = db.Column(db.DateTime)
 
 
 class GameInvites(db.Model):
@@ -70,9 +71,9 @@ class GameInvites(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
 
 
-class TradeTypes(int, enum.Enum):
-    LONG = 0  # A simple long hold
-    SHORT = 1  # A vanilla short margin trade
+class TradeTypes(Enum):
+    LONG = 0, "Long"  # A simple long hold
+    SHORT = 1, "Short"  # A vanilla short margin trade
 
 
 class Positions(db.Model):

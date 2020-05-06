@@ -78,3 +78,20 @@ button:hover {
 .sidebar-subitem-text {
   font-size: 0.8rem;
 }
+
+form {
+  background: #55acf3;
+  padding: 1.5em;
+  border-radius: 1em;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.error-message {
+  margin-top: 1em;
+  color: red;
+}

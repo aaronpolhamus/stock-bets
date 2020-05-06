@@ -96,3 +96,12 @@ class TestAPI(unittest.TestCase):
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
+
+    def test_game_endpoints(self):
+        user_id, name, email, pic, user_name, created_at = self.conn.execute(
+            "SELECT * FROM users WHERE email = 'Aaron';").fetchone()
+        session_token = create_jwt(email, user_id)
+        res = self.session.post(f"{HOST_URL}/set_username", cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        import ipdb;ipdb.set_trace()
+

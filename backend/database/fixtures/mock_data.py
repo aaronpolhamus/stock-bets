@@ -8,13 +8,20 @@ conn = engine.connect()
 metadata = MetaData()
 metadata.reflect(engine)
 
-# Mocked data for users:
+# The test case user needs to be a live gmail acccount. Eventually we'll need to make this a heavily-restricted demo@stockbets.io account that anyone 
+# can use, but this is good for now. 
+TEST_CASE_USER = "aaron@stockbets.io"
+
+# Mocked data:
 MOCK_DATA = {
     "users": [
-        {"name": "Aaron", "email": "aaron@example.test", "profile_pic": "https://i.imgur.com/P5LO9v4.png",
-         "username": "huachinango", "created_at": dt(2020, 4, 30, 23, 33, 25)},
+        {"name": "Aaron", "email": TEST_CASE_USER, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
+         "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25)},
         {"name": "dummy", "email": "dummy@example.test", "profile_pic": None, "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)}
     ],
+    "games": [
+
+    ]
 }
 
 

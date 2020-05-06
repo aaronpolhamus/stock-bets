@@ -3,13 +3,17 @@ from functools import wraps
 
 import jwt
 import requests
-from backend.database.db import db
-from config import Config
 from flask import Blueprint, request, make_response, jsonify
+from funkybob import RandomNameGenerator
+
+from backend.database.db import db
+from backend.database.models import GameModes, Benchmarks
+from config import Config
 
 routes = Blueprint("routes", __name__)
 
-
+# Error messages
+# --------------
 TOKEN_ID_MISSING_MSG = "This request is missing the 'tokenId' field -- are you a hacker?"
 GOOGLE_OAUTH_ERROR_MSG = "tokenId from Google OAuth failed verification -- are you a hacker?"
 INVALID_SIGNATURE_ERROR_MSG = "Couldn't decode session token -- are you a hacker?"
@@ -17,6 +21,35 @@ LOGIN_ERROR_MSG = "Login to receive valid session_token"
 SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
 MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
 USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
+
+
+# Frontend defaults
+# -----------------
+DEFAULT_GAME_DURATION = 20  # Default number of trading days that a game lasts for
+DEFAULT_BUYIN = 200  # The default buyin required to play a game
+
+
+def verify_google_oauth(token_id):
+    return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
+
+
+def create_jwt(email, user_id, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
+    payload = {"email": email, "user_id": user_id, "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
+    return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
+
+
+def unpack_enumerated_field_mappings(table_class):
+    """This function unpacks the natural language descriptions of each enumerated field so that these can be passed
+    to the frontend
+    """
+    return [x[1].value[1] for x in table_class.__members__.items()]
+
+
+def get_participant_list():
+    """This is an unsustainable way to do this, but it works for now. If this app goes anywhere we will either have to
+    stream values from the API, or introduce some kind of a friends feature
+    """
+    return db.engine.execute("SELECT username from users;").fetchall()
 
 
 def authenticate(f):
@@ -34,15 +67,6 @@ def authenticate(f):
             resp = make_response(INVALID_SIGNATURE_ERROR_MSG, 401)
         return resp
     return decorated
-
-
-def verify_google_oauth(token_id):
-    return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
-
-
-def create_jwt(email, user_id, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
-    payload = {"email": email, "user_id": user_id, "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
-    return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
 
 
 @routes.route("/api/login", methods=["POST"])
@@ -117,3 +141,39 @@ def set_username():
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
+
+@routes.route("/api/game_defaults", methods=["POST"])
+@authenticate
+def game_defaults():
+    """Returns information to the MakeGame form that contains the defaults and optional values that it needs
+    to render fields correctly
+    """
+    title_iterator = iter(RandomNameGenerator())
+    default_title = next(title_iterator)  # TODO: Enforce uniqueness at some point here
+    game_modes = unpack_enumerated_field_mappings(GameModes)
+    benchmarks = unpack_enumerated_field_mappings(Benchmarks)
+    available_participants = get_participant_list()
+    resp = {
+        "default_title": default_title,
+        "game_modes": game_modes,
+        "default_duration": DEFAULT_GAME_DURATION,
+        "default_buyin": DEFAULT_BUYIN,
+        "benchmarks": benchmarks,
+        "available_participants": available_participants
+    }
+    return jsonify(resp)
+
+
+@routes.route("/api/create_game", methods=["POST"])
+@authenticate
+def create_game():
+    pass
+
+
+@routes.route("/api/update_game_states", methods=["POST"])
+@authenticate
+def update_game_states():
+    """For now we won't invest resources on the backend in high-cost ongoing monitoring of external APIs. Rather,
+    every time a user interacts with game-related resources on the website we will check and update associated games
+    """
+    pass
