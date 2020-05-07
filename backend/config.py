@@ -19,6 +19,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO"))
+    MIGRATIONS_DIRECTORY = "/home/backend/database/migrations"
 
     # App configurations
     # ------------------
