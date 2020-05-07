@@ -22,9 +22,9 @@ class Users(db.Model):
 
 
 class GameModes(Enum):
-    WINNER_TAKES_ALL = 0, "Winner takes all"
+    RETURN_WEIGHTED = 0, "Return-weighted"
     CONSOLATION_PRIZE = 1, "Consolation prize"
-    RETURN_WEIGHTED = 2, "Return-weighted"
+    WINNER_TAKES_ALL = 2, "Winner takes all"
 
 
 class Benchmarks(Enum):
@@ -32,15 +32,23 @@ class Benchmarks(Enum):
     SHARPE_RATIO = 1, "Sharpe ratio-adjusted"
 
 
+class SideBetPeriods(Enum):
+    WEEKLY = 0, "Weekly"
+    MONTHLY = 1, "Monthly"
+
+
 class Games(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text)
-    mode = db.Column(db.Enum(GameModes))
+    title = db.Column(db.Text)  # Game title
+    mode = db.Column(db.Enum(GameModes))  # See above. Could make configurable in the future
     duration = db.Column(db.Integer)  # Integer values for n trading days game is live for
-    buy_in = db.Column(db.DECIMAL)
-    benchmark = db.Column(db.Enum(Benchmarks))
+    buy_in = db.Column(db.Float)  # What's the buy-in on the pool?
+    n_rebuys = db.Column(db.Integer)  # How many rebuys, if any, will be allowed?
+    benchmark = db.Column(db.Enum(Benchmarks))  # Scored based on simple return, or Sharpe-adjusted
+    side_bets_perc = db.Column(db.Float)  # Will a we split off a weekly side pot?
+    side_bets_period = db.Column(db.Enum(SideBetPeriods))  # What's the period of that pot?
 
 
 class StatusTypes(Enum):
@@ -85,7 +93,7 @@ class Positions(db.Model):
     ticker = db.Column(db.Text)  # Only American securities for now.
     trade_type = db.Column(db.Enum(TradeTypes))
     shares = db.Column(db.Integer)
-    purchase_price = db.Column(db.DECIMAL)
+    purchase_price = db.Column(db.Float)
     purchase_time = db.Column(db.DateTime)
-    sale_price = db.Column(db.DECIMAL)
+    sale_price = db.Column(db.Float)
     sale_time = db.Column(db.DateTime)

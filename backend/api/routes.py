@@ -4,10 +4,21 @@ from functools import wraps
 import jwt
 import requests
 from flask import Blueprint, request, make_response, jsonify
-from funkybob import RandomNameGenerator
 
 from backend.database.db import db
-from backend.database.models import GameModes, Benchmarks
+from backend.logic.games import (
+    make_random_game_title,
+    DEFAULT_GAME_MODE,
+    GAME_MODES,
+    DEFAULT_GAME_DURATION,
+    DEFAULT_BUYIN,
+    DEFAULT_REBUYS,
+    DEFAULT_BENCHMARK,
+    DEFAULT_SIDEBET_PERCENT,
+    DEFAULT_SIDEBET_PERIOD,
+    SIDE_BET_PERIODS,
+    BENCHMARKS,
+)
 from config import Config
 
 routes = Blueprint("routes", __name__)
@@ -23,12 +34,6 @@ MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
 USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
 
 
-# Frontend defaults
-# -----------------
-DEFAULT_GAME_DURATION = 20  # Default number of trading days that a game lasts for
-DEFAULT_BUYIN = 200  # The default buyin required to play a game
-
-
 def verify_google_oauth(token_id):
     return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
 
@@ -38,18 +43,12 @@ def create_jwt(email, user_id, mins_per_session=Config.MINUTES_PER_SESSION, secr
     return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
 
 
-def unpack_enumerated_field_mappings(table_class):
-    """This function unpacks the natural language descriptions of each enumerated field so that these can be passed
-    to the frontend
-    """
-    return [x[1].value[1] for x in table_class.__members__.items()]
-
-
 def get_participant_list():
     """This is an unsustainable way to do this, but it works for now. If this app goes anywhere we will either have to
     stream values from the API, or introduce some kind of a friends feature
     """
-    return db.engine.execute("SELECT username from users;").fetchall()
+    participants = db.engine.execute("SELECT username from users;").fetchall()
+    return [x[0] for x in participants]
 
 
 def authenticate(f):
@@ -148,19 +147,24 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
-    title_iterator = iter(RandomNameGenerator())
-    default_title = next(title_iterator)  # TODO: Enforce uniqueness at some point here
-    game_modes = unpack_enumerated_field_mappings(GameModes)
-    benchmarks = unpack_enumerated_field_mappings(Benchmarks)
+    default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     available_participants = get_participant_list()
     resp = {
         "default_title": default_title,
-        "game_modes": game_modes,
+        "default_game_mode": DEFAULT_GAME_MODE,
+        "game_modes": GAME_MODES,
         "default_duration": DEFAULT_GAME_DURATION,
         "default_buyin": DEFAULT_BUYIN,
-        "benchmarks": benchmarks,
+        "default_rebuys": DEFAULT_REBUYS,
+        "default_benchmark": DEFAULT_BENCHMARK,
+        "default_sidebet_pct": DEFAULT_SIDEBET_PERCENT,
+        "default_sidebet_period": DEFAULT_SIDEBET_PERIOD,
+        "sidebet_periods": SIDE_BET_PERIODS,
+        "benchmarks": BENCHMARKS,
         "available_participants": available_participants
     }
+    from flask import current_app
+    current_app.logger.debug(f"*** {resp} ***")
     return jsonify(resp)
 
 

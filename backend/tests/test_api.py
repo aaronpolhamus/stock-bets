@@ -12,6 +12,17 @@ from backend.api.routes import (
     create_jwt
 )
 from backend.database.fixtures.mock_data import make_mock_data
+from backend.database.models import GameModes, Benchmarks, SideBetPeriods
+from backend.logic.games import (
+    unpack_enumerated_field_mappings,
+    DEFAULT_GAME_MODE,
+    DEFAULT_GAME_DURATION,
+    DEFAULT_BUYIN,
+    DEFAULT_REBUYS,
+    DEFAULT_BENCHMARK,
+    DEFAULT_SIDEBET_PERCENT,
+    DEFAULT_SIDEBET_PERIOD
+    )
 from config import Config
 from sqlalchemy import create_engine
 
@@ -99,9 +110,46 @@ class TestAPI(unittest.TestCase):
 
     def test_game_endpoints(self):
         user_id, name, email, pic, user_name, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE email = 'Aaron';").fetchone()
+            "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
         session_token = create_jwt(email, user_id)
-        res = self.session.post(f"{HOST_URL}/set_username", cookies={"session_token": session_token}, verify=False)
+        res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        import ipdb;ipdb.set_trace()
+        game_defaults = res.json()
 
+        expected_keys = [
+            "default_title",
+            "default_game_mode",
+            "game_modes",
+            "default_duration",
+            "default_buyin",
+            "default_rebuys",
+            "default_benchmark",
+            "default_sidebet_pct",
+            "default_sidebet_period",
+            "sidebet_periods",
+            "benchmarks",
+            "available_participants"
+        ]
+        for key in expected_keys:
+            self.assertIn(key, expected_keys)
+
+        self.assertEqual(len(game_defaults["available_participants"]), 2)
+
+        dropdown_fields_dict = {
+            "game_modes": GameModes,
+            "benchmarks": Benchmarks,
+            "sidebet_periods": SideBetPeriods
+        }
+        for field, db_def in dropdown_fields_dict.items():
+            field_list = unpack_enumerated_field_mappings(db_def)
+            for entry in field_list:
+                self.assertIn(entry, game_defaults[field])
+
+        self.assertIsNotNone(game_defaults["default_title"])
+        self.assertEqual(game_defaults["default_game_mode"], DEFAULT_GAME_MODE)
+        self.assertEqual(game_defaults["default_duration"], DEFAULT_GAME_DURATION)
+        self.assertEqual(game_defaults["default_buyin"], DEFAULT_BUYIN)
+        self.assertEqual(game_defaults["default_rebuys"], DEFAULT_REBUYS)
+        self.assertEqual(game_defaults["default_benchmark"], DEFAULT_BENCHMARK)
+        self.assertEqual(game_defaults["default_sidebet_pct"], DEFAULT_SIDEBET_PERCENT)
+        self.assertEqual(game_defaults["default_sidebet_period"], DEFAULT_SIDEBET_PERIOD)
