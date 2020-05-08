@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Redirect } from "react-router-dom";
+import { Form, Button, Card, Col } from "react-bootstrap";
 
 const Welcome = () => {
   const [username, setUserName] = useState("")
@@ -31,15 +32,11 @@ const Welcome = () => {
   }
 
   return (
-    <div className="modal">
-      <div className="modal_content">
-        <form>
-          <h2>Welcome! Pick a username that other players will see and let's get started.</h2>
-          <input onChange={handleChange} type="text" name="username" placeholder="Enter name here" />
-          <button onClick={handleSubmit}>Submit</button>
-        </form>
-      </div>
-    </div>
+    <Form>
+      <Form.Label>Welcome! Pick a username that other players will see and let's get started.</Form.Label>
+      <Form.Control onChange={handleChange} type="input" name="username" placeholder="Enter name here" />
+      <Button onClick={handleSubmit} variant="primary" type="submit">Submit</Button>
+    </Form>
   );
 }
 

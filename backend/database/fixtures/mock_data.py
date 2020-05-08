@@ -17,7 +17,9 @@ MOCK_DATA = {
     "users": [
         {"name": "Aaron", "email": TEST_CASE_USER, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25)},
-        {"name": "dummy", "email": "dummy@example.test", "profile_pic": None, "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)},
+        {"name": "dummy", "email": "dummy@example.test",
+         "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
+         "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)},
         {"name": "Eddie", "email": "eddie@example.test",
          "profile_pic": "https://animalark.org/wp-content/uploads/2016/03/181Cheetahs12.jpg", "username": "toofast",
          "created_at": dt(2020, 4, 30, 23, 38, 48)},

@@ -159,15 +159,15 @@ def game_defaults():
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     available_participants = get_participant_list(username)
     resp = {
-        "default_title": default_title,
-        "default_game_mode": DEFAULT_GAME_MODE,
+        "title": default_title,
+        "mode": DEFAULT_GAME_MODE,
         "game_modes": GAME_MODES,
-        "default_duration": DEFAULT_GAME_DURATION,
-        "default_buyin": DEFAULT_BUYIN,
-        "default_rebuys": DEFAULT_REBUYS,
-        "default_benchmark": DEFAULT_BENCHMARK,
-        "default_sidebet_pct": DEFAULT_SIDEBET_PERCENT,
-        "default_sidebet_period": DEFAULT_SIDEBET_PERIOD,
+        "duration": DEFAULT_GAME_DURATION,
+        "buy_in": DEFAULT_BUYIN,
+        "n_rebuys": DEFAULT_REBUYS,
+        "benchmark": DEFAULT_BENCHMARK,
+        "side_bets_perc": DEFAULT_SIDEBET_PERCENT,
+        "side_bets_period": DEFAULT_SIDEBET_PERIOD,
         "sidebet_periods": SIDE_BET_PERIODS,
         "benchmarks": BENCHMARKS,
         "available_participants": available_participants

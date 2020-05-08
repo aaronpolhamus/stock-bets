@@ -126,21 +126,28 @@ class TestAPI(unittest.TestCase):
         game_defaults = res.json()
 
         expected_keys = [
-            "default_title",
-            "default_game_mode",
+            "title",
+            "mode",
             "game_modes",
-            "default_duration",
-            "default_buyin",
-            "default_rebuys",
-            "default_benchmark",
-            "default_sidebet_pct",
-            "default_sidebet_period",
+            "duration",
+            "buy_in",
+            "n_rebuys",
+            "benchmark",
+            "side_bets_perc",
+            "side_bets_period",
             "sidebet_periods",
             "benchmarks",
             "available_participants"
         ]
+
         for key in expected_keys:
-            self.assertIn(key, expected_keys)
+            self.assertIn(key, game_defaults.keys())
+
+        games_description = self.conn.execute("SHOW COLUMNS FROM games;").fetchall()
+        import ipdb;ipdb.set_trace()
+        column_names = [column[0] for column in games_description if column[0] != "id"]
+        for column in column_names:
+            self.assertIn(column, game_defaults.keys())
 
         self.assertEqual(len(game_defaults["available_participants"]), 3)
 
@@ -154,11 +161,11 @@ class TestAPI(unittest.TestCase):
             for key, value in field_items.items():
                 self.assertIn(value, field_items[key])
 
-        self.assertIsNotNone(game_defaults["default_title"])
-        self.assertEqual(game_defaults["default_game_mode"], DEFAULT_GAME_MODE)
-        self.assertEqual(game_defaults["default_duration"], DEFAULT_GAME_DURATION)
-        self.assertEqual(game_defaults["default_buyin"], DEFAULT_BUYIN)
-        self.assertEqual(game_defaults["default_rebuys"], DEFAULT_REBUYS)
-        self.assertEqual(game_defaults["default_benchmark"], DEFAULT_BENCHMARK)
-        self.assertEqual(game_defaults["default_sidebet_pct"], DEFAULT_SIDEBET_PERCENT)
-        self.assertEqual(game_defaults["default_sidebet_period"], DEFAULT_SIDEBET_PERIOD)
+        self.assertIsNotNone(game_defaults["title"])
+        self.assertEqual(game_defaults["mode"], DEFAULT_GAME_MODE)
+        self.assertEqual(game_defaults["duration"], DEFAULT_GAME_DURATION)
+        self.assertEqual(game_defaults["buy_in"], DEFAULT_BUYIN)
+        self.assertEqual(game_defaults["n_rebuys"], DEFAULT_REBUYS)
+        self.assertEqual(game_defaults["benchmark"], DEFAULT_BENCHMARK)
+        self.assertEqual(game_defaults["side_bets_perc"], DEFAULT_SIDEBET_PERCENT)
+        self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
