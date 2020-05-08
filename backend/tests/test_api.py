@@ -22,7 +22,7 @@ from backend.logic.games import (
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD
-    )
+)
 from config import Config
 from sqlalchemy import create_engine
 
@@ -50,15 +50,19 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.text, TOKEN_ID_MISSING_MSG)
 
         # token creation and landing
-        user_id, name, email, pic, user_name, created_at = self.conn.execute("SELECT * FROM users;").fetchone()
-        session_token = create_jwt(email, user_id)
+        test_user = "dummy"
+        user_id, name, email, pic, username, created_at = self.conn.execute("SELECT * FROM users WHERE name = %s;",
+                                                                             test_user).fetchone()
+        session_token = create_jwt(email, user_id, username)
         self.assertEqual(jwt.decode(session_token, Config.SECRET_KEY)["email"], email)
         self.assertEqual(jwt.decode(session_token, Config.SECRET_KEY)["user_id"], user_id)
+        self.assertIsNone(jwt.decode(session_token, Config.SECRET_KEY)["username"])
 
         res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()["email"], email)
         self.assertEqual(res.json()["name"], name)
+        self.assertIsNone(res.json()["username"])
         self.assertEqual(res.json()["profile_pic"], pic)
 
         # logout -- this should blow away the previously created session token, logging out the user
@@ -67,7 +71,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
 
         # expired token...
-        session_token = create_jwt(email, 123, mins_per_session=1 / 60)
+        session_token = create_jwt(email, 123, None, mins_per_session=1 / 60)
         time.sleep(2)
         res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 401)
@@ -79,31 +83,36 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.text, LOGIN_ERROR_MSG)
 
         # session token sent, but wasn't encrypted with our SECRET_KEY
-        session_token = create_jwt(email, 123, secret_key="itsasecret")
+        session_token = create_jwt(email, 123, None, secret_key="itsasecret")
         res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 401)
         self.assertEqual(res.text, INVALID_SIGNATURE_ERROR_MSG)
 
     def test_profile_info(self):
+        test_user = "dummy"
         # set username endpoint test
-        user_id, name, email, pic, user_name, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE name = 'dummy';").fetchone()
-        self.assertIsNone(user_name)
-        session_token = create_jwt(email, user_id)
-        new_user_name = "peaches"
-        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_user_name},
+        user_id, name, email, pic, username, created_at = self.conn.execute(
+            "SELECT * FROM users WHERE name = %s;", test_user).fetchone()
+        self.assertIsNone(username)
+        session_token = create_jwt(email, user_id, username)
+        new_username = "peaches"
+        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         conn = self.engine.connect()
         # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
         updated_username = conn.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
-        self.assertEqual(new_user_name, updated_username)
+        self.assertEqual(new_username, updated_username)
+        # check the cookie to be sure that it has been updated with the new proper username as well
+        decoded_token = jwt.decode(res.cookies.get("session_token"), Config.SECRET_KEY)
+        self.assertEqual(decoded_token["username"], new_username)
+        self.assertEqual(decoded_token["email"], email)
 
         # take username fails with 400 error
         user_id, name, email, pic, user_name, created_at = self.conn.execute(
             "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
-        session_token = create_jwt(email, user_id)
-        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_user_name},
+        session_token = create_jwt(email, user_id, user_name)
+        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
@@ -111,7 +120,7 @@ class TestAPI(unittest.TestCase):
     def test_game_endpoints(self):
         user_id, name, email, pic, user_name, created_at = self.conn.execute(
             "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
-        session_token = create_jwt(email, user_id)
+        session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         game_defaults = res.json()
@@ -133,7 +142,7 @@ class TestAPI(unittest.TestCase):
         for key in expected_keys:
             self.assertIn(key, expected_keys)
 
-        self.assertEqual(len(game_defaults["available_participants"]), 2)
+        self.assertEqual(len(game_defaults["available_participants"]), 3)
 
         dropdown_fields_dict = {
             "game_modes": GameModes,

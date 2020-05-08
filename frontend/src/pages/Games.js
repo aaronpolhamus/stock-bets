@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Form, Button, Card } from "react-bootstrap";
-import { textAlign } from "@material-ui/system";
+import { Typeahead } from "react-bootstrap-typeahead";
 
 const multiSelectParse = (element) => {
   let output = []
@@ -66,9 +66,11 @@ const MakeGame = () => {
     console.log(form.elements)
   };
   
+  console.log(defaults)
+
   return( 
-    <Card style={{ width: '18rem' }} alignItems="center" justifyContent="center" >
-      <Form controlId="createGameForm" onSubmit={handleSubmit}>
+    <Card style={{ width: '18rem' }}>
+      <Form onSubmit={handleSubmit}>
         <Form.Group controlId="title" >
           <Form.Label>Title</Form.Label>
           <Form.Control type="input" defaultValue={defaults.default_title}/>
@@ -110,11 +112,16 @@ const MakeGame = () => {
           </Form.Group>
         }
         <Form.Group controlId="participants">
+          <Typeahead multiple id="participant_selector" onChange={(selected) => {
+            console.log(selected)
+          }} options={defaults.available_participants && defaults.available_particpants}/>
+        </Form.Group>
+        {/* <Form.Group controlId="participants">
           <Form.Label>Participants (Cntrl + click to select)</Form.Label>
           <Form.Control as="select" className="multiselect" multiple>
             {defaults.available_participants && optionBuilder(defaults.available_participants)}
           </Form.Control>
-        </Form.Group>
+        </Form.Group> */}
         <Button variant="primary" type="submit">
           Submit
         </Button>

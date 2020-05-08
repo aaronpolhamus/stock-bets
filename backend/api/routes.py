@@ -3,8 +3,6 @@ from functools import wraps
 
 import jwt
 import requests
-from flask import Blueprint, request, make_response, jsonify
-
 from backend.database.db import db
 from backend.logic.games import (
     make_random_game_title,
@@ -20,6 +18,7 @@ from backend.logic.games import (
     BENCHMARKS,
 )
 from config import Config
+from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
 
@@ -39,16 +38,17 @@ def verify_google_oauth(token_id):
     return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
 
 
-def create_jwt(email, user_id, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
-    payload = {"email": email, "user_id": user_id, "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
+def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
+    payload = {"email": email, "user_id": user_id, "username": username,
+               "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
     return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
 
 
-def get_participant_list():
+def get_participant_list(username):
     """This is an unsustainable way to do this, but it works for now. If this app goes anywhere we will either have to
     stream values from the API, or introduce some kind of a friends feature
     """
-    participants = db.engine.execute("SELECT username from users;").fetchall()
+    participants = db.engine.execute("SELECT username FROM users WHERE username != %s;", username).fetchall()
     return {key: participant[0] for key, participant in enumerate(participants)}
 
 
@@ -66,6 +66,7 @@ def authenticate(f):
         except jwt.InvalidSignatureError:
             resp = make_response(INVALID_SIGNATURE_ERROR_MSG, 401)
         return resp
+
     return decorated
 
 
@@ -89,8 +90,8 @@ def register_user():
                 "INSERT INTO users (name, email, profile_pic, username, created_at) VALUES (%s, %s, %s, %s, %s)",
                 (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now()))
 
-        user_id = db.engine.execute("SELECT id FROM users WHERE email = %s", user_email).fetchone()[0]
-        session_token = create_jwt(user_email, user_id)
+        user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
+        session_token = create_jwt(user_email, user_id, username)
         resp = make_response()
         resp.set_cookie("session_token", session_token, httponly=True)
         return resp
@@ -106,8 +107,8 @@ def index():
 
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
-    decoded_request = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_request["user_id"]
+    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decocded_session_token["user_id"]
     user_info = db.engine.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
     resp = jsonify({"name": user_info[1], "email": user_info[2], "profile_pic": user_info[3], "username": user_info[4]})
     return resp
@@ -128,8 +129,9 @@ def logout():
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
-    decoded_request = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_request["user_id"]
+    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decocded_session_token["user_id"]
+    user_email = decocded_session_token["email"]
     candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
@@ -137,7 +139,11 @@ def set_username():
     matches = db.engine.execute("SELECT name FROM users WHERE username = %s", candidate_username).fetchone()
     if matches is None:
         db.engine.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
-        return jsonify({"status": "upated"})
+        user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
+        session_token = create_jwt(user_email, user_id, username)
+        resp = make_response()
+        resp.set_cookie("session_token", session_token, httponly=True)
+        return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
@@ -148,8 +154,10 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
+    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    username = decocded_session_token["username"]
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    available_participants = get_participant_list()
+    available_participants = get_participant_list(username)
     resp = {
         "default_title": default_title,
         "default_game_mode": DEFAULT_GAME_MODE,

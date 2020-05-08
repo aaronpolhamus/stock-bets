@@ -17,7 +17,16 @@ MOCK_DATA = {
     "users": [
         {"name": "Aaron", "email": TEST_CASE_USER, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25)},
-        {"name": "dummy", "email": "dummy@example.test", "profile_pic": None, "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)}
+        {"name": "dummy", "email": "dummy@example.test", "profile_pic": None, "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)},
+        {"name": "Eddie", "email": "eddie@example.test",
+         "profile_pic": "https://animalark.org/wp-content/uploads/2016/03/181Cheetahs12.jpg", "username": "toofast",
+         "created_at": dt(2020, 4, 30, 23, 38, 48)},
+        {"name": "Mike", "email": "mike@example.test",
+         "profile_pic": "https://gitedumoulinavent.com/wp-content/uploads/pexels-photo-1230302.jpeg",
+         "username": "miguel", "created_at": dt(2020, 4, 30, 23, 41, 20)},
+        {"name": "Eli", "email": "eli@example.test",
+         "profile_pic": "https://nationalpostcom.files.wordpress.com/2018/11/gettyimages-1067958662.jpg",
+         "username": "murcitdev", "created_at": dt(2020, 4, 30, 23, 46, 46)}
     ],
     "games": [
 
