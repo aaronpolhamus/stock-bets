@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Form, Button } from "react-bootstrap";
-import { element } from "prop-types";
+import { Form, Button, Card } from "react-bootstrap";
+import { textAlign } from "@material-ui/system";
 
 const multiSelectParse = (element) => {
   let output = []
@@ -67,58 +67,59 @@ const MakeGame = () => {
   };
   
   return( 
-    <Form controlId="createGameForm" onSubmit={handleSubmit}>
-      <Form.Group controlId="title" >
-        <Form.Label>Title</Form.Label>
-        <Form.Control type="input" defaultValue={defaults.default_title}/>
-      </Form.Group>
-      <Form.Group controlId="mode">
-        <Form.Label>Game mode</Form.Label>
-        <Form.Control as="select" defaultValue={defaults.default_game_mode}>
-          {defaults.game_modes && optionBuilder(defaults.game_modes)}
-        </Form.Control>
-      </Form.Group>
-      <Form.Group controlId="duration">
-        <Form.Label>Game duration (days)</Form.Label>
-        <Form.Control type="input" defaultValue={defaults.default_duration}/>
-      </Form.Group>
-      <Form.Group controlId="buy_in" >
-        <Form.Label>Buy-in</Form.Label>
-        <Form.Control type="input" defaultValue={defaults.default_buyin}/>
-      </Form.Group>
-      <Form.Group controlId="n_rebuys" >
-        <Form.Label>Number of re-buys</Form.Label>
-        <Form.Control type="input" defaultValue={defaults.default_rebuys}/>
-      </Form.Group>
-      <Form.Group controlId="benchmark">
-        <Form.Label>Benchmark</Form.Label>
-        <Form.Control as="select" defaultValue={defaults.default_benchmark}>
-          {defaults.benchmarks && optionBuilder(defaults.benchmarks)}
-        </Form.Control>
-      </Form.Group>
-      <Form.Group controlId="side_bets_perc" >
-        <Form.Label>Sidebet % of pot</Form.Label>
-        <Form.Control type="input" value={sidePotPct} onChange={(e) => setSidePotPct(e.target.value)}/>
-      </Form.Group>
-      {sidePotPct > 0 &&
-        <Form.Group controlId="side_bets_period">
-          <Form.Label>Sidebet period</Form.Label>
-          <Form.Control as="select" defaultValue={defaults.default_sidebet_period}>
-            {defaults.sidebet_periods && optionBuilder(defaults.sidebet_periods)}
+    <Card style={{ width: '18rem' }} alignItems="center" justifyContent="center" >
+      <Form controlId="createGameForm" onSubmit={handleSubmit}>
+        <Form.Group controlId="title" >
+          <Form.Label>Title</Form.Label>
+          <Form.Control type="input" defaultValue={defaults.default_title}/>
+        </Form.Group>
+        <Form.Group controlId="mode">
+          <Form.Label>Game mode</Form.Label>
+          <Form.Control as="select" defaultValue={defaults.default_game_mode}>
+            {defaults.game_modes && optionBuilder(defaults.game_modes)}
           </Form.Control>
         </Form.Group>
-      }
-      <Form.Group controlId="participants">
-        <Form.Label>Participants (Cntrl + click to select)</Form.Label>
-        <Form.Control as="select" className="multiselect" multiple>
-          {defaults.available_participants && optionBuilder(defaults.available_participants)}
-        </Form.Control>
-      </Form.Group>
-      <Button variant="primary" type="submit">
-        Submit
-      </Button>
-    </Form>
-
+        <Form.Group controlId="duration">
+          <Form.Label>Game duration (days)</Form.Label>
+          <Form.Control type="input" defaultValue={defaults.default_duration}/>
+        </Form.Group>
+        <Form.Group controlId="buy_in" >
+          <Form.Label>Buy-in</Form.Label>
+          <Form.Control type="input" defaultValue={defaults.default_buyin}/>
+        </Form.Group>
+        <Form.Group controlId="n_rebuys" >
+          <Form.Label>Number of re-buys</Form.Label>
+          <Form.Control type="input" defaultValue={defaults.default_rebuys}/>
+        </Form.Group>
+        <Form.Group controlId="benchmark">
+          <Form.Label>Benchmark</Form.Label>
+          <Form.Control as="select" defaultValue={defaults.default_benchmark}>
+            {defaults.benchmarks && optionBuilder(defaults.benchmarks)}
+          </Form.Control>
+        </Form.Group>
+        <Form.Group controlId="side_bets_perc" >
+          <Form.Label>Sidebet % of pot</Form.Label>
+          <Form.Control type="input" value={sidePotPct} onChange={(e) => setSidePotPct(e.target.value)}/>
+        </Form.Group>
+        {sidePotPct > 0 &&
+          <Form.Group controlId="side_bets_period">
+            <Form.Label>Sidebet period</Form.Label>
+            <Form.Control as="select" defaultValue={defaults.default_sidebet_period}>
+              {defaults.sidebet_periods && optionBuilder(defaults.sidebet_periods)}
+            </Form.Control>
+          </Form.Group>
+        }
+        <Form.Group controlId="participants">
+          <Form.Label>Participants (Cntrl + click to select)</Form.Label>
+          <Form.Control as="select" className="multiselect" multiple>
+            {defaults.available_participants && optionBuilder(defaults.available_participants)}
+          </Form.Control>
+        </Form.Group>
+        <Button variant="primary" type="submit">
+          Submit
+        </Button>
+      </Form>
+    </Card>
   )
 }
 
