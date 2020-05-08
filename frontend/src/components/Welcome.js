@@ -34,7 +34,7 @@ const Welcome = () => {
     <div className="modal">
       <div className="modal_content">
         <form>
-          <h2>Welcome! Pick a username that other plays will see and let's get started.</h2>
+          <h2>Welcome! Pick a username that other players will see and let's get started.</h2>
           <input onChange={handleChange} type="text" name="username" placeholder="Enter name here" />
           <button onClick={handleSubmit}>Submit</button>
         </form>

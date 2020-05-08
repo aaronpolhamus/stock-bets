@@ -32,6 +32,7 @@ LOGIN_ERROR_MSG = "Login to receive valid session_token"
 SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
 MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
 USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
+GAME_CREATED_MSG = "Game created! "
 
 
 def verify_google_oauth(token_id):
@@ -48,7 +49,7 @@ def get_participant_list():
     stream values from the API, or introduce some kind of a friends feature
     """
     participants = db.engine.execute("SELECT username from users;").fetchall()
-    return [x[0] for x in participants]
+    return {key: participant[0] for key, participant in enumerate(participants)}
 
 
 def authenticate(f):
@@ -171,7 +172,9 @@ def game_defaults():
 @routes.route("/api/create_game", methods=["POST"])
 @authenticate
 def create_game():
-    pass
+    from flask import current_app
+    current_app.logger.debug(request.json)
+    return make_response(GAME_CREATED_MSG, 200)
 
 
 @routes.route("/api/update_game_states", methods=["POST"])

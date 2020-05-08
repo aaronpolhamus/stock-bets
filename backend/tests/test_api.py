@@ -90,7 +90,7 @@ class TestAPI(unittest.TestCase):
             "SELECT * FROM users WHERE name = 'dummy';").fetchone()
         self.assertIsNone(user_name)
         session_token = create_jwt(email, user_id)
-        new_user_name = "cheetos"
+        new_user_name = "peaches"
         res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_user_name},
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
@@ -141,9 +141,9 @@ class TestAPI(unittest.TestCase):
             "sidebet_periods": SideBetPeriods
         }
         for field, db_def in dropdown_fields_dict.items():
-            field_list = unpack_enumerated_field_mappings(db_def)
-            for entry in field_list:
-                self.assertIn(entry, game_defaults[field])
+            field_items = unpack_enumerated_field_mappings(db_def)
+            for key, value in field_items.items():
+                self.assertIn(value, field_items[key])
 
         self.assertIsNotNone(game_defaults["default_title"])
         self.assertEqual(game_defaults["default_game_mode"], DEFAULT_GAME_MODE)
