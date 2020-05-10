@@ -3,6 +3,7 @@ from os import getenv
 
 class Config:
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
+    TIMEZONE = "America/New_York"  # TZ identifier for pytz
 
     # API security
     # --------
@@ -19,6 +20,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO"))
+    MIGRATIONS_DIRECTORY = "/home/backend/database/migrations"
 
     # App configurations
     # ------------------
