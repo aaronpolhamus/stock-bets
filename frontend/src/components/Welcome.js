@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Redirect } from "react-router-dom";
-import { Form, Button, Card, Col } from "react-bootstrap";
+import { Form, Button } from "react-bootstrap";
 
 const Welcome = () => {
   const [username, setUserName] = useState("")

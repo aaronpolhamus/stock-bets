@@ -1,2 +1,2 @@
-"""Logic for calculating and dispering payouts between participants
+"""Logic for calculating and dispering payouts between invitees
 """

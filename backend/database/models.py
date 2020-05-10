@@ -5,7 +5,7 @@ Check out this structure:
 https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-to-sqlite-memory-when-i-set-it-to-a-pa
 """
 
-from aenum import Enum
+from enum import Enum
 
 from backend.database.db import db
 
@@ -22,40 +22,40 @@ class Users(db.Model):
 
 
 class GameModes(Enum):
-    RETURN_WEIGHTED = 0, "Return-weighted"
-    CONSOLATION_PRIZE = 1, "Consolation prize"
-    WINNER_TAKES_ALL = 2, "Winner takes all"
+    return_weighted = "Return-weighted"
+    consolation_prize = "Consolation prize"
+    winner_takes_all = "Winner takes all"
 
 
 class Benchmarks(Enum):
-    RETURN_RATIO = 0, "Simple return"
-    SHARPE_RATIO = 1, "Sharpe ratio-adjusted"
+    return_ratio = "Simple return"
+    sharpe_ratio = "Sharpe ratio-adjusted"
 
 
 class SideBetPeriods(Enum):
-    WEEKLY = 0, "Weekly"
-    MONTHLY = 1, "Monthly"
+    weekly = "Weekly"
+    monthly = "Monthly"
 
 
 class Games(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.Text)  # Game title
-    mode = db.Column(db.Enum(GameModes))  # See above. Could make configurable in the future
-    duration = db.Column(db.Integer)  # Integer values for n trading days game is live for
-    buy_in = db.Column(db.Float)  # What's the buy-in on the pool?
-    n_rebuys = db.Column(db.Integer)  # How many rebuys, if any, will be allowed?
-    benchmark = db.Column(db.Enum(Benchmarks))  # Scored based on simple return, or Sharpe-adjusted
+    title = db.Column(db.Text)
+    mode = db.Column(db.Enum(GameModes))
+    duration = db.Column(db.Integer)
+    buy_in = db.Column(db.Float)
+    n_rebuys = db.Column(db.Integer)
+    benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float)  # Will a we split off a weekly side pot?
-    side_bets_period = db.Column(db.Enum(SideBetPeriods))  # What's the period of that pot?
+    side_bets_period = db.Column(db.Enum(SideBetPeriods))
 
 
 class StatusTypes(Enum):
-    PENDING = 0, "Pending"
-    ACTIVE = 1, "Active"
-    FINISHED = 2, "Finished"
-    CANCELLED = 3, "Cancelled"
+    pending = "Pending"
+    active = "Active"
+    finished = "Finished"
+    cancelled = "Cancelled"
 
 
 class GameStatus(db.Model):
@@ -64,10 +64,7 @@ class GameStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     status = db.Column(db.Enum(StatusTypes))
-    opened_at = db.Column(db.DateTime)  # When was the game opened
-    open_until = db.Column(db.DateTime)
-    started_at = db.Column(db.DateTime)
-    ends_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime)  # When was the game opened
 
 
 class GameInvites(db.Model):
@@ -77,11 +74,14 @@ class GameInvites(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     invitee_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
+    opened_at = db.Column(db.DateTime)  # When was the game opened
+    open_until = db.Column(db.DateTime)  # When the game closes
 
 
 class TradeTypes(Enum):
-    LONG = 0, "Long"  # A simple long hold
-    SHORT = 1, "Short"  # A vanilla short margin trade
+
+    long = "Long"  # A simple long hold
+    short = "Short"  # A vanilla short margin trade
 
 
 class Positions(db.Model):

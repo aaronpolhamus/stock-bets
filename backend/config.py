@@ -3,6 +3,7 @@ from os import getenv
 
 class Config:
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
+    TIMEZONE = "America/New_York"  # TZ identifier for pytz
 
     # API security
     # --------

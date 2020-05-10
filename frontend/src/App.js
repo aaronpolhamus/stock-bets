@@ -6,7 +6,7 @@ import Home from './pages/Home';
 import Login from './pages/Login'
 import Welcome from './components/Welcome';
 import Sidebar from './components/Sidebar';
-import {MakeGame, PlayGame, JoinGame} from "./pages/Games";
+import {MakeGame} from "./pages/MakeGame";
 
 const sidebar_items = [
   { name: "home", label: "Home", url: "/" },
@@ -15,8 +15,6 @@ const sidebar_items = [
     label: "Games",
     items: [
       { name: "make", label: "Make", url: "/make"},
-      { name: "join", label: "Join", url: "/join"},
-      { name: "play", label: "Play", url: "/play" }
     ]
   },
   { 
@@ -44,8 +42,6 @@ export default function App() {
         <Route exact path='/login' component={Login} />
         <Route exact path='/welcome' component={Welcome} />
         <Route exact path='/make' component={MakeGame} />
-        <Route exact path='/join' component={JoinGame} />
-        <Route exact path='/play' component={PlayGame} />
       </Router>
     </div>
   );

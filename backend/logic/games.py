@@ -4,28 +4,24 @@
 from funkybob import RandomNameGenerator
 
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
+from backend.database.helpers import unpack_enumerated_field_mappings
 
-
-# frontend defaults
-# -----------------
-DEFAULT_GAME_MODE = "Return-weighted"
-DEFAULT_GAME_DURATION = 20  # days
+# Make game settings, most of which are passed to the frontend
+# ------------------------------------------------------------
+DEFAULT_GAME_MODE = "return_weighted"
+DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
 DEFAULT_REBUYS = 0  # How many rebuys are allowed
-DEFAULT_BENCHMARK = "Simple return"
+DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
-DEFAULT_SIDEBET_PERIOD = "Monthly"
+DEFAULT_SIDEBET_PERIOD = "weekly"
+DEFAULT_INVITE_OPEN_WINDOW = 48  # Default number of hours that we'll allow a game to stay open for
 
 
-# defaults based on unpacking enumerated options from data model
-# --------------------------------------------------------------
-def unpack_enumerated_field_mappings(table_class):
-    """This function unpacks the natural language descriptions of each enumerated field so that these can be passed
-    to the frontend
-    """
-    return {x[1].value[0]: x[1].value[1] for x in table_class.__members__.items()}
-
-
+"""Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
+label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
+in javascript. We handle value-label mapping concerns on the frontend.
+"""
 GAME_MODES = unpack_enumerated_field_mappings(GameModes)
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)

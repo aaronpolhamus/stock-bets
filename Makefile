@@ -8,7 +8,10 @@ db-up:
 	docker-compose up -d db
 
 db-mysql:
-	docker-compose exec db mysql -uroot
+	docker-compose exec db mysql -uroot -p
+
+db-reset:
+	docker-compose exec backend python -m database.fixtures.mock_data
 
 # backend
 # ------

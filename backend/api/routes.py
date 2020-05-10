@@ -2,8 +2,11 @@ from datetime import datetime as dt, timedelta
 from functools import wraps
 
 import jwt
+import pytz
 import requests
 from backend.database.db import db
+from backend.database.helpers import (
+    retrieve_meta_data)
 from backend.logic.games import (
     make_random_game_title,
     DEFAULT_GAME_MODE,
@@ -16,9 +19,13 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERIOD,
     SIDE_BET_PERIODS,
     BENCHMARKS,
-)
+    DEFAULT_INVITE_OPEN_WINDOW)
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
+from sqlalchemy import select
+
+# timestamp localizer
+localizer = pytz.timezone(Config.TIMEZONE).localize
 
 routes = Blueprint("routes", __name__)
 
@@ -44,12 +51,12 @@ def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SES
     return jwt.encode(payload, secret_key, algorithm="HS256").decode("utf-8")
 
 
-def get_participant_list(username):
+def get_invitee_list(username):
     """This is an unsustainable way to do this, but it works for now. If this app goes anywhere we will either have to
     stream values from the API, or introduce some kind of a friends feature
     """
-    participants = db.engine.execute("SELECT username FROM users WHERE username != %s;", username).fetchall()
-    return {key: participant[0] for key, participant in enumerate(participants)}
+    invitees = db.engine.execute("SELECT username FROM users WHERE username != %s;", username).fetchall()
+    return [invitee[0] for invitee in invitees]
 
 
 def authenticate(f):
@@ -88,7 +95,7 @@ def register_user():
         if not user:
             db.engine.execute(
                 "INSERT INTO users (name, email, profile_pic, username, created_at) VALUES (%s, %s, %s, %s, %s)",
-                (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now()))
+                (decoded_json["given_name"], user_email, decoded_json["picture"], None, localizer(dt.now())))
 
         user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
         session_token = create_jwt(user_email, user_id, username)
@@ -102,9 +109,6 @@ def register_user():
 @routes.route("/api/home", methods=["POST"])
 @authenticate
 def index():
-    from flask import current_app
-    current_app.logger.debug(f"*** hit this endpoint ***")
-
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
@@ -157,7 +161,7 @@ def game_defaults():
     decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     username = decocded_session_token["username"]
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    available_participants = get_participant_list(username)
+    available_invitees = get_invitee_list(username)
     resp = {
         "title": default_title,
         "mode": DEFAULT_GAME_MODE,
@@ -170,18 +174,42 @@ def game_defaults():
         "side_bets_period": DEFAULT_SIDEBET_PERIOD,
         "sidebet_periods": SIDE_BET_PERIODS,
         "benchmarks": BENCHMARKS,
-        "available_participants": available_participants
+        "available_invitees": available_invitees
     }
-    from flask import current_app
-    current_app.logger.debug(f"*** {resp} ***")
     return jsonify(resp)
 
 
 @routes.route("/api/create_game", methods=["POST"])
 @authenticate
 def create_game():
-    from flask import current_app
-    current_app.logger.debug(request.json)
+    # Setup
+    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    metadata = retrieve_meta_data()
+    game = metadata.tables["games"]
+    game_invites = metadata.tables["game_invites"]
+    game_status = metadata.tables["game_status"]
+    users = metadata.tables["users"]
+
+    # Update game settings database
+    game_settings = request.json
+    result = db.engine.execute(game.insert(), game_settings)
+
+    # Update the invites database
+    user_id = decocded_session_token["user_id"]
+    game_id = result.inserted_primary_key[0]
+    invitees = tuple(game_settings["invitees"])
+    invitee_ids = db.engine.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
+    opened_at = localizer(dt.utcnow())
+    open_until = opened_at + timedelta(hours=DEFAULT_INVITE_OPEN_WINDOW)
+    for invitee_id in invitee_ids:
+        invite_entry = {"creator_id": user_id, "invitee_id": invitee_id[0], "game_id": game_id, "opened_at": opened_at,
+                        "open_until": open_until}
+        db.engine.execute(game_invites.insert(), invite_entry)
+
+    # add pending entry to game status database
+    status_entry = {"game_id": game_id, "status": "pending", "updated_at": opened_at}
+    db.engine.execute(game_status.insert(), status_entry)
+
     return make_response(GAME_CREATED_MSG, 200)
 
 
