@@ -48,7 +48,7 @@ const MakeGame = () => {
 
   // I'm not in love wit this separate implementation for typeahead fields. I couldn't figure out a good way to get them to play well 
   // with standard bootstrap controlled forms, so this is what I went with 
-  const handlePartipantsChange = (inviteesInput) => {
+  const handleInviteesChange = (inviteesInput) => {
     let formValuesCopy = {...formValues}
     formValuesCopy["invitees"] = inviteesInput
     setFormValues(formValuesCopy)
@@ -116,7 +116,7 @@ const MakeGame = () => {
           multiple
           options={defaults.available_invitees && Object.values(defaults.available_invitees)}
           placeholder="Who's playing?"
-          onChange={handlePartipantsChange}
+          onChange={handleInviteesChange}
         />
       </Form.Group>
     </Form>

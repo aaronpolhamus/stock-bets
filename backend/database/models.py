@@ -41,6 +41,7 @@ class Games(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
+    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.Text)
     mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
@@ -49,6 +50,7 @@ class Games(db.Model):
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float)  # Will a we split off a weekly side pot?
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
+    invite_window = db.Column(db.DateTime)
 
 
 class StatusTypes(Enum):
@@ -64,18 +66,8 @@ class GameStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     status = db.Column(db.Enum(StatusTypes))
+    users = db.Column(db.JSON)
     updated_at = db.Column(db.DateTime)  # When was the game opened
-
-
-class GameInvites(db.Model):
-    __tablename__ = "game_invites"
-
-    id = db.Column(db.Integer, primary_key=True)
-    creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    invitee_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
-    opened_at = db.Column(db.DateTime)  # When was the game opened
-    open_until = db.Column(db.DateTime)  # When the game closes
 
 
 class TradeTypes(Enum):

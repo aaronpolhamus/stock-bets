@@ -2,6 +2,7 @@ import time
 import unittest
 from datetime import datetime as dt, timedelta
 
+import json
 import jwt
 import requests
 from backend.api.routes import (
@@ -145,10 +146,11 @@ class TestAPI(unittest.TestCase):
         for key in expected_keys:
             self.assertIn(key, game_defaults.keys())
 
+        # For ease of use, make sure that the JSON object being passed back and forth with the  database has the same
+        # column names, and that we are being explicit about declaring games fields that are handled server-side
         games_description = self.conn.execute("SHOW COLUMNS FROM games;").fetchall()
-        column_names = [column[0] for column in games_description if column[0] != "id"]
-        # For ease of use, make sure that the JSON object being passed back and forth with the
-        # database has the same field names as the db table
+        server_side_fields = ["id", "creator_id", "invite_window"]
+        column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
         for column in column_names:
             self.assertIn(column, game_defaults.keys())
 
@@ -190,39 +192,45 @@ class TestAPI(unittest.TestCase):
             "invitees": ["miguel", "toofast", "murcitdev", "peaches"],
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
-            "title": "stupified northcutt"
+            "title": "stupified northcutt",
         }
         res = self.session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
                                 json=game_settings)
+        current_time = dt.utcnow()
         self.assertEqual(res.status_code, 200)
+
         # inspect subsequent DB entries
-        game_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc, side_bets_period = self.engine.execute(
+        games_entry = self.engine.execute(
             "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
-        status_id, game_id_status, status, updated_at = self.engine.execute(
-            "SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
-        invite_entries = self.engine.execute("SELECT * FROM game_invites WHERE game_id = %s", game_id).fetchall()
+        game_id = games_entry[0]
+        status_entry = self.engine.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
 
-        self.assertEqual(game_settings["buy_in"], buy_in)
-        self.assertEqual(game_settings["duration"], duration)
-        self.assertEqual(game_settings["mode"], mode)
-        self.assertEqual(game_settings["n_rebuys"], n_rebuys)
-        self.assertEqual(game_settings["benchmark"], benchmark)
-        self.assertEqual(game_settings["side_bets_perc"], side_bets_perc)
-        self.assertEqual(game_settings["side_bets_period"], side_bets_period)
-        self.assertEqual(game_settings["title"], title)
+        # games table tests
+        self.assertEqual(game_settings["buy_in"], games_entry[4])
+        self.assertEqual(game_settings["duration"], games_entry[3])
+        self.assertEqual(game_settings["mode"], games_entry[2])
+        self.assertEqual(game_settings["n_rebuys"], games_entry[5])
+        self.assertEqual(game_settings["benchmark"], games_entry[6])
+        self.assertEqual(game_settings["side_bets_perc"], games_entry[7])
+        self.assertEqual(game_settings["side_bets_period"], games_entry[8])
+        self.assertEqual(game_settings["title"], games_entry[1])
+        self.assertEqual(user_id, games_entry[9])
+        # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
+        # something worth looking at
+        window = (games_entry[10] - current_time).total_seconds() / (60 * 60)
+        self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 1)
 
-        self.assertEqual(game_id, game_id_status)
-        self.assertEqual(status, "pending")
-
-        self.assertEqual(user_id, invite_entries[0][1])
-        self.assertEqual(game_id, invite_entries[0][3])
-        self.assertEqual(updated_at + timedelta(hours=DEFAULT_INVITE_OPEN_WINDOW), invite_entries[0][4])
-        self.assertEqual(updated_at, invite_entries[0][5])
-
+        # game_status table tests
+        self.assertEqual(status_entry[1], game_id)
+        self.assertEqual(status_entry[2], "pending")
+        # Same as note above about performance issue
+        time_diff = abs((status_entry[3] - current_time).total_seconds())
+        self.assertLess(time_diff, 1)
+        invited_users = json.loads(status_entry[4])
         metadata = retrieve_meta_data()
         users = metadata.tables["users"]
-        invitees = tuple(game_settings["invitees"])
+        invitees = tuple(game_settings["invitees"] + [user_name])
         lookup_invitee_ids = self.engine.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
-        invite_table_invitees = [entry[2] for entry in invite_entries]
-        self.assertEqual(set(lookup_invitee_ids), set(invite_table_invitees))
+        self.assertEqual(set(lookup_invitee_ids), set(invited_users))
+
