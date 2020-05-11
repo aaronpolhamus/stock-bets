@@ -1,7 +1,7 @@
 import React from 'react';
 import { Redirect } from 'react-router-dom';
+import { Button, Container, Row } from "react-bootstrap";
 import {isEmpty, usePostRequest} from "../components/api";
-import Button from "../components/Button.jsx"
 import axios from "axios";
 
 const Logout = async () => {
@@ -29,9 +29,20 @@ const Home = () => {
   
   return (
     <div className="App">
-      <h1> What's up, { data.name } ( {data.username} )? Your email is { data.email } </h1> 
-      <img src={ data.profile_pic} height="200" width="200" alt="your beautiful profile pic"/>
-      <Button onClick={Logout}>Logout</Button>
+      <Container fluid="md">
+        <Row className="justify-content-md-left">
+          <Button href="/make">Make a new game</Button>
+        </Row>
+        <Row>
+          <h1> What's up, { data.name } ( {data.username} )? Your email is { data.email } </h1> 
+        </Row>
+        <Row className="justify-content-md-center">
+          <img src={ data.profile_pic} height="200" width="200" alt="your beautiful profile pic"/>
+        </Row>
+        <Row className="justify-content-md-center" >
+          <Button onClick={Logout}>Logout</Button>
+        </Row>
+      </Container>
     </div>
   );
 };

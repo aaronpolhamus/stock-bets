@@ -1,8 +1,9 @@
 from datetime import datetime as dt
 
-from backend.database.helpers import retrieve_meta_data
-from config import Config
 from sqlalchemy import create_engine
+from backend.database.helpers import retrieve_meta_data, reset_db
+from config import Config
+
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 conn = engine.connect()
@@ -14,13 +15,6 @@ TEST_CASE_USER = "aaron@stockbets.io"
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
 MOCK_DATA = {
-    "game_status": [
-
-    ],
-    "games": [
-        {"title": "fervent swartz", "mode": "return_weighted", "duration": 365, "buy_in": 100, "n_rebuys": 2,
-         "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly"}
-    ],
     "users": [
         {"name": "Aaron", "email": TEST_CASE_USER, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25)},
@@ -36,11 +30,31 @@ MOCK_DATA = {
         {"name": "Eli", "email": "eli@example.test",
          "profile_pic": "https://nationalpostcom.files.wordpress.com/2018/11/gettyimages-1067958662.jpg",
          "username": "murcitdev", "created_at": dt(2020, 4, 30, 23, 46, 46)}
+    ],
+    "games": [
+        {"title": "fervent swartz", "mode": "consolation_prize", "duration": 365, "buy_in": 100, "n_rebuys": 2,
+         "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
+         "invite_window": dt(2020, 5, 13, 6, 13)},
+        {"title": "max aggression", "mode": "winner_takes_all", "duration": 1, "buy_in": 100_000, "n_rebuys": 0,
+         "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
+         "invite_window": dt(2020, 5, 13, 6, 13)},
+        {"title": "gentleman's game", "mode": "return_weighted", "duration": 180, "buy_in": 50, "n_rebuys": 3,
+         "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
+         "invite_window": dt(2020, 5, 13, 6, 13)}
+    ],
+
+    "game_status": [
+        {"game_id": 1, "status": "pending", "updated_at": dt(2020, 5, 11, 6, 13), "users": [1, 3, 4]},
+        {"game_id": 2, "status": "pending", "updated_at": dt(2020, 5, 13, 6, 11), "users": [1, 4]},
+        {"game_id": 2, "status": "pending", "updated_at": dt(2020, 5, 13, 6, 11), "users": [1, 3, 4, 5]}
     ]
 }
 
 
 def make_mock_data():
+    # reset the database for each test class in order to maintain consistency of auto-incremented IDs
+    reset_db()
+
     table_names = MOCK_DATA.keys()
     for table in table_names:
         # first flush all data from all tables

@@ -206,6 +206,8 @@ class TestAPI(unittest.TestCase):
         status_entry = self.engine.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
 
         # games table tests
+        for field in games_entry:  # make sure that we're test-writing all fields
+            self.assertIsNotNone(field)
         self.assertEqual(game_settings["buy_in"], games_entry[4])
         self.assertEqual(game_settings["duration"], games_entry[3])
         self.assertEqual(game_settings["mode"], games_entry[2])
@@ -221,6 +223,9 @@ class TestAPI(unittest.TestCase):
         self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 1)
 
         # game_status table tests
+        # games table tests
+        for field in games_entry:  # make sure that we're test-writing all fields
+            self.assertIsNotNone(field)
         self.assertEqual(status_entry[1], game_id)
         self.assertEqual(status_entry[2], "pending")
         # Same as note above about performance issue

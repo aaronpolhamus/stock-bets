@@ -110,6 +110,8 @@ def index():
     decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decocded_session_token["user_id"]
     user_info = db.engine.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
+
+    # Retrieve open invites and active games
     resp = jsonify({"name": user_info[1], "email": user_info[2], "profile_pic": user_info[3], "username": user_info[4]})
     return resp
 
@@ -206,12 +208,3 @@ def create_game():
     db.engine.execute(game_status.insert(), status_entry)
 
     return make_response(GAME_CREATED_MSG, 200)
-
-
-@routes.route("/api/update_game_states", methods=["POST"])
-@authenticate
-def update_game_states():
-    """For now we won't invest resources on the backend in high-cost ongoing monitoring of external APIs. Rather,
-    every time a user interacts with game-related resources on the website we will check and update associated games
-    """
-    pass
