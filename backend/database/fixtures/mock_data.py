@@ -17,9 +17,6 @@ MOCK_DATA = {
     "game_status": [
 
     ],
-    "game_invites": [
-
-    ],
     "games": [
         {"title": "fervent swartz", "mode": "return_weighted", "duration": 365, "buy_in": 100, "n_rebuys": 2,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly"}
