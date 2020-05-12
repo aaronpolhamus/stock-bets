@@ -20,3 +20,4 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(Config.SQLALCHEMY_TRACK_MODIFICATIONS, getenv("SQLALCHEMY_TRACK_MODIFICATIONS"))
         self.assertEqual(Config.SQLALCHEMY_ECHO, bool(getenv("SQLALCHEMY_ECHO")))
         self.assertEqual(Config.DEBUG_MODE, bool(getenv("DEBUG_MODE") == "True"))
+        self.assertEqual(Config.JWT_ENCODE_ALGORITHM, "HS256")

@@ -11,14 +11,15 @@ metadata = retrieve_meta_data()
 
 # The test case user needs to be a live gmail acccount. Eventually we'll need to make this a heavily-restricted
 # demo@stockbets.io account that anyone can use, but this is good for now.
-TEST_CASE_USER = "aaron@stockbets.io"
+TEST_CASE_EMAIL = "aaron@stockbets.io"
+DUMMY_USER_EMAIL = "dummy@example.test"
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
 MOCK_DATA = {
     "users": [
-        {"name": "Aaron", "email": TEST_CASE_USER, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
+        {"name": "test_user", "email": TEST_CASE_EMAIL, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25)},
-        {"name": "dummy", "email": "dummy@example.test",
+        {"name": "dummy", "email": DUMMY_USER_EMAIL,
          "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
          "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1)},
         {"name": "Eddie", "email": "eddie@example.test",
@@ -40,13 +41,19 @@ MOCK_DATA = {
          "invite_window": dt(2020, 5, 13, 6, 13)},
         {"title": "gentleman's game", "mode": "return_weighted", "duration": 180, "buy_in": 50, "n_rebuys": 3,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": dt(2020, 5, 13, 6, 13)}
+         "invite_window": dt(2020, 5, 13, 6, 13)},
+        {"title": "test user excluded", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+         "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
+         "invite_window": dt(2020, 2, 2, 2, 2)}
     ],
 
     "game_status": [
         {"game_id": 1, "status": "pending", "updated_at": dt(2020, 5, 11, 6, 13), "users": [1, 3, 4]},
         {"game_id": 2, "status": "pending", "updated_at": dt(2020, 5, 13, 6, 11), "users": [1, 4]},
-        {"game_id": 2, "status": "pending", "updated_at": dt(2020, 5, 13, 6, 11), "users": [1, 3, 4, 5]}
+        {"game_id": 3, "status": "pending", "updated_at": dt(2020, 5, 12, 6, 11), "users": [1, 3, 4, 5]},
+        {"game_id": 3, "status": "active", "updated_at": dt(2020, 5, 13, 6, 11), "users": [1, 3, 4, 5]},
+        {"game_id": 4, "status": "pending", "updated_at": dt(2020, 5, 12, 6, 11), "users": [3, 4, 5]},
+        {"game_id": 4, "status": "active", "updated_at": dt(2020, 5, 13, 6, 11), "users": [3, 4, 5]}
     ]
 }
 

@@ -1,8 +1,8 @@
+import json
 import time
 import unittest
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
 
-import json
 import jwt
 import requests
 from backend.api.routes import (
@@ -13,8 +13,12 @@ from backend.api.routes import (
     USERNAME_TAKE_ERROR_MSG,
     create_jwt
 )
+from backend.database.fixtures.mock_data import (
+    TEST_CASE_EMAIL,
+    DUMMY_USER_EMAIL,
+    make_mock_data
+)
 from backend.database.helpers import retrieve_meta_data
-from backend.database.fixtures.mock_data import make_mock_data
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.games import (
     unpack_enumerated_field_mappings,
@@ -38,13 +42,11 @@ class TestAPI(unittest.TestCase):
     def setUp(self):
         # Establish data base API and setup mock data
         self.engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-        self.conn = self.engine.connect()
         self.session = requests.Session()
         make_mock_data()
 
     def tearDown(self):
         self.session.close()
-        self.conn.close()
 
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
@@ -54,20 +56,36 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.text, TOKEN_ID_MISSING_MSG)
 
         # token creation and landing
-        test_user = "dummy"
-        user_id, name, email, pic, username, created_at = self.conn.execute("SELECT * FROM users WHERE name = %s;",
-                                                                            test_user).fetchone()
+        with self.engine.connect() as conn:
+            user_id, name, email, pic, username, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
+                                                                           TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, username)
-        self.assertEqual(jwt.decode(session_token, Config.SECRET_KEY)["email"], email)
-        self.assertEqual(jwt.decode(session_token, Config.SECRET_KEY)["user_id"], user_id)
-        self.assertIsNone(jwt.decode(session_token, Config.SECRET_KEY)["username"])
+        decoded_token = jwt.decode(session_token, Config.SECRET_KEY, algorithms=Config.JWT_ENCODE_ALGORITHM)
+        self.assertEqual(decoded_token["email"], email)
+        self.assertEqual(decoded_token["user_id"], user_id)
+        self.assertEqual(decoded_token["username"], username)
 
         res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json()["email"], email)
-        self.assertEqual(res.json()["name"], name)
-        self.assertIsNone(res.json()["username"])
-        self.assertEqual(res.json()["profile_pic"], pic)
+        data = res.json()
+        # check basic profile info
+        self.assertEqual(data["email"], email)
+        self.assertEqual(data["name"], name)
+        self.assertEqual(data["username"], username)
+        self.assertEqual(data["profile_pic"], pic)
+
+        # check game info
+        with self.engine.connect() as conn:
+            # these define the games that our test user should be in
+            game_ids = conn.execute("SELECT game_id FROM game_status WHERE JSON_CONTAINS(users, %s)",
+                                    str(user_id)).fetchall()
+            game_ids = [x[0] for x in game_ids]
+            # the test user shouldn't be associated with the game that we left them out of in the mock
+            excluded_game_id = conn.execute("SELECT id FROM games WHERE title = 'test user excluded'").fetchone()[0]
+
+        game_ids_from_response = [x["id"] for x in data["game_info"]]
+        self.assertEqual(set(game_ids), set(game_ids_from_response))
+        self.assertTrue(excluded_game_id not in game_ids_from_response)
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
@@ -93,10 +111,10 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.text, INVALID_SIGNATURE_ERROR_MSG)
 
     def test_set_username(self):
-        test_user = "dummy"
         # set username endpoint test
-        user_id, name, email, pic, username, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE name = %s;", test_user).fetchone()
+        with self.engine.connect() as conn:
+            user_id, name, email, pic, username, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
+                                                                           DUMMY_USER_EMAIL).fetchone()
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
@@ -104,16 +122,19 @@ class TestAPI(unittest.TestCase):
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
-        updated_username = self.engine.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
+        with self.engine.connect() as conn:
+            updated_username = conn.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
         self.assertEqual(new_username, updated_username)
         # check the cookie to be sure that it has been updated with the new proper username as well
-        decoded_token = jwt.decode(res.cookies.get("session_token"), Config.SECRET_KEY)
+        decoded_token = jwt.decode(res.cookies.get("session_token"), Config.SECRET_KEY,
+                                   algorithms=Config.JWT_ENCODE_ALGORITHM)
         self.assertEqual(decoded_token["username"], new_username)
         self.assertEqual(decoded_token["email"], email)
 
         # take username fails with 400 error
-        user_id, name, email, pic, user_name, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
+        with self.engine.connect() as conn:
+            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
+                                                                            DUMMY_USER_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
@@ -121,8 +142,9 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
 
     def test_game_defaults(self):
-        user_id, name, email, pic, user_name, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
+        with self.engine.connect() as conn:
+            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
+                                                                            TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
@@ -148,7 +170,8 @@ class TestAPI(unittest.TestCase):
 
         # For ease of use, make sure that the JSON object being passed back and forth with the  database has the same
         # column names, and that we are being explicit about declaring games fields that are handled server-side
-        games_description = self.conn.execute("SHOW COLUMNS FROM games;").fetchall()
+        with self.engine.connect() as conn:
+            games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
         for column in column_names:
@@ -180,8 +203,9 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
 
     def test_create_game(self):
-        user_id, name, email, pic, user_name, created_at = self.conn.execute(
-            "SELECT * FROM users WHERE name = 'Aaron';").fetchone()
+        with self.engine.connect() as conn:
+            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
+                                                                            TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         game_settings = {
             "benchmark": "sharpe_ratio",
@@ -200,10 +224,11 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        games_entry = self.engine.execute(
-            "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
-        game_id = games_entry[0]
-        status_entry = self.engine.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
+        with self.engine.connect() as conn:
+            games_entry = conn.execute(
+                "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
+            game_id = games_entry[0]
+            status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
 
         # games table tests
         for field in games_entry:  # make sure that we're test-writing all fields
@@ -223,7 +248,6 @@ class TestAPI(unittest.TestCase):
         self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 1)
 
         # game_status table tests
-        # games table tests
         for field in games_entry:  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
         self.assertEqual(status_entry[1], game_id)
@@ -235,7 +259,7 @@ class TestAPI(unittest.TestCase):
         metadata = retrieve_meta_data()
         users = metadata.tables["users"]
         invitees = tuple(game_settings["invitees"] + [user_name])
-        lookup_invitee_ids = self.engine.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
+        with self.engine.connect() as conn:
+            lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
-

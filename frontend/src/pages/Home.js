@@ -1,6 +1,6 @@
 import React from 'react';
-import { Redirect } from 'react-router-dom';
-import { Button, Container, Row } from "react-bootstrap";
+import { Link, Redirect } from 'react-router-dom';
+import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import {isEmpty, usePostRequest} from "../components/api";
 import axios from "axios";
 
@@ -26,12 +26,40 @@ const Home = () => {
   if( isEmpty(data.username)) { 
     return <Redirect to="/welcome" />
   }
-  
+
+  const gameCardBuilder = (statusType, gamesArray) => {
+    return (
+      gamesArray.map((entry) => {
+        let linkTo = null
+        if (entry.status === "pending") {
+          linkTo = "/join"
+        } else if (entry.status === "active") { 
+          linkTo = "/play" 
+        }
+
+        if(entry.status === statusType){
+          return(
+            <Card key={entry.id}>
+              <Card.Body>
+                <Link to={{pathname: linkTo, game_id: entry.id}}>{entry.title}</Link>
+              </Card.Body>
+            </Card>
+          )
+        }
+      })
+    )
+  }
+
   return (
     <div className="App">
       <Container fluid="md">
-        <Row className="justify-content-md-left">
-          <Button href="/make">Make a new game</Button>
+        <Row>
+          <Col>
+            <Button href="/make">Make a new game</Button>
+          </Col>
+          <Col>
+            <Button onClick={Logout}>Logout</Button>
+          </Col>
         </Row>
         <Row>
           <h1> What's up, { data.name } ( {data.username} )? Your email is { data.email } </h1> 
@@ -39,8 +67,13 @@ const Home = () => {
         <Row className="justify-content-md-center">
           <img src={ data.profile_pic} height="200" width="200" alt="your beautiful profile pic"/>
         </Row>
-        <Row className="justify-content-md-center" >
-          <Button onClick={Logout}>Logout</Button>
+        <Row>
+          <Col>
+            {data && gameCardBuilder("active", data.game_info)}
+          </Col>
+          <Col>
+            {data && gameCardBuilder("pending", data.game_info)}
+          </Col>
         </Row>
       </Container>
     </div>

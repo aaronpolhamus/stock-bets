@@ -9,6 +9,7 @@ class Config:
     # --------
     SECRET_KEY = getenv("SECRET_KEY")
     MINUTES_PER_SESSION = int(getenv("MINUTES_PER_SESSION"))  # how long, in minutes, should a user session be?
+    JWT_ENCODE_ALGORITHM = "HS256"
 
     # Database
     # --------

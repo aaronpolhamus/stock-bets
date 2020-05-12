@@ -6,6 +6,8 @@ import Home from './pages/Home';
 import Login from './pages/Login'
 import Welcome from './components/Welcome';
 import {MakeGame} from "./pages/MakeGame";
+import {JoinGame} from "./pages/JoinGame";
+import {PlayGame} from "./pages/PlayGame";
 
 export default function App() {
   return (
@@ -15,6 +17,8 @@ export default function App() {
         <Route exact path='/login' component={Login} />
         <Route exact path='/welcome' component={Welcome} />
         <Route exact path='/make' component={MakeGame} />
+        <Route exact path='/join' component={JoinGame} />
+        <Route exact path='/play' component={PlayGame} />
       </Router>
     </div>
   );

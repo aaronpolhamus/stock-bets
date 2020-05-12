@@ -67,7 +67,7 @@ const MakeGame = () => {
       </Row>
       <Row className="justify-content-md-center">
         <Form onSubmit={handleSubmit}>
-          {/* We should probably have this on the bottom of the form. It's just here for now because Aaron can't write CSS */}
+          {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
           <Form.Group>
             <Form.Label>Title</Form.Label>
             <Form.Control name="title" type="input" defaultValue={defaults.title} onChange={handleChange}/>
