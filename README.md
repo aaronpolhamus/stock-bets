@@ -15,6 +15,7 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `SQLALCHEMY_TRACK_MODIFICATIONS` (`True`/`False`): Set to `False` unless you have a really good reason not to
   - `SQLALCHEMY_ECHO` (`True`/`False`): Same here
   - `DEBUG_MODE` (`True`/`False`): As a rule of thumb, `True` for development, `False` for production
+  - `TEST_CASE_EMAIL` (email@domain.com): When you run the `backend.database.mock_data` as a main function (this happens automatically during functional API testing, or when you call `make db-mock-data`), you populate the database with a bunch of mock data. This can be useful for local development. By setting `TEST_CASE_EMAIL` to the gmail account that you use to develop with, your user account will automatically be populated with these fixtures they're run.  
 * Place an `.env` file in the `/frontend` directory that defines the following variables:
   - `REACT_APP_GOOGLE_CLIENT_ID` (string): The Google client ID that the API is using for OAuth
 * Follow the instructions [here](https://stackoverflow.com/questions/10175812/how-to-create-a-self-signed-certificate-with-openssl) to generate `cert.pem` and `key.pem` files. Place these in `/backend`
@@ -27,10 +28,10 @@ source frontend/.env
 cd frontend
 npm run build
 cd ..
-make build
+make backend-build
 ```
 
-If all environmental variables are properly defined this should be about all there is to it. To start the API server run `make backend-up`. `make backend-bash` and `make db-mysql` are shortcuts to the inside of each of these containers. To run the frontend during local development run `npm start` from the frontend directory. It is already configured to run with the backend container as a local server proxy.
+If all environmental variables are properly defined this should be about all there is to it. To start the API server run `make backend-up`. `make backend-bash` and `make db-mysql` are shortcuts to the inside of each of these containers. To run the frontend during local development run `npm start` from the `/frontend` directory. It is already configured to run with the backend container as a local server proxy.
 
 The `stock-bets` app has no toggles in the code of environmental variable that defines whether it is in development, production, testing, or staging. Rather, its behavior in each environment is purely a function of the environmental variables + non-versioned assets that define the resources that it has access to and the way it behaves. Here's a diagram of those non-versioned assets to accompany the description above: 
 ```
