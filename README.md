@@ -15,7 +15,8 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `SQLALCHEMY_TRACK_MODIFICATIONS` (`True`/`False`): Set to `False` unless you have a really good reason not to
   - `SQLALCHEMY_ECHO` (`True`/`False`): Same here
   - `DEBUG_MODE` (`True`/`False`): As a rule of thumb, `True` for development, `False` for production
-  - `TEST_CASE_EMAIL` (email@domain.com): When you run the `backend.database.mock_data` as a main function (this happens automatically during functional API testing, or when you call `make db-mock-data`), you populate the database with a bunch of mock data. This can be useful for local development. By setting `TEST_CASE_EMAIL` to the gmail account that you use to develop with, your user account will automatically be populated with these fixtures they're run.  
+  - `TEST_CASE_UUID` (string): When you run the `backend.database.mock_data` as a main function (this happens automatically during functional API testing, or when you call `make db-mock-data`), you populate the database with a bunch of mock data. This can be useful for local development. By setting `TEST_CASE_UUID` to the uuid of the account that you use to develop with, your user account will automatically be populated with these fixtures they're run. The best way to do this is to leave this variable unset, login once with the account you'll use to develop, and then copy and paste this value from the `users` table. 
+  - `TEST_CASE_EMAIL` (you@example.com): Same as above for the uuid: you should define these right next to each other in your dev `.env` file.  
 * Place an `.env` file in the `/frontend` directory that defines the following variables:
   - `REACT_APP_GOOGLE_CLIENT_ID` (string): The Google client ID that the API is using for OAuth
   - `REACT_APP_FACEBOOK_APP_ID` (string): The Facebook application ID used for OAuth
