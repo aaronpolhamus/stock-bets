@@ -18,6 +18,7 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `TEST_CASE_EMAIL` (email@domain.com): When you run the `backend.database.mock_data` as a main function (this happens automatically during functional API testing, or when you call `make db-mock-data`), you populate the database with a bunch of mock data. This can be useful for local development. By setting `TEST_CASE_EMAIL` to the gmail account that you use to develop with, your user account will automatically be populated with these fixtures they're run.  
 * Place an `.env` file in the `/frontend` directory that defines the following variables:
   - `REACT_APP_GOOGLE_CLIENT_ID` (string): The Google client ID that the API is using for OAuth
+  - `REACT_APP_FACEBOOK_APP_ID` (string): The Facebook application ID used for OAuth
 * Follow the instructions [here](https://stackoverflow.com/questions/10175812/how-to-create-a-self-signed-certificate-with-openssl) to generate `cert.pem` and `key.pem` files. Place these in `/backend`
 * To use the frontend with SSL locally, paste `chrome://flags/#allow-insecure-localhost` into your Google Chrome url. Just be careful: you may want to turn this back on at some point.
 * `cd` to the repo root and run:
