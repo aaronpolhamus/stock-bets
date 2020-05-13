@@ -27,8 +27,7 @@ routes = Blueprint("routes", __name__)
 
 # Error messages
 # --------------
-TOKEN_ID_MISSING_MSG = "This request is missing the 'tokenId' field -- are you a hacker?"
-GOOGLE_OAUTH_ERROR_MSG = "tokenId from Google OAuth failed verification -- are you a hacker?"
+OAUTH_ERROR_MSG = "OAuth failed verification -- are you a hacker?"
 INVALID_SIGNATURE_ERROR_MSG = "Couldn't decode session token -- are you a hacker?"
 LOGIN_ERROR_MSG = "Login to receive valid session_token"
 SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
@@ -41,6 +40,10 @@ MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
 
 def verify_google_oauth(token_id):
     return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
+
+
+def verify_facebook_oauth(access_token):
+    return requests.post(Config.FACEBOOK_VALIDATION_URL, data={"access_token": access_token})
 
 
 def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
@@ -83,44 +86,55 @@ def register_user():
     response is the returned value from the React-Google-Login component.
     """
     # from flask import current_app
+    oauth_data = request.json
 
-    provider = request.json.get("provider")
+    provider = oauth_data.get("provider")
     assert provider in ["google", "facebook", "twitter"], make_response(INVALID_OAUTH_PROVIDER_MSG, 401)
 
     if provider == "google":
-        token_id = request.json.get("tokenId")
-        if token_id is None:
-            return make_response(TOKEN_ID_MISSING_MSG, 401)
-
+        token_id = oauth_data.get("tokenId")
         response = verify_google_oauth(token_id)
         if response.status_code == 200:
-            resource_uuid = request.json.get("googleId")
+            resource_uuid = oauth_data.get("googleId")
             decoded_json = response.json()
-            with db.engine.connect() as conn:
-                user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
-                create_user_entry = {
-                    "name": decoded_json["given_name"],
-                    "email": decoded_json["email"],
-                    "profile_pic": decoded_json["picture"],
-                    "username": None,
-                    "created_at": dt.now(),
-                    "provider": provider,
-                    "resource_uuid": resource_uuid
-                }
+            user_entry = {
+                "name": decoded_json["given_name"],
+                "email": decoded_json["email"],
+                "profile_pic": decoded_json["picture"],
+                "username": None,
+                "created_at": dt.now(),
+                "provider": provider,
+                "resource_uuid": resource_uuid
+            }
         else:
-            return make_response(GOOGLE_OAUTH_ERROR_MSG, response.status_code)
+            return make_response(OAUTH_ERROR_MSG, response.status_code)
 
     if provider == "facebook":
-        resource_uuid = "test"
+        access_token = oauth_data.get("accessToken")
+        response = verify_facebook_oauth(access_token)
+        if response.status_code == 200:
+            resource_uuid = oauth_data.get("userID")
+            user_entry = {
+                "name": oauth_data["name"],
+                "email": oauth_data["email"],
+                "profile_pic": oauth_data["picture"]["data"]["url"],
+                "username": None,
+                "created_at": dt.now(),
+                "provider": provider,
+                "resource_uuid": resource_uuid
+            }
+        else:
+            return make_response(OAUTH_ERROR_MSG, response.status_code)
 
     if provider == "twitter":
         resource_uuid = "test"
 
     with db.engine.connect() as conn:
+        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
         if user is None:
             metadata = retrieve_meta_data()
             users = metadata.tables["users"]
-            conn.execute(users.insert(), create_user_entry)
+            conn.execute(users.insert(), user_entry)
 
         user_id, email, username = conn.execute("SELECT id, email, username FROM users WHERE resource_uuid = %s",
                                                 resource_uuid).fetchone()
