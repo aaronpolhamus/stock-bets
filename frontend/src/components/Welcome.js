@@ -22,6 +22,7 @@ const Welcome = () => {
     }
     catch (error) {
       alert(`'${username}' looks like it's taken, try another one`)
+      setUpdated(false)
     }
   }
 

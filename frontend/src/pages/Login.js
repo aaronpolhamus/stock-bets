@@ -10,7 +10,7 @@ function responseError (response) {
 }
 
 export default function AlphabetLogin () { 
-  const [redirect, setRedirect] = useState(false); // redirect holds redirect value, and setRedirect is a function to replace the redirect value
+  const [redirect, setRedirect] = useState(false); 
 
   const detectProvider = (response) => {
     if(Object.keys(response).includes("googleId")) return "google"

@@ -9,8 +9,9 @@ from backend.api.routes import (
     INVALID_SIGNATURE_ERROR_MSG,
     LOGIN_ERROR_MSG,
     SESSION_EXP_ERROR_MSG,
-    TOKEN_ID_MISSING_MSG,
     USERNAME_TAKE_ERROR_MSG,
+    OAUTH_ERROR_MSG,
+    INVALID_OAUTH_PROVIDER_MSG,
     create_jwt
 )
 from backend.database.fixtures.mock_data import (
@@ -50,14 +51,18 @@ class TestAPI(unittest.TestCase):
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
         # registration error with faked token
-        res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token"}, verify=False)
-        self.assertEqual(res.status_code, 401)
-        self.assertEqual(res.text, TOKEN_ID_MISSING_MSG)
+        res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"}, verify=False)
+        self.assertEqual(res.status_code, 411)
+        self.assertEqual(res.text, OAUTH_ERROR_MSG)
+
+        res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"}, verify=False)
+        self.assertEqual(res.status_code, 411)
+        self.assertEqual(res.text, INVALID_OAUTH_PROVIDER_MSG)
 
         # token creation and landing
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                           Config.TEST_CASE_EMAIL).fetchone()
+            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, username)
         decoded_token = jwt.decode(session_token, Config.SECRET_KEY, algorithms=Config.JWT_ENCODE_ALGORITHM)
         self.assertEqual(decoded_token["email"], email)
@@ -112,8 +117,8 @@ class TestAPI(unittest.TestCase):
     def test_set_username(self):
         # set username endpoint test
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                           DUMMY_USER_EMAIL).fetchone()
+            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", DUMMY_USER_EMAIL).fetchone()
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
@@ -132,8 +137,8 @@ class TestAPI(unittest.TestCase):
 
         # take username fails with 400 error
         with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                            DUMMY_USER_EMAIL).fetchone()
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", DUMMY_USER_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
@@ -142,8 +147,8 @@ class TestAPI(unittest.TestCase):
 
     def test_game_defaults(self):
         with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                            Config.TEST_CASE_EMAIL).fetchone()
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
@@ -203,8 +208,8 @@ class TestAPI(unittest.TestCase):
 
     def test_create_game(self):
         with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                            Config.TEST_CASE_EMAIL).fetchone()
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         game_settings = {
             "benchmark": "sharpe_ratio",

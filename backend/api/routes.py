@@ -18,7 +18,9 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERIOD,
     SIDE_BET_PERIODS,
     BENCHMARKS,
-    DEFAULT_INVITE_OPEN_WINDOW)
+    DEFAULT_INVITE_OPEN_WINDOW,
+    ORDER_TYPES,
+    TIME_IN_FORCE)
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 from sqlalchemy import select
@@ -89,7 +91,8 @@ def register_user():
     oauth_data = request.json
 
     provider = oauth_data.get("provider")
-    assert provider in ["google", "facebook", "twitter"], make_response(INVALID_OAUTH_PROVIDER_MSG, 401)
+    if provider not in ["google", "facebook", "twitter"]:
+        return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
     if provider == "google":
         token_id = oauth_data.get("tokenId")
@@ -127,7 +130,7 @@ def register_user():
             return make_response(OAUTH_ERROR_MSG, response.status_code)
 
     if provider == "twitter":
-        resource_uuid = "test"
+        pass
 
     with db.engine.connect() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
@@ -151,6 +154,8 @@ def index():
     populate the landing page"""
     decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decocded_session_token["user_id"]
+    from flask import current_app
+    current_app.logger.debug(f"*** home user id {user_id}*** ")
     with db.engine.connect() as conn:
         user_info = conn.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
 
@@ -201,6 +206,9 @@ def set_username():
     """
     decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decocded_session_token["user_id"]
+    from flask import current_app
+    current_app.logger.debug(f"*** welcome {user_id}*** ")
+
     user_email = decocded_session_token["email"]
     candidate_username = request.json["username"]
     if candidate_username is None:
@@ -210,8 +218,7 @@ def set_username():
         matches = conn.execute("SELECT name FROM users WHERE username = %s", candidate_username).fetchone()
         if matches is None:
             conn.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
-            user_id, username = conn.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
-            session_token = create_jwt(user_email, user_id, username)
+            session_token = create_jwt(user_email, user_id, candidate_username)
             resp = make_response()
             resp.set_cookie("session_token", session_token, httponly=True)
             return resp
@@ -288,7 +295,8 @@ def game_info():
 
     resp = {
         "title": title,
-
+        "order_type_options": ORDER_TYPES,
+        "time_in_force_options": TIME_IN_FORCE
     }
     return jsonify(resp)
 

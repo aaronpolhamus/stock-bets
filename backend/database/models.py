@@ -83,7 +83,7 @@ class BuyOrSell(Enum):
     sell = "Sell"
 
 
-class OrderType(Enum):
+class OrderTypes(Enum):
     limit = "Limit"
     market = "Market"
     stop = "Stop"
@@ -101,10 +101,10 @@ class Orders(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     ticker = db.Column(db.Text)
-    buy_or_sell = db.Column(db.Enum(OrderType))
+    buy_or_sell = db.Column(db.Enum(BuyOrSell))
     quantity = db.Column(db.Integer)
     price = db.Column(db.Float)
-    order_type = db.Column(db.Enum(OrderType))
+    order_type = db.Column(db.Enum(OrderTypes))
     time_in_force = db.Column(db.Enum(TimeInForce))
 
 

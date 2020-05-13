@@ -31,3 +31,4 @@ class Config:
     # Testing
     # -------
     TEST_CASE_EMAIL = getenv("TEST_CASE_EMAIL")
+    TEST_CASE_UUID = getenv("TEST_CASE_UUID")

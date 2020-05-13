@@ -17,7 +17,7 @@ MOCK_DATA = {
     "users": [
         {"name": "test_user", "email": Config.TEST_CASE_EMAIL, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": dt(2020, 4, 30, 23, 33, 25), "provider": "google",
-         "resource_uuid": "abc123"},
+         "resource_uuid": Config.TEST_CASE_UUID},
         {"name": "dummy", "email": DUMMY_USER_EMAIL,
          "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
          "username": None, "created_at": dt(2020, 5, 5, 13, 12, 1), "provider": "google", "resource_uuid": "efg456"},

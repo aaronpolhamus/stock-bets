@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Container, Row, Col, Button, Card, Form, Nav } from "react-bootstrap";
+import { Container, Row, Col, Button, Card, Form, Dropdown } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 
 const PlayGame = (props) => {
@@ -38,6 +38,8 @@ const PlayGame = (props) => {
     e.preventDefaullt()
     return null
   }
+
+  console.log(gameInfo)
 
   return(
     <Container fluid="md">
@@ -81,6 +83,15 @@ const PlayGame = (props) => {
                   <Col>
                     <Button type="button" value="quantity" variant={amountType === "quantity" ? "outline-primary" : "outline-secondary"} onClick={handleIsQuantity}>Shares</Button>
                     <Button type="button" value="usd" variant={amountType === "usd" ? "outline-primary" : "outline-secondary"} onClick={handleIsQuantity}>USD</Button>
+                  </Col>
+                </Row>
+                <Row>
+                  <Col>
+                    <Dropdown>
+                    </Dropdown>
+                  </Col>
+                  <Col>
+
                   </Col>
                 </Row>
             
