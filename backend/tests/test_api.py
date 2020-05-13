@@ -14,7 +14,6 @@ from backend.api.routes import (
     create_jwt
 )
 from backend.database.fixtures.mock_data import (
-    TEST_CASE_EMAIL,
     DUMMY_USER_EMAIL,
     make_mock_data
 )
@@ -58,7 +57,7 @@ class TestAPI(unittest.TestCase):
         # token creation and landing
         with self.engine.connect() as conn:
             user_id, name, email, pic, username, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                           TEST_CASE_EMAIL).fetchone()
+                                                                           Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, username)
         decoded_token = jwt.decode(session_token, Config.SECRET_KEY, algorithms=Config.JWT_ENCODE_ALGORITHM)
         self.assertEqual(decoded_token["email"], email)
@@ -144,7 +143,7 @@ class TestAPI(unittest.TestCase):
     def test_game_defaults(self):
         with self.engine.connect() as conn:
             user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                            TEST_CASE_EMAIL).fetchone()
+                                                                            Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
@@ -205,7 +204,7 @@ class TestAPI(unittest.TestCase):
     def test_create_game(self):
         with self.engine.connect() as conn:
             user_id, name, email, pic, user_name, created_at = conn.execute("SELECT * FROM users WHERE email = %s;",
-                                                                            TEST_CASE_EMAIL).fetchone()
+                                                                            Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
         game_settings = {
             "benchmark": "sharpe_ratio",

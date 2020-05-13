@@ -88,17 +88,24 @@ def register_user():
     response = verify_google_oauth(token_id)
     if response.status_code == 200:
         decoded_json = response.json()
-        user_email = decoded_json["email"]
-        with db.engine.connect() as conn:
-            user = conn.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
-        if not user:
+        if response["provider"] == "google":
+            user_email = decoded_json["email"]
             with db.engine.connect() as conn:
-                conn.execute(
-                    "INSERT INTO users (name, email, profile_pic, username, created_at) VALUES (%s, %s, %s, %s, %s)",
-                    (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now()))
+                user = conn.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
+                if not user:
+                    conn.execute(
+                        "INSERT INTO users (name, email, profile_pic, username, created_at, provider, resource_uuid) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now(), "google", response["UUID KEY HERE"]))
 
-        user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
-        session_token = create_jwt(user_email, user_id, username)
+            user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
+            session_token = create_jwt(user_email, user_id, username)
+
+        if response["provider"] == "facebook":
+            pass
+
+        if response["provider"] == "twitter":
+            pass
+
         resp = make_response()
         resp.set_cookie("session_token", session_token, httponly=True)
         return resp
@@ -124,11 +131,11 @@ def index():
           INNER JOIN game_status gs
             ON g.id = gs.game_id
           INNER JOIN (
-              SELECT game_id, MAX(updated_at) updated_at
+              SELECT game_id, MAX(timestamp) timestamp
             FROM game_status
             GROUP BY game_id
           ) tmp ON tmp.game_id = gs.game_id AND
-                    tmp.updated_at = gs.updated_at
+                    tmp.timestamp = gs.timestamp
           WHERE
             JSON_CONTAINS(gs.users, %s) AND
             gs.status IN ('pending', 'active');
@@ -170,14 +177,13 @@ def set_username():
 
     with db.engine.connect() as conn:
         matches = conn.execute("SELECT name FROM users WHERE username = %s", candidate_username).fetchone()
-    if matches is None:
-        with db.engine.connect() as conn:
+        if matches is None:
             conn.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
             user_id, username = conn.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
-        session_token = create_jwt(user_email, user_id, username)
-        resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True)
-        return resp
+            session_token = create_jwt(user_email, user_id, username)
+            resp = make_response()
+            resp.set_cookie("session_token", session_token, httponly=True)
+            return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
@@ -234,18 +240,30 @@ def create_game():
         invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         user_ids = [x[0] for x in invitee_ids]
         user_ids.append(user_id)
-        status_entry = {"game_id": game_id, "status": "pending", "updated_at": opened_at, "users": user_ids}
+        status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
         conn.execute(game_status.insert(), status_entry)
 
     return make_response(GAME_CREATED_MSG, 200)
 
 
-@routes.route("/api/game_info", methods=["POST"])
+@routes.route("/api/play_game_landing", methods=["POST"])
 @authenticate
 def game_info():
-    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decocded_session_token["user_id"]
+    # decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    # user_id = decocded_session_token["user_id"]
     game_id = request.json["game_id"]
     with db.engine.connect() as conn:
         title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
-    return jsonify({"title": title})
+
+    resp = {
+        "title": title,
+
+    }
+    return jsonify(resp)
+
+
+@routes.route("/api/place_order", methods=["POST"])
+@authenticate
+def place_order():
+    pass
+

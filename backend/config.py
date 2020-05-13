@@ -26,3 +26,7 @@ class Config:
     # App configurations
     # ------------------
     DEBUG_MODE = bool(getenv("DEBUG_MODE") == "True")  # Run the flask app in debug mode? (useful for development)
+
+    # Testing
+    # -------
+    TEST_CASE_EMAIL = getenv("TEST_CASE_EMAIL")

@@ -69,9 +69,11 @@ const Home = () => {
         </Row>
         <Row>
           <Col>
+            <Card.Header>Active games</Card.Header>
             {data && gameCardBuilder("active", data.game_info)}
           </Col>
           <Col>
+            <Card.Header>Game invites</Card.Header>
             {data && gameCardBuilder("pending", data.game_info)}
           </Col>
         </Row>

@@ -10,8 +10,10 @@ function responseError (response) {
 export default function AlphabetLogin () { 
   const [redirect, setRedirect] = useState(false); // redirect holds redirect value, and setRedirect is a function to replace the redirect value
 
-  function handleSubmit (response) {
-    axios.post("/api/login", response).then(() => setRedirect(true));
+  function handleGoogleSubmit (response) {
+    let responseCopy = {...response}
+    responseCopy["provider"] = "google"
+    axios.post("/api/login", responseCopy).then(() => setRedirect(true));
   }
 
   if (redirect) { 
@@ -25,7 +27,7 @@ export default function AlphabetLogin () {
       <GoogleLogin
         clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
         buttonText="Login with your gmail acccount"
-        onSuccess={handleSubmit}
+        onSuccess={handleGoogleSubmit}
         onFailure={responseError}
         cookiePolicy={"single_host_origin"}
       />
