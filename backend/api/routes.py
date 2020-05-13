@@ -5,8 +5,7 @@ import jwt
 import pandas as pd
 import requests
 from backend.database.db import db
-from backend.database.helpers import (
-    retrieve_meta_data)
+from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
     DEFAULT_GAME_MODE,
@@ -36,6 +35,8 @@ SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
 MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
 USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
 GAME_CREATED_MSG = "Game created! "
+INVALID_OAUTH_PROVIDER_MSG = "Not a valid OAuth provider"
+MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
 
 
 def verify_google_oauth(token_id):
@@ -81,36 +82,52 @@ def register_user():
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
     response is the returned value from the React-Google-Login component.
     """
-    token_id = request.json.get("tokenId")
-    if token_id is None:
-        return make_response(TOKEN_ID_MISSING_MSG, 401)
+    # from flask import current_app
 
-    response = verify_google_oauth(token_id)
-    if response.status_code == 200:
-        decoded_json = response.json()
-        if response["provider"] == "google":
-            user_email = decoded_json["email"]
+    provider = request.json.get("provider")
+    assert provider in ["google", "facebook", "twitter"], make_response(INVALID_OAUTH_PROVIDER_MSG, 401)
+
+    if provider == "google":
+        token_id = request.json.get("tokenId")
+        if token_id is None:
+            return make_response(TOKEN_ID_MISSING_MSG, 401)
+
+        response = verify_google_oauth(token_id)
+        if response.status_code == 200:
+            resource_uuid = request.json.get("googleId")
+            decoded_json = response.json()
             with db.engine.connect() as conn:
-                user = conn.execute("SELECT * FROM users WHERE email = %s", user_email).fetchone()
-                if not user:
-                    conn.execute(
-                        "INSERT INTO users (name, email, profile_pic, username, created_at, provider, resource_uuid) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (decoded_json["given_name"], user_email, decoded_json["picture"], None, dt.now(), "google", response["UUID KEY HERE"]))
+                user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
+                create_user_entry = {
+                    "name": decoded_json["given_name"],
+                    "email": decoded_json["email"],
+                    "profile_pic": decoded_json["picture"],
+                    "username": None,
+                    "created_at": dt.now(),
+                    "provider": provider,
+                    "resource_uuid": resource_uuid
+                }
+        else:
+            return make_response(GOOGLE_OAUTH_ERROR_MSG, response.status_code)
 
-            user_id, username = db.engine.execute("SELECT id, username FROM users WHERE email = %s", user_email).fetchone()
-            session_token = create_jwt(user_email, user_id, username)
+    if provider == "facebook":
+        resource_uuid = "test"
 
-        if response["provider"] == "facebook":
-            pass
+    if provider == "twitter":
+        resource_uuid = "test"
 
-        if response["provider"] == "twitter":
-            pass
+    with db.engine.connect() as conn:
+        if user is None:
+            metadata = retrieve_meta_data()
+            users = metadata.tables["users"]
+            conn.execute(users.insert(), create_user_entry)
 
+        user_id, email, username = conn.execute("SELECT id, email, username FROM users WHERE resource_uuid = %s",
+                                                resource_uuid).fetchone()
+        session_token = create_jwt(email, user_id, username)
         resp = make_response()
         resp.set_cookie("session_token", session_token, httponly=True)
         return resp
-
-    return make_response(GOOGLE_OAUTH_ERROR_MSG, response.status_code)
 
 
 @routes.route("/api/home", methods=["POST"])
@@ -266,4 +283,3 @@ def game_info():
 @authenticate
 def place_order():
     pass
-
