@@ -1,10 +1,15 @@
 import sys
+
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
+from sqlalchemy import create_engine
+
+from config import Config
+
 
 options = Options()
 options.add_argument('--headless')
@@ -12,11 +17,12 @@ options.add_argument('--disable-gpu')
 options.add_argument('--no-sandbox')
 
 EXEC_PATH = "/home/backend/chromedriver"
+TARGET = "https://iextrading.com/trading/eligible-symbols/"
 
 
-def get_web_table_object(timeout=10, exec_path=EXEC_PATH, chrome_options=options):
+def get_web_table_object(timeout=10, target=TARGET, exec_path=EXEC_PATH, chrome_options=options):
     driver = webdriver.Chrome(executable_path=exec_path, chrome_options=chrome_options)
-    driver.get("https://iextrading.com/trading/eligible-symbols/")
+    driver.get(target)
     return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
 
 
@@ -47,4 +53,7 @@ def get_symbols_table():
 
 if __name__ == '__main__':
     symbols_table = get_symbols_table()
-    symbols_table.to_csv("/tmp/df.csv")
+    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+    with engine.connect() as conn:
+        symbols_table.to_sql("symbols", conn, if_exists="replace", index=False)
+

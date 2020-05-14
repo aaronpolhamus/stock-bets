@@ -143,6 +143,11 @@ class Balances(db.Model):
 
 
 class Symbols(db.Model):
+    """This is less of a formal data model table and more of a data store for available tickers. Thus the handling
+    later on in the code is a bit more ad-hoc. Specifically, when pandas updates this table it blows away the id
+    primary key.
+    """
+
     __tablename__ = "symbols"
 
     id = db.Column(db.Integer, primary_key=True)

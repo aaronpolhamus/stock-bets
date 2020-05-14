@@ -13,6 +13,7 @@ RUN apt-get update \
   libfontconfig1 \
   gnupg \
   libev-dev \
+  chromium-browser \
   netcat \
   python3.7 \
   python3-pip \
