@@ -140,3 +140,11 @@ class Balances(db.Model):
     timestamp = db.Column(db.DateTime)
     balance_type = db.Column(db.Enum(BalanceTypes))
     balance = db.Column(db.Float)
+
+
+class Symbols(db.Model):
+    __tablename__ = "symbols"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    name = db.Column(db.Text)

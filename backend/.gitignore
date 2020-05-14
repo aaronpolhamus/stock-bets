@@ -133,3 +133,5 @@ dmypy.json
 # Related to SSL certs
 *cert.pem
 *key.pem
+*chromedriver*
+scratch.py

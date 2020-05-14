@@ -8,6 +8,7 @@ pyjwt==1.7.1
 pymysql==0.9.3
 pyOpenSSL==19.0.0
 requests==2.21.0
+selenium==3.141.0
 
 # Some handy dev dependencies
 ipdb==0.13.2

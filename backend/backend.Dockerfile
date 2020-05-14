@@ -6,6 +6,11 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
   curl \
+  unzip \
+  libglib2.0-0 \
+  libnss3 \
+  libgconf-2-4 \
+  libfontconfig1 \
   gnupg \
   libev-dev \
   netcat \
