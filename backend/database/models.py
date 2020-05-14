@@ -84,8 +84,8 @@ class BuyOrSell(Enum):
 
 
 class OrderTypes(Enum):
-    limit = "Limit"
     market = "Market"
+    limit = "Limit"
     stop = "Stop"
 
 

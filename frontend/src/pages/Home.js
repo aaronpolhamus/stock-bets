@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Redirect } from 'react-router-dom';
 import { Button, Container, Row, Col, Card } from "react-bootstrap";
-import {isEmpty, usePostRequest} from "../components/api";
+import {isEmpty, usePostRequest} from "../components/functions/api";
 import axios from "axios";
 
 const Logout = async () => {

@@ -22,6 +22,8 @@ DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 48  # Default number of hours that we'll allow a game to stay open for
+QUANTITY_DEFAULT = "Shares"
+QUANTITY_OPTIONS = ["Shares", "USD"]
 
 """Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
@@ -34,8 +36,12 @@ SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
 
 # Default play game settings
 # --------------------------
+DEFAULT_BUY_SELL = "buy"
+BUY_SELL_TYPES = unpack_enumerated_field_mappings(BuyOrSell)
+DEFAULT_ORDER_TYPE = "market"
 ORDER_TYPES = unpack_enumerated_field_mappings(OrderTypes)
-TIME_IN_FORCE = unpack_enumerated_field_mappings(TimeInForce)
+DEFAULT_TIME_IN_FORCE = "day"
+TIME_IN_FORCE_TYPES = unpack_enumerated_field_mappings(TimeInForce)
 
 
 # Define a couple different helper functions

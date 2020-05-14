@@ -3,6 +3,8 @@ import axios from "axios";
 import { Form, Button, Container, Row } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { Redirect } from "react-router-dom";
+import {optionBuilder} from "../components/functions/forms"
+
 
 const MakeGame = () => {  
   const [defaults, setDefaults] = useState({})
@@ -22,10 +24,6 @@ const MakeGame = () => {
     fetchData()
   }, [])
   
-  const optionBuilder = (optionsArray) => 
-    Object.keys(optionsArray).map((key, index) => 
-    <option key={key} value={key}>{optionsArray[key]}</option>)
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     await axios.post("/api/create_game", formValues)

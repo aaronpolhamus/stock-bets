@@ -19,8 +19,15 @@ from backend.logic.games import (
     SIDE_BET_PERIODS,
     BENCHMARKS,
     DEFAULT_INVITE_OPEN_WINDOW,
+    DEFAULT_ORDER_TYPE,
+    DEFAULT_BUY_SELL,
+    DEFAULT_TIME_IN_FORCE,
+    BUY_SELL_TYPES,
     ORDER_TYPES,
-    TIME_IN_FORCE)
+    TIME_IN_FORCE_TYPES,
+    QUANTITY_DEFAULT,
+    QUANTITY_OPTIONS
+)
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 from sqlalchemy import select
@@ -152,8 +159,8 @@ def register_user():
 def index():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
-    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decocded_session_token["user_id"]
+    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decoded_session_token["user_id"]
     from flask import current_app
     current_app.logger.debug(f"*** home user id {user_id}*** ")
     with db.engine.connect() as conn:
@@ -204,12 +211,12 @@ def logout():
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
-    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decocded_session_token["user_id"]
+    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decoded_session_token["user_id"]
     from flask import current_app
     current_app.logger.debug(f"*** welcome {user_id}*** ")
 
-    user_email = decocded_session_token["email"]
+    user_email = decoded_session_token["email"]
     candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
@@ -232,8 +239,8 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
-    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    username = decocded_session_token["username"]
+    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    username = decoded_session_token["username"]
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     available_invitees = get_invitee_list(username)
     resp = {
@@ -257,8 +264,8 @@ def game_defaults():
 @authenticate
 def create_game():
     # setup
-    decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decocded_session_token["user_id"]
+    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decoded_session_token["user_id"]
     metadata = retrieve_meta_data()
     game = metadata.tables["games"]
     game_status = metadata.tables["game_status"]
@@ -287,16 +294,23 @@ def create_game():
 @routes.route("/api/play_game_landing", methods=["POST"])
 @authenticate
 def game_info():
-    # decocded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    # user_id = decocded_session_token["user_id"]
+    # decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    # user_id = decoded_session_token["user_id"]
     game_id = request.json["game_id"]
     with db.engine.connect() as conn:
         title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
 
     resp = {
         "title": title,
+        "game_id": game_id,
         "order_type_options": ORDER_TYPES,
-        "time_in_force_options": TIME_IN_FORCE
+        "order_type": DEFAULT_ORDER_TYPE,
+        "buy_sell_options": BUY_SELL_TYPES,
+        "buy_or_sell": DEFAULT_BUY_SELL,
+        "time_in_force_options": TIME_IN_FORCE_TYPES,
+        "time_in_force": DEFAULT_TIME_IN_FORCE,
+        "quantity_type": QUANTITY_DEFAULT,
+        "quantity_options": QUANTITY_OPTIONS
     }
     return jsonify(resp)
 
@@ -304,4 +318,14 @@ def game_info():
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
 def place_order():
-    pass
+    # setup
+    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    user_id = decoded_session_token["user_id"]
+    metadata = retrieve_meta_data()
+    orders = metadata.tables["orders"]
+    transactions = metadata.tables["transactions"]
+
+    order_ticket = request.json
+    order_ticket["user_id"] = user_id
+
+
