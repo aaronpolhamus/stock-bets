@@ -1,9 +1,5 @@
 # db
 # --
-
-db-build:
-	docker-compose build db
-
 db-up:
 	docker-compose up -d db
 
@@ -15,6 +11,17 @@ db-reset:
 
 db-mock-data:
 	docker-compose exec backend python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"
+
+# celery worker
+# -------------
+worker-logs:
+	docker-compose logs -f worker
+
+worker-up:
+	docker-compose up worker
+
+worker-build:
+	docker-compose build worker
 
 # backend
 # ------

@@ -4,7 +4,6 @@ from os import getenv
 class Config:
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
-    TIMEZONE = "America/New_York"  # TZ identifier for pytz
 
     # API security
     # --------
@@ -32,3 +31,9 @@ class Config:
     # -------
     TEST_CASE_EMAIL = getenv("TEST_CASE_EMAIL")
     TEST_CASE_UUID = getenv("TEST_CASE_UUID")
+
+    # Celery
+    # ------
+    RABBITMQ_DEFAULT_USER = getenv("RABBITMQ_DEFAULT_USER")
+    RABBITMQ_DEFAULT_PASS = getenv("RABBITMQ_DEFAULT_PASS")
+    CELERY_BROKER_URL = f'amqp://{RABBITMQ_DEFAULT_USER}:{RABBITMQ_DEFAULT_PASS}@rabbitmq:5672'

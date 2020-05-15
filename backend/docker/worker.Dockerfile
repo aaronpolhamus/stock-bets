@@ -32,4 +32,4 @@ ENV PYTHONPATH="$PYTHONPATH:/home"
 # -------------------------------------------
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["./backend-entrypoint.sh"]
+ENTRYPOINT ["./docker/worker-entrypoint.sh"]

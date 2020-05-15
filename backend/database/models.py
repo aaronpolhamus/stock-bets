@@ -121,7 +121,7 @@ class Transactions(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
     timestamp = db.Column(db.DateTime)
-    order_status = db.Column(db.Enum(OrderStatusTypes))
+    status = db.Column(db.Enum(OrderStatusTypes))
     clear_price = db.Column(db.Float, nullable=True)
 
 

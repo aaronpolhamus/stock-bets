@@ -237,15 +237,15 @@ class TestAPI(unittest.TestCase):
         # games table tests
         for field in games_entry:  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(game_settings["buy_in"], games_entry[4])
-        self.assertEqual(game_settings["duration"], games_entry[3])
-        self.assertEqual(game_settings["mode"], games_entry[2])
-        self.assertEqual(game_settings["n_rebuys"], games_entry[5])
-        self.assertEqual(game_settings["benchmark"], games_entry[6])
-        self.assertEqual(game_settings["side_bets_perc"], games_entry[7])
-        self.assertEqual(game_settings["side_bets_period"], games_entry[8])
-        self.assertEqual(game_settings["title"], games_entry[1])
-        self.assertEqual(user_id, games_entry[9])
+        self.assertEqual(game_settings["buy_in"], games_entry[5])
+        self.assertEqual(game_settings["duration"], games_entry[4])
+        self.assertEqual(game_settings["mode"], games_entry[3])
+        self.assertEqual(game_settings["n_rebuys"], games_entry[6])
+        self.assertEqual(game_settings["benchmark"], games_entry[7])
+        self.assertEqual(game_settings["side_bets_perc"], games_entry[8])
+        self.assertEqual(game_settings["side_bets_period"], games_entry[9])
+        self.assertEqual(game_settings["title"], games_entry[2])
+        self.assertEqual(user_id, games_entry[1])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
         window = (games_entry[10] - current_time).total_seconds() / (60 * 60)
@@ -257,9 +257,9 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(status_entry[1], game_id)
         self.assertEqual(status_entry[2], "pending")
         # Same as note above about performance issue
-        time_diff = abs((status_entry[3] - current_time).total_seconds())
+        time_diff = abs((status_entry[4] - current_time).total_seconds())
         self.assertLess(time_diff, 1)
-        invited_users = json.loads(status_entry[4])
+        invited_users = json.loads(status_entry[3])
         metadata = retrieve_meta_data()
         users = metadata.tables["users"]
         invitees = tuple(game_settings["invitees"] + [user_name])

@@ -3,6 +3,7 @@ version: "3"
 services:
   db:
     image: mysql
+    container_name: db
     environment:
       - MYSQL_USER=${DB_USER}
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
@@ -11,16 +12,37 @@ services:
       - 3306:3306
 
   rabbitmq:
-    image: rabbitmq
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  worker:
+    image: worker
+    container_name: worker
+    build:
+      context: "./backend"
+      dockerfile: "docker/worker.Dockerfile"
+    volumes:
+      - ./backend:/home/backend
+    links:
+      - rabbitmq
+    env_file:
+      - backend/.env
+    depends_on:
+      - rabbitmq
+      - db
 
   backend:
     image: backend
+    container_name: backend
     build:
       context: "./backend"
-      dockerfile: "backend.Dockerfile"
+      dockerfile: "docker/backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
     ports:
@@ -30,6 +52,8 @@ services:
       - backend/.flaskenv
     depends_on:
       - db
+      - rabbitmq
+      - worker
 
   frontend:
     image: frontend
