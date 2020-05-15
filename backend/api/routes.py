@@ -326,13 +326,11 @@ def place_order():
     metadata = retrieve_meta_data()
     orders = metadata.tables["orders"]
     transactions = metadata.tables["transactions"]
-
     order_ticket = request.json
     order_ticket["user_id"] = user_id
 
 
 @routes.route("/api/ping", methods=["POST"])
-@celery.task(name="ping")
 def ping():
     async_run_ping()
-    return make_response("api response", 200)
+    return make_response("a huevo", 200)

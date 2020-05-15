@@ -13,6 +13,7 @@ RUN apt-get update \
   python3.7 \
   python3-pip \
   python3-setuptools \
+  systemd \
   && cd /usr/local/bin \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*

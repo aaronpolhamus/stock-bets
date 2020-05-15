@@ -45,6 +45,15 @@ services:
       - rabbitmq
       - db
 
+  flower:
+    container_name: flower
+    image: mher/flower
+    environment:
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672
+      - FLOWER_PORT=5555
+    ports:
+      - 5555:5555
+
   backend:
     image: backend
     container_name: backend
@@ -53,6 +62,7 @@ services:
       dockerfile: "docker/backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
+      - ./backend/docker/flower.service:/etc/systemd/system/flower.service
     ports:
       - 5000:5000
     env_file:

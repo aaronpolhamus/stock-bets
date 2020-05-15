@@ -23,8 +23,13 @@ worker-up:
 worker-build:
 	docker-compose build worker
 
-# api
+# flower
 # ------
+flower-up:
+	docker-compose up -d flower
+
+# backend
+# -------
 
 backend-build:
 	docker-compose build backend
