@@ -12,4 +12,4 @@ unzip chromedriver_linux64.zip
 # clean up compressed zip files
 rm -rf *zip
 
-celery -A tasks worker --concurrency=20 --loglevel=info
+celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info

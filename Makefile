@@ -18,12 +18,12 @@ worker-logs:
 	docker-compose logs -f worker
 
 worker-up:
-	docker-compose up worker
+	docker-compose up -d worker
 
 worker-build:
 	docker-compose build worker
 
-# backend
+# api
 # ------
 
 backend-build:

@@ -5,6 +5,8 @@ import jwt
 import pandas as pd
 import requests
 from backend.database.db import db
+from backend.tasks.celery import celery
+from backend.tasks.definitions import async_run_ping
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -329,3 +331,8 @@ def place_order():
     order_ticket["user_id"] = user_id
 
 
+@routes.route("/api/ping", methods=["POST"])
+@celery.task(name="ping")
+def ping():
+    async_run_ping()
+    return make_response("api response", 200)

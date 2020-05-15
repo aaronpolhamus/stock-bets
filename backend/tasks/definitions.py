@@ -1,6 +1,6 @@
-from backend.tasks.celery import app
 import sys
 
+from backend.tasks.celery import celery
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -12,13 +12,18 @@ from sqlalchemy import create_engine
 from backend.config import Config
 
 
-@app.task
+@celery.task(name="tasks.async_run_ping")
 def ping():
     # silly little test function tha we'll around until the infrastructure hardens a bit
     print("ping!!!")
 
 
-@app.task(bind=True, default_retry_delay=10)
+def async_run_ping():
+    ping.delay()
+    return
+
+
+# @celery.task(bind=True, default_retry_delay=10)
 def update_symbols_table(self):
 
     options = Options()
@@ -67,7 +72,3 @@ def update_symbols_table(self):
             symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
     except Exception as exc:
         raise self.retry(exc=exc)
-
-
-if __name__ == '__main__':
-    ping()

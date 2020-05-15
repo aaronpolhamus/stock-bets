@@ -32,8 +32,10 @@ class Config:
     TEST_CASE_EMAIL = getenv("TEST_CASE_EMAIL")
     TEST_CASE_UUID = getenv("TEST_CASE_UUID")
 
-    # Celery
-    # ------
-    RABBITMQ_DEFAULT_USER = getenv("RABBITMQ_DEFAULT_USER")
-    RABBITMQ_DEFAULT_PASS = getenv("RABBITMQ_DEFAULT_PASS")
-    CELERY_BROKER_URL = f'amqp://{RABBITMQ_DEFAULT_USER}:{RABBITMQ_DEFAULT_PASS}@rabbitmq:5672'
+    # Distributed processing
+    # ----------------------
+    RABBITMQ_USER = getenv("RABBITMQ_USER")
+    RABBITMQ_PASS = getenv("RABBITMQ_PASS")
+    RABBITMQ_HOST = getenv("RABBITMQ_HOST")
+    CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672'
+    CELERY_RESULTS_BACKEND = f"redis://{getenv('REDIS_HOST')}"
