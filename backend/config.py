@@ -34,8 +34,15 @@ class Config:
 
     # Distributed processing
     # ----------------------
+    REDIS_HOST = getenv('REDIS_HOST')
     RABBITMQ_USER = getenv("RABBITMQ_USER")
     RABBITMQ_PASS = getenv("RABBITMQ_PASS")
     RABBITMQ_HOST = getenv("RABBITMQ_HOST")
     CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672'
     CELERY_RESULTS_BACKEND = f"redis://{getenv('REDIS_HOST')}"
+
+    # Data harvesting
+    # ---------------
+    IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
+    IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
+    IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")

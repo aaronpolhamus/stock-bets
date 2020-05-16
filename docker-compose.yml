@@ -62,7 +62,6 @@ services:
       dockerfile: "docker/backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
-      - ./backend/docker/flower.service:/etc/systemd/system/flower.service
     ports:
       - 5000:5000
     env_file:

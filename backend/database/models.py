@@ -24,7 +24,7 @@ class Users(db.Model):
     email = db.Column(db.Text)
     profile_pic = db.Column(db.Text)
     username = db.Column(db.Text)
-    created_at = db.Column(db.DATETIME)
+    created_at = db.Column(db.Float(precision=32))
     provider = db.Column(db.Enum(OAuthProviders))
     resource_uuid = db.Column(db.Text)
 
@@ -53,12 +53,12 @@ class Games(db.Model):
     title = db.Column(db.Text)
     mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
-    buy_in = db.Column(db.Float)
+    buy_in = db.Column(db.Float(precision=32))
     n_rebuys = db.Column(db.Integer)
     benchmark = db.Column(db.Enum(Benchmarks))
-    side_bets_perc = db.Column(db.Float)
+    side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
-    invite_window = db.Column(db.DateTime)
+    invite_window = db.Column(db.Float(precision=32))
 
 
 class GameStatusTypes(Enum):
@@ -75,7 +75,7 @@ class GameStatus(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     status = db.Column(db.Enum(GameStatusTypes))
     users = db.Column(db.JSON)
-    timestamp = db.Column(db.DateTime)  # When was the game opened
+    timestamp = db.Column(db.Float(precision=32))  # When was the game opened
 
 
 class BuyOrSell(Enum):
@@ -103,7 +103,7 @@ class Orders(db.Model):
     ticker = db.Column(db.Text)
     buy_or_sell = db.Column(db.Enum(BuyOrSell))
     quantity = db.Column(db.Integer)
-    price = db.Column(db.Float)
+    price = db.Column(db.Float(precision=32))
     order_type = db.Column(db.Enum(OrderTypes))
     time_in_force = db.Column(db.Enum(TimeInForce))
 
@@ -120,9 +120,9 @@ class Transactions(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
-    timestamp = db.Column(db.DateTime)
+    timestamp = db.Column(db.Float(precision=32))
     status = db.Column(db.Enum(OrderStatusTypes))
-    clear_price = db.Column(db.Float, nullable=True)
+    clear_price = db.Column(db.Float(precision=32), nullable=True)
 
 
 class BalanceTypes(Enum):
@@ -137,9 +137,9 @@ class Balances(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     transaction_id = db.Column(db.Integer, db.ForeignKey("transactions.id"))
-    timestamp = db.Column(db.DateTime)
+    timestamp = db.Column(db.Float(precision=32))
     balance_type = db.Column(db.Enum(BalanceTypes))
-    balance = db.Column(db.Float)
+    balance = db.Column(db.Float(precision=32))
 
 
 class Symbols(db.Model):
@@ -153,3 +153,13 @@ class Symbols(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.Text)
     name = db.Column(db.Text)
+
+
+class Prices(db.Model):
+
+    __tablename__ = "prices"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    price = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))

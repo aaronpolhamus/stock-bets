@@ -20,6 +20,9 @@ worker-logs:
 worker-up:
 	docker-compose up -d worker
 
+worker-down:
+	docker-compose down worker
+
 worker-build:
 	docker-compose build worker
 
@@ -27,6 +30,9 @@ worker-build:
 # ------
 flower-up:
 	docker-compose up -d flower
+
+flower-stop:
+	docker-compose stop flower
 
 # backend
 # -------

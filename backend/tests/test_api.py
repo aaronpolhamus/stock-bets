@@ -1,7 +1,6 @@
 import json
 import time
 import unittest
-from datetime import datetime as dt
 
 import jwt
 import requests
@@ -224,7 +223,7 @@ class TestAPI(unittest.TestCase):
         }
         res = self.session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
                                 json=game_settings)
-        current_time = dt.utcnow()
+        current_time = time.time()
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
@@ -248,8 +247,8 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(user_id, games_entry[1])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (games_entry[10] - current_time).total_seconds() / (60 * 60)
-        self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 1)
+        window = (games_entry[10] - current_time) / (60 * 60)
+        self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 0)
 
         # game_status table tests
         for field in games_entry:  # make sure that we're test-writing all fields
@@ -257,7 +256,7 @@ class TestAPI(unittest.TestCase):
         self.assertEqual(status_entry[1], game_id)
         self.assertEqual(status_entry[2], "pending")
         # Same as note above about performance issue
-        time_diff = abs((status_entry[4] - current_time).total_seconds())
+        time_diff = abs((status_entry[4] - current_time))
         self.assertLess(time_diff, 1)
         invited_users = json.loads(status_entry[3])
         metadata = retrieve_meta_data()

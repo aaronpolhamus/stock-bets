@@ -4,9 +4,9 @@ from functools import wraps
 import jwt
 import pandas as pd
 import requests
+import time
 from backend.database.db import db
-from backend.tasks.celery import celery
-from backend.tasks.definitions import async_run_ping
+from backend.tasks.definitions import async_fetch_price
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -96,9 +96,7 @@ def register_user():
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
     response is the returned value from the React-Google-Login component.
     """
-    # from flask import current_app
     oauth_data = request.json
-
     provider = oauth_data.get("provider")
     if provider not in ["google", "facebook", "twitter"]:
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
@@ -114,7 +112,7 @@ def register_user():
                 "email": decoded_json["email"],
                 "profile_pic": decoded_json["picture"],
                 "username": None,
-                "created_at": dt.now(),
+                "created_at": time.time(),
                 "provider": provider,
                 "resource_uuid": resource_uuid
             }
@@ -131,7 +129,7 @@ def register_user():
                 "email": oauth_data["email"],
                 "profile_pic": oauth_data["picture"]["data"]["url"],
                 "username": None,
-                "created_at": dt.now(),
+                "created_at": time.time(),
                 "provider": provider,
                 "resource_uuid": resource_uuid
             }
@@ -163,8 +161,6 @@ def index():
     populate the landing page"""
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
-    from flask import current_app
-    current_app.logger.debug(f"*** home user id {user_id}*** ")
     with db.engine.connect() as conn:
         user_info = conn.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
 
@@ -215,9 +211,6 @@ def set_username():
     """
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
-    from flask import current_app
-    current_app.logger.debug(f"*** welcome {user_id}*** ")
-
     user_email = decoded_session_token["email"]
     candidate_username = request.json["username"]
     if candidate_username is None:
@@ -274,12 +267,16 @@ def create_game():
     users = metadata.tables["users"]
 
     # update game table
-    opened_at = dt.utcnow()
+    opened_at = time.time()
     game_settings = request.json
     game_settings["creator_id"] = user_id
     # this may become configurable at some point via the UI -- for now it's hard-coded
-    game_settings["invite_window"] = opened_at + timedelta(hours=DEFAULT_INVITE_OPEN_WINDOW)
+    game_settings["invite_window"] = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
     with db.engine.connect() as conn:
+        from flask import current_app
+        current_app.logger.debug(f"*** opened at: {opened_at} ***")
+        current_app.logger.debug(f"*** invite window: {game_settings['invite_window']} ***")
+
         result = conn.execute(game.insert(), game_settings)
         # Update game status table
         game_id = result.inserted_primary_key[0]
@@ -330,7 +327,11 @@ def place_order():
     order_ticket["user_id"] = user_id
 
 
-@routes.route("/api/ping", methods=["POST"])
-def ping():
-    async_run_ping()
-    return make_response("a huevo", 200)
+@routes.route("/api/fetch_price", methods=["POST"])
+@authenticate
+def fetch_price():
+    symbol = request.json.get("symbol")
+    res = async_fetch_price(symbol)
+    while not res.ready():
+        continue
+    return jsonify(res.get()[0])
