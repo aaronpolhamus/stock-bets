@@ -36,6 +36,8 @@ from sqlalchemy import select
 
 routes = Blueprint("routes", __name__)
 
+HEALTH_CHECK_RESPONSE = "Healthy, baby!"
+
 # Error messages
 # --------------
 OAUTH_ERROR_MSG = "OAuth failed verification -- are you a hacker?"
@@ -273,10 +275,6 @@ def create_game():
     # this may become configurable at some point via the UI -- for now it's hard-coded
     game_settings["invite_window"] = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
     with db.engine.connect() as conn:
-        from flask import current_app
-        current_app.logger.debug(f"*** opened at: {opened_at} ***")
-        current_app.logger.debug(f"*** invite window: {game_settings['invite_window']} ***")
-
         result = conn.execute(game.insert(), game_settings)
         # Update game status table
         game_id = result.inserted_primary_key[0]
@@ -328,10 +326,15 @@ def place_order():
 
 
 @routes.route("/api/fetch_price", methods=["POST"])
-@authenticate
+# @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
     res = async_fetch_price(symbol)
     while not res.ready():
         continue
     return jsonify(res.get()[0])
+
+
+@routes.route("/healthcheck", methods=["GET"])
+def healthcheck():
+   return make_response(HEALTH_CHECK_RESPONSE, 200)

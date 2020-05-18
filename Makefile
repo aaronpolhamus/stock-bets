@@ -68,3 +68,10 @@ down:
 
 stop:
 	docker-compose stop
+
+# Deployment
+# ----------
+ecr-push:
+	docker tag backend:latest 781982251500.dkr.ecr.us-west-1.amazonaws.com/stockbets/backend:latest
+	docker push 781982251500.dkr.ecr.us-west-1.amazonaws.com/stockbets/backend:latest
+
