@@ -1,28 +1,27 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { Container, Row, Col, Button, Card, Form } from "react-bootstrap";
-import { Typeahead } from "react-bootstrap-typeahead";
+import { Container, Row, Col, Button, Form } from "react-bootstrap";
+import Autosuggest from "react-autosuggest";
 import {optionBuilder} from "../components/functions/forms"
 
 
 const PlayGame = (props) => {
   const [gameInfo, setGameInfo] = useState({})
   const [orderTicket, setOrderTicket] = useState({})
-
-  const fetchGameInfo = async (gameId) => {
-    const resp = await axios.post("/api/play_game_landing", {game_id: gameId, withCredentials: true})
-    setGameInfo(resp.data)
-    setOrderTicket(resp.data)
-  }
+  const [symbolSuggestions, setSymbolSuggestions] = useState([])
+  const [symbolValue, setSymbolValue] = useState("")
+  const [symbolLabel, setSymbolLabel] = useState("")
+  const [priceSwitch, setPriceSwitch] = useState(false)
+  const [price, setPrice] = useState(null)
 
   useEffect(() => {
     fetchGameInfo(props.location.game_id) // ask matheus or julio about a better way to do this
   }, [])
 
-  const handleTickerChange = async (ticker) => {
-    let orderTicketCopy = {...orderTicket}
-    orderTicketCopy["ticker"] = ticker
-    setOrderTicket(orderTicketCopy)
+  const fetchGameInfo = async (gameId) => {
+    const resp = await axios.post("/api/play_game_landing", {game_id: gameId, withCredentials: true})
+    setGameInfo(resp.data)
+    setOrderTicket(resp.data)
   }
 
   const handleChange = (e) => {
@@ -36,6 +35,37 @@ const PlayGame = (props) => {
     await axios.post("/api/place_order", orderTicket)
   }
 
+  const getSuggestionValue = (suggestion) => { 
+    setSymbolLabel(suggestion.label)
+    return suggestion.symbol
+  }
+
+  const renderSuggestion = (suggestion) => {
+    return (
+    < span>{suggestion.label}</span>
+    )
+  }
+
+  const onSymbolChange = (event, { newValue, method}) => {
+    setSymbolValue(newValue)
+  }
+
+  const onSuggestionsFetchRequested = async (text) => {
+    const response = await axios.post("/api/suggest_symbols", {text: text.value, withCredentials: true})
+    setSymbolSuggestions(response.data)
+  }
+
+  const onSuggestionsClearRequested = () => {
+    setSymbolSuggestions([])
+  }
+
+  const onSuggestionSelect = async () => {
+    fetchPrice(symbolValue)
+    setInterval(() => { 
+      fetchPrice(symbolValue)
+      }, 1000)
+  }
+
   const stopLimitElement = () => {
     return (
       <Form.Group>
@@ -46,7 +76,10 @@ const PlayGame = (props) => {
     )
   }
 
-  console.log(orderTicket)
+  const fetchPrice = async (symbol) => { 
+    const response = await axios.post("/api/fetch_price", {symbol: symbol, withCredentials: true})
+    setPrice(response.data)
+  }
 
   return (
     <Container>
@@ -58,14 +91,26 @@ const PlayGame = (props) => {
       </Row>
       <Form onSubmit={handleSubmit}>
         <Form.Group>
-          <Typeahead
-            id="typeahead-trades"
-            name="tradeForm"
-            options={["AMZN", "MSFT", "GOOG", "AAPL", "NFLX", "FB", "TSLA"]}
-            placeholder="What are we trading today?"
-            onChange={handleTickerChange}
-          />
+          {symbolSuggestions && <Autosuggest
+            suggestions={symbolSuggestions}
+            onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+            onSuggestionsClearRequested={onSuggestionsClearRequested}
+            getSuggestionValue={getSuggestionValue}
+            renderSuggestion={renderSuggestion}
+            onSuggestionSelected={onSuggestionSelect}
+            inputProps = {{
+              placeholder: "What are we trading today?",
+              value: symbolValue,
+              onChange: onSymbolChange
+            }}
+          />}
         </Form.Group>
+        <Row>
+          <Form.Label>{symbolLabel}</Form.Label>
+        </Row>
+        <Row>
+          <Form.Label>{price ? "$" : null}{price}</Form.Label>
+        </Row>
       
         <Form.Group>
         <Form.Label>Buy or Sell</Form.Label>

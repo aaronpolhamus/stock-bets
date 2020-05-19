@@ -32,3 +32,26 @@ def fetch_price(symbol):
 
 def async_fetch_price(symbol):
     return fetch_price.delay(symbol)
+
+
+@celery.task(name="tasks.async_suggest_symbol")
+def fetch_symbol(text):
+    to_match = f"{text.upper()}%"
+    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+    suggest_query = """
+        SELECT * FROM symbols
+        WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;;
+    """
+
+    with engine.connect() as conn:
+        symbol_suggestions = conn.execute(suggest_query, (to_match, to_match))
+
+    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
+def async_fetch_symbol(text):
+    return fetch_symbol.delay(text)
+
+
+if __name__ == '__main__':
+    async_update_symbols()

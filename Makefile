@@ -20,8 +20,8 @@ worker-logs:
 worker-up:
 	docker-compose up -d worker
 
-worker-down:
-	docker-compose down worker
+worker-stop:
+	docker-compose stop worker
 
 worker-build:
 	docker-compose build worker

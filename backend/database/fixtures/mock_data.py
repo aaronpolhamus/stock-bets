@@ -47,7 +47,6 @@ MOCK_DATA = {
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0}
     ],
-
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4]},
         {"game_id": 2, "status": "pending", "timestamp": 1589368260.0, "users": [1, 4]},
@@ -55,6 +54,34 @@ MOCK_DATA = {
         {"game_id": 3, "status": "active", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]},
         {"game_id": 4, "status": "pending", "timestamp": 1589281860.0, "users": [3, 4, 5]},
         {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]}
+    ],
+    "symbols": [
+        {"symbol": "MSFT", "name": "MICROSOFT"},
+        {"symbol": "AAPL", "name": "APPLE"},
+        {"symbol": "AMZN", "name": "AMAZON"},
+        {"symbol": "GOOG", "name": "ALPHABET CLASS C"},
+        {"symbol": "GOOGL", "name": "ALPHABET CLASS A"},
+        {"symbol": "FACEBOOK", "name": "FB"},
+        {"symbol": "BRK.B", "name": "BERKSHIRE HATHAWAY CLASS B"},
+        {"symbol": "JNJ", "name": "JNJ"},
+        {"symbol": "V", "name": "VISA"},
+        {"symbol": "PG", "name": "PROCTOR AND GAMBLE"},
+        {"symbol": "JPM", "name": "JP MORGAN"},
+        {"symbol": "UNH", "name": "UNITED HEALTH"},
+        {"symbol": "MA", "name": "MASTERCARD"},
+        {"symbol": "INTC", "name": "INTEL"},
+        {"symbol": "VZ", "name": "VERIZON"},
+        {"symbol": "HD", "name": "HOME DEPOT"},
+        {"symbol": "T", "name": "AT&T"},
+        {"symbol": "PFE", "name": "PFIZER"},
+        {"symbol": "MRK", "name": "MERCK"},
+        {"symbol": "PEP", "name": "PEPSICO"},
+        {"symbol": "TSLA", "name": "TESLA"},
+        {"symbol": "LYFT", "name": "LYFT"},
+        {"symbol": "SPXU", "name": "SPY PROSHARES ISHORT 3X"},
+        {"symbol": "MELI", "name": "MERCADO LIBRE"},
+        {"symbol": "NVDA", "name": "NVIDIA"},
+        {"symbol": "NKE", "name": "NIKE"},
     ]
 }
 

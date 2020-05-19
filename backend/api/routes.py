@@ -6,7 +6,9 @@ import pandas as pd
 import requests
 import time
 from backend.database.db import db
-from backend.tasks.definitions import async_fetch_price
+from backend.tasks.definitions import (
+    async_fetch_price,
+    async_fetch_symbol)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -292,6 +294,7 @@ def create_game():
 @authenticate
 def game_info():
     # decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
+    # decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     # user_id = decoded_session_token["user_id"]
     game_id = request.json["game_id"]
     with db.engine.connect() as conn:
@@ -326,7 +329,7 @@ def place_order():
 
 
 @routes.route("/api/fetch_price", methods=["POST"])
-# @authenticate
+@authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
     res = async_fetch_price(symbol)
@@ -335,6 +338,16 @@ def fetch_price():
     return jsonify(res.get()[0])
 
 
+@routes.route("/api/suggest_symbols", methods=["POST"])
+@authenticate
+def suggest_symbol():
+    text = request.json["text"]
+    res = async_fetch_symbol(text)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+
 @routes.route("/healthcheck", methods=["GET"])
 def healthcheck():
-   return make_response(HEALTH_CHECK_RESPONSE, 200)
+    return make_response(HEALTH_CHECK_RESPONSE, 200)
