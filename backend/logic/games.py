@@ -49,3 +49,6 @@ TIME_IN_FORCE_TYPES = unpack_enumerated_field_mappings(TimeInForce)
 def make_random_game_title():
     title_iterator = iter(RandomNameGenerator())
     return next(title_iterator).replace("_", " ")  # TODO: Enforce uniqueness at some point here
+
+
+# def submit_order(order_ticket):

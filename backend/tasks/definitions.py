@@ -1,8 +1,9 @@
 from sqlalchemy import create_engine
 
 from backend.tasks.celery import celery
+from backend.tasks.redis import r
 from backend.config import Config
-from backend.logic.stock_data import get_symbols_table, fetch_iex_price
+from backend.logic.stock_data import get_symbols_table, fetch_iex_price, during_trading_day
 
 
 @celery.task(name="tasks.async_update_symbols", bind=True, default_retry_delay=10)
@@ -32,6 +33,18 @@ def fetch_price(symbol):
 
 def async_fetch_price(symbol):
     return fetch_price.delay(symbol)
+
+
+@celery.task(name="tasks.async_cache_price")
+def cache_price(symbol: str, price: float, last_updated: float):
+    """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
+    unnecessary data API call.
+    """
+    r.set(symbol, f"{price}_{last_updated}")
+
+
+def async_cache_price(symbol: str, price: float, last_updated: float):
+    cache_price.delay(symbol, price, last_updated)
 
 
 @celery.task(name="tasks.async_suggest_symbol")

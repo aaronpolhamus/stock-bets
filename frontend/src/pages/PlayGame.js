@@ -11,8 +11,8 @@ const PlayGame = (props) => {
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
   const [symbolValue, setSymbolValue] = useState("")
   const [symbolLabel, setSymbolLabel] = useState("")
-  const [priceSwitch, setPriceSwitch] = useState(false)
-  const [price, setPrice] = useState(null)
+  const [priceData, setPriceData] = useState(null)
+  const [intervalId, setintervalId] = useState(null)
 
   useEffect(() => {
     fetchGameInfo(props.location.game_id) // ask matheus or julio about a better way to do this
@@ -32,7 +32,10 @@ const PlayGame = (props) => {
 
   const handleSubmit = async (e) => { 
     e.preventDefault()
-    await axios.post("/api/place_order", orderTicket)
+    let orderTicketCopy = {...orderTicket}
+    orderTicketCopy["symbol"] = symbolValue
+    console.log(orderTicketCopy)
+    // await axios.post("/api/place_order", orderTicket)
   }
 
   const getSuggestionValue = (suggestion) => { 
@@ -59,11 +62,16 @@ const PlayGame = (props) => {
     setSymbolSuggestions([])
   }
 
-  const onSuggestionSelect = async () => {
-    fetchPrice(symbolValue)
-    setInterval(() => { 
-      fetchPrice(symbolValue)
-      }, 1000)
+  const onSuggestionSelected = (event, { suggestion, suggestionValue, suggestionIndex, sectionIndex, method }) => {
+    if (intervalId) { 
+      clearInterval(intervalId)
+    }
+
+    fetchPrice(suggestionValue)
+    const newIntervalID = setInterval(() => { 
+      fetchPrice(suggestionValue)
+    }, 2500)    
+    setintervalId(newIntervalID)
   }
 
   const stopLimitElement = () => {
@@ -78,7 +86,7 @@ const PlayGame = (props) => {
 
   const fetchPrice = async (symbol) => { 
     const response = await axios.post("/api/fetch_price", {symbol: symbol, withCredentials: true})
-    setPrice(response.data)
+    setPriceData(response.data)
   }
 
   return (
@@ -97,7 +105,7 @@ const PlayGame = (props) => {
             onSuggestionsClearRequested={onSuggestionsClearRequested}
             getSuggestionValue={getSuggestionValue}
             renderSuggestion={renderSuggestion}
-            onSuggestionSelected={onSuggestionSelect}
+            onSuggestionSelected={onSuggestionSelected}
             inputProps = {{
               placeholder: "What are we trading today?",
               value: symbolValue,
@@ -109,7 +117,7 @@ const PlayGame = (props) => {
           <Form.Label>{symbolLabel}</Form.Label>
         </Row>
         <Row>
-          <Form.Label>{price ? "$" : null}{price}</Form.Label>
+          <Form.Label>{priceData ? `$${priceData.price} (last updated: ${priceData.last_updated})` : null}</Form.Label>
         </Row>
       
         <Form.Group>

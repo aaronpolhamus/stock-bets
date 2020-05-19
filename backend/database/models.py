@@ -100,7 +100,7 @@ class Orders(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
-    ticker = db.Column(db.Text)
+    symbol = db.Column(db.Text)
     buy_or_sell = db.Column(db.Enum(BuyOrSell))
     quantity = db.Column(db.Integer)
     price = db.Column(db.Float(precision=32))

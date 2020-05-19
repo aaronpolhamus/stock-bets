@@ -11,6 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
+from backend.tasks.redis import r
 from backend.config import Config
 
 
@@ -77,3 +78,19 @@ def fetch_iex_price(symbol):
         timestamp = quote["latestUpdate"] / 1000
         price = quote["latestPrice"]
         return price, timestamp
+
+
+def fetch_end_of_day_cache(symbol):
+    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
+    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
+    None and use that a trigger to pull data
+    """
+    if not during_trading_day():
+        if r.exists(symbol):
+            price, update_time = r.get(symbol).split("_")
+            update_time = float(update_time)
+            seconds_delta = time.time() - update_time
+            ny_update_time = localize_timestamp(update_time)
+            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 16 and ny_update_time.minute >= 29:
+                return float(price), update_time
+    return None

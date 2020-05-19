@@ -6,8 +6,10 @@ import pandas as pd
 import requests
 import time
 from backend.database.db import db
+from backend.logic.stock_data import fetch_end_of_day_cache, localize_timestamp
 from backend.tasks.definitions import (
     async_fetch_price,
+    async_cache_price,
     async_fetch_symbol)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
@@ -327,15 +329,29 @@ def place_order():
     order_ticket = request.json
     order_ticket["user_id"] = user_id
 
+    # need method for quantity and quantity type translation
+
+    with db.engine.connect() as conn:
+        conn.execute(orders.insert(), order_ticket)
+
 
 @routes.route("/api/fetch_price", methods=["POST"])
 @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
+    cache_value = fetch_end_of_day_cache(symbol)
+    if cache_value is not None:
+        # If we have a valid end-of-trading day cache value, we'll use that here
+        return jsonify({"price": cache_value[0], "last_updated": localize_timestamp(cache_value[1])})
+
     res = async_fetch_price(symbol)
     while not res.ready():
         continue
-    return jsonify(res.get()[0])
+    price_data = res.get()
+    timestamp = price_data[1]
+    price = price_data[0]
+    async_cache_price(symbol, price, timestamp)
+    return jsonify({"price": price, "last_updated": localize_timestamp(timestamp)})
 
 
 @routes.route("/api/suggest_symbols", methods=["POST"])
