@@ -1,8 +1,8 @@
 """Logic for creating games and storing default parameters
 """
+import math
 
-from funkybob import RandomNameGenerator
-
+from backend.database.helpers import unpack_enumerated_field_mappings
 from backend.database.models import (
     GameModes,
     Benchmarks,
@@ -10,7 +10,8 @@ from backend.database.models import (
     OrderTypes,
     BuyOrSell,
     TimeInForce)
-from backend.database.helpers import unpack_enumerated_field_mappings
+from backend.logic.utils import CustomException
+from funkybob import RandomNameGenerator
 
 # Default make game settings
 # --------------------------
@@ -33,7 +34,6 @@ GAME_MODES = unpack_enumerated_field_mappings(GameModes)
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
 
-
 # Default play game settings
 # --------------------------
 DEFAULT_BUY_SELL = "buy"
@@ -44,6 +44,25 @@ DEFAULT_TIME_IN_FORCE = "day"
 TIME_IN_FORCE_TYPES = unpack_enumerated_field_mappings(TimeInForce)
 
 
+# Exceptions
+# ----------
+class InsufficientFunds(Exception):
+
+    def __str__(self):
+        return "Insufficient funds to complete this purchase"
+
+
+class InsufficientHoldings(CustomException):
+    def __init__(self, msg=None):
+        super(CustomException).__init__("You can't sell more of a position than you currently own", msg)
+
+
+class LimitError(Exception):
+    def __init__(self, msg=None):
+        super(CustomException).__init__(
+            "You've set your limit order below the current market price: this would effectively be a market order", msg)
+
+
 # Define a couple different helper functions
 # ------------------------------------------
 def make_random_game_title():
@@ -51,4 +70,51 @@ def make_random_game_title():
     return next(title_iterator).replace("_", " ")  # TODO: Enforce uniqueness at some point here
 
 
-# def submit_order(order_ticket):
+def stop_limit_qc(order_type, order_price, market_price):
+    """The conditions that would cause us to flag a stop/limit order don't depend on whether the ticket is buy or sell,
+    so we encompass that logic here
+    """
+
+    if order_type == "limit":
+        if order_price < market_price:
+            raise LimitError
+
+    if order_type == "stop":
+        if order_price > market_price:
+            raise LimitError(
+                "Your stop price is higher than the current market price: this would effectively be a market order")
+
+
+def qc_sell_order(order_type, quantity_type, order_price, market_price, amount, current_holding):
+    """this function checks the values provided by a sale order ticket, along with the user's current holdings, to
+    make sure that the transaction. Downstream methods will process it
+    """
+    assert quantity_type in QUANTITY_OPTIONS
+    assert order_type in ORDER_TYPES
+
+    if quantity_type == "Shares":
+        if amount < current_holding:
+            raise InsufficientHoldings
+
+    if quantity_type == "USD":
+        shares_to_sell = math.ceil(amount / order_price)
+        if shares_to_sell > current_holding:
+            InsufficientHoldings(f"You'd need {shares_to_sell} in order to make ${order_price} on this order")
+
+    stop_limit_qc(order_type, order_price, market_price)
+
+
+def qc_buy_order(order_type, quantity_type, order_price, market_price, amount, cash_balance):
+    """ditto to above, just for buy orders"""
+    assert quantity_type in QUANTITY_OPTIONS
+    assert order_type in ORDER_TYPES
+
+    if quantity_type == "Shares":
+        if amount * order_price > cash_balance:
+            raise InsufficientFunds
+
+    if quantity_type == "USD":
+        if amount > cash_balance:
+            raise InsufficientFunds
+
+    stop_limit_qc(order_type, order_price, market_price)

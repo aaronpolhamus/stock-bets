@@ -15,6 +15,10 @@ from backend.tasks.redis import r
 from backend.config import Config
 
 
+IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
+IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
+
+
 def localize_timestamp(ts, divide_by=1):
     utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
     tz = pytz.timezone('America/New_York')
@@ -71,7 +75,7 @@ def get_symbols_table():
 # ----------------------------------------------
 def fetch_iex_price(symbol):
     secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
-    base_url = "https://sandbox.iexapis.com/" if not Config.IEX_API_PRODUCTION else "https://cloud.iexapis.com/"
+    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
     res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
     if res.status_code == 200:
         quote = res.json()

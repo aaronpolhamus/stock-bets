@@ -340,6 +340,8 @@ def place_order():
 def fetch_price():
     symbol = request.json.get("symbol")
     cache_value = fetch_end_of_day_cache(symbol)
+    from flask import current_app
+    current_app.logger.debug(f"*** {symbol} ***")
     if cache_value is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
         return jsonify({"price": cache_value[0], "last_updated": localize_timestamp(cache_value[1])})

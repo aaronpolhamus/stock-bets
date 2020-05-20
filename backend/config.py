@@ -5,6 +5,10 @@ class Config:
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
 
+    # Game settings:
+    # --------------
+    GAME_STATUS_UPDATE_RATE = 5  # The n-minute interval on which to refresh all active game statuses
+
     # API security
     # --------
     SECRET_KEY = getenv("SECRET_KEY")

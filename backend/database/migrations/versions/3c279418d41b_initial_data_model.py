@@ -1,8 +1,8 @@
 """initial data model
 
-Revision ID: da892e610a80
+Revision ID: 3c279418d41b
 Revises: 
-Create Date: 2020-05-16 02:50:09.840002
+Create Date: 2020-05-19 22:28:32.063012
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'da892e610a80'
+revision = '3c279418d41b'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -70,7 +70,7 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('game_id', sa.Integer(), nullable=True),
-    sa.Column('ticker', sa.Text(), nullable=True),
+    sa.Column('symbol', sa.Text(), nullable=True),
     sa.Column('buy_or_sell', sa.Enum('buy', 'sell', name='buyorsell'), nullable=True),
     sa.Column('quantity', sa.Integer(), nullable=True),
     sa.Column('price', sa.Float(precision=32), nullable=True),
