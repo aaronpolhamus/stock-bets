@@ -14,14 +14,16 @@ from selenium.webdriver.chrome.options import Options
 from backend.tasks.redis import r
 from backend.config import Config
 
-
+TIMEZONE = 'America/New_York'
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
 
 def localize_timestamp(ts, divide_by=1):
+    """Given a POSIX timestamp, return the proper datetime signature for NYC
+    """
     utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
-    tz = pytz.timezone('America/New_York')
+    tz = pytz.timezone(TIMEZONE)
     return utc_dt.astimezone(tz)
 
 
@@ -34,7 +36,7 @@ def during_trading_day():
 
 
 # Selenium web scraper for keeping exchange symbols up to date
-# #-----------------------------------------------------------
+# ------------------------------------------------------------
 def get_web_table_object(timeout=20):
     print("starting selenium web driver...")
     options = Options()

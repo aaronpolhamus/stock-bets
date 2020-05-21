@@ -5,6 +5,11 @@ do
   sleep 1
 done
 
-flask db upgrade # construct the data model
+# construct the data model
+flask db upgrade
 
-python wsgi.py # start the web application
+# update timestamps on historical price mocks
+python -m database.fixtures.make_historical_price_data
+
+# start the web application
+python wsgi.py

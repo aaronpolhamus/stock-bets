@@ -135,3 +135,4 @@ dmypy.json
 *key.pem
 *chromedriver*
 scratch.py
+**price_records.json

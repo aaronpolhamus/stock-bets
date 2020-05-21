@@ -34,6 +34,7 @@ const PlayGame = (props) => {
     e.preventDefault()
     let orderTicketCopy = {...orderTicket}
     orderTicketCopy["symbol"] = symbolValue
+    orderTicketCopy["market_price"] = priceData.price
     console.log(orderTicketCopy)
     // await axios.post("/api/place_order", orderTicket)
   }

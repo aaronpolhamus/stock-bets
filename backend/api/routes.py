@@ -10,7 +10,8 @@ from backend.logic.stock_data import fetch_end_of_day_cache, localize_timestamp
 from backend.tasks.definitions import (
     async_fetch_price,
     async_cache_price,
-    async_fetch_symbol)
+    async_fetch_symbol,
+    async_place_order)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -53,6 +54,7 @@ USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
 GAME_CREATED_MSG = "Game created! "
 INVALID_OAUTH_PROVIDER_MSG = "Not a valid OAuth provider"
 MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
+ORDER_PLACED_MESSAGE = "Order placed successfully!"
 
 
 def verify_google_oauth(token_id):
@@ -148,7 +150,7 @@ def register_user():
     with db.engine.connect() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
         if user is None:
-            metadata = retrieve_meta_data()
+            metadata = retrieve_meta_data(db.engine)
             users = metadata.tables["users"]
             conn.execute(users.insert(), user_entry)
 
@@ -267,7 +269,7 @@ def create_game():
     # setup
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
-    metadata = retrieve_meta_data()
+    metadata = retrieve_meta_data(db.engine)
     game = metadata.tables["games"]
     game_status = metadata.tables["game_status"]
     users = metadata.tables["users"]
@@ -295,9 +297,6 @@ def create_game():
 @routes.route("/api/play_game_landing", methods=["POST"])
 @authenticate
 def game_info():
-    # decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    # decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    # user_id = decoded_session_token["user_id"]
     game_id = request.json["game_id"]
     with db.engine.connect() as conn:
         title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
@@ -323,16 +322,13 @@ def place_order():
     # setup
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
-    metadata = retrieve_meta_data()
-    orders = metadata.tables["orders"]
-    transactions = metadata.tables["transactions"]
-    order_ticket = request.json
+    order_ticket = request.json["order_ticket"]
     order_ticket["user_id"] = user_id
+    res = async_place_order(order_ticket, db.engine)
+    while not res.ready():
+        continue
 
-    # need method for quantity and quantity type translation
-
-    with db.engine.connect() as conn:
-        conn.execute(orders.insert(), order_ticket)
+    return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
 @routes.route("/api/fetch_price", methods=["POST"])

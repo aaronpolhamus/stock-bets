@@ -116,7 +116,7 @@ class OrderStatusTypes(Enum):
 
 
 class Transactions(db.Model):
-    __tablename__ = "transactions"
+    __tablename__ = "order_status"
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
@@ -125,21 +125,22 @@ class Transactions(db.Model):
     clear_price = db.Column(db.Float(precision=32), nullable=True)
 
 
-class BalanceTypes(Enum):
-    actual_cash = "ActualCash"
+class GameBalanceTypes(Enum):
     virtual_cash = "VirtualCash"
     virtual_stock = "VirtualStock"
 
 
-class Balances(db.Model):
-    __tablename__ = "balances"
+class GameBalances(db.Model):
+    __tablename__ = "game_balances"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    transaction_id = db.Column(db.Integer, db.ForeignKey("transactions.id"))
+    game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
+    order_status_id = db.Column(db.Integer, db.ForeignKey("order_status.id"))
     timestamp = db.Column(db.Float(precision=32))
-    balance_type = db.Column(db.Enum(BalanceTypes))
+    balance_type = db.Column(db.Enum(GameBalanceTypes))
     balance = db.Column(db.Float(precision=32))
+    symbol = db.Column(db.Text)
 
 
 class Symbols(db.Model):

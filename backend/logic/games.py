@@ -25,6 +25,7 @@ DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 48  # Default number of hours that we'll allow a game to stay open for
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
+SECONDS_IN_A_TRADING_DAY = 6.5 * 60 * 60
 
 """Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
@@ -63,11 +64,56 @@ class LimitError(Exception):
             "You've set your limit order below the current market price: this would effectively be a market order", msg)
 
 
-# Define a couple different helper functions
-# ------------------------------------------
 def make_random_game_title():
     title_iterator = iter(RandomNameGenerator())
     return next(title_iterator).replace("_", " ")  # TODO: Enforce uniqueness at some point here
+
+
+# Functions for handling placing and execution of orders
+# ------------------------------------------------------
+def get_current_game_cash_balance(conn, user_id, game_id):
+    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
+    execution to be passed in from the outside
+    """
+
+    sql_query = """
+        SELECT balance
+        FROM game_balances gb
+        INNER JOIN
+        (SELECT user_id, game_id, balance_type, max(id) as max_id
+          FROM game_balances
+          WHERE
+            user_id = %s AND
+            game_id = %s AND
+            balance_type = 'virtual_cash'
+          GROUP BY game_id, balance_type, user_id) grouped_gb
+        ON
+          gb.id = grouped_gb.max_id;    
+    """
+    return conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
+
+
+def get_current_stock_holding(conn, user_id, game_id, symbol):
+    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
+    execution to be passed in from the outside
+    """
+
+    sql_query = """
+        SELECT balance
+        FROM game_balances gb
+        INNER JOIN
+        (SELECT user_id, game_id, balance_type, max(id) as max_id
+          FROM game_balances
+          WHERE
+            user_id = %s AND
+            game_id = %s AND
+            symbol = %s AND
+            balance_type = 'virtual_stock'
+          GROUP BY game_id, balance_type, user_id) grouped_gb
+        ON
+          gb.id = grouped_gb.max_id;    
+    """
+    return conn.execute(sql_query, (user_id, game_id, symbol)).fetchone()[0]
 
 
 def stop_limit_qc(order_type, order_price, market_price):
@@ -118,3 +164,40 @@ def qc_buy_order(order_type, quantity_type, order_price, market_price, amount, c
             raise InsufficientFunds
 
     stop_limit_qc(order_type, order_price, market_price)
+
+
+def get_order_price(order_ticket):
+    order_type = order_ticket["order_type"]
+    if order_type == "market":
+        return order_ticket["market_price"]
+    if order_type in ["stop", "limit"]:
+        return order_ticket["stop_limit_price"]
+    raise Exception("Invalid order type for this ticket")
+
+
+def get_order_quantity(order_ticket):
+    quantity_type = order_ticket["quantity_type"]
+    amount = float(order_ticket["amount"])
+    order_price = get_order_price(order_ticket)
+
+    if quantity_type == "USD":
+        return int(amount / order_price)
+    elif quantity_type == "Share":
+        return amount
+    Exception("Invalid quantity type for this ticket")
+
+
+def get_all_open_orders(engine):
+    sql_query = """
+        SELECT os.order_id, os.timestamp
+        FROM order_status os
+        INNER JOIN
+        (SELECT order_id, max(id) as max_id
+          FROM order_status
+          GROUP BY order_id) grouped_os
+        ON
+          os.id = grouped_os.max_id
+        WHERE os.status = 'pending';
+    """
+    with engine.connect() as conn:
+        return conn.execute(sql_query).fetch_all()

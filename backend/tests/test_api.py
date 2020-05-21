@@ -17,7 +17,9 @@ from backend.database.fixtures.mock_data import (
     DUMMY_USER_EMAIL,
     make_mock_data
 )
-from backend.database.helpers import retrieve_meta_data
+from backend.database.helpers import (
+    retrieve_meta_data
+)
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.games import (
     unpack_enumerated_field_mappings,
@@ -259,7 +261,7 @@ class TestAPI(unittest.TestCase):
         time_diff = abs((status_entry[4] - current_time))
         self.assertLess(time_diff, 1)
         invited_users = json.loads(status_entry[3])
-        metadata = retrieve_meta_data()
+        metadata = retrieve_meta_data(self.engine)
         users = metadata.tables["users"]
         invitees = tuple(game_settings["invitees"] + [user_name])
         with self.engine.connect() as conn:
