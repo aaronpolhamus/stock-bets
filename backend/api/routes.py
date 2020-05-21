@@ -11,7 +11,8 @@ from backend.tasks.definitions import (
     fetch_price,
     cache_price,
     fetch_symbols,
-    place_order)
+    place_order,
+    update_game_table)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -271,26 +272,7 @@ def create_game():
     user_id = decoded_session_token["user_id"]
     game_settings = request.json
     game_settings["creator_id"] = user_id
-
-    metadata = retrieve_meta_data(db.engine)
-    game = metadata.tables["games"]
-    game_status = metadata.tables["game_status"]
-    users = metadata.tables["users"]
-
-    # update game table
-    opened_at = time.time()
-    game_settings["invite_window"] = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
-    with db.engine.connect() as conn:
-        result = conn.execute(game.insert(), game_settings)
-        # Update game status table
-        game_id = result.inserted_primary_key[0]
-        invitees = tuple(game_settings["invitees"])
-        invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
-        user_ids = [x[0] for x in invitee_ids]
-        user_ids.append(user_id)
-        status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
-        conn.execute(game_status.insert(), status_entry)
-
+    res = update_game_table.delay(db.engine, game_settings)
     return make_response(GAME_CREATED_MSG, 200)
 
 
@@ -327,7 +309,6 @@ def place_order():
     res = place_order.delay(order_ticket, db.engine)
     while not res.ready():
         continue
-
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 

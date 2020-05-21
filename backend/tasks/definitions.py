@@ -15,7 +15,8 @@ from backend.logic.games import (
     get_all_open_orders,
     get_order_price,
     get_order_quantity,
-    SECONDS_IN_A_TRADING_DAY
+    SECONDS_IN_A_TRADING_DAY,
+    DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
     get_symbols_table,
@@ -23,7 +24,7 @@ from backend.logic.stock_data import (
 )
 from backend.tasks.celery import celery
 from backend.tasks.redis import r
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 
 
 @celery.task(name="tasks.update_symbols", bind=True, default_retry_delay=10)
@@ -68,6 +69,38 @@ def fetch_symbols(text):
         symbol_suggestions = conn.execute(suggest_query, (to_match, to_match))
 
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
+@celery.task(name="task.update_game_table")
+def update_game_table(engine, game_settings):
+    metadata = retrieve_meta_data(engine)
+    games = metadata.tables["games"]
+    game_status = metadata.tables["game_status"]
+    users = metadata.tables["users"]
+
+    opened_at = time.time()
+    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
+
+    with engine.connect() as conn:
+        result = table_updater(conn, games,
+                               creator_id=game_settings["creator_id"],
+                               title=game_settings["title"],
+                               mode=game_settings["mode"],
+                               duration=game_settings["duration"],
+                               buy_in=game_settings["buy_in"],
+                               n_rebuys=game_settings["n_rebuys"],
+                               benchmark=game_settings["benchmark"],
+                               side_bets_perc=game_settings["side_bets_perc"],
+                               side_bets_period=game_settings["side_bets_period"],
+                               invite_window=invite_window)
+        # Update game status table
+        game_id = result.inserted_primary_key[0]
+        invitees = tuple(game_settings["invitees"])
+        invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
+        user_ids = [x[0] for x in invitee_ids]
+        user_ids.append(game_settings["creator_id"])
+        status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
+        conn.execute(game_status.insert(), status_entry)
 
 
 @celery.task(name="tasks.place_order")
