@@ -26,7 +26,7 @@ from backend.tasks.redis import r
 from sqlalchemy import create_engine
 
 
-@celery.task(name="tasks.async_update_symbols", bind=True, default_retry_delay=10)
+@celery.task(name="tasks.update_symbols", bind=True, default_retry_delay=10)
 def update_symbols_table(self):
     try:
         symbols_table = get_symbols_table()
@@ -39,11 +39,7 @@ def update_symbols_table(self):
         raise self.retry(exc=exc)
 
 
-def async_update_symbols():
-    update_symbols_table.delay()
-
-
-@celery.task(name="tasks.async_fetch_price")
+@celery.task(name="tasks.fetch_price")
 def fetch_price(symbol):
     """For now this is just a silly wrapping step that allows us to decorate the external function into our celery tasks
     inventory. Lots of room to add future nuance here around different data providers, cache look-ups, etc.
@@ -51,11 +47,7 @@ def fetch_price(symbol):
     return fetch_iex_price(symbol)
 
 
-def async_fetch_price(symbol):
-    return fetch_price.delay(symbol)
-
-
-@celery.task(name="tasks.async_cache_price")
+@celery.task(name="tasks.cache_price")
 def cache_price(symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
@@ -63,12 +55,8 @@ def cache_price(symbol: str, price: float, last_updated: float):
     r.set(symbol, f"{price}_{last_updated}")
 
 
-def async_cache_price(symbol: str, price: float, last_updated: float):
-    cache_price.delay(symbol, price, last_updated)
-
-
-@celery.task(name="tasks.async_suggest_symbol")
-def fetch_symbol(text):
+@celery.task(name="tasks.fetch_symbols")
+def fetch_symbols(text):
     to_match = f"{text.upper()}%"
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     suggest_query = """
@@ -82,11 +70,7 @@ def fetch_symbol(text):
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
 
 
-def async_fetch_symbol(text):
-    return fetch_symbol.delay(text)
-
-
-@celery.task(name="tasks.async_place_order")
+@celery.task(name="tasks.place_order")
 def place_order(order_ticket):
     """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
@@ -151,10 +135,6 @@ def place_order(order_ticket):
                       clear_price=clear_price)
 
 
-def async_place_order(order_ticket, engine):
-    return place_order.delay(order_ticket, engine)
-
-
 @celery.task(name="tasks.async_process_single_order")
 def process_single_order(order_id, expiration, engine):
     session = make_db_session(engine)
@@ -174,7 +154,7 @@ def process_single_order(order_id, expiration, engine):
     order_price = order_ticket["price"]
     order_type = order_ticket["order_type"]
     time_in_force = order_ticket["time_in_force"]
-    market_price = async_fetch_price(symbol)
+    market_price = fetch_price.delay(symbol)
     while not market_price.ready():
         continue
 
@@ -209,7 +189,7 @@ def process_single_order(order_id, expiration, engine):
     return
 
 
-@celery.task(name="tasks.async_process_open_orders")
+@celery.task(name="tasks.process_open_orders")
 def process_open_orders():
     """Scheduled to update all orders across all games throughout the trading day
     """
@@ -217,7 +197,3 @@ def process_open_orders():
     open_orders = get_all_open_orders(engine)
     for order_id, expiration in open_orders:
         process_single_order.delay(order_id, expiration, engine)
-
-
-def async_process_open_orders():
-    process_open_orders.delay()

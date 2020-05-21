@@ -1,9 +1,8 @@
 import json
 import time
-import unittest
-
 import jwt
-import requests
+
+from backend.tests import BaseTestCase
 from backend.api.routes import (
     INVALID_SIGNATURE_ERROR_MSG,
     LOGIN_ERROR_MSG,
@@ -13,10 +12,7 @@ from backend.api.routes import (
     INVALID_OAUTH_PROVIDER_MSG,
     create_jwt
 )
-from backend.database.fixtures.mock_data import (
-    DUMMY_USER_EMAIL,
-    make_mock_data
-)
+from backend.database.fixtures.mock_data import DUMMY_USER_EMAIL
 from backend.database.helpers import (
     retrieve_meta_data
 )
@@ -33,21 +29,12 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from config import Config
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 
 HOST_URL = 'https://localhost:5000/api'
 
 
-class TestAPI(unittest.TestCase):
-
-    def setUp(self):
-        # Establish data base API and setup mock data
-        self.engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-        self.session = requests.Session()
-        make_mock_data()
-
-    def tearDown(self):
-        self.session.close()
+class TestAPI(BaseTestCase):
 
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick

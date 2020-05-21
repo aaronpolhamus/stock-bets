@@ -1,19 +1,17 @@
-import json
-
 from backend.database.helpers import retrieve_meta_data, reset_db
+from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from config import Config
 from sqlalchemy import create_engine
+
+SECONDS_IN_A_DAY = 60 * 60 * 24
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 conn = engine.connect()
 metadata = retrieve_meta_data(engine)
 
-with open("./database/fixtures/caches/price_records.json") as json_file:
-    price_records = json.load(json_file)
-
+price_records = make_stock_data_records()
 market_order_time = min([record["timestamp"] for record in price_records])
 close_of_simulation_time = max([record["timestamp"] for record in price_records])
-seconds_in_a_day = 60 * 60 * 24
 
 
 def get_stock_start_price(symbol, records=price_records, order_time=market_order_time):
@@ -137,7 +135,7 @@ MOCK_DATA = {
         {"order_id": 7, "timestamp": market_order_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("MELI")},
         {"order_id": 8, "timestamp": market_order_time, "status": "pending", "clear_price": None},
-        {"order_id": 8, "timestamp": market_order_time + seconds_in_a_day, "status": "fulfilled",
+        {"order_id": 8, "timestamp": market_order_time + SECONDS_IN_A_DAY, "status": "fulfilled",
          "clear_price": get_stock_start_price("NVDA") * 1.05},
         {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
         {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None}
@@ -177,9 +175,9 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 53985.8575, "symbol": None},
         {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": market_order_time,
          "balance_type": "virtual_stock", "balance": 60, "symbol": "MELI"},
-        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + seconds_in_a_day,
+        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + SECONDS_IN_A_DAY,
          "balance_type": "virtual_cash", "balance": 54405.28330175001, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + seconds_in_a_day,
+        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + SECONDS_IN_A_DAY,
          "balance_type": "virtual_stock", "balance": 5, "symbol": "NVDA"},
     ]
 }
@@ -188,7 +186,6 @@ MOCK_DATA = {
 def make_mock_data():
     # reset the database for each test class in order to maintain consistency of auto-incremented IDs
     reset_db()
-
     table_names = MOCK_DATA.keys()
     for table in table_names:
         # first flush all data from all tables

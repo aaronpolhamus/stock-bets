@@ -66,7 +66,7 @@ class LimitError(Exception):
 
 def make_random_game_title():
     title_iterator = iter(RandomNameGenerator())
-    return next(title_iterator).replace("_", " ")  # TODO: Enforce uniqueness at some point here
+    return next(title_iterator).replace("_", " ")
 
 
 # Functions for handling placing and execution of orders
