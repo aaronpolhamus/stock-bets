@@ -50,7 +50,11 @@ backend-bash:
 	docker-compose exec backend bash
 
 backend-test:
-	docker-compose exec backend python -m unittest discover tests
+	docker-compose exec backend coverage run --source . -m unittest discover
+	docker-compose exec backend coverage report
+
+backend-stop:
+	docker-compose exec backend stop
 
 # frontend 
 # --------

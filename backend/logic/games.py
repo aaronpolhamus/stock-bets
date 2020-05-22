@@ -24,7 +24,6 @@ DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 48  # Default number of hours that we'll allow a game to stay open for
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
-SECONDS_IN_A_TRADING_DAY = 6.5 * 60 * 60
 
 """Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 

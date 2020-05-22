@@ -1,13 +1,16 @@
 import json
 import os
 from datetime import datetime as dt
-import time
 
 import pandas as pd
 import pytz
 import requests
 
-from backend.logic.stock_data import IEX_BASE_PROD_URL, TIMEZONE
+from backend.logic.stock_data import (
+    datetime_to_posix,
+    IEX_BASE_PROD_URL,
+    TIMEZONE
+)
 
 DOWNLOAD = False
 IEX_KEY = os.getenv("IEX_API_SECRET_PROD")
@@ -38,8 +41,7 @@ def make_stock_data_records():
                 str_time = f"{simulated_date} {record['minute']}"
                 base_date = pd.to_datetime(str_time, format="%Y-%m-%d %H:%M")
                 localized_date = timezone.localize(base_date)
-                utc_date = localized_date.astimezone(pytz.utc)
-                posix_time = time.mktime(utc_date.timetuple())
+                posix_time = datetime_to_posix(localized_date)
                 price_records.append(dict(symbol=stock_symbol, price=record["average"], timestamp=posix_time))
     return price_records
 

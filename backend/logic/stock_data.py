@@ -1,8 +1,10 @@
+import calendar
 from datetime import datetime as dt
 import sys
 import time
 
 import pandas as pd
+import pandas_market_calendars as mcal
 import pytz
 import requests
 from selenium import webdriver
@@ -17,22 +19,30 @@ from backend.config import Config
 TIMEZONE = 'America/New_York'
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
+SECONDS_IN_A_TRADING_DAY = 6.5 * 60 * 60
+
+nyse = mcal.get_calendar('NYSE')
 
 
-def localize_timestamp(ts, divide_by=1):
-    """Given a POSIX timestamp, return the proper datetime signature for NYC
-    """
+def posix_to_datetime(ts, divide_by=1, timezone=TIMEZONE):
     utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
-    tz = pytz.timezone(TIMEZONE)
+    tz = pytz.timezone(timezone)
     return utc_dt.astimezone(tz)
 
 
-def during_trading_day():
-    nyc_time = localize_timestamp(time.time())
-    past_open = nyc_time.hour >= 9
-    before_close = nyc_time.hour <= 16 and nyc_time.minute <= 30
-    business_day = bool(len(pd.bdate_range(nyc_time, nyc_time)))
-    return past_open and before_close and business_day
+def datetime_to_posix(localized_date):
+    return calendar.timegm(localized_date.utctimetuple())
+
+
+def during_trading_day(posix_time=None):
+    if posix_time is None:
+        posix_time = time.time()
+    nyc_time = posix_to_datetime(posix_time)
+    schedule = nyse.schedule(nyc_time, nyc_time)
+    if schedule.empty:
+        return False
+    start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
+    return start_day <= posix_time < end_day
 
 
 # Selenium web scraper for keeping exchange symbols up to date
@@ -96,7 +106,7 @@ def fetch_end_of_day_cache(symbol):
             price, update_time = r.get(symbol).split("_")
             update_time = float(update_time)
             seconds_delta = time.time() - update_time
-            ny_update_time = localize_timestamp(update_time)
+            ny_update_time = posix_to_datetime(update_time)
             if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 16 and ny_update_time.minute >= 29:
                 return float(price), update_time
     return None

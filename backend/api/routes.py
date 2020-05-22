@@ -6,7 +6,7 @@ import pandas as pd
 import requests
 import time
 from backend.database.db import db
-from backend.logic.stock_data import fetch_end_of_day_cache, localize_timestamp
+from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
     fetch_price,
     cache_price,
@@ -322,7 +322,7 @@ def fetch_price():
     current_app.logger.debug(f"*** {symbol} ***")
     if cache_value is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": cache_value[0], "last_updated": localize_timestamp(cache_value[1])})
+        return jsonify({"price": cache_value[0], "last_updated": posix_to_datetime(cache_value[1])})
 
     res = fetch_price.delay(symbol)
     while not res.ready():
@@ -331,7 +331,7 @@ def fetch_price():
     timestamp = price_data[1]
     price = price_data[0]
     cache_price.delay(symbol, price, timestamp)
-    return jsonify({"price": price, "last_updated": localize_timestamp(timestamp)})
+    return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
 
 @routes.route("/api/suggest_symbols", methods=["POST"])

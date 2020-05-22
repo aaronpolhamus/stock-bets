@@ -15,12 +15,12 @@ from backend.logic.games import (
     get_all_open_orders,
     get_order_price,
     get_order_quantity,
-    SECONDS_IN_A_TRADING_DAY,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
     get_symbols_table,
-    fetch_iex_price
+    fetch_iex_price,
+    SECONDS_IN_A_TRADING_DAY,
 )
 from backend.tasks.celery import celery, SqlAlchemyTask
 from backend.tasks.redis import r
