@@ -39,11 +39,11 @@ class TestAPI(BaseTestCase):
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
         # registration error with faked token
-        res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"}, verify=False)
         self.assertEqual(res.status_code, 411)
         self.assertEqual(res.text, OAUTH_ERROR_MSG)
 
-        res = self.session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"}, verify=False)
         self.assertEqual(res.status_code, 411)
         self.assertEqual(res.text, INVALID_OAUTH_PROVIDER_MSG)
 
@@ -57,7 +57,7 @@ class TestAPI(BaseTestCase):
         self.assertEqual(decoded_token["user_id"], user_id)
         self.assertEqual(decoded_token["username"], username)
 
-        res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         data = res.json()
         # check basic profile info
@@ -80,25 +80,25 @@ class TestAPI(BaseTestCase):
         self.assertTrue(excluded_game_id not in game_ids_from_response)
 
         # logout -- this should blow away the previously created session token, logging out the user
-        res = self.session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
         erase_cookie_msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; HttpOnly; Path=/'
         self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
 
         # expired token...
         session_token = create_jwt(email, user_id, None, mins_per_session=1 / 60)
         time.sleep(2)
-        res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 401)
         self.assertEqual(res.text, SESSION_EXP_ERROR_MSG)
 
         # no session token sent -- user tried to skip the login step and go directly to landing page
-        res = self.session.post(f"{HOST_URL}/home", verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/home", verify=False)
         self.assertEqual(res.status_code, 401)
         self.assertEqual(res.text, LOGIN_ERROR_MSG)
 
         # session token sent, but wasn't encrypted with our SECRET_KEY
         session_token = create_jwt(email, user_id, None, secret_key="itsasecret")
-        res = self.session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 401)
         self.assertEqual(res.text, INVALID_SIGNATURE_ERROR_MSG)
 
@@ -110,7 +110,7 @@ class TestAPI(BaseTestCase):
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
-        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
+        res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
@@ -128,7 +128,7 @@ class TestAPI(BaseTestCase):
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", DUMMY_USER_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
-        res = self.session.post(f"{HOST_URL}/set_username", json={"username": new_username},
+        res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                 cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
@@ -138,7 +138,7 @@ class TestAPI(BaseTestCase):
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
         session_token = create_jwt(email, user_id, user_name)
-        res = self.session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         game_defaults = res.json()
 
@@ -205,12 +205,12 @@ class TestAPI(BaseTestCase):
             "duration": 365,
             "mode": "winner_takes_all",
             "n_rebuys": 3,
-            "invitees": ["miguel", "toofast", "murcitdev", "peaches"],
+            "invitees": ["miguel", "toofast", "murcitdev"],
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
         }
-        res = self.session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
                                 json=game_settings)
         current_time = time.time()
         self.assertEqual(res.status_code, 200)

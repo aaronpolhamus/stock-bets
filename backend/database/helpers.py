@@ -2,7 +2,6 @@
 """
 import os
 
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, MetaData
 from config import Config
 
@@ -37,13 +36,6 @@ def orm_row_to_dict(row):
     """
     column_names = [column["name"] for column in row.column_descriptions]
     return {name: row.value(name) for name in column_names}
-
-
-def make_db_session(engine):
-    """Quick wrapper to save ourselves some extra lines and imports
-    """
-    Session = sessionmaker(bind=engine)
-    return Session()
 
 
 def table_updater(conn, table_orm, **kwargs):

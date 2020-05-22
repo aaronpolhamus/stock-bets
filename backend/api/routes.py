@@ -267,12 +267,13 @@ def game_defaults():
 @routes.route("/api/create_game", methods=["POST"])
 @authenticate
 def create_game():
-    # setup
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
     game_settings = request.json
     game_settings["creator_id"] = user_id
-    res = update_game_table.delay(db.engine, game_settings)
+    res = update_game_table.delay(game_settings)
+    while not res.ready():
+        continue
     return make_response(GAME_CREATED_MSG, 200)
 
 

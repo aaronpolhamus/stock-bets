@@ -1,10 +1,10 @@
 import time
 
 from backend.config import Config
+from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
     orm_row_to_dict,
-    make_db_session,
     table_updater
 )
 from backend.logic.games import (
@@ -22,20 +22,20 @@ from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price
 )
-from backend.tasks.celery import celery
+from backend.tasks.celery import celery, SqlAlchemyTask
 from backend.tasks.redis import r
 from sqlalchemy import create_engine, select
 
 
-@celery.task(name="tasks.update_symbols", bind=True, default_retry_delay=10)
+@celery.task(name="tasks.update_symbols", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
 def update_symbols_table(self):
     try:
         symbols_table = get_symbols_table()
-        engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
         print("writing to db...")
-        with engine.connect() as conn:
-            conn.execute("TRUNCATE TABLE symbols;")
+        db_session.execute("TRUNCATE TABLE symbols;")
+        with db_session.connection() as conn:
             symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
+            db_session.commit()
     except Exception as exc:
         raise self.retry(exc=exc)
 
@@ -71,17 +71,17 @@ def fetch_symbols(text):
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
 
 
-@celery.task(name="task.update_game_table")
-def update_game_table(engine, game_settings):
-    metadata = retrieve_meta_data(engine)
-    games = metadata.tables["games"]
-    game_status = metadata.tables["game_status"]
-    users = metadata.tables["users"]
-
+@celery.task(name="task.update_game_table", bind=True, base=SqlAlchemyTask)
+def update_game_table(self, game_settings):
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
 
-    with engine.connect() as conn:
+    with db_session.connection() as conn:
+        metadata = retrieve_meta_data(conn)
+        games = metadata.tables["games"]
+        game_status = metadata.tables["game_status"]
+        users = metadata.tables["users"]
+
         result = table_updater(conn, games,
                                creator_id=game_settings["creator_id"],
                                title=game_settings["title"],
@@ -93,6 +93,9 @@ def update_game_table(engine, game_settings):
                                side_bets_perc=game_settings["side_bets_perc"],
                                side_bets_period=game_settings["side_bets_period"],
                                invite_window=invite_window)
+        db_session.commit()
+
+    with db_session.connection() as conn:
         # Update game status table
         game_id = result.inserted_primary_key[0]
         invitees = tuple(game_settings["invitees"])
@@ -101,9 +104,10 @@ def update_game_table(engine, game_settings):
         user_ids.append(game_settings["creator_id"])
         status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
         conn.execute(game_status.insert(), status_entry)
+        db_session.commit()
 
 
-@celery.task(name="tasks.place_order")
+@celery.task(name="tasks.place_order", base=SqlAlchemyTask)
 def place_order(order_ticket):
     """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
@@ -111,9 +115,6 @@ def place_order(order_ticket):
     checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
     an ongoing basis by the celery schedule and book as their requirements are satisfies
     """
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    metadata = retrieve_meta_data(engine)
-
     # set the transaction time
     timestamp = time.time()
 
@@ -132,7 +133,8 @@ def place_order(order_ticket):
     order_quantity = get_order_quantity(order_ticket)
 
     # check transaction validity
-    with engine.connect() as conn:
+    with db_session.connection() as conn:
+        metadata = retrieve_meta_data(conn)
         cash_balance = get_current_game_cash_balance(conn, user_id, game_id)
         current_holding = get_current_stock_holding(conn, user_id, game_id, symbol)
 
@@ -149,7 +151,9 @@ def place_order(order_ticket):
         result = table_updater(conn, orders, user_id=user_id, game_id=game_id, symbol=symbol, buy_or_sell=buy_or_sell,
                                quantity=order_quantity, price=order_price, order_type=order_type,
                                time_in_force=time_in_force)
+        db_session.commit()
 
+    with db_session.connection() as conn:
         order_status = metadata.tables["order_status"]
         game_balances = metadata.table["game_balances"]
         if order_type == "market":
@@ -163,36 +167,39 @@ def place_order(order_ticket):
         else:
             status = "pending"
             clear_price = None
+        db_session.commit()
 
+    with db_session.connection() as conn:
         table_updater(conn, order_status, order_id=result.inserted_primary_key[0], timestamp=timestamp, status=status,
                       clear_price=clear_price)
+        db_session.commit()
 
 
-@celery.task(name="tasks.async_process_single_order")
-def process_single_order(order_id, expiration, engine):
-    session = make_db_session(engine)
-    meta = retrieve_meta_data(engine)
-    orders = meta.tables["orders"]
-    order_status = meta.tables["order_status"]
-    game_balances = meta["game_balances"]
-    row = session.query(orders).filter(orders.c.id == order_id)
-    order_ticket = orm_row_to_dict(row)
+@celery.task(name="tasks.async_process_single_order", base=SqlAlchemyTask)
+def process_single_order(order_id, expiration):
 
-    order_id = order_ticket["id"]
-    user_id = order_ticket["user_id"]
-    game_id = order_ticket["game_id"]
-    symbol = order_ticket["symbol"]
-    buy_or_sell = order_ticket["buy_or_sell"]
-    quantity = order_ticket["quantity"]
-    order_price = order_ticket["price"]
-    order_type = order_ticket["order_type"]
-    time_in_force = order_ticket["time_in_force"]
-    market_price = fetch_price.delay(symbol)
-    while not market_price.ready():
-        continue
+    with db_session.connection() as conn:
+        timestamp = time.time()
+        meta = retrieve_meta_data(conn)
+        orders = meta.tables["orders"]
+        order_status = meta.tables["order_status"]
+        game_balances = meta["game_balances"]
+        row = db_session.query(orders).filter(orders.c.id == order_id)
+        order_ticket = orm_row_to_dict(row)
 
-    timestamp = time.time()
-    with engine.connect() as conn:
+        order_id = order_ticket["id"]
+        user_id = order_ticket["user_id"]
+        game_id = order_ticket["game_id"]
+        symbol = order_ticket["symbol"]
+        buy_or_sell = order_ticket["buy_or_sell"]
+        quantity = order_ticket["quantity"]
+        order_price = order_ticket["price"]
+        order_type = order_ticket["order_type"]
+        time_in_force = order_ticket["time_in_force"]
+        market_price = fetch_price.delay(symbol)
+        while not market_price.ready():
+            continue
+
         if time_in_force == "day":
             if time.time() - expiration > SECONDS_IN_A_TRADING_DAY:
                 table_updater(conn, order_status, order_id=order_id, timestamp=timestamp, status="expired",
@@ -219,6 +226,7 @@ def process_single_order(order_id, expiration, engine):
                           balance_type="virtual_stock", balance=current_holding + sign * quantity)
             table_updater(conn, order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
                           clear_price=market_price)
+        db_session.commit()
     return
 
 
