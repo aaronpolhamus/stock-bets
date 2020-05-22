@@ -1,5 +1,5 @@
-from backend.database.helpers import retrieve_meta_data, reset_db
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
+from backend.database.helpers import retrieve_meta_data, reset_db
 from config import Config
 from sqlalchemy import create_engine
 
@@ -118,6 +118,8 @@ MOCK_DATA = {
          "price": get_stock_finish_price("MELI") * 0.9, "order_type": "limit", "time_in_force": "until_cancelled"},
         {"user_id": 1, "game_id": 3, "symbol": "SPXU", "buy_or_sell": "sell", "quantity": 300,
          "price": get_stock_finish_price("SPXU") * 0.75, "order_type": "stop", "time_in_force": "until_cancelled"},
+        {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "sell", "quantity": 2,
+         "price": get_stock_finish_price("AMZN"), "order_type": "market", "time_in_force": "day"},
     ],
     "order_status": [
         {"order_id": 1, "timestamp": market_order_time, "status": "fulfilled",
@@ -138,7 +140,9 @@ MOCK_DATA = {
         {"order_id": 8, "timestamp": market_order_time + SECONDS_IN_A_DAY, "status": "fulfilled",
          "clear_price": get_stock_start_price("NVDA") * 1.05},
         {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
-        {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None}
+        {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
+        {"order_id": 11, "timestamp": close_of_simulation_time, "status": "fulfilled",
+         "clear_price": get_stock_finish_price("AMZN")}
     ],
     "game_balances": [
         {"user_id": 1, "game_id": 3, "order_status_id": None, "timestamp": market_order_time,
@@ -179,6 +183,10 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 54405.28330175001, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + SECONDS_IN_A_DAY,
          "balance_type": "virtual_stock", "balance": 5, "symbol": "NVDA"},
+        {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
+         "balance_type": "virtual_cash", "balance": 59140.23976175, "symbol": None},
+        {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
+         "balance_type": "virtual_stock", "balance": 3, "symbol": "AMZN"},
     ]
 }
 
