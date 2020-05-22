@@ -5,6 +5,10 @@ do
   sleep 1
 done
 
+# would be ideal not to worry about this, since we use Chromium instead of Firefox, but the webscraping
+# has been fragile due to versioning and this creates some redundancy
+./docker/install_geckodriver.sh
+
 # construct the data model
 flask db upgrade
 

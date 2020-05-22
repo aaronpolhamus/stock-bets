@@ -11,7 +11,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
 
 from backend.tasks.redis import r
 from backend.config import Config
@@ -49,12 +48,12 @@ def during_trading_day(posix_time=None):
 # ------------------------------------------------------------
 def get_web_table_object(timeout=20):
     print("starting selenium web driver...")
-    options = Options()
+    options = webdriver.ChromeOptions()
     options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
-    driver = webdriver.Chrome(executable_path="/home/backend/chromedriver", chrome_options=options)
-    driver.get("https://iextrading.com/trading/eligible-symbols/")
+    options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(chrome_options=options)
+    driver.get(Config.SYMBOLS_TABLE_URL)
     return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
 
 
@@ -66,7 +65,7 @@ def extract_row_data(row):
     return list_entry
 
 
-def get_symbols_table():
+def get_symbols_table(n_rows=None):
     table = get_web_table_object()
     rows = table.find_elements_by_tag_name("tr")
     row_list = list()
@@ -79,6 +78,8 @@ def get_symbols_table():
         row_list.append(list_entry)
         sys.stdout.write(f"\r{i} / {n} rows")
         sys.stdout.flush()
+        if n_rows and len(row_list) == n_rows:
+            break
 
     return pd.DataFrame(row_list)
 

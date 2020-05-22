@@ -9,11 +9,12 @@ RUN apt-get update \
   unzip \
   gnupg \
   libev-dev \
+  firefox \
+  chromium-chromedriver \
   netcat \
   python3.7 \
   python3-pip \
   python3-setuptools \
-  systemd \
   && cd /usr/local/bin \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*

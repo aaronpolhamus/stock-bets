@@ -6,10 +6,6 @@ do
 done
 
 # setup the chrome driver that we will use for webscraping
-curl -LO $CHROMIUM_DRIVER_LOCATION
-unzip chromedriver_linux64.zip
-
-# clean up compressed zip files
-rm -rf *zip
+./docker/install_geckodriver.sh
 
 celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info

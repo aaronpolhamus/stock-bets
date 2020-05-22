@@ -9,8 +9,6 @@ from backend.logic.stock_data import (
     posix_to_datetime,
     datetime_to_posix,
     during_trading_day,
-    get_web_table_object,
-    extract_row_data,
     get_symbols_table,
     fetch_iex_price,
     fetch_end_of_day_cache,
@@ -62,7 +60,9 @@ class TestStockDataLogic(unittest.TestCase):
         build the selection inventory for the frontend. Although the core data source will change in the future, these
         operations need to remain intact.
         """
-        pass
+        symbols_table = get_symbols_table(3)
+        self.assertEqual(symbols_table.shape, (3, 2))
+        self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
     def test_price_fetchers(self):
         pass

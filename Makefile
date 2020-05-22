@@ -53,9 +53,6 @@ backend-test:
 	docker-compose exec backend coverage run --source . -m unittest discover
 	docker-compose exec backend coverage report
 
-backend-stop:
-	docker-compose exec backend stop
-
 # frontend 
 # --------
 

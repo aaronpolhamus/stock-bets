@@ -4,6 +4,7 @@ from os import getenv
 class Config:
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
+    SYMBOLS_TABLE_URL = "https://iextrading.com/trading/eligible-symbols/"
 
     # Game settings:
     # --------------
