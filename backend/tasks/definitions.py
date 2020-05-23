@@ -27,7 +27,7 @@ from backend.tasks.redis import rds
 from sqlalchemy import create_engine, select
 
 
-@celery.task(name="tasks.update_symbols", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
+@celery.task(name="update_symbols", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
 def update_symbols_table(self):
     try:
         symbols_table = get_symbols_table()
@@ -40,7 +40,7 @@ def update_symbols_table(self):
         raise self.retry(exc=exc)
 
 
-@celery.task(name="tasks.fetch_price")
+@celery.task(name="fetch_price")
 def fetch_price(symbol):
     """For now this is just a silly wrapping step that allows us to decorate the external function into our celery tasks
     inventory. Lots of room to add future nuance here around different data providers, cache look-ups, etc.
@@ -48,7 +48,7 @@ def fetch_price(symbol):
     return fetch_iex_price(symbol)
 
 
-@celery.task(name="tasks.cache_price")
+@celery.task(name="cache_price")
 def cache_price(symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
@@ -56,8 +56,8 @@ def cache_price(symbol: str, price: float, last_updated: float):
     rds.set(symbol, f"{price}_{last_updated}")
 
 
-@celery.task(name="tasks.fetch_symbols")
-def fetch_symbols(text):
+@celery.task(name="suggest_symbols")
+def suggest_symbols(text):
     to_match = f"{text.upper()}%"
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     suggest_query = """
@@ -107,7 +107,7 @@ def update_game_table(self, game_settings):
         db_session.commit()
 
 
-@celery.task(name="tasks.place_order", base=SqlAlchemyTask)
+@celery.task(name="place_order", base=SqlAlchemyTask)
 def place_order(order_ticket):
     """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
@@ -175,7 +175,7 @@ def place_order(order_ticket):
         db_session.commit()
 
 
-@celery.task(name="tasks.async_process_single_order", base=SqlAlchemyTask)
+@celery.task(name="process_single_order", base=SqlAlchemyTask)
 def process_single_order(order_id, expiration):
 
     with db_session.connection() as conn:
@@ -230,7 +230,7 @@ def process_single_order(order_id, expiration):
     return
 
 
-@celery.task(name="tasks.process_open_orders")
+@celery.task(name="process_all_open_orders")
 def process_open_orders():
     """Scheduled to update all orders across all games throughout the trading day
     """

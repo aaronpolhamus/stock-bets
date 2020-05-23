@@ -2,13 +2,16 @@ from os import getenv
 
 
 class Config:
+    # External dependencies:
+    # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
     SYMBOLS_TABLE_URL = "https://iextrading.com/trading/eligible-symbols/"
 
     # Game settings:
     # --------------
-    GAME_STATUS_UPDATE_RATE = 5  # The n-minute interval on which to refresh all active game statuses
+    GAME_STATUS_UPDATE_RATE = 1  # The n-minute interval on which to refresh all active game statuses
+    OPEN_ORDER_PROCESS_RATE = 5  # The n-minute interval on which to process all open orders (careful, this costs $$$)
 
     # API security
     # --------

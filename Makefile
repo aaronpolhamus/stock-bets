@@ -23,6 +23,9 @@ worker-up:
 worker-build:
 	docker-compose build worker
 
+worker-stop:
+	docker-compose stop worker
+
 # flower
 # ------
 flower-up:
@@ -45,6 +48,9 @@ backend-logs:
 
 backend-bash:
 	docker-compose exec backend bash
+
+backend-stop:
+	docker-compose stop backend
 
 backend-test:
 	docker-compose exec backend coverage run --source . -m unittest discover

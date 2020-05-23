@@ -135,3 +135,4 @@ dmypy.json
 *key.pem
 *geckodriver*
 scratch.py
+celerybeat-schedule.db

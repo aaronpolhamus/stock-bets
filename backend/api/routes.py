@@ -10,7 +10,7 @@ from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
     fetch_price,
     cache_price,
-    fetch_symbols,
+    suggest_symbols,
     place_order,
     update_game_table)
 from backend.database.helpers import retrieve_meta_data
@@ -336,9 +336,9 @@ def fetch_price():
 
 @routes.route("/api/suggest_symbols", methods=["POST"])
 @authenticate
-def suggest_symbol():
+def api_suggest_symbols():
     text = request.json["text"]
-    res = fetch_symbols.delay(text)
+    res = suggest_symbols.delay(text)
     while not res.ready():
         continue
     return jsonify(res.get())
