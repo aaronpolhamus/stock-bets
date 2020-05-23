@@ -33,9 +33,8 @@ def datetime_to_posix(localized_date):
     return calendar.timegm(localized_date.utctimetuple())
 
 
-def during_trading_day(posix_time=None):
-    if posix_time is None:
-        posix_time = time.time()
+def during_trading_day():
+    posix_time = time.time()
     nyc_time = posix_to_datetime(posix_time)
     schedule = nyse.schedule(nyc_time, nyc_time)
     if schedule.empty:
@@ -98,19 +97,17 @@ def fetch_iex_price(symbol):
         return price, timestamp
 
 
-def fetch_end_of_day_cache(symbol, inspect_time=None):
+def fetch_end_of_day_cache(symbol):
     """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
     platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
     None and use that a trigger to pull data
     """
-    if inspect_time is None:
-        inspect_time = time.time()
-
-    if not during_trading_day(inspect_time):
+    posix_time = time.time()
+    if not during_trading_day():
         if rds.exists(symbol):
             price, update_time = rds.get(symbol).split("_")
             update_time = float(update_time)
-            seconds_delta = inspect_time - update_time
+            seconds_delta = posix_time - update_time
             ny_update_time = posix_to_datetime(update_time)
             if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
                 return float(price), update_time

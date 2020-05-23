@@ -1,6 +1,7 @@
 from datetime import datetime as dt
 import time
 import unittest
+from unittest.mock import patch
 
 import pandas_market_calendars as mcal
 import pytz
@@ -30,30 +31,45 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(posix_to_datetime(posix_time), localized_date)
         self.assertAlmostEqual(posix_time, datetime_to_posix(localized_date), 0)
 
-        self.assertTrue(during_trading_day(posix_time))
-        posix_time_later = posix_time + 8 * 60 * 60
-        self.assertFalse(during_trading_day(posix_time_later))
+        mexico_date = actual_date.replace(hour=11)
+        localizer = pytz.timezone("America/Mexico_City")
+        localized_date = localizer.localize(mexico_date)
+        self.assertAlmostEqual(posix_time, datetime_to_posix(localized_date), 0)
 
-        # Christmas 2020 is on a Friday, which would normally be a trading day. We use 3pm, which would normally be a
-        # trading time. Because this is a holiday, the result should be false
-        christmas_2020_3pm = 1608908400
-        self.assertFalse(during_trading_day(christmas_2020_3pm))
+        # Pre-stage all of the mocked current time values that will be called sequentially in the tests below.
+        # ----------------------------------------------------------------------------------------------------
+        with patch('backend.logic.stock_data.time') as current_time_mock:
+            # Check during trading day just one second before and after open/close
+            nyse = mcal.get_calendar('NYSE')
+            schedule = nyse.schedule(actual_date, actual_date)
+            start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
 
-        # Check during trading day just one second before and after open/close
-        nyse = mcal.get_calendar('NYSE')
-        schedule = nyse.schedule(actual_date, actual_date)
-        start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
-        self.assertFalse(during_trading_day(start_day - 1))
-        self.assertTrue(during_trading_day((start_day + end_day) / 2))
-        self.assertFalse(during_trading_day(end_day + 1))
+            current_time_mock.time.side_effect = [
+                posix_time,  # during trading day
+                posix_time + 8 * 60 * 60,  # 8 hours later--after trading day
+                1608908400,  # Christmas 2020, Friday, 11am in NYC. We want to verify that we're accounting for holidays
+                start_day - 1,  # one second before trading day
+                (start_day + end_day) / 2,  # right in the middle of trading day
+                end_day + 1  # one second after trading day
+            ]
+
+            self.assertTrue(during_trading_day())
+            self.assertFalse(during_trading_day())
+            self.assertFalse(during_trading_day())
+            self.assertFalse(during_trading_day())
+            self.assertTrue(during_trading_day())
+            self.assertFalse(during_trading_day())
 
         # Finally, just double-check that the real-time, default invocation works as expected
         posix_now = time.time()
         nyc_now = posix_to_datetime(posix_now)
         schedule = nyse.schedule(nyc_now, nyc_now)
-        start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
-        during_trading = start_day <= posix_now <= end_day
-        # there is a non-zero chance that this test will fail at exactly the beginning or end of a trading day
+        during_trading = False
+        if not schedule.empty:
+            start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
+            during_trading = start_day <= posix_now <= end_day
+
+        # FYI: there is a non-zero chance that this test will fail at exactly the beginning or end of a trading day
         self.assertEqual(during_trading, during_trading_day())
 
     def test_get_symbols(self):
@@ -65,25 +81,40 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(symbols_table.shape, (3, 2))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
-    def test_price_fetchers(self):
+    @patch('backend.logic.stock_data.time')
+    def test_price_fetchers(self, current_time_mock):
         symbol = "AMZN"
         amzn_price, updated_at = fetch_iex_price(symbol)
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
 
+        # As above, mock in the current time values that we want to test for. Here each test value need to be
+        # duplicated since time.time() gets called inside during_trading_day and then again in fetch_end_of_day_cache
+        # -----------------------------------------------------------------------------------------------------------
+        amzn_test_price = 2000
         off_hours_time = 1590192953
         end_of_trade_time = 1590177600
-        rds.set(symbol, f"2000_{end_of_trade_time - 30}")
-        cache_price, cache_time = fetch_end_of_day_cache(symbol, off_hours_time)
-        self.assertEqual(2000, cache_price)
+
+        current_time_mock.time.side_effect = [
+            off_hours_time,  # Same-day look-up against a valid cache
+            off_hours_time,
+            off_hours_time + 5 * 24 * 60 * 60,  # Look-up much later than the last cached entry
+            off_hours_time + 5 * 24 * 60 * 60,
+            off_hours_time,  # back to the same-day look-up, but we'll reset the cache to earlier in the day
+            off_hours_time
+        ]
+
+        rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 30}")
+        cache_price, cache_time = fetch_end_of_day_cache(symbol)
+        self.assertEqual(amzn_test_price, cache_price)
         self.assertEqual(end_of_trade_time - 30, cache_time)
 
         # time cache is inspected is a long way ahead of when the cache was last updated...
-        null_result, _ = fetch_end_of_day_cache(symbol, off_hours_time + 5 * 24 * 60 * 60)
+        null_result, _ = fetch_end_of_day_cache(symbol)
         self.assertIsNone(null_result)
 
         # cache isn't current as of the last minute of trading day
-        rds.set(symbol, f"2000_{end_of_trade_time - 61}")
-        null_result, _ = fetch_end_of_day_cache(symbol, off_hours_time)
+        rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 61}")
+        null_result, _ = fetch_end_of_day_cache(symbol)
         self.assertIsNone(null_result)

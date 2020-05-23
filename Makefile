@@ -20,9 +20,6 @@ worker-logs:
 worker-up:
 	docker-compose up -d worker
 
-worker-stop:
-	docker-compose stop worker
-
 worker-build:
 	docker-compose build worker
 
@@ -60,10 +57,18 @@ frontend-build:
 	docker-compose build frontend
 
 frontend-up:
-	docker run -p 80:80 frontend
+	npm start --prefix frontend
 
 # all containers
 # --------------
+up:
+	make backend-up
+	npm start --prefix frontend
+
+build:
+	# leave the frontend out of this until we have deploy strategy sorted out...
+	make backend-build
+
 down:
 	docker-compose down
 
