@@ -5,6 +5,7 @@ import unittest
 import pandas_market_calendars as mcal
 import pytz
 
+from backend.tasks.redis import rds
 from backend.logic.stock_data import (
     posix_to_datetime,
     datetime_to_posix,
@@ -65,4 +66,24 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
     def test_price_fetchers(self):
-        pass
+        symbol = "AMZN"
+        amzn_price, updated_at = fetch_iex_price(symbol)
+        self.assertIsNotNone(amzn_price)
+        self.assertTrue(amzn_price > 0)
+        self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
+
+        off_hours_time = 1590192953
+        end_of_trade_time = 1590177600
+        rds.set(symbol, f"2000_{end_of_trade_time - 30}")
+        cache_price, cache_time = fetch_end_of_day_cache(symbol, off_hours_time)
+        self.assertEqual(2000, cache_price)
+        self.assertEqual(end_of_trade_time - 30, cache_time)
+
+        # time cache is inspected is a long way ahead of when the cache was last updated...
+        null_result, _ = fetch_end_of_day_cache(symbol, off_hours_time + 5 * 24 * 60 * 60)
+        self.assertIsNone(null_result)
+
+        # cache isn't current as of the last minute of trading day
+        rds.set(symbol, f"2000_{end_of_trade_time - 61}")
+        null_result, _ = fetch_end_of_day_cache(symbol, off_hours_time)
+        self.assertIsNone(null_result)

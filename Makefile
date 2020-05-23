@@ -7,7 +7,7 @@ db-mysql:
 	docker-compose exec db mysql -uroot -p
 
 db-reset:
-	docker-compose exec backend python -c "from backend.database.helpers import reset_db;reset_db()"
+	docker-compose exec backend python -c "from backend.database.helpers import rediseset_db;reset_db()"
 
 db-mock-data:
 	docker-compose exec backend python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"

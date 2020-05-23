@@ -23,7 +23,7 @@ from backend.logic.stock_data import (
     SECONDS_IN_A_TRADING_DAY,
 )
 from backend.tasks.celery import celery, SqlAlchemyTask
-from backend.tasks.redis import r
+from backend.tasks.redis import rds
 from sqlalchemy import create_engine, select
 
 
@@ -53,7 +53,7 @@ def cache_price(symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
-    r.set(symbol, f"{price}_{last_updated}")
+    rds.set(symbol, f"{price}_{last_updated}")
 
 
 @celery.task(name="tasks.fetch_symbols")
