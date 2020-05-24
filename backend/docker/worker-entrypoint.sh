@@ -11,4 +11,6 @@ done
 # You can also embed beat inside the worker by enabling the workers -B option, this is convenient if you’ll never run
 # more than one worker node, but it’s not commonly used and for that reason isn’t recommended for production use:
 # https://docs.celeryproject.org/en/stable/userguide/periodic-tasks.html
+# (this implementation is just for the MVP rollout: if it makes sense to add worker nodes we can break out a separate
+# scheduler later)
 celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info -B

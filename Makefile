@@ -19,12 +19,18 @@ worker-logs:
 
 worker-up:
 	docker-compose up -d worker
+	make worker-logs
 
 worker-build:
 	docker-compose build worker
 
 worker-stop:
 	docker-compose stop worker
+
+worker-restart:
+	make worker-stop
+	make worker-up
+	make worker-logs
 
 # flower
 # ------
@@ -42,6 +48,7 @@ backend-build:
 
 backend-up:
 	docker-compose up -d backend
+	make backend-logs
 
 backend-logs:
 	docker-compose logs -f backend

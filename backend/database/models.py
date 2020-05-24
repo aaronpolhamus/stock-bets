@@ -78,6 +78,23 @@ class GameStatus(db.Model):
     timestamp = db.Column(db.Float(precision=32))  # When was the game opened
 
 
+class GameInviteStatusTypes(Enum):
+    invited = "Invited"
+    joined = "Joined"
+    declined = "Declined"
+    expired = "Expired"
+
+
+class GameInvites(db.Model):
+    __tablename__ = "game_invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.Enum(GameInviteStatusTypes))
+    timestamp = db.Column(db.Float(precision=32))
+
+
 class BuyOrSell(Enum):
     buy = "Buy"
     sell = "Sell"

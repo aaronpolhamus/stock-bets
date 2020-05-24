@@ -27,8 +27,8 @@ from backend.tasks.redis import rds
 from sqlalchemy import create_engine, select
 
 
-@celery.task(name="update_symbols", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
-def update_symbols_table(self):
+@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
+def async_update_symbols_table(self):
     try:
         symbols_table = get_symbols_table()
         print("writing to db...")
@@ -40,47 +40,46 @@ def update_symbols_table(self):
         raise self.retry(exc=exc)
 
 
-@celery.task(name="fetch_price")
-def fetch_price(symbol):
+@celery.task(name="async_fetch_price", bind=True)
+def async_fetch_price(self, symbol):
     """For now this is just a silly wrapping step that allows us to decorate the external function into our celery tasks
     inventory. Lots of room to add future nuance here around different data providers, cache look-ups, etc.
     """
-    return fetch_iex_price(symbol)
+    price, timestamp = fetch_iex_price(symbol)
+    return price, timestamp
 
 
-@celery.task(name="cache_price")
-def cache_price(symbol: str, price: float, last_updated: float):
+@celery.task(name="async_cache_price", bind=True)
+def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
     rds.set(symbol, f"{price}_{last_updated}")
 
 
-@celery.task(name="suggest_symbols")
-def suggest_symbols(text):
+@celery.task(name="async_suggest_symbols", base=SqlAlchemyTask)
+def async_suggest_symbols(text):
     to_match = f"{text.upper()}%"
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     suggest_query = """
         SELECT * FROM symbols
         WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;;
     """
 
-    with engine.connect() as conn:
+    with db_session.connection() as conn:
         symbol_suggestions = conn.execute(suggest_query, (to_match, to_match))
 
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
 
 
-@celery.task(name="task.update_game_table", bind=True, base=SqlAlchemyTask)
-def update_game_table(self, game_settings):
+@celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
+def async_add_game(self, game_settings):
     opened_at = time.time()
-    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW * 60 * 60
+    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
 
+    # TODO: Migrate this logic to backend.logic.games and make username -> user.id mapping clearer for game status
     with db_session.connection() as conn:
         metadata = retrieve_meta_data(conn)
         games = metadata.tables["games"]
-        game_status = metadata.tables["game_status"]
-        users = metadata.tables["users"]
 
         result = table_updater(conn, games,
                                creator_id=game_settings["creator_id"],
@@ -97,18 +96,37 @@ def update_game_table(self, game_settings):
 
     with db_session.connection() as conn:
         # Update game status table
+        creator_id = game_settings["creator_id"]
+        game_status = metadata.tables["game_status"]
+        users = metadata.tables["users"]
         game_id = result.inserted_primary_key[0]
         invitees = tuple(game_settings["invitees"])
         invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         user_ids = [x[0] for x in invitee_ids]
-        user_ids.append(game_settings["creator_id"])
+        user_ids.append(creator_id)
         status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
         conn.execute(game_status.insert(), status_entry)
+
+        # Update game invites table
+        game_invites = metadata.tables["game_invites"]
+        invite_entries = []
+        for user_id in user_ids:
+            status = "invited"
+            if user_id == creator_id:
+                status = "joined"
+            invite_entries.append(
+                {"game_id": game_id, "user_id": user_id, "status": status, "timestamp": opened_at})
+        conn.execute(game_invites.insert(), invite_entries)
         db_session.commit()
 
 
-@celery.task(name="place_order", base=SqlAlchemyTask)
-def place_order(order_ticket):
+@celery.task(name="async_join_game", base=SqlAlchemyTask)
+def async_join_game(user_id, game_id, decision):
+    pass
+
+
+@celery.task(name="async_place_order", base=SqlAlchemyTask)
+def async_place_order(order_ticket):
     """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
     valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
@@ -177,7 +195,6 @@ def place_order(order_ticket):
 
 @celery.task(name="process_single_order", base=SqlAlchemyTask)
 def process_single_order(order_id, expiration):
-
     with db_session.connection() as conn:
         timestamp = time.time()
         meta = retrieve_meta_data(conn)
@@ -196,7 +213,7 @@ def process_single_order(order_id, expiration):
         order_price = order_ticket["price"]
         order_type = order_ticket["order_type"]
         time_in_force = order_ticket["time_in_force"]
-        market_price = fetch_price.delay(symbol)
+        market_price = async_fetch_price.delay(symbol)
         while not market_price.ready():
             continue
 
@@ -230,8 +247,8 @@ def process_single_order(order_id, expiration):
     return
 
 
-@celery.task(name="process_all_open_orders")
-def process_open_orders():
+@celery.task(name="process_all_open_orders", bind=True)
+def process_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)

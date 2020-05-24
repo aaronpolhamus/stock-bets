@@ -8,11 +8,11 @@ import time
 from backend.database.db import db
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
-    fetch_price,
-    cache_price,
-    suggest_symbols,
-    place_order,
-    update_game_table)
+    async_fetch_price,
+    async_cache_price,
+    async_suggest_symbols,
+    async_place_order,
+    async_add_game)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -26,7 +26,6 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERIOD,
     SIDE_BET_PERIODS,
     BENCHMARKS,
-    DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_ORDER_TYPE,
     DEFAULT_BUY_SELL,
     DEFAULT_TIME_IN_FORCE,
@@ -38,7 +37,6 @@ from backend.logic.games import (
 )
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
-from sqlalchemy import select
 
 routes = Blueprint("routes", __name__)
 
@@ -271,7 +269,7 @@ def create_game():
     user_id = decoded_session_token["user_id"]
     game_settings = request.json
     game_settings["creator_id"] = user_id
-    res = update_game_table.delay(game_settings)
+    res = async_add_game.delay(game_settings)
     while not res.ready():
         continue
     return make_response(GAME_CREATED_MSG, 200)
@@ -307,7 +305,7 @@ def place_order():
     user_id = decoded_session_token["user_id"]
     order_ticket = request.json["order_ticket"]
     order_ticket["user_id"] = user_id
-    res = place_order.delay(order_ticket, db.engine)
+    res = async_place_order.delay(order_ticket, db.engine)
     while not res.ready():
         continue
     return make_response(ORDER_PLACED_MESSAGE, 200)
@@ -318,19 +316,17 @@ def place_order():
 def fetch_price():
     symbol = request.json.get("symbol")
     cache_value = fetch_end_of_day_cache(symbol)
-    from flask import current_app
-    current_app.logger.debug(f"*** {symbol} ***")
     if cache_value is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
         return jsonify({"price": cache_value[0], "last_updated": posix_to_datetime(cache_value[1])})
 
-    res = fetch_price.delay(symbol)
+    res = async_fetch_price.delay(symbol)
     while not res.ready():
         continue
     price_data = res.get()
     timestamp = price_data[1]
     price = price_data[0]
-    cache_price.delay(symbol, price, timestamp)
+    async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
 
@@ -338,7 +334,7 @@ def fetch_price():
 @authenticate
 def api_suggest_symbols():
     text = request.json["text"]
-    res = suggest_symbols.delay(text)
+    res = async_suggest_symbols.delay(text)
     while not res.ready():
         continue
     return jsonify(res.get())

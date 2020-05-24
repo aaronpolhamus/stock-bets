@@ -236,7 +236,7 @@ class TestAPI(BaseTestCase):
         self.assertEqual(user_id, games_entry[1])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (games_entry[10] - current_time) / (60 * 60)
+        window = (games_entry[10] - current_time)
         self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 0)
 
         # game_status table tests

@@ -14,7 +14,7 @@ celery = celery.Celery('tasks',
 celery.conf.timezone = TIMEZONE
 celery.conf.beat_schedule = {
     "update_symbols": {
-        "task": "update_symbols",
+        "task": "async_update_symbols_table",
         "schedule": crontab(minute=0, hour=8)
     },
     "process_all_open_orders": {

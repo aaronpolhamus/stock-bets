@@ -37,4 +37,4 @@ class TestDefaults(unittest.TestCase):
         self.assertEqual(DEFAULT_BUYIN, 100)
         self.assertEqual(DEFAULT_REBUYS, 0)
         self.assertEqual(DEFAULT_SIDEBET_PERCENT, 0)
-        self.assertEqual(DEFAULT_INVITE_OPEN_WINDOW, 48)
+        self.assertEqual(DEFAULT_INVITE_OPEN_WINDOW, 48 * 60 * 60)

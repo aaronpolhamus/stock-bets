@@ -21,7 +21,9 @@ DEFAULT_REBUYS = 0  # How many rebuys are allowed
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
-DEFAULT_INVITE_OPEN_WINDOW = 48  # Default number of hours that we'll allow a game to stay open for
+DEFAULT_INVITE_OPEN_WINDOW = 48 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
+DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
 
@@ -66,6 +68,12 @@ class LimitError(Exception):
 def make_random_game_title():
     title_iterator = iter(RandomNameGenerator())
     return next(title_iterator).replace("_", " ")
+
+
+# Functions for starting, joining, and funding games
+# --------------------------------------------------
+def respond_to_invite(conn, game_id, user_id, status):
+    pass
 
 
 # Functions for handling placing and execution of orders

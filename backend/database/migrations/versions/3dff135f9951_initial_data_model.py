@@ -1,8 +1,8 @@
 """initial data model
 
-Revision ID: f12ddf6c8fc2
+Revision ID: 3dff135f9951
 Revises: 
-Create Date: 2020-05-20 17:26:25.359965
+Create Date: 2020-05-23 23:15:58.680179
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'f12ddf6c8fc2'
+revision = '3dff135f9951'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -55,6 +55,16 @@ def upgrade():
     sa.Column('side_bets_period', sa.Enum('weekly', 'monthly', name='sidebetperiods'), nullable=True),
     sa.Column('invite_window', sa.Float(precision=32), nullable=True),
     sa.ForeignKeyConstraint(['creator_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('game_invites',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('game_id', sa.Integer(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.Enum('invited', 'joined', 'declined', 'expired', name='gameinvitestatustypes'), nullable=True),
+    sa.Column('timestamp', sa.Float(precision=32), nullable=True),
+    sa.ForeignKeyConstraint(['game_id'], ['games.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('game_status',
@@ -112,6 +122,7 @@ def downgrade():
     op.drop_table('order_status')
     op.drop_table('orders')
     op.drop_table('game_status')
+    op.drop_table('game_invites')
     op.drop_table('games')
     op.drop_table('users')
     op.drop_table('symbols')
