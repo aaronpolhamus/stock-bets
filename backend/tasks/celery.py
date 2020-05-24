@@ -18,8 +18,12 @@ celery.conf.beat_schedule = {
         "schedule": crontab(minute=0, hour=8)
     },
     "process_all_open_orders": {
-        "task": "process_all_open_orders",
+        "task": "async_process_all_open_orders",
         "schedule": crontab(minute=f"*/{Config.OPEN_ORDER_PROCESS_RATE}")
+    },
+    "service_open_games": {
+        "task": "async_service_open_games",
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     }
 }
 

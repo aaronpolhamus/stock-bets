@@ -1,8 +1,8 @@
 """initial data model
 
-Revision ID: 3dff135f9951
+Revision ID: d58e9f252421
 Revises: 
-Create Date: 2020-05-23 23:15:58.680179
+Create Date: 2020-05-24 18:26:11.435007
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '3dff135f9951'
+revision = 'd58e9f252421'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -42,6 +42,16 @@ def upgrade():
     sa.Column('resource_uuid', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('friends',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('requester_id', sa.Integer(), nullable=True),
+    sa.Column('invited_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.Enum('invited', 'accepted', 'declined', name='friendstatuses'), nullable=True),
+    sa.Column('timestamp', sa.Float(precision=32), nullable=True),
+    sa.ForeignKeyConstraint(['invited_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['requester_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('games',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('creator_id', sa.Integer(), nullable=True),
@@ -70,7 +80,7 @@ def upgrade():
     op.create_table('game_status',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('game_id', sa.Integer(), nullable=True),
-    sa.Column('status', sa.Enum('pending', 'active', 'finished', 'cancelled', name='gamestatustypes'), nullable=True),
+    sa.Column('status', sa.Enum('pending', 'active', 'finished', 'expired', name='gamestatustypes'), nullable=True),
     sa.Column('users', sa.JSON(), nullable=True),
     sa.Column('timestamp', sa.Float(precision=32), nullable=True),
     sa.ForeignKeyConstraint(['game_id'], ['games.id'], ),
@@ -124,6 +134,7 @@ def downgrade():
     op.drop_table('game_status')
     op.drop_table('game_invites')
     op.drop_table('games')
+    op.drop_table('friends')
     op.drop_table('users')
     op.drop_table('symbols')
     op.drop_table('prices')

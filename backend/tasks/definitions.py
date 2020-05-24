@@ -15,6 +15,8 @@ from backend.logic.games import (
     get_all_open_orders,
     get_order_price,
     get_order_quantity,
+    get_open_game_ids,
+    service_open_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
@@ -118,6 +120,34 @@ def async_add_game(self, game_settings):
                 {"game_id": game_id, "user_id": user_id, "status": status, "timestamp": opened_at})
         conn.execute(game_invites.insert(), invite_entries)
         db_session.commit()
+
+
+@celery.task(name="async_respond_to_invite", bind=True, base=SqlAlchemyTask)
+def async_respond_to_invite(self, game_id, user_id, status):
+    response_time = time.time()
+    with db_session.connection() as conn:
+        metadata = retrieve_meta_data(conn)
+        game_invites = metadata.tables["game_invites"]
+
+        table_updater(conn, game_invites,
+                      game_id=game_id,
+                      user_id=user_id,
+                      status=status,
+                      timestamp=response_time)
+
+
+@celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
+def async_service_open_games(self):
+    with db_session.connection() as conn:
+        open_game_ids = get_open_game_ids(conn)
+
+    for game_id in open_game_ids:
+        async_service_open_game.delay(game_id)
+
+
+@celery.task(name="async_service_open_game", bind=True, base=SqlAlchemyTask)
+def async_service_open_game(self, game_id):
+    service_open_game(db_session, game_id)
 
 
 @celery.task(name="async_join_game", base=SqlAlchemyTask)
@@ -247,11 +277,72 @@ def process_single_order(order_id, expiration):
     return
 
 
-@celery.task(name="process_all_open_orders", bind=True)
-def process_open_orders(self):
+@celery.task(name="async_process_all_open_orders", bind=True)
+def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     open_orders = get_all_open_orders(engine)
     for order_id, expiration in open_orders:
         process_single_order.delay(order_id, expiration, engine)
+
+
+@celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)
+def async_invite_friend(self, requester_id, invited_id):
+    with db_session.connect() as conn:
+        friends = retrieve_meta_data(conn).tables["friends"]
+        table_updater(conn, friends, requester_id=requester_id, invited_id=invited_id, status="invited",
+                      timestamp=time.time())
+    db_session.commit()
+
+
+@celery.task(name="async_respond_to_friend_invite", bind=True, base=SqlAlchemyTask)
+def async_respond_to_friend_invite(self, requester_id, invited_id, response):
+    with db_session.connection() as conn:
+        friends = retrieve_meta_data(conn).tables["friends"]
+        table_updater(conn, friends, requester_id=requester_id, invited_id=invited_id, status=response,
+                      timestamp=time.time())
+    db_session.commit()
+
+
+@celery.task("async_get_friend_ids", bind=True, base=SqlAlchemyTask)
+def async_get_friend_ids(self, user_id):
+    with db_session.connect() as conn:
+        invited_friends = conn.execute("""
+            SELECT requester_id
+            FROM friends 
+            WHERE invited_id = %s;
+        """, user_id).fetchall()
+
+        requested_friends = conn.execute("""
+            SELECT invited_id
+            FROM friends
+            WHERE requester_id = %s;
+        """, user_id).fetchall()
+
+        return [x[0] for x in invited_friends + requested_friends]
+
+
+@celery.task("async_get_friend_names", bind=True, base=SqlAlchemyTask)
+def async_get_friend_ids(self, user_id):
+    friend_ids = async_get_friend_ids.apply(user_id)
+    with db_session.connection() as conn:
+        users = retrieve_meta_data(conn).tables["users"]
+        invitee_ids = conn.execute(select([users.c.username], users.c.id.in_(friend_ids))).fetchall()
+
+    return invitee_ids
+
+
+@celery.task("async_suggest_friends", bind=True, base=SqlAlchemyTask)
+def async_suggest_friends(self, user_id, text):
+    with db_session.connect() as conn:
+        friend_ids = async_get_friend_ids.apply(user_id)
+
+        suggest_query = """
+            SELECT id, username FROM users
+            WHERE username LIKE %s
+            LIMIT 20;
+        """
+        friend_invite_suggestions = conn.execute(suggest_query, text)
+
+        return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]

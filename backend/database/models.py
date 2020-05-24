@@ -65,7 +65,7 @@ class GameStatusTypes(Enum):
     pending = "Pending"
     active = "Active"
     finished = "Finished"
-    cancelled = "Cancelled"
+    expired = "Expired"
 
 
 class GameStatus(db.Model):
@@ -180,4 +180,18 @@ class Prices(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.Text)
     price = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class FriendStatuses(Enum):
+    invited = "Invited"
+    accepted = "Accepted"
+    declined = "Declined"
+
+
+class Friends(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    invited_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.Enum(FriendStatuses))
     timestamp = db.Column(db.Float(precision=32))
