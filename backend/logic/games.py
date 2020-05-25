@@ -1,12 +1,13 @@
 """Logic for creating games and storing default parameters
 """
+import json
 import math
 import time
 
 from backend.database.helpers import (
     unpack_enumerated_field_mappings,
     retrieve_meta_data,
-    orm_row_to_dict,
+    orm_rows_to_dict,
     table_updater
 )
 from backend.database.models import (
@@ -79,14 +80,6 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def respond_to_invite(db_session, game_id, user_id, status):
-    with db_session.connection() as conn:
-        game_invites = retrieve_meta_data(conn).tables["game_invites"]
-        table_updater(conn, game_invites, game_id=game_id, user_id=user_id, status=status, timestamp=time.time())
-
-    db_session.commit()
-
-
 def get_open_game_ids(conn):
     """This function returns game IDs for the subset of th game that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
@@ -111,8 +104,8 @@ def get_open_game_ids(conn):
       g.id = pending_game_ids.game_id
     WHERE
         pending_game_ids.status = 'pending' AND
-        invite_window < UNIX_TIMESTAMP();
-    """).fetchall()
+        invite_window < %s;
+    """, time.time()).fetchall()  # yep, I know about UNIX_TIMESTAMP() -- this is necessary for test mocking
     return [x[0] for x in result]
 
 
@@ -120,42 +113,72 @@ def service_open_game(db_session, game_id):
     """Important note: This function doesn't have any logic to verify that it's operating on an open game. It should
     ONLY be applied to IDs passed in from get_open_game_ids
     """
+    update_time = time.time()
     with db_session.connection() as conn:
         game_status = retrieve_meta_data(conn).tables["game_status"]
         row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
-        game_status_entry = orm_row_to_dict(row)
-
-        game_invites = retrieve_meta_data(conn).tables["game_invites"]
-
+        game_status_entry = orm_rows_to_dict(row)
         result = conn.execute("SELECT user_id FROM game_invites WHERE game_id = %s AND status = 'joined';",
                               game_id).fetchall()
         accepted_invite_user_ids = [x[0] for x in result]
+
+        active_game = False
         if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
+            active_game = True
             # If we have quorum, game is active and we can mark it as such on the game status table
-            game_status_entry["status"] = "active"
-            game_status_entry["users"] = accepted_invite_user_ids
-            conn.execute(game_status.insert(), game_status_entry)
-
+            table_updater(conn, game_status, game_id=game_status_entry["game_id"], status="active",
+                          users=accepted_invite_user_ids, timestamp=update_time)
             # Any users with an outstanding invite who haven't joined now have their invitations marked as "expired"
-
-            result = conn.execute("SELECT user_id FROM game_invites WHERE game_id = %s AND status = 'invited';",
-                                  game_id).fetchall()
+            result = conn.execute("""
+                SELECT gi.user_id
+                    FROM game_invites gi
+                    INNER JOIN
+                      (SELECT game_id, user_id, max(id) as max_id
+                        FROM game_invites
+                        GROUP BY game_id, user_id) grouped_gi
+                    ON
+                      gi.id = grouped_gi.max_id
+                    WHERE
+                      gi.game_id = %s AND
+                      status = 'invited';""", game_id).fetchall()
             ids_to_close = [x[0] for x in result]
         else:
-            # If we're past the invite window and we don't have quorum, close the game
-            game_status_entry["status"] = "expired"
-            conn.execute(game_status.insert(), game_status_entry)
-
-            result = conn.execute(
-                "SELECT user_id FROM game_invites WHERE game_id = %s AND status in ('active', 'joined');",
-                game_id).fetchall()
+            result = conn.execute("""
+                SELECT gi.user_id
+                FROM game_invites gi
+                INNER JOIN
+                  (SELECT game_id, user_id, max(id) as max_id
+                    FROM game_invites
+                    GROUP BY game_id, user_id) grouped_gi
+                ON
+                  gi.id = grouped_gi.max_id
+                WHERE
+                  gi.game_id = %s AND
+                  status IN ('invited', 'joined');""", game_id).fetchall()
             ids_to_close = [x[0] for x in result]
 
-        # close any expired invites from either active or expired games
-        for user_id in ids_to_close:
-            table_updater(conn, game_invites, game_id=game_id, user_id=user_id, status="expired")
+            table_updater(conn, game_status, game_id=game_status_entry["game_id"], status="expired",
+                          users=json.loads(game_status_entry["users"]), timestamp=update_time)
+        db_session.commit()
 
-    db_session.commit()
+    if active_game:
+        with db_session.connection() as conn:
+            game_balances = retrieve_meta_data(conn).tables["game_balances"]
+            # Initialize each joining player's virtual trading cash balance in the game
+            virtual_cash_entries = []
+            for user_id in accepted_invite_user_ids:
+                virtual_cash_entries.append(dict(user_id=user_id, game_id=game_id, timestamp=update_time,
+                                                 balance_type="virtual_cash", balance=DEFAULT_VIRTUAL_CASH))
+            conn.execute(game_balances.insert(), virtual_cash_entries)
+            db_session.commit()
+
+    # close any expired invites from either active or expired games
+    with db_session.connection() as conn:
+        game_invites = retrieve_meta_data(conn).tables["game_invites"]
+        for user_id in ids_to_close:
+            table_updater(conn, game_invites, game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
+
+        db_session.commit()
 
 
 # Functions for handling placing and execution of orders

@@ -6,13 +6,16 @@ import pandas as pd
 
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
-from backend.database.helpers import orm_row_to_dict
+from backend.database.helpers import orm_rows_to_dict
+from backend.logic.games import DEFAULT_INVITE_OPEN_WINDOW
 from backend.tasks.definitions import (
     async_update_symbols_table,
     async_fetch_price,
     async_cache_price,
     async_suggest_symbols,
-    async_add_game
+    async_add_game,
+    async_respond_to_invite,
+    async_service_open_games
 )
 
 
@@ -90,12 +93,12 @@ class TestCeleryTasks(BaseTestCase):
 
         games = self.meta.tables["games"]
         row = self.db_session.query(games).filter(games.c.title == game_title)
-        game_entry = orm_row_to_dict(row)
+        game_entry = orm_rows_to_dict(row)
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        expected_id = 5
-        self.assertEqual(game_entry["id"], expected_id)
+        game_id = 5
+        self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
                 continue
@@ -104,10 +107,10 @@ class TestCeleryTasks(BaseTestCase):
         # Confirm that game status was updated as expected
         # ------------------------------------------------
         game_status = self.meta.tables["game_status"]
-        row = self.db_session.query(game_status).filter(game_status.c.game_id == expected_id)
-        game_status_entry = orm_row_to_dict(row)
+        row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
+        game_status_entry = orm_rows_to_dict(row)
         self.assertEqual(game_status_entry["id"], 7)
-        self.assertEqual(game_status_entry["game_id"], expected_id)
+        self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
         self.assertEqual(users_from_db, [3, 4, 5, 1])
@@ -115,7 +118,7 @@ class TestCeleryTasks(BaseTestCase):
         # and that the game invites table is working as well
         # --------------------------------------------------
         with self.engine.connect() as conn:
-            game_invites_df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=[expected_id])
+            game_invites_df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=[game_id])
 
         self.assertEqual(game_invites_df.shape, (4, 5))
         for _, row in game_invites_df.iterrows():
@@ -127,3 +130,15 @@ class TestCeleryTasks(BaseTestCase):
             # less than a two-second difference between when we sent the data and when it was logged. If the local
             # celery worked is gummed up and not working properly this can fail
             self.assertTrue(row["timestamp"] - start_time < 2)
+
+        # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
+        # -----------------------------------------------------------------------------------------------------------
+        for user_id in [3, 4]:
+            async_respond_to_invite.delay(game_id, user_id, "joined")
+        async_respond_to_invite.delay(game_id, 5, "declined")
+
+        with patch("backend.logic.games.time") as mock_time:
+            mock_time.time.side_effect = [
+                time.time() + DEFAULT_INVITE_OPEN_WINDOW + 1,  # users have joined, and we're past the open invite window
+            ]
+            async_service_open_games.apply()

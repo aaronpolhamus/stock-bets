@@ -1,6 +1,11 @@
 """Bundles tests relating to games, including celery task tests
 """
+import json
 
+from sqlalchemy import select
+import pandas as pd
+
+from backend.database.helpers import orm_rows_to_dict
 from backend.logic.games import (
     make_random_game_title,
     get_current_game_cash_balance,
@@ -12,9 +17,12 @@ from backend.logic.games import (
     get_order_price,
     get_order_quantity,
     get_all_open_orders,
+    get_open_game_ids,
+    service_open_game,
     InsufficientFunds,
     InsufficientHoldings,
-    LimitError
+    LimitError,
+    DEFAULT_VIRTUAL_CASH
 )
 from backend.tests import BaseTestCase
 
@@ -63,14 +71,14 @@ class TestGameLogic(BaseTestCase):
 
             # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
             # all games on the platform
-            expected = {
-                9: 1590177000,
-                10: 1590177000
-            }
+            expected = [9, 10]
             all_open_orders = get_all_open_orders(conn)
             self.assertEqual(len(expected), len(all_open_orders))
-            for k, v in all_open_orders.items():
-                self.assertEqual(expected[k], v)
+
+            orders = self.meta.tables["orders"]
+            res = conn.execute(select([orders.c.symbol], orders.c.id.in_(expected))).fetchall()
+            stocks = [x[0] for x in res]
+            self.assertEqual(stocks, ["MELI", "SPXU"])
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
@@ -244,3 +252,56 @@ class TestGameLogic(BaseTestCase):
                 mock_sell_order["market_price"],
                 mock_sell_order["amount"],
                 meli_holding)
+
+    def test_game_management(self):
+        """Tests of functions associated with starting, joining, and updating games
+        """
+        game_id = 1
+        with self.db_session.connection() as conn:
+            open_game_ids = get_open_game_ids(conn)
+            self.assertEqual(open_game_ids, [1, 2])
+
+            service_open_game(self.db_session, game_id)
+
+            game_status = self.meta.tables["game_status"]
+            row = self.db_session.query(game_status).filter(
+                game_status.c.game_id == game_id, game_status.c.status == "active")
+            game_status_entry = orm_rows_to_dict(row)
+
+            self.assertEqual(json.loads(game_status_entry["users"]), [4, 3])
+            self.db_session.remove()
+
+        with self.db_session.connection() as conn:
+            result = conn.execute("SELECT status FROM game_invites WHERE user_id = 5 AND game_id = 1;").fetchall()
+            status_entries = [x[0] for x in result]
+            self.assertEqual(status_entries, ["invited", "expired"])
+
+            df = pd.read_sql(
+                "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
+                params=str(game_id))
+            self.assertEqual(df.shape, (2, 8))
+            self.assertEqual(df["user_id"].to_list(), [4, 3])
+            self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
+            self.db_session.remove()
+
+        game_id = 2
+        service_open_game(self.db_session, game_id)
+        with self.db_session.connection() as conn:
+            game_status = self.meta.tables["game_status"]
+            row = self.db_session.query(game_status).filter(
+                game_status.c.game_id == 2, game_status.c.status == "expired")
+            game_status_entry = orm_rows_to_dict(row)
+
+            self.assertEqual(json.loads(game_status_entry["users"]), [1, 3])
+            self.db_session.remove()
+
+        with self.db_session.connection() as conn:
+            df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=str(game_id))
+            self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined", "expired"])
+            self.assertEqual(df[df["user_id"] == 1]["status"].to_list(), ["invited", "declined"])
+
+            df = pd.read_sql(
+                "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
+                params=str(game_id))
+            self.assertTrue(df.empty)
+            self.db_session.remove()

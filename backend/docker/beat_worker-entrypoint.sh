@@ -8,4 +8,4 @@ done
 # setup the chrome driver that we will use for webscraping
 ./docker/install_geckodriver.sh
 
-celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info
+celery -A tasks.celery.celery beat

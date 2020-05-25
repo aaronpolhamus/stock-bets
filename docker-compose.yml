@@ -45,6 +45,22 @@ services:
       - rabbitmq
       - db
 
+  beat_worker:
+    image: beat_worker
+    container_name: beat_worker
+    build:
+      context: "./backend"
+      dockerfile: "docker/beat_worker.Dockerfile"
+    volumes:
+      - ./backend:/home/backend
+    links:
+      - rabbitmq
+    env_file:
+      - backend/.env
+    depends_on:
+      - rabbitmq
+      - db
+
   flower:
     container_name: flower
     image: mher/flower

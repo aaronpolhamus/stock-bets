@@ -61,7 +61,7 @@ MOCK_DATA = {
          "invite_window": 1580630520.0}
     ],
     "game_status": [
-        {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4]},
+        {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
         {"game_id": 2, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3]},
         {"game_id": 3, "status": "pending", "timestamp": 1589281860.0, "users": [1, 3, 4]},
         {"game_id": 3, "status": "active", "timestamp": 1589368260.0, "users": [1, 3, 4]},
@@ -72,6 +72,7 @@ MOCK_DATA = {
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
         {"game_id": 1, "user_id": 1, "status": "invited", "timestamp": 1589195580.0},
         {"game_id": 1, "user_id": 3, "status": "invited", "timestamp": 1589195580.0},
+        {"game_id": 1, "user_id": 5, "status": "invited", "timestamp": 1589195580.0},
         {"game_id": 2, "user_id": 3, "status": "joined", "timestamp": 1589368260.0},
         {"game_id": 2, "user_id": 1, "status": "invited", "timestamp": 1589368260.0},
         {"game_id": 3, "user_id": 1, "status": "joined", "timestamp": 1589281860.0},
@@ -84,6 +85,9 @@ MOCK_DATA = {
         {"game_id": 4, "user_id": 4, "status": "invited", "timestamp": 1589281860.0},
         {"game_id": 4, "user_id": 3, "status": "joined", "timestamp": 1589368260.0},
         {"game_id": 4, "user_id": 4, "status": "declined", "timestamp": 1589368260.0},
+        {"game_id": 1, "user_id": 1, "status": "declined", "timestamp": 1590363478.0},
+        {"game_id": 1, "user_id": 3, "status": "joined", "timestamp": 1590363478.0},
+        {"game_id": 2, "user_id": 1, "status": "declined", "timestamp": 1589368260.0},
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},
@@ -204,6 +208,20 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 59140.23976175, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_stock", "balance": 3, "symbol": "AMZN"},
+    ],
+    "friends": [
+        {"requester_id": 1, "invited_id": 3, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 1, "invited_id": 3, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 1, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 1, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 5, "invited_id": 1, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 5, "invited_id": 1, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 3, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 3, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 3, "invited_id": 5, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 3, "invited_id": 5, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 5, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
+        {"requester_id": 5, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
     ]
 }
 

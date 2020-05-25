@@ -30,7 +30,6 @@ worker-stop:
 worker-restart:
 	make worker-stop
 	make worker-up
-	make worker-logs
 
 # flower
 # ------

@@ -4,7 +4,7 @@ from backend.config import Config
 from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
-    orm_row_to_dict,
+    orm_rows_to_dict,
     table_updater
 )
 from backend.logic.games import (
@@ -124,6 +124,8 @@ def async_add_game(self, game_settings):
 
 @celery.task(name="async_respond_to_invite", bind=True, base=SqlAlchemyTask)
 def async_respond_to_invite(self, game_id, user_id, status):
+    assert status in ["joined", "declined"]
+
     response_time = time.time()
     with db_session.connection() as conn:
         metadata = retrieve_meta_data(conn)
@@ -134,6 +136,8 @@ def async_respond_to_invite(self, game_id, user_id, status):
                       user_id=user_id,
                       status=status,
                       timestamp=response_time)
+        db_session.commit()
+    return
 
 
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
@@ -142,17 +146,12 @@ def async_service_open_games(self):
         open_game_ids = get_open_game_ids(conn)
 
     for game_id in open_game_ids:
-        async_service_open_game.delay(game_id)
+        async_service_one_open_game.delay(game_id)
 
 
-@celery.task(name="async_service_open_game", bind=True, base=SqlAlchemyTask)
-def async_service_open_game(self, game_id):
+@celery.task(name="async_service_one_open_game", bind=True, base=SqlAlchemyTask)
+def async_service_one_open_game(self, game_id):
     service_open_game(db_session, game_id)
-
-
-@celery.task(name="async_join_game", base=SqlAlchemyTask)
-def async_join_game(user_id, game_id, decision):
-    pass
 
 
 @celery.task(name="async_place_order", base=SqlAlchemyTask)
@@ -232,7 +231,7 @@ def process_single_order(order_id, expiration):
         order_status = meta.tables["order_status"]
         game_balances = meta["game_balances"]
         row = db_session.query(orders).filter(orders.c.id == order_id)
-        order_ticket = orm_row_to_dict(row)
+        order_ticket = orm_rows_to_dict(row)
 
         order_id = order_ticket["id"]
         user_id = order_ticket["user_id"]
@@ -302,10 +301,10 @@ def async_respond_to_friend_invite(self, requester_id, invited_id, response):
         friends = retrieve_meta_data(conn).tables["friends"]
         table_updater(conn, friends, requester_id=requester_id, invited_id=invited_id, status=response,
                       timestamp=time.time())
-    db_session.commit()
+        db_session.commit()
 
 
-@celery.task("async_get_friend_ids", bind=True, base=SqlAlchemyTask)
+@celery.task(name="async_get_friend_ids", bind=True, base=SqlAlchemyTask)
 def async_get_friend_ids(self, user_id):
     with db_session.connect() as conn:
         invited_friends = conn.execute("""
@@ -320,11 +319,11 @@ def async_get_friend_ids(self, user_id):
             WHERE requester_id = %s;
         """, user_id).fetchall()
 
-        return [x[0] for x in invited_friends + requested_friends]
+    return [x[0] for x in invited_friends + requested_friends]
 
 
-@celery.task("async_get_friend_names", bind=True, base=SqlAlchemyTask)
-def async_get_friend_ids(self, user_id):
+@celery.task(name="async_get_friend_names", bind=True, base=SqlAlchemyTask)
+def async_get_friend_names(self, user_id):
     friend_ids = async_get_friend_ids.apply(user_id)
     with db_session.connection() as conn:
         users = retrieve_meta_data(conn).tables["users"]
@@ -333,7 +332,7 @@ def async_get_friend_ids(self, user_id):
     return invitee_ids
 
 
-@celery.task("async_suggest_friends", bind=True, base=SqlAlchemyTask)
+@celery.task(name="async_suggest_friends", bind=True, base=SqlAlchemyTask)
 def async_suggest_friends(self, user_id, text):
     with db_session.connect() as conn:
         friend_ids = async_get_friend_ids.apply(user_id)

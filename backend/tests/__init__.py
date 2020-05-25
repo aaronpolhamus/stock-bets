@@ -5,7 +5,9 @@ from sqlalchemy import create_engine
 
 from backend.database.fixtures.mock_data import make_mock_data
 from backend.database.helpers import retrieve_meta_data
-from backend.database.db import db_session
+from sqlalchemy.orm import scoped_session
+from sqlalchemy.orm import sessionmaker
+
 from config import Config
 
 
@@ -18,7 +20,8 @@ class BaseTestCase(unittest.TestCase):
     def setUp(self):
         # Establish data base API and setup mock data
         self.engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-        self.db_session = db_session
+        self.db_session = scoped_session(sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine))
         self.requests_session = requests.Session()
         self.meta = retrieve_meta_data(self.engine)
         make_mock_data()

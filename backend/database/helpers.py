@@ -30,7 +30,7 @@ def unpack_enumerated_field_mappings(enum_class):
     return {x.name: x.value for x in enum_class}
 
 
-def orm_row_to_dict(row):
+def orm_rows_to_dict(row):
     """This takes a row selected from using the SQLAlchemy ORM and maps it into a dictionary. This is, surprisingly, not
     something that's supported out of the box in an intuitive way as far as I can tell
     """

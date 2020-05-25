@@ -2,7 +2,7 @@ from tests import BaseTestCase
 
 from backend.database.helpers import (
     table_updater,
-    orm_row_to_dict
+    orm_rows_to_dict
 )
 
 
@@ -23,6 +23,6 @@ class TestDBHelpers(BaseTestCase):
             # update, too. This just shows that table_updater worked
             self.assertEqual(result.inserted_primary_key[0], 27)
             row = self.db_session.query(symbols).filter(symbols.c.symbol == dummy_symbol)
-            acme_entry = orm_row_to_dict(row)
+            acme_entry = orm_rows_to_dict(row)
             self.assertEqual(acme_entry["symbol"], dummy_symbol)
             self.assertEqual(acme_entry["name"], dummy_name)
