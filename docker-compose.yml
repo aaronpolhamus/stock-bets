@@ -45,12 +45,12 @@ services:
       - rabbitmq
       - db
 
-  beat_worker:
-    image: beat_worker
-    container_name: beat_worker
+  scheduler:
+    image: scheduler
+    container_name: scheduler
     build:
       context: "./backend"
-      dockerfile: "docker/beat_worker.Dockerfile"
+      dockerfile: "docker/scheduler.Dockerfile"
     volumes:
       - ./backend:/home/backend
     links:

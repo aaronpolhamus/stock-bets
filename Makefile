@@ -31,6 +31,25 @@ worker-restart:
 	make worker-stop
 	make worker-up
 
+# celery worker
+# -------------
+scheduler-logs:
+	docker-compose logs -f scheduler
+
+scheduler-up:
+	docker-compose up -d scheduler
+	make scheduler-logs
+
+scheduler-build:
+	docker-compose build scheduler
+
+scheduler-stop:
+	docker-compose stop scheduler
+
+scheduler-restart:
+	make scheduler-stop
+	make scheduler-up
+
 # flower
 # ------
 flower-up:

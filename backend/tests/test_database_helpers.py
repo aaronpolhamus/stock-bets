@@ -18,7 +18,7 @@ class TestDBHelpers(BaseTestCase):
             table_diff = set(meta_table_inventory) - set(database_tables)
             self.assertIs(len(table_diff), 0)
 
-            result = table_updater(conn, symbols, symbol=dummy_symbol, name=dummy_name)
+            result = table_updater(self.db_session, symbols, symbol=dummy_symbol, name=dummy_name)
             # There's nothing special about primary key #27. If we update the mocks this will need to
             # update, too. This just shows that table_updater worked
             self.assertEqual(result.inserted_primary_key[0], 27)

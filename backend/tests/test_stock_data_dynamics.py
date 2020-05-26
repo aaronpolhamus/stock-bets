@@ -14,6 +14,8 @@ from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price,
     fetch_end_of_day_cache,
+    get_schedule_start_and_end,
+    get_next_trading_day_schedule,
     TIMEZONE
 )
 
@@ -71,6 +73,19 @@ class TestStockDataLogic(unittest.TestCase):
 
         # FYI: there is a non-zero chance that this test will fail at exactly the beginning or end of a trading day
         self.assertEqual(during_trading, during_trading_day())
+
+    def test_schedule_handlers(self):
+        """These test functions that live in logic.stock_data, but are used when processing orders during game play
+        """
+        sat_may_23_2020 = dt(2020, 5, 23)
+        next_trading_schedule = get_next_trading_day_schedule(sat_may_23_2020)
+        start_and_end = get_schedule_start_and_end(next_trading_schedule)
+        start_day, end_day = [posix_to_datetime(x) for x in start_and_end]
+        localizer = pytz.timezone(TIMEZONE)
+        expected_start = localizer.localize(dt(2020, 5, 26, 9, 30))
+        expected_end = localizer.localize(dt(2020, 5, 26, 16, 0))
+        self.assertEqual(start_day, expected_start)
+        self.assertEqual(end_day, expected_end)
 
     def test_get_symbols(self):
         """For now we pull data from IEX cloud. We also scrape their daily published listing of available symbols to
