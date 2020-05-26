@@ -346,6 +346,17 @@ class TestGameLogic(BaseTestCase):
             self.assertAlmostEqual(new_cash_balance, current_cash_balance - mock_buy_order["market_price"], 2)
             self.assertEqual(current_holding, mock_buy_order["amount"])
 
+        with patch("backend.logic.games.time") as game_time_mock, patch(
+                "backend.logic.stock_data.time") as stock_time_mock:
+            game_time_mock.time.side_effect = [
+                1590516744,
+                1590516744
+            ]
+            stock_time_mock.time.side_effect = [
+                1590516744,
+                1590516744
+            ]
+
             sell_stock = "AMZN"
             mock_sell_order = {"amount": 1,
                                "buy_or_sell": "sell",
@@ -371,3 +382,8 @@ class TestGameLogic(BaseTestCase):
                         mock_sell_order["market_price"],
                         mock_sell_order["amount"],
                         mock_sell_order["time_in_force"])
+
+            new_cash_balance = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
+            self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
+            self.assertEqual(current_holding, mock_sell_order["amount"])

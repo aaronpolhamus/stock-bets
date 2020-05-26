@@ -6,6 +6,8 @@ import time
 from datetime import timedelta
 
 import pandas_market_calendars as mcal
+from sqlalchemy import select
+
 from backend.database.helpers import (
     unpack_enumerated_field_mappings,
     retrieve_meta_data,
@@ -121,6 +123,40 @@ def get_open_game_ids(db_session):
         """, time.time()).fetchall()  # yep, I know about UNIX_TIMESTAMP() -- this is necessary for test mocking
         db_session.remove()
     return [x[0] for x in result]
+
+
+def translate_usernames_to_ids(db_session, usernames: tuple):
+    users = retrieve_meta_data(db_session.connection()).tables["users"]
+    with db_session.connection() as conn:
+        invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(usernames))).fetchall()
+        db_session.remove()
+    return [x[0] for x in invitee_ids]
+
+
+def create_pending_game_status_entry(db_session, game_id, user_ids, opened_at):
+    metadata = retrieve_meta_data(db_session.connection())
+    game_status = metadata.tables["game_status"]
+
+    with db_session.connection() as conn:
+        status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
+        conn.execute(game_status.insert(), status_entry)
+        db_session.commit()
+
+
+def create_game_invites_entries(db_session, game_id, creator_id, user_ids, opened_at):
+    # Update game invites table
+    game_invites = retrieve_meta_data(db_session.connection()).tables["game_invites"]
+    invite_entries = []
+    for user_id in user_ids:
+        status = "invited"
+        if user_id == creator_id:
+            status = "joined"
+        invite_entries.append(
+            {"game_id": game_id, "user_id": user_id, "status": status, "timestamp": opened_at})
+
+    with db_session.connection() as conn:
+        conn.execute(game_invites.insert(), invite_entries)
+        db_session.commit()
 
 
 def get_accepted_invite_list(db_session, game_id):
@@ -422,6 +458,25 @@ def place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance,
 
     table_updater(db_session, order_status, order_id=result.inserted_primary_key[0], timestamp=timestamp, status=status,
                   clear_price=clear_price)
+
+
+def get_order_ticket(db_session, order_id):
+    orders = retrieve_meta_data(db_session.connection()).tables["order_status"]
+    row = db_session.query(orders).filter(orders.c.id == order_id)
+    return orm_rows_to_dict(row)
+
+
+def process_order(db_session, game_id, user_id, symbol, order_id, buy_or_sell, order_type, order_price, market_price,
+                  quantity, timestamp):
+    # Only process active outstanding orders during trading day
+    if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
+        order_status = retrieve_meta_data(db_session.connection()).tables["order_status"]
+        cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
+        current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
+        update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                        order_price, quantity, symbol)
+        table_updater(db_session, order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
+                      clear_price=market_price)
 
 
 def get_order_expiration_status(db_session, order_id):
