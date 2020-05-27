@@ -10,6 +10,12 @@ from enum import Enum
 from backend.database.db import db
 
 
+class OAuthProviders(Enum):
+    google = "Google"
+    facebook = "Facebook"
+    twitter = "Twitter"
+
+
 class Users(db.Model):
     __tablename__ = "users"
 
@@ -18,7 +24,9 @@ class Users(db.Model):
     email = db.Column(db.Text)
     profile_pic = db.Column(db.Text)
     username = db.Column(db.Text)
-    created_at = db.Column(db.DATETIME)
+    created_at = db.Column(db.Float(precision=32))
+    provider = db.Column(db.Enum(OAuthProviders))
+    resource_uuid = db.Column(db.Text)
 
 
 class GameModes(Enum):
@@ -45,19 +53,19 @@ class Games(db.Model):
     title = db.Column(db.Text)
     mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
-    buy_in = db.Column(db.Float)
+    buy_in = db.Column(db.Float(precision=32))
     n_rebuys = db.Column(db.Integer)
     benchmark = db.Column(db.Enum(Benchmarks))
-    side_bets_perc = db.Column(db.Float)  # Will a we split off a weekly side pot?
+    side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
-    invite_window = db.Column(db.DateTime)
+    invite_window = db.Column(db.Float(precision=32))
 
 
-class StatusTypes(Enum):
+class GameStatusTypes(Enum):
     pending = "Pending"
     active = "Active"
     finished = "Finished"
-    cancelled = "Cancelled"
+    expired = "Expired"
 
 
 class GameStatus(db.Model):
@@ -65,27 +73,125 @@ class GameStatus(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
-    status = db.Column(db.Enum(StatusTypes))
+    status = db.Column(db.Enum(GameStatusTypes))
     users = db.Column(db.JSON)
-    updated_at = db.Column(db.DateTime)  # When was the game opened
+    timestamp = db.Column(db.Float(precision=32))  # When was the game opened
 
 
-class TradeTypes(Enum):
+class GameInviteStatusTypes(Enum):
+    invited = "Invited"
+    joined = "Joined"
+    declined = "Declined"
+    expired = "Expired"
 
-    long = "Long"  # A simple long hold
-    short = "Short"  # A vanilla short margin trade
+
+class GameInvites(db.Model):
+    __tablename__ = "game_invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.Enum(GameInviteStatusTypes))
+    timestamp = db.Column(db.Float(precision=32))
 
 
-class Positions(db.Model):
-    __tablename__ = "positions"
+class BuyOrSell(Enum):
+    buy = "Buy"
+    sell = "Sell"
+
+
+class OrderTypes(Enum):
+    market = "Market"
+    limit = "Limit"
+    stop = "Stop"
+
+
+class TimeInForce(Enum):
+    day = "Day"
+    until_cancelled = "Until Cancelled"
+
+
+class Orders(db.Model):
+    __tablename__ = "orders"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    symbol = db.Column(db.Text)
+    buy_or_sell = db.Column(db.Enum(BuyOrSell))
+    quantity = db.Column(db.Integer)
+    price = db.Column(db.Float(precision=32))
+    order_type = db.Column(db.Enum(OrderTypes))
+    time_in_force = db.Column(db.Enum(TimeInForce))
+
+
+class OrderStatusTypes(Enum):
+    pending = "Pending"
+    fulfilled = "Fulfilled"
+    cancelled = "Cancelled"
+    expired = "Expired"
+
+
+class Transactions(db.Model):
+    __tablename__ = "order_status"
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
+    timestamp = db.Column(db.Float(precision=32))
+    status = db.Column(db.Enum(OrderStatusTypes))
+    clear_price = db.Column(db.Float(precision=32), nullable=True)
+
+
+class GameBalanceTypes(Enum):
+    virtual_cash = "VirtualCash"
+    virtual_stock = "VirtualStock"
+
+
+class GameBalances(db.Model):
+    __tablename__ = "game_balances"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
-    ticker = db.Column(db.Text)  # Only American securities for now.
-    trade_type = db.Column(db.Enum(TradeTypes))
-    shares = db.Column(db.Integer)
-    purchase_price = db.Column(db.Float)
-    purchase_time = db.Column(db.DateTime)
-    sale_price = db.Column(db.Float)
-    sale_time = db.Column(db.DateTime)
+    order_status_id = db.Column(db.Integer, db.ForeignKey("order_status.id"))
+    timestamp = db.Column(db.Float(precision=32))
+    balance_type = db.Column(db.Enum(GameBalanceTypes))
+    balance = db.Column(db.Float(precision=32))
+    symbol = db.Column(db.Text)
+
+
+class Symbols(db.Model):
+    """This is less of a formal data model table and more of a data store for available tickers. Thus the handling
+    later on in the code is a bit more ad-hoc. Specifically, when pandas updates this table it blows away the id
+    primary key.
+    """
+
+    __tablename__ = "symbols"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    name = db.Column(db.Text)
+
+
+class Prices(db.Model):
+
+    __tablename__ = "prices"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    price = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class FriendStatuses(Enum):
+    invited = "Invited"
+    accepted = "Accepted"
+    declined = "Declined"
+
+
+class Friends(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    invited_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    status = db.Column(db.Enum(FriendStatuses))
+    timestamp = db.Column(db.Float(precision=32))

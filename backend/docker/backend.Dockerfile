@@ -6,8 +6,11 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
   build-essential \
   curl \
+  unzip \
   gnupg \
   libev-dev \
+  firefox \
+  chromium-chromedriver \
   netcat \
   python3.7 \
   python3-pip \
@@ -26,4 +29,4 @@ ENV PYTHONPATH="$PYTHONPATH:/home"
 # -------------------------------------------
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["./backend-entrypoint.sh"]
+ENTRYPOINT ["./docker/backend-entrypoint.sh"]

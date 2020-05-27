@@ -2,13 +2,22 @@ from os import getenv
 
 
 class Config:
+    # External dependencies:
+    # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
-    TIMEZONE = "America/New_York"  # TZ identifier for pytz
+    FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
+    SYMBOLS_TABLE_URL = "https://iextrading.com/trading/eligible-symbols/"
+
+    # Game settings:
+    # --------------
+    GAME_STATUS_UPDATE_RATE = 1  # The n-minute interval on which to refresh all active game statuses
+    OPEN_ORDER_PROCESS_RATE = 5  # The n-minute interval on which to process all open orders (careful, this costs $$$)
 
     # API security
     # --------
     SECRET_KEY = getenv("SECRET_KEY")
     MINUTES_PER_SESSION = int(getenv("MINUTES_PER_SESSION"))  # how long, in minutes, should a user session be?
+    JWT_ENCODE_ALGORITHM = "HS256"
 
     # Database
     # --------
@@ -25,3 +34,23 @@ class Config:
     # App configurations
     # ------------------
     DEBUG_MODE = bool(getenv("DEBUG_MODE") == "True")  # Run the flask app in debug mode? (useful for development)
+
+    # Testing
+    # -------
+    TEST_CASE_EMAIL = getenv("TEST_CASE_EMAIL")
+    TEST_CASE_UUID = getenv("TEST_CASE_UUID")
+
+    # Distributed processing
+    # ----------------------
+    REDIS_HOST = getenv('REDIS_HOST')
+    RABBITMQ_USER = getenv("RABBITMQ_USER")
+    RABBITMQ_PASS = getenv("RABBITMQ_PASS")
+    RABBITMQ_HOST = getenv("RABBITMQ_HOST")
+    CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672'
+    CELERY_RESULTS_BACKEND = f"redis://{getenv('REDIS_HOST')}"
+
+    # Data harvesting
+    # ---------------
+    IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
+    IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
+    IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")

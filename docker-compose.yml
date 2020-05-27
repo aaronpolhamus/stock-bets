@@ -3,6 +3,7 @@ version: "3"
 services:
   db:
     image: mysql
+    container_name: db
     environment:
       - MYSQL_USER=${DB_USER}
       - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
@@ -10,11 +11,71 @@ services:
     ports:
       - 3306:3306
 
-  backend:
-    image: backend
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    ports:
+      - 5672:5672
+      - 15672:15672
+    links:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - 6379:6379
+
+  worker:
+    image: worker
+    container_name: worker
     build:
       context: "./backend"
-      dockerfile: "backend.Dockerfile"
+      dockerfile: "docker/worker.Dockerfile"
+    volumes:
+      - ./backend:/home/backend
+    links:
+      - rabbitmq
+    env_file:
+      - backend/.env
+    depends_on:
+      - rabbitmq
+      - db
+
+  scheduler:
+    image: scheduler
+    container_name: scheduler
+    build:
+      context: "./backend"
+      dockerfile: "docker/scheduler.Dockerfile"
+    volumes:
+      - ./backend:/home/backend
+    links:
+      - rabbitmq
+    env_file:
+      - backend/.env
+    depends_on:
+      - rabbitmq
+      - db
+
+  flower:
+    container_name: flower
+    image: mher/flower
+    environment:
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672
+      - FLOWER_PORT=5555
+    ports:
+      - 5555:5555
+
+  backend:
+    image: backend
+    container_name: backend
+    build:
+      context: "./backend"
+      dockerfile: "docker/backend.Dockerfile"
     volumes:
       - ./backend:/home/backend
     ports:
@@ -24,6 +85,8 @@ services:
       - backend/.flaskenv
     depends_on:
       - db
+      - rabbitmq
+      - worker
 
   frontend:
     image: frontend

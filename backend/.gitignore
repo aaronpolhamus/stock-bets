@@ -133,3 +133,6 @@ dmypy.json
 # Related to SSL certs
 *cert.pem
 *key.pem
+*geckodriver*
+scratch.py
+celerybeat-schedule.db

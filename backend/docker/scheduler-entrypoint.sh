@@ -5,6 +5,7 @@ do
   sleep 1
 done
 
-flask db upgrade # construct the data model
+# setup the chrome driver that we will use for webscraping
+./docker/install_geckodriver.sh
 
-python wsgi.py # start the web application
+celery -A tasks.celery.celery beat --loglevel=info
