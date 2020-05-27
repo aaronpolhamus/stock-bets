@@ -296,8 +296,7 @@ def get_current_stock_holding(db_session, user_id, game_id, symbol):
 
 
 def get_all_current_stock_holdings(db_session, user_id, game_id):
-    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
-    execution to be passed in from the outside
+    """Get the user's current balances for display in the front end
     """
 
     sql_query = """
@@ -427,6 +426,7 @@ def update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_b
 
 def place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type,
                 quantity_type, market_price, amount, time_in_force, stop_limit_price=None):
+
     timestamp = time.time()
     metadata = retrieve_meta_data(db_session.connection())
     order_status = metadata.tables["order_status"]

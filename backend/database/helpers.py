@@ -41,6 +41,7 @@ def orm_rows_to_dict(row):
 def table_updater(db_session, table_orm, **kwargs):
     """Generic wrapper for updating data tables. kwargs are key-value pairings that map to columns in the table
     """
+    symbol = kwargs.get("symbol")
     with db_session.connection() as conn:
         result = conn.execute(table_orm.insert(), kwargs)
         db_session.commit()

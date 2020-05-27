@@ -53,7 +53,7 @@ def async_update_symbols_table(self):
         raise self.retry(exc=exc)
 
 
-@celery.task(name="async_cache_price", bind=True)
+@celery.task(name="async_cache_price", bind=True, base=SqlAlchemyTask)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
@@ -74,7 +74,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
         rds.set(symbol, f"{price}_{last_updated}")
 
 
-@celery.task(name="async_fetch_price", bind=True)
+@celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
 def async_fetch_price(self, symbol):
     """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
     """
@@ -83,7 +83,7 @@ def async_fetch_price(self, symbol):
     return price, timestamp
 
 
-@celery.task(name="async_update_active_symbol_prices", bind=True)
+@celery.task(name="async_update_active_symbol_prices", bind=True, base=SqlAlchemyTask)
 def async_update_active_symbol_prices(self):
     active_symbols = get_all_active_symbols(db_session)
     for symbol in active_symbols:
@@ -199,7 +199,7 @@ def async_process_single_order(order_id):
                   order_ticket["quantity"], timestamp)
 
 
-@celery.task(name="async_process_all_open_orders", bind=True)
+@celery.task(name="async_process_all_open_orders", bind=True, base=SqlAlchemyTask)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """

@@ -29,7 +29,7 @@ from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 
 
-class TestCeleryTasks(BaseTestCase):
+class TestStockDataTasks(BaseTestCase):
 
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
@@ -58,12 +58,16 @@ class TestCeleryTasks(BaseTestCase):
         while not res.ready():
             continue
 
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
+            self.db_session.remove()
 
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
+
+
+class TestPriceCaching(BaseTestCase):
 
     @patch("backend.logic.stock_data.time")
     @patch("backend.tasks.definitions.time")
@@ -124,6 +128,9 @@ class TestCeleryTasks(BaseTestCase):
             fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
             self.db_session.remove()
         self.assertEqual(third_count, fourth_count)
+
+
+class TestGameIntegration(BaseTestCase):
 
     def test_play_game_tasks(self):
         text = "A"
@@ -358,11 +365,12 @@ class TestCeleryTasks(BaseTestCase):
             stock_pick = "NVDA"
             user_id = 3
             order_quantity = 1420
-            stop_limit_price = 345
+            nvda_limit_ratio = 0.95
             res = async_fetch_price.delay(stock_pick)
             while not res.ready():
                 continue
             nvda_price, _ = res.result
+            stop_limit_price = nvda_price * nvda_limit_ratio
             toofast_order = {
                 "user_id": user_id,
                 "game_id": game_id,
@@ -412,8 +420,8 @@ class TestCeleryTasks(BaseTestCase):
             meli_limit_ratio = 1.1
             mock_price_fetch.delay.side_effect = [
                 ResultMock(order_clear_price),
-                ResultMock(amzn_stop_ratio * amzn_price, ),
-                ResultMock(meli_limit_ratio * meli_price),
+                ResultMock(amzn_stop_ratio * amzn_price - 1),
+                ResultMock(meli_limit_ratio * meli_price + 1),
             ]
 
             mock_task_time.time.side_effect = [
@@ -450,7 +458,7 @@ class TestCeleryTasks(BaseTestCase):
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
-            self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity)
+            self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
 
             # Now let's go ahead and place stop-loss and stop-limit orders against existing positions
             stock_pick = "AMZN"
@@ -479,13 +487,14 @@ class TestCeleryTasks(BaseTestCase):
                 test_user_order["time_in_force"],
                 test_user_order["stop_limit_price"]
             ])
-            with self.engine.connect() as conn:
+            with self.db_session.connection() as conn:
                 amzn_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
+                self.db_session.remove()
 
             stock_pick = "MELI"
             user_id = 4
@@ -538,7 +547,7 @@ class TestCeleryTasks(BaseTestCase):
                       game_id = %s;
                 """
                 df = pd.read_sql(query, conn, params=[game_id])
-                self.db_session.close()
+                self.db_session.remove()
 
             test_user_id = 1
             test_user_stock = "AMZN"

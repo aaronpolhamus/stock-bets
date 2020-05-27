@@ -42,8 +42,10 @@ services:
     env_file:
       - backend/.env
     depends_on:
+      - redis
       - rabbitmq
       - db
+      - backend
 
   scheduler:
     image: scheduler
@@ -58,8 +60,10 @@ services:
     env_file:
       - backend/.env
     depends_on:
+      - redis
       - rabbitmq
       - db
+      - backend
 
   flower:
     container_name: flower
@@ -85,8 +89,6 @@ services:
       - backend/.flaskenv
     depends_on:
       - db
-      - rabbitmq
-      - worker
 
   frontend:
     image: frontend

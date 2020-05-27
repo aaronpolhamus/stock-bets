@@ -41,57 +41,60 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(len(random_title.split(" ")), 2)
 
         # Tests related to inspecting game data using test case
-        with self.engine.connect() as conn:
-            test_user_id = 1
-            game_id = 3
-            test_user_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
-            self.assertEqual(test_user_cash, 59140.23976175)
+        test_user_id = 1
+        game_id = 3
+        test_user_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+        self.assertEqual(test_user_cash, 59140.23976175)
 
-            expctd = {
-                "AMZN": 3,
-                "TSLA": 15,
-                "LYFT": 350,
-                "SPXU": 600,
-                "NVDA": 5
-            }
+        expctd = {
+            "AMZN": 3,
+            "TSLA": 15,
+            "LYFT": 350,
+            "SPXU": 600,
+            "NVDA": 5
+        }
 
-            test_amzn_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "AMZN")
-            self.assertEqual(test_amzn_holding, expctd["AMZN"])
-            test_tsla_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "TSLA")
-            self.assertEqual(test_tsla_holding, expctd["TSLA"])
-            test_lyft_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "LYFT")
-            self.assertEqual(test_lyft_holding, expctd["LYFT"])
-            test_spxu_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "SPXU")
-            self.assertEqual(test_spxu_holding, expctd["SPXU"])
-            test_nvda_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "NVDA")
-            self.assertEqual(test_nvda_holding, expctd["NVDA"])
-            test_jpm_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "JPM")
-            self.assertEqual(test_jpm_holding, 0)
+        test_amzn_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "AMZN")
+        self.assertEqual(test_amzn_holding, expctd["AMZN"])
+        test_tsla_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "TSLA")
+        self.assertEqual(test_tsla_holding, expctd["TSLA"])
+        test_lyft_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "LYFT")
+        self.assertEqual(test_lyft_holding, expctd["LYFT"])
+        test_spxu_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "SPXU")
+        self.assertEqual(test_spxu_holding, expctd["SPXU"])
+        test_nvda_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "NVDA")
+        self.assertEqual(test_nvda_holding, expctd["NVDA"])
+        test_jpm_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "JPM")
+        self.assertEqual(test_jpm_holding, 0)
 
-            all_test_user_holdings = get_all_current_stock_holdings(self.db_session, test_user_id, game_id)
-            self.assertEqual(len(all_test_user_holdings), len(expctd))
-            for stock, holding in all_test_user_holdings.items():
-                self.assertEqual(expctd[stock], holding)
+        all_test_user_holdings = get_all_current_stock_holdings(self.db_session, test_user_id, game_id)
+        self.assertEqual(len(all_test_user_holdings), len(expctd))
+        for stock, holding in all_test_user_holdings.items():
+            self.assertEqual(expctd[stock], holding)
 
-            # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
-            # all games on the platform
-            expected = [9, 10]
-            all_open_orders = get_all_open_orders(self.db_session)
-            self.assertEqual(len(expected), len(all_open_orders))
+        # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
+        # all games on the platform
+        expected = [9, 10]
+        all_open_orders = get_all_open_orders(self.db_session)
+        self.assertEqual(len(expected), len(all_open_orders))
 
+        with self.db_session.connection() as conn:
             orders = self.meta.tables["orders"]
             res = conn.execute(select([orders.c.symbol], orders.c.id.in_(expected))).fetchall()
             stocks = [x[0] for x in res]
             self.assertEqual(stocks, ["MELI", "SPXU"])
+
+            self.db_session.remove()
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
         # the ways that an order ticket can be invalid
         test_user_id = 4
         game_id = 3
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             meli_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "MELI")
             current_cash_balance = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+            self.db_session.remove()
 
         self.assertEqual(meli_holding, 60)
         self.assertEqual(current_cash_balance, 53985.8575)
