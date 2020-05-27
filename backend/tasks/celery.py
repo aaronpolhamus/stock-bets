@@ -2,7 +2,7 @@ import celery
 from celery.schedules import crontab
 
 from backend.database.db import db_session
-from backend.logic.stock_data import TIMEZONE
+from backend.logic.stock_data import TIMEZONE, PRICE_CACHING_INTERVAL
 from backend.config import Config
 
 celery = celery.Celery('tasks',
@@ -24,6 +24,10 @@ celery.conf.beat_schedule = {
     "service_open_games": {
         "task": "async_service_open_games",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
+    },
+    "update_active_symbol_pricess": {
+        "task": "async_update_active_symbol_prices",
+        "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
     }
 }
 

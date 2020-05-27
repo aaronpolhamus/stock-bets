@@ -19,6 +19,7 @@ TIMEZONE = 'America/New_York'
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 SECONDS_IN_A_TRADING_DAY = 6.5 * 60 * 60
+PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
 
 nyse = mcal.get_calendar('NYSE')
 
@@ -126,3 +127,20 @@ def fetch_end_of_day_cache(symbol):
             if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
                 return float(price), update_time
     return None, None
+
+
+def get_all_active_symbols(db_session):
+    with db_session.connection() as conn:
+        result = conn.execute("""
+        SELECT DISTINCT gb.symbol FROM
+        game_balances gb
+        INNER JOIN
+          (SELECT DISTINCT game_id
+          FROM game_status
+          WHERE status = 'active') active_ids
+        ON gb.game_id = active_ids.game_id
+        WHERE gb.balance_type = 'virtual_stock';
+        """)
+        db_session.remove()
+
+    return [x[0] for x in result]

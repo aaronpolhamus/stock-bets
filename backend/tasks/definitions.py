@@ -23,7 +23,10 @@ from backend.logic.games import (
 )
 from backend.logic.stock_data import (
     get_symbols_table,
-    fetch_iex_price
+    fetch_iex_price,
+    during_trading_day,
+    get_all_active_symbols,
+    PRICE_CACHING_INTERVAL
 )
 from backend.tasks.celery import (
     celery,
@@ -55,19 +58,36 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
-    prices = retrieve_meta_data(db_session.connection()).tables["prices"]
-    table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
-    rds.set(symbol, f"{price}_{last_updated}")
+    current_time = time.time()
+    cache_value = rds.get(symbol)
+    # If we have a cached value within the range of our price caching interval, don't story anything. This will help
+    # avoid redundant entries in the DB
+    if cache_value is not None:
+        price, update_time = [float(x) for x in cache_value.split("_")]
+        if current_time - update_time <= PRICE_CACHING_INTERVAL:
+            return
+
+    # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
+    if during_trading_day():
+        prices = retrieve_meta_data(db_session.connection()).tables["prices"]
+        table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
+        rds.set(symbol, f"{price}_{last_updated}")
 
 
 @celery.task(name="async_fetch_price", bind=True)
 def async_fetch_price(self, symbol):
-    """For now this is just a silly wrapping step that allows us to decorate the external function into our celery tasks
-    inventory. Lots of room to add future nuance here around different data providers, cache look-ups, etc.
+    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
     """
     price, timestamp = fetch_iex_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
     return price, timestamp
+
+
+@celery.task(name="async_update_active_symbol_prices", bind=True)
+def async_update_active_symbol_prices(self):
+    active_symbols = get_all_active_symbols(db_session)
+    for symbol in active_symbols:
+        async_fetch_price.delay(symbol)
 
 
 @celery.task(name="async_suggest_symbols", base=SqlAlchemyTask)
@@ -129,10 +149,9 @@ def async_respond_to_invite(self, game_id, user_id, status):
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_ids(db_session)
-    status_list = list()
+    status_list = []
     for game_id in open_game_ids:
-        res = async_service_one_open_game.delay(game_id)
-        status_list.append(res)
+        status_list.append(async_service_one_open_game.delay(game_id))
     pause_return_until_subtask_completion(status_list, "async_service_open_games")
 
 
@@ -188,8 +207,7 @@ def async_process_all_open_orders(self):
     open_orders = get_all_open_orders(db_session)
     status_list = []
     for order_id, expiration in open_orders:
-        res = async_process_single_order.delay(order_id, expiration, engine)
-        status_list.append(res)
+        status_list.append(async_process_single_order.delay(order_id, expiration, engine))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
 

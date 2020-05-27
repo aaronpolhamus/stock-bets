@@ -1,6 +1,6 @@
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import pandas as pd
 from backend.database.helpers import orm_rows_to_dict
@@ -9,6 +9,10 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
+)
+from backend.logic.stock_data import (
+    fetch_iex_price,
+    PRICE_CACHING_INTERVAL
 )
 from backend.tasks.definitions import (
     async_update_symbols_table,
@@ -60,6 +64,66 @@ class TestCeleryTasks(BaseTestCase):
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
+
+    @patch("backend.logic.stock_data.time")
+    @patch("backend.tasks.definitions.time")
+    def test_price_caching(self, task_time_mock, data_time_mock):
+
+        def _check_stocks():
+            for stock in stocks_to_monitor:
+                price, _ = fetch_iex_price(stock)
+                async_cache_price.apply(args=[stock, price, time.time()])
+
+        # clear the mocked-in price data and redis cache
+        rds.flushall()
+        with self.db_session.connection() as conn:
+            conn.execute("TRUNCATE prices;")
+            self.db_session.remove()
+
+        # setup mocks
+        start_time = 1590511775
+        after_hours = 1590544501
+        stocks_to_monitor = [
+            "AMZN",
+            "TSLA",
+        ]
+        n_stocks = len(stocks_to_monitor)
+        time_list = [start_time] * n_stocks + \
+                    [start_time + PRICE_CACHING_INTERVAL / 2] * n_stocks + \
+                    [start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + \
+                    [after_hours] * n_stocks
+
+        time = Mock()
+        task_time_mock.time.side_effect = time.time.side_effect = time_list
+        # necessary to set this up separately because  we don't always hit the check trade day function
+        data_time_mock.time.side_effect = [start_time] * n_stocks + [
+            start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + [after_hours] * n_stocks
+
+        _check_stocks()
+        with self.db_session.connection() as conn:
+            first_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+            self.db_session.remove()
+        self.assertEqual(first_count, len(stocks_to_monitor))
+
+        # We shouldn't see anymore data after immediately doing another check, provided that we are inside
+        # the caching window
+        _check_stocks()
+        with self.db_session.connection() as conn:
+            second_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+            self.db_session.remove()
+        self.assertEqual(first_count, second_count)
+
+        _check_stocks()
+        with self.db_session.connection() as conn:
+            third_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+            self.db_session.remove()
+        self.assertEqual(first_count + len(stocks_to_monitor), third_count)
+
+        _check_stocks()
+        with self.db_session.connection() as conn:
+            fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+            self.db_session.remove()
+        self.assertEqual(third_count, fourth_count)
 
     def test_play_game_tasks(self):
         text = "A"
@@ -331,7 +395,7 @@ class TestCeleryTasks(BaseTestCase):
 
         with patch("backend.tasks.definitions.async_fetch_price") as mock_price_fetch, patch(
                 "backend.tasks.definitions.time") as mock_task_time, patch(
-                "backend.logic.stock_data.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
+            "backend.logic.stock_data.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5
 
@@ -449,13 +513,14 @@ class TestCeleryTasks(BaseTestCase):
                 miguel_order["time_in_force"],
                 miguel_order["stop_limit_price"]
             ])
-            with self.engine.connect() as conn:
+            with self.db_session.connection() as conn:
                 meli_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
+                self.db_session.remove()
 
             async_process_single_order.apply(args=[amzn_open_order_id])
             async_process_single_order.apply(args=[meli_open_order_id])
@@ -479,7 +544,7 @@ class TestCeleryTasks(BaseTestCase):
             test_user_stock = "AMZN"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
-            amzn_clear_price = df[df["id"] == amzn_open_order_id].tail(1).iloc[0]["clear_price"]
+            amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
             shares_sold = int(250_000 / amzn_clear_price)
             self.assertEqual(updated_holding, original_amzn_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, test_user_original_cash + shares_sold * amzn_clear_price, 2)
@@ -488,7 +553,7 @@ class TestCeleryTasks(BaseTestCase):
             test_user_stock = "MELI"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
-            meli_clear_price = df[df["id"] == meli_open_order_id].tail(1).iloc[0]["clear_price"]
+            meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
             shares_sold = miguel_order["amount"]
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)

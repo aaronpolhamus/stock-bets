@@ -141,6 +141,8 @@ MOCK_DATA = {
          "price": get_stock_finish_price("SPXU") * 0.75, "order_type": "stop", "time_in_force": "until_cancelled"},
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "sell", "quantity": 2,
          "price": get_stock_finish_price("AMZN"), "order_type": "market", "time_in_force": "day"},
+        {"user_id": 5, "game_id": 4, "symbol": "BABA", "buy_or_sell": "buy", "quantity": 1,
+         "price": 201.72, "order_type": "market", "time_in_force": "day"},
     ],
     "order_status": [
         {"order_id": 1, "timestamp": market_order_time, "status": "fulfilled",
@@ -163,7 +165,9 @@ MOCK_DATA = {
         {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
         {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
         {"order_id": 11, "timestamp": close_of_simulation_time, "status": "fulfilled",
-         "clear_price": get_stock_finish_price("AMZN")}
+         "clear_price": get_stock_finish_price("AMZN")},
+        {"order_id": 12, "timestamp": close_of_simulation_time, "status": "fulfilled",
+         "clear_price": 201.72}
     ],
     "game_balances": [
         {"user_id": 1, "game_id": 3, "order_status_id": None, "timestamp": market_order_time,
@@ -208,6 +212,12 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 59140.23976175, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_stock", "balance": 3, "symbol": "AMZN"},
+        {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": market_order_time,
+         "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
+        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": close_of_simulation_time,
+         "balance_type": "virtual_cash", "balance": 99798.28, "symbol": None},
+        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": close_of_simulation_time,
+         "balance_type": "virtual_stock", "balance": 1, "symbol": "BABA"},
     ],
     "friends": [
         {"requester_id": 1, "invited_id": 3, "status": "invited", "timestamp": 1589758324},

@@ -24,6 +24,7 @@ from backend.logic.games import (
     LimitError,
     DEFAULT_VIRTUAL_CASH
 )
+from backend.logic.stock_data import get_all_active_symbols
 from backend.tests import BaseTestCase
 from sqlalchemy import select
 
@@ -255,6 +256,20 @@ class TestGameLogic(BaseTestCase):
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
         """
+        # Quick active symbols test
+        active_symbols = set(get_all_active_symbols(self.db_session))
+        expected_symbols = {
+            "AMZN",
+            "LYFT",
+            "TSLA",
+            "SPXU",
+            "NVDA",
+            "NKE",
+            "MELI",
+            "BABA"
+        }
+        self.assertEqual(active_symbols, expected_symbols)
+
         game_id = 1
         open_game_ids = get_open_game_ids(self.db_session)
         self.assertEqual(open_game_ids, [1, 2])
