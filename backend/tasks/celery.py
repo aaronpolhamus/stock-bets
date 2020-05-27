@@ -35,3 +35,16 @@ class SqlAlchemyTask(celery.Task):
 
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
         db_session.remove()
+
+
+def pause_return_until_subtask_completion(status_list, task_name, iteration_limit=10_000):
+    """This function exists to support the case where a task spawns a bunch of subtasks, and we want to wait for the
+    ready() command of the parent task to return True until all those subtasks have finished. It's kinda like a DAG.
+    If you know of a more elegant way to do this please kill this function immediately ;)
+    """
+    n = 0
+    while not all([x.ready() for x in status_list]):
+        n += 1
+        if n > iteration_limit:
+            raise Exception(f"Not tasks spawned by {task_name} completed. Are celery and the DB in good shape?")
+        continue

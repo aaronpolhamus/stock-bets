@@ -461,7 +461,7 @@ def place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance,
 
 
 def get_order_ticket(db_session, order_id):
-    orders = retrieve_meta_data(db_session.connection()).tables["order_status"]
+    orders = retrieve_meta_data(db_session.connection()).tables["orders"]
     row = db_session.query(orders).filter(orders.c.id == order_id)
     return orm_rows_to_dict(row)
 
@@ -474,7 +474,7 @@ def process_order(db_session, game_id, user_id, symbol, order_id, buy_or_sell, o
         cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
         current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
         update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding,
-                        order_price, quantity, symbol)
+                        market_price, quantity, symbol)
         table_updater(db_session, order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
                       clear_price=market_price)
 
@@ -485,9 +485,9 @@ def get_order_expiration_status(db_session, order_id):
     """
     with db_session.connection() as conn:
         time_in_force = conn.execute("SELECT time_in_force FROM orders WHERE id = %s;", order_id).fetchone()[0]
+        db_session.remove()
         if time_in_force == "until_cancelled":
             return False
-        db_session.remove()
 
     # posix_to_datetime
     current_time = time.time()

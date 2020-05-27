@@ -25,7 +25,11 @@ from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price
 )
-from backend.tasks.celery import celery, SqlAlchemyTask
+from backend.tasks.celery import (
+    celery,
+    SqlAlchemyTask,
+    pause_return_until_subtask_completion
+)
 from backend.tasks.redis import rds
 from sqlalchemy import create_engine, select
 
@@ -46,21 +50,24 @@ def async_update_symbols_table(self):
         raise self.retry(exc=exc)
 
 
+@celery.task(name="async_cache_price", bind=True)
+def async_cache_price(self, symbol: str, price: float, last_updated: float):
+    """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
+    unnecessary data API call.
+    """
+    prices = retrieve_meta_data(db_session.connection()).tables["prices"]
+    table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
+    rds.set(symbol, f"{price}_{last_updated}")
+
+
 @celery.task(name="async_fetch_price", bind=True)
 def async_fetch_price(self, symbol):
     """For now this is just a silly wrapping step that allows us to decorate the external function into our celery tasks
     inventory. Lots of room to add future nuance here around different data providers, cache look-ups, etc.
     """
     price, timestamp = fetch_iex_price(symbol)
+    async_cache_price.delay(symbol, price, timestamp)
     return price, timestamp
-
-
-@celery.task(name="async_cache_price", bind=True)
-def async_cache_price(self, symbol: str, price: float, last_updated: float):
-    """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
-    unnecessary data API call.
-    """
-    rds.set(symbol, f"{price}_{last_updated}")
 
 
 @celery.task(name="async_suggest_symbols", base=SqlAlchemyTask)
@@ -79,26 +86,26 @@ def async_suggest_symbols(text):
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
-def async_add_game(self, game_settings):
+def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc,
+                   side_bets_period, invitees):
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
 
     metadata = retrieve_meta_data(db_session.connection())
     games = metadata.tables["games"]
-    creator_id = game_settings["creator_id"]
     result = table_updater(db_session, games,
                            creator_id=creator_id,
-                           title=game_settings["title"],
-                           mode=game_settings["mode"],
-                           duration=game_settings["duration"],
-                           buy_in=game_settings["buy_in"],
-                           n_rebuys=game_settings["n_rebuys"],
-                           benchmark=game_settings["benchmark"],
-                           side_bets_perc=game_settings["side_bets_perc"],
-                           side_bets_period=game_settings["side_bets_period"],
+                           title=title,
+                           mode=mode,
+                           duration=duration,
+                           buy_in=buy_in,
+                           n_rebuys=n_rebuys,
+                           benchmark=benchmark,
+                           side_bets_perc=side_bets_perc,
+                           side_bets_period=side_bets_period,
                            invite_window=invite_window)
     game_id = result.inserted_primary_key[0]
-    invited_ids = translate_usernames_to_ids(db_session, tuple(game_settings["invitees"]))
+    invited_ids = translate_usernames_to_ids(db_session, tuple(invitees))
     user_ids = invited_ids + [creator_id]
 
     create_pending_game_status_entry(db_session, game_id, user_ids, opened_at)
@@ -122,8 +129,11 @@ def async_respond_to_invite(self, game_id, user_id, status):
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_ids(db_session)
+    status_list = list()
     for game_id in open_game_ids:
-        async_service_one_open_game.delay(game_id)
+        res = async_service_one_open_game.delay(game_id)
+        status_list.append(res)
+    pause_return_until_subtask_completion(status_list, "async_service_open_games")
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=SqlAlchemyTask)
@@ -132,7 +142,8 @@ def async_service_one_open_game(self, game_id):
 
 
 @celery.task(name="async_place_order", base=SqlAlchemyTask)
-def async_place_order(order_ticket):
+def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantity_type, market_price, amount,
+                      time_in_force, stop_limit_price=None):
     """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
     valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
@@ -140,17 +151,12 @@ def async_place_order(order_ticket):
     an ongoing basis by the celery schedule and book as their requirements are satisfies
     """
     # extract relevant data
-    user_id = order_ticket["user_id"]
-    game_id = order_ticket["game_id"]
-    symbol = order_ticket["symbol"]
-    stop_limit_price = order_ticket.get("stop_limit_price")
-
     cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
     current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
 
-    place_order(db_session, user_id, game_id, symbol, order_ticket["buy_or_sell"], cash_balance, current_holding,
-                order_ticket["order_type"], order_ticket["quantity_type"], order_ticket["market_price"],
-                float(order_ticket["amount"]), order_ticket["time_in_force"], stop_limit_price)
+    place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding,
+                order_type, quantity_type, market_price,
+                float(amount), time_in_force, stop_limit_price)
 
 
 @celery.task(name="async_process_single_order", base=SqlAlchemyTask)
@@ -180,8 +186,11 @@ def async_process_all_open_orders(self):
     """
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     open_orders = get_all_open_orders(db_session)
+    status_list = []
     for order_id, expiration in open_orders:
-        async_process_single_order.delay(order_id, expiration, engine)
+        res = async_process_single_order.delay(order_id, expiration, engine)
+        status_list.append(res)
+    pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
 
 @celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)

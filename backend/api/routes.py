@@ -1,18 +1,11 @@
+import time
 from datetime import datetime as dt, timedelta
 from functools import wraps
 
 import jwt
 import pandas as pd
 import requests
-import time
 from backend.database.db import db
-from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
-from backend.tasks.definitions import (
-    async_fetch_price,
-    async_cache_price,
-    async_suggest_symbols,
-    async_place_order,
-    async_add_game)
 from backend.database.helpers import retrieve_meta_data
 from backend.logic.games import (
     make_random_game_title,
@@ -35,6 +28,13 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
+from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
+from backend.tasks.definitions import (
+    async_fetch_price,
+    async_cache_price,
+    async_suggest_symbols,
+    async_place_order,
+    async_add_game)
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 
@@ -268,8 +268,18 @@ def create_game():
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
     game_settings = request.json
-    game_settings["creator_id"] = user_id
-    res = async_add_game.delay(game_settings)
+
+    res = async_add_game.delay(
+        user_id,
+        game_settings["title"],
+        game_settings["mode"],
+        game_settings["duration"],
+        game_settings["buy_in"],
+        game_settings["n_rebuys"],
+        game_settings["benchmark"],
+        game_settings["side_bets_perc"],
+        game_settings["side_bets_period"],
+        game_settings["invitees"])
     while not res.ready():
         continue
     return make_response(GAME_CREATED_MSG, 200)
@@ -300,12 +310,14 @@ def game_info():
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
 def place_order():
-    # setup
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
     order_ticket = request.json["order_ticket"]
-    order_ticket["user_id"] = user_id
-    res = async_place_order.delay(order_ticket, db.engine)
+    stop_limit_price = order_ticket.get("stop_limit_price")
+    res = async_place_order.delay(user_id, order_ticket["game_id"], order_ticket["symbol"], order_ticket["buy_or_sell"],
+                                  order_ticket["order_type"], order_ticket["quantity_type"],
+                                  order_ticket["market_price"], order_ticket["amount"], order_ticket["time_in_force"],
+                                  stop_limit_price)
     while not res.ready():
         continue
     return make_response(ORDER_PLACED_MESSAGE, 200)
