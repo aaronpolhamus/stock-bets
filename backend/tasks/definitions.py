@@ -68,10 +68,10 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
             return
 
     # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
+    rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
         prices = retrieve_meta_data(db_session.connection()).tables["prices"]
         table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
-        rds.set(symbol, f"{price}_{last_updated}")
 
 
 @celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
