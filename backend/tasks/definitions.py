@@ -1,6 +1,5 @@
 import time
 
-from backend.config import Config
 from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
@@ -34,7 +33,7 @@ from backend.tasks.celery import (
     pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 
 
 @celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
@@ -203,11 +202,10 @@ def async_process_single_order(order_id):
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     open_orders = get_all_open_orders(db_session)
     status_list = []
     for order_id, expiration in open_orders:
-        status_list.append(async_process_single_order.delay(order_id, expiration, engine))
+        status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
 
