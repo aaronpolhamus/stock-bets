@@ -14,6 +14,7 @@ from backend.logic.games import (
     process_order,
     get_order_expiration_status,
     get_open_game_ids,
+    get_all_game_users,
     service_open_game,
     translate_usernames_to_ids,
     create_pending_game_status_entry,
@@ -27,6 +28,10 @@ from backend.logic.stock_data import (
     get_all_active_symbols,
     PRICE_CACHING_INTERVAL
 )
+from backend.logic.visuals import (
+    serialize_and_pack_orders_open_orders,
+    serialize_and_pack_current_balances
+)
 from backend.tasks.celery import (
     celery,
     SqlAlchemyTask,
@@ -36,20 +41,17 @@ from backend.tasks.redis import rds
 from sqlalchemy import select
 
 
-@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
-def async_update_symbols_table(self):
-    try:
-        symbols_table = get_symbols_table()
-        print("writing to db...")
-        with db_session.connection() as conn:
-            conn.execute("TRUNCATE TABLE symbols;")
-            db_session.remove()
+# -------------------------- #
+# Price fetching and caching #
+# -------------------------- #
 
-        with db_session.connection() as conn:
-            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
-            db_session.commit()
-    except Exception as exc:
-        raise self.retry(exc=exc)
+@celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
+def async_fetch_price(self, symbol):
+    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
+    """
+    price, timestamp = fetch_iex_price(symbol)
+    async_cache_price.delay(symbol, price, timestamp)
+    return price, timestamp
 
 
 @celery.task(name="async_cache_price", bind=True, base=SqlAlchemyTask)
@@ -73,17 +75,12 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
         table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
 
 
-@celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
-def async_fetch_price(self, symbol):
-    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
-    """
-    price, timestamp = fetch_iex_price(symbol)
-    async_cache_price.delay(symbol, price, timestamp)
-    return price, timestamp
+# --------------- #
+# Game management #
+# --------------- #
 
-
-@celery.task(name="async_update_active_symbol_prices", bind=True, base=SqlAlchemyTask)
-def async_update_active_symbol_prices(self):
+@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=SqlAlchemyTask)
+def async_fetch_active_symbol_prices(self):
     active_symbols = get_all_active_symbols(db_session)
     for symbol in active_symbols:
         async_fetch_price.delay(symbol)
@@ -102,6 +99,22 @@ def async_suggest_symbols(text):
         db_session.remove()
 
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
+@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
+def async_update_symbols_table(self):
+    try:
+        symbols_table = get_symbols_table()
+        print("writing to db...")
+        with db_session.connection() as conn:
+            conn.execute("TRUNCATE TABLE symbols;")
+            db_session.remove()
+
+        with db_session.connection() as conn:
+            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
+            db_session.commit()
+    except Exception as exc:
+        raise self.retry(exc=exc)
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
@@ -144,7 +157,6 @@ def async_respond_to_invite(self, game_id, user_id, status):
                   status=status,
                   timestamp=response_time)
 
-
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_ids(db_session)
@@ -158,6 +170,10 @@ def async_service_open_games(self):
 def async_service_one_open_game(self, game_id):
     service_open_game(db_session, game_id)
 
+
+# ---------------- #
+# Order management #
+# ---------------- #
 
 @celery.task(name="async_place_order", base=SqlAlchemyTask)
 def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantity_type, market_price, amount,
@@ -208,6 +224,10 @@ def async_process_all_open_orders(self):
         status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
+
+# ------- #
+# Friends #
+# ------- #
 
 @celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)
 def async_invite_friend(self, requester_id, invited_id):
@@ -263,3 +283,27 @@ def async_suggest_friends(self, user_id, text):
         friend_invite_suggestions = conn.execute(suggest_query, text)
 
         return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
+
+
+# -------------- #
+# Visuals assets #
+# -------------- #
+
+@celery.task(name="async_serialize_open_orders", bind=True, base=SqlAlchemyTask)
+def async_serialize_open_orders(self, game_id, user_id):
+    serialize_and_pack_orders_open_orders(game_id, user_id)
+
+
+@celery.task(name="async_serialize_current_balances", bind=True, base=SqlAlchemyTask)
+def async_serialize_current_balances(self, game_id, user_id):
+    serialize_and_pack_current_balances(game_id, user_id)
+
+
+@celery.task(name="async_update_play_game_visuals", bind=True, base=SqlAlchemyTask)
+def async_update_play_game_visuals(self):
+    open_game_ids = get_open_game_ids(db_session)
+    for game_id in open_game_ids:
+        user_ids = get_all_game_users(db_session, game_id)
+        for user_id in user_ids:
+            async_serialize_open_orders.delay(game_id, user_id)
+            async_serialize_current_balances.delay(game_id, user_id)

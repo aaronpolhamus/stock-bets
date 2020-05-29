@@ -3,6 +3,9 @@
 db-up:
 	docker-compose up -d db
 
+db-stop:
+	docker-compose stop db
+
 db-mysql:
 	docker-compose exec db mysql -uroot -p
 

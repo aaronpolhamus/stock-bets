@@ -1,5 +1,12 @@
+from datetime import timedelta
+
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.database.helpers import retrieve_meta_data, reset_db
+from backend.logic.stock_data import (
+    get_schedule_start_and_end,
+    nyse,
+    posix_to_datetime,
+)
 from config import Config
 from sqlalchemy import create_engine
 
@@ -12,6 +19,16 @@ metadata = retrieve_meta_data(engine)
 price_records = make_stock_data_records()
 market_order_time = min([record["timestamp"] for record in price_records])
 close_of_simulation_time = max([record["timestamp"] for record in price_records])
+
+
+def get_beginning_of_next_trading_day(ref_time):
+    current_day = posix_to_datetime(ref_time)
+    schedule = nyse.schedule(current_day, current_day)
+    while schedule.empty:
+        current_day += timedelta(days=1)
+        schedule = nyse.schedule(current_day, current_day)
+    start_day, _ = get_schedule_start_and_end(schedule)
+    return start_day
 
 
 def get_stock_start_price(symbol, records=price_records, order_time=market_order_time):
@@ -160,7 +177,8 @@ MOCK_DATA = {
         {"order_id": 7, "timestamp": market_order_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("MELI")},
         {"order_id": 8, "timestamp": market_order_time, "status": "pending", "clear_price": None},
-        {"order_id": 8, "timestamp": market_order_time + SECONDS_IN_A_DAY, "status": "fulfilled",
+        {"order_id": 8, "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
+         "status": "fulfilled",
          "clear_price": get_stock_start_price("NVDA") * 1.05},
         {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
         {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
@@ -204,9 +222,11 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 53985.8575, "symbol": None},
         {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": market_order_time,
          "balance_type": "virtual_stock", "balance": 60, "symbol": "MELI"},
-        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + SECONDS_IN_A_DAY,
+        {"user_id": 1, "game_id": 3, "order_status_id": 9,
+         "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
          "balance_type": "virtual_cash", "balance": 54405.28330175001, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 9, "timestamp": market_order_time + SECONDS_IN_A_DAY,
+        {"user_id": 1, "game_id": 3, "order_status_id": 9,
+         "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
          "balance_type": "virtual_stock", "balance": 5, "symbol": "NVDA"},
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_cash", "balance": 59140.23976175, "symbol": None},

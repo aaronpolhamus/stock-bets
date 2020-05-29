@@ -25,9 +25,13 @@ celery.conf.beat_schedule = {
         "task": "async_service_open_games",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     },
-    "update_active_symbol_pricess": {
-        "task": "async_update_active_symbol_prices",
+    "fetch_active_symbol_prices": {
+        "task": "async_fetch_active_symbol_prices",
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
+    },
+    "update_play_game_visuals": {
+        "task": "async_update_play_game_visuals",
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     }
 }
 

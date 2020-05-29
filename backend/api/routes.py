@@ -34,7 +34,9 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_place_order,
-    async_add_game)
+    async_add_game,
+    async_serialize_open_orders,
+    async_serialize_current_balances)
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 
@@ -312,14 +314,29 @@ def game_info():
 def place_order():
     decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
     user_id = decoded_session_token["user_id"]
-    order_ticket = request.json["order_ticket"]
+    order_ticket = request.json
+    from flask import current_app
+    current_app.logger.debug(order_ticket)
+    game_id = order_ticket["game_id"]
+
     stop_limit_price = order_ticket.get("stop_limit_price")
-    res = async_place_order.delay(user_id, order_ticket["game_id"], order_ticket["symbol"], order_ticket["buy_or_sell"],
-                                  order_ticket["order_type"], order_ticket["quantity_type"],
-                                  order_ticket["market_price"], order_ticket["amount"], order_ticket["time_in_force"],
-                                  stop_limit_price)
+    res = async_place_order.delay(
+        user_id,
+        game_id,
+        order_ticket["symbol"],
+        order_ticket["buy_or_sell"],
+        order_ticket["order_type"],
+        order_ticket["quantity_type"],
+        order_ticket["market_price"],
+        order_ticket["amount"],
+        order_ticket["time_in_force"],
+        stop_limit_price
+    )
     while not res.ready():
         continue
+
+    async_serialize_open_orders.delay(game_id, user_id)
+    async_serialize_current_balances.delay(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -327,10 +344,10 @@ def place_order():
 @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
-    cache_value = fetch_end_of_day_cache(symbol)
-    if cache_value is not None:
+    price, timestamp = fetch_end_of_day_cache(symbol)
+    if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": cache_value[0], "last_updated": posix_to_datetime(cache_value[1])})
+        return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
     res = async_fetch_price.delay(symbol)
     while not res.ready():
@@ -350,6 +367,12 @@ def api_suggest_symbols():
     while not res.ready():
         continue
     return jsonify(res.get())
+
+
+@routes.route("/api/get_orders")
+@authenticate
+def get_orders():
+    pass
 
 
 @routes.route("/healthcheck", methods=["GET"])

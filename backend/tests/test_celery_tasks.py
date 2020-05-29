@@ -33,15 +33,10 @@ class TestStockDataTasks(BaseTestCase):
 
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
-        update_time = time.time()
-        symbol = "ACME"
-        res = async_cache_price.delay(symbol, 99, update_time)
-        while not res.ready():
-            continue
-
-        cache_price, cache_time = rds.get(symbol).split("_")
-        self.assertEqual(float(cache_price), 99)
-        self.assertEqual(float(cache_time), update_time)
+        """Puzzle: If the "ACME" block is called above the AMZN block during trading hours an error comes up related to
+        the code not being able to find any meta data. Something with either the db_session or the DB itself fails when
+        calling async_cache_price directly, but after 5 hours of testing I couldn't figure out why.
+        """
 
         symbol = "AMZN"
         res = async_fetch_price.delay(symbol)
@@ -51,6 +46,16 @@ class TestStockDataTasks(BaseTestCase):
         price, _ = res.result
         self.assertIsNotNone(price)
         self.assertTrue(price > 0)
+
+        update_time = time.time()
+        symbol = "ACME"
+        res = async_cache_price.delay(symbol, 99, update_time)
+        while not res.ready():
+            continue
+
+        cache_price, cache_time = rds.get(symbol).split("_")
+        self.assertEqual(float(cache_price), 99)
+        self.assertEqual(float(cache_time), update_time)
 
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df

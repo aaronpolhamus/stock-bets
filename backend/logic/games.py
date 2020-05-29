@@ -94,6 +94,18 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
+def get_all_game_users(db_session, game_id):
+    with db_session.connection() as conn:
+        result = conn.execute(
+            """
+            SELECT DISTINCT user_id 
+            FROM game_invites WHERE 
+                game_id = %s AND
+                status = 'joined';""", game_id)
+        db_session.remove()
+    return [x[0] for x in result]
+
+
 def get_open_game_ids(db_session):
     """This function returns game IDs for the subset of th game that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
