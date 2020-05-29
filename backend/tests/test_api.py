@@ -295,12 +295,13 @@ class TestPlayGame(BaseTestCase):
                 "user_id": user_id,
                 "game_id": game_id,
                 "symbol": stock_pick,
-                "order_type": "market",
+                "order_type": "limit",
+                "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
                 "quantity_type": "Shares",
                 "market_price": market_price,
                 "amount": order_quantity,
                 "buy_or_sell": "buy",
-                "time_in_force": "day"
+                "time_in_force": "until_cancelled"
             }
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
                                          verify=False,
@@ -316,9 +317,7 @@ class TestPlayGame(BaseTestCase):
             self.db_session.remove()
 
         self.assertEqual(last_order, stock_pick)
-
-        time.sleep(1)  # gives redis a second to persist changes
-        balances_cache = unpack_redis_json(f"balances_{game_id}_{user_id}")
-        self.assertIsNotNone(balances_cache)
         orders_cache = unpack_redis_json(f"open_orders_{game_id}_{user_id}")
+        while orders_cache is None:
+            orders_cache = unpack_redis_json(f"open_orders_{game_id}_{user_id}")
         self.assertTrue(stock_pick in orders_cache["symbol"].values())

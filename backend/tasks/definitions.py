@@ -157,6 +157,7 @@ def async_respond_to_invite(self, game_id, user_id, status):
                   status=status,
                   timestamp=response_time)
 
+
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_ids(db_session)

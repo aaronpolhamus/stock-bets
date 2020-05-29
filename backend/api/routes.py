@@ -81,6 +81,13 @@ def get_invitee_list(username):
     return [invitee[0] for invitee in invitees]
 
 
+def decode_token(req, element="user_id"):
+    """Parse user information from the HTTP token that comes with each authenticated request from the frontend
+    """
+    decoded_session_token = jwt.decode(req.cookies["session_token"], Config.SECRET_KEY)
+    return decoded_session_token[element]
+
+
 def authenticate(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -168,8 +175,7 @@ def register_user():
 def index():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
+    user_id = decode_token(request)
     with db.engine.connect() as conn:
         user_info = conn.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
 
@@ -218,9 +224,8 @@ def logout():
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
-    user_email = decoded_session_token["email"]
+    user_id = decode_token(request)
+    user_email = decode_token(request, "email")
     candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
@@ -243,8 +248,7 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    username = decoded_session_token["username"]
+    username = decode_token(request, "username")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     available_invitees = get_invitee_list(username)
     resp = {
@@ -267,10 +271,8 @@ def game_defaults():
 @routes.route("/api/create_game", methods=["POST"])
 @authenticate
 def create_game():
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
+    user_id = decode_token(request)
     game_settings = request.json
-
     res = async_add_game.delay(
         user_id,
         game_settings["title"],
@@ -312,13 +314,9 @@ def game_info():
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
 def place_order():
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
+    user_id = decode_token(request)
     order_ticket = request.json
-    from flask import current_app
-    current_app.logger.debug(order_ticket)
     game_id = order_ticket["game_id"]
-
     stop_limit_price = order_ticket.get("stop_limit_price")
     res = async_place_order.delay(
         user_id,
@@ -352,9 +350,7 @@ def fetch_price():
     res = async_fetch_price.delay(symbol)
     while not res.ready():
         continue
-    price_data = res.get()
-    timestamp = price_data[1]
-    price = price_data[0]
+    price, timestamp = res.get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
@@ -369,10 +365,24 @@ def api_suggest_symbols():
     return jsonify(res.get())
 
 
-@routes.route("/api/get_orders")
-@authenticate
-def get_orders():
-    pass
+# @routes.route("/api/balances_chart", method=["POST"])
+# @authenticate
+# def balances_chart():
+#     game_id = request.json.get("game_id")
+#     pass
+#
+#
+# @routes.route("/api/the_field_chart", method=["POST"])
+# @authenticate
+# def the_field_chart():
+#     game_id = request.json.get("game_id")
+#     pass
+#
+#
+# @routes.route("/api/get_orders")
+# @authenticate
+# def get_orders():
+#     pass
 
 
 @routes.route("/healthcheck", methods=["GET"])

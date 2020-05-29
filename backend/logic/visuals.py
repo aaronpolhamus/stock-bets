@@ -165,15 +165,6 @@ def serialize_and_pack_positions_chart(df: pd.DataFrame, game_id: int, user_id: 
     rds.set(f"position_chart_{game_id}_{user_id}", json.dumps(chart_json))
 
 
-def aggregate_portfolio_value(df: pd.DataFrame):
-    """Tally aggregated portfolio value for "the field" chart
-    """
-    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "last", "value": "last"})
-    return last_entry_df.groupby("t_index", as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "first", "value": "sum"})
-
-
 def serialize_and_pack_portfolio_comps_chart(user_portfolios: dict, game_id: int):
     chart_json = []
     for user_id, df in user_portfolios.items():
@@ -181,6 +172,15 @@ def serialize_and_pack_portfolio_comps_chart(user_portfolios: dict, game_id: int
         entry["data"] = serialize_pandas_rows_to_json(df, x="t_index", y="value")
         chart_json.append(entry)
     rds.set(f"field_chart_{game_id}", json.dumps(chart_json))
+
+
+def aggregate_portfolio_value(df: pd.DataFrame):
+    """Tally aggregated portfolio value for "the field" chart
+    """
+    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["timestamp", "value"]].aggregate(
+        {"timestamp": "last", "value": "last"})
+    return last_entry_df.groupby("t_index", as_index=False)[["timestamp", "value"]].aggregate(
+        {"timestamp": "first", "value": "sum"})
 
 
 def build_portfolio_comps(game_id: int):

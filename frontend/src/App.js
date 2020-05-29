@@ -8,6 +8,7 @@ import Welcome from './components/Welcome';
 import {MakeGame} from "./pages/MakeGame";
 import {JoinGame} from "./pages/JoinGame";
 import {PlayGame} from "./pages/PlayGame";
+import {Canvas} from "./pages/Canvas";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route exact path='/make' component={MakeGame} />
         <Route exact path='/join' component={JoinGame} />
         <Route exact path='/play' component={PlayGame} />
+        <Route exact path='/canvas' component={Canvas} />
       </Router>
     </div>
   );
