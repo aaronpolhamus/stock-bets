@@ -58,6 +58,16 @@ def get_next_trading_day_schedule(current_day: dt):
     return schedule
 
 
+def get_end_of_last_trading_day():
+    current_day = posix_to_datetime(time.time())
+    schedule = nyse.schedule(current_day, current_day)
+    while schedule.empty:
+        current_day -= timedelta(days=1)
+        schedule = nyse.schedule(current_day, current_day)
+    _, end_day = get_schedule_start_and_end(schedule)
+    return end_day
+
+
 # Selenium web scraper for keeping exchange symbols up to date
 # ------------------------------------------------------------
 def get_web_table_object(timeout=20):

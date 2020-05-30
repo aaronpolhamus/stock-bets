@@ -34,7 +34,12 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_place_order,
-    async_add_game)
+    async_add_game,
+    async_serialize_open_orders,
+    async_serialize_current_balances,
+    async_serialize_balances_chart
+)
+from backend.tasks.redis import unpack_redis_json
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 
@@ -77,6 +82,13 @@ def get_invitee_list(username):
     with db.engine.connect() as conn:
         invitees = conn.execute("SELECT username FROM users WHERE username != %s;", username).fetchall()
     return [invitee[0] for invitee in invitees]
+
+
+def decode_token(req, element="user_id"):
+    """Parse user information from the HTTP token that comes with each authenticated request from the frontend
+    """
+    decoded_session_token = jwt.decode(req.cookies["session_token"], Config.SECRET_KEY)
+    return decoded_session_token[element]
 
 
 def authenticate(f):
@@ -166,8 +178,7 @@ def register_user():
 def index():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
+    user_id = decode_token(request)
     with db.engine.connect() as conn:
         user_info = conn.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
 
@@ -216,9 +227,8 @@ def logout():
 def set_username():
     """Invoke to set a user's username during welcome and subsequently when they want to change it
     """
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
-    user_email = decoded_session_token["email"]
+    user_id = decode_token(request)
+    user_email = decode_token(request, "email")
     candidate_username = request.json["username"]
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
@@ -241,8 +251,7 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    username = decoded_session_token["username"]
+    username = decode_token(request, "username")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     available_invitees = get_invitee_list(username)
     resp = {
@@ -265,10 +274,8 @@ def game_defaults():
 @routes.route("/api/create_game", methods=["POST"])
 @authenticate
 def create_game():
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
+    user_id = decode_token(request)
     game_settings = request.json
-
     res = async_add_game.delay(
         user_id,
         game_settings["title"],
@@ -310,16 +317,28 @@ def game_info():
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
 def place_order():
-    decoded_session_token = jwt.decode(request.cookies["session_token"], Config.SECRET_KEY)
-    user_id = decoded_session_token["user_id"]
-    order_ticket = request.json["order_ticket"]
+    user_id = decode_token(request)
+    order_ticket = request.json
+    game_id = order_ticket["game_id"]
     stop_limit_price = order_ticket.get("stop_limit_price")
-    res = async_place_order.delay(user_id, order_ticket["game_id"], order_ticket["symbol"], order_ticket["buy_or_sell"],
-                                  order_ticket["order_type"], order_ticket["quantity_type"],
-                                  order_ticket["market_price"], order_ticket["amount"], order_ticket["time_in_force"],
-                                  stop_limit_price)
+    res = async_place_order.delay(
+        user_id,
+        game_id,
+        order_ticket["symbol"],
+        order_ticket["buy_or_sell"],
+        order_ticket["order_type"],
+        order_ticket["quantity_type"],
+        order_ticket["market_price"],
+        order_ticket["amount"],
+        order_ticket["time_in_force"],
+        stop_limit_price
+    )
     while not res.ready():
         continue
+
+    async_serialize_open_orders.delay(game_id, user_id)
+    async_serialize_current_balances.delay(game_id, user_id)
+    async_serialize_balances_chart.delay(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -327,17 +346,15 @@ def place_order():
 @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
-    cache_value = fetch_end_of_day_cache(symbol)
-    if cache_value is not None:
+    price, timestamp = fetch_end_of_day_cache(symbol)
+    if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": cache_value[0], "last_updated": posix_to_datetime(cache_value[1])})
+        return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
     res = async_fetch_price.delay(symbol)
     while not res.ready():
         continue
-    price_data = res.get()
-    timestamp = price_data[1]
-    price = price_data[0]
+    price, timestamp = res.get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
@@ -350,6 +367,38 @@ def api_suggest_symbols():
     while not res.ready():
         continue
     return jsonify(res.get())
+
+
+@routes.route("/api/balances_chart", methods=["POST"])
+@authenticate
+def balances_chart():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
+
+
+@routes.route("/api/field_chart", methods=["POST"])
+@authenticate
+def field_chart():
+    game_id = request.json.get("game_id")
+    f"field_chart_{game_id}"
+    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
+
+
+@routes.route("/api/get_open_orders_table", methods=["POST"])
+@authenticate
+def get_open_orders_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_current_balances_table", methods=["POST"])
+@authenticate
+def get_current_balances_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
 
 
 @routes.route("/healthcheck", methods=["GET"])

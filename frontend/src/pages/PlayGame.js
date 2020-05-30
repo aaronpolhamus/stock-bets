@@ -35,8 +35,8 @@ const PlayGame = (props) => {
     let orderTicketCopy = {...orderTicket}
     orderTicketCopy["symbol"] = symbolValue
     orderTicketCopy["market_price"] = priceData.price
-    console.log(orderTicketCopy)
-    // await axios.post("/api/place_order", orderTicket)
+    setOrderTicket(orderTicketCopy)
+    await axios.post("/api/place_order", orderTicket)
   }
 
   const getSuggestionValue = (suggestion) => { 
@@ -64,6 +64,8 @@ const PlayGame = (props) => {
   }
 
   const onSuggestionSelected = (event, { suggestion, suggestionValue, suggestionIndex, sectionIndex, method }) => {
+    // This part of the code handles the dynamically-updating price ticker when a stock pick gets made. We need to clear the old interval and set
+    // a new one each time there is a change
     if (intervalId) { 
       clearInterval(intervalId)
     }

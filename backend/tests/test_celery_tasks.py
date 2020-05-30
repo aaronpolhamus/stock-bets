@@ -23,25 +23,24 @@ from backend.tasks.definitions import (
     async_respond_to_invite,
     async_service_open_games,
     async_place_order,
-    async_process_single_order
+    async_process_single_order,
+    async_update_play_game_visuals,
 )
-from backend.tasks.redis import rds
+from backend.tasks.redis import (
+    rds,
+    unpack_redis_json
+)
 from backend.tests import BaseTestCase
 
 
-class TestCeleryTasks(BaseTestCase):
+class TestStockDataTasks(BaseTestCase):
 
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
-        update_time = time.time()
-        symbol = "ACME"
-        res = async_cache_price.delay(symbol, 99, update_time)
-        while not res.ready():
-            continue
-
-        cache_price, cache_time = rds.get(symbol).split("_")
-        self.assertEqual(float(cache_price), 99)
-        self.assertEqual(float(cache_time), update_time)
+        """Puzzle: If the "ACME" block is called above the AMZN block during trading hours an error comes up related to
+        the code not being able to find any meta data. Something with either the db_session or the DB itself fails when
+        calling async_cache_price directly, but after 5 hours of testing I couldn't figure out why.
+        """
 
         symbol = "AMZN"
         res = async_fetch_price.delay(symbol)
@@ -52,18 +51,32 @@ class TestCeleryTasks(BaseTestCase):
         self.assertIsNotNone(price)
         self.assertTrue(price > 0)
 
+        update_time = time.time()
+        symbol = "ACME"
+        res = async_cache_price.delay(symbol, 99, update_time)
+        while not res.ready():
+            continue
+
+        cache_price, cache_time = rds.get(symbol).split("_")
+        self.assertEqual(float(cache_price), 99)
+        self.assertEqual(float(cache_time), update_time)
+
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
         res = async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
         while not res.ready():
             continue
 
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
+            self.db_session.remove()
 
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
+
+
+class TestPriceCaching(BaseTestCase):
 
     @patch("backend.logic.stock_data.time")
     @patch("backend.tasks.definitions.time")
@@ -124,6 +137,9 @@ class TestCeleryTasks(BaseTestCase):
             fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
             self.db_session.remove()
         self.assertEqual(third_count, fourth_count)
+
+
+class TestGameIntegration(BaseTestCase):
 
     def test_play_game_tasks(self):
         text = "A"
@@ -358,11 +374,12 @@ class TestCeleryTasks(BaseTestCase):
             stock_pick = "NVDA"
             user_id = 3
             order_quantity = 1420
-            stop_limit_price = 345
+            nvda_limit_ratio = 0.95
             res = async_fetch_price.delay(stock_pick)
             while not res.ready():
                 continue
             nvda_price, _ = res.result
+            stop_limit_price = nvda_price * nvda_limit_ratio
             toofast_order = {
                 "user_id": user_id,
                 "game_id": game_id,
@@ -412,8 +429,8 @@ class TestCeleryTasks(BaseTestCase):
             meli_limit_ratio = 1.1
             mock_price_fetch.delay.side_effect = [
                 ResultMock(order_clear_price),
-                ResultMock(amzn_stop_ratio * amzn_price, ),
-                ResultMock(meli_limit_ratio * meli_price),
+                ResultMock(amzn_stop_ratio * amzn_price - 1),
+                ResultMock(meli_limit_ratio * meli_price + 1),
             ]
 
             mock_task_time.time.side_effect = [
@@ -450,7 +467,7 @@ class TestCeleryTasks(BaseTestCase):
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
-            self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity)
+            self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
 
             # Now let's go ahead and place stop-loss and stop-limit orders against existing positions
             stock_pick = "AMZN"
@@ -479,13 +496,14 @@ class TestCeleryTasks(BaseTestCase):
                 test_user_order["time_in_force"],
                 test_user_order["stop_limit_price"]
             ])
-            with self.engine.connect() as conn:
+            with self.db_session.connection() as conn:
                 amzn_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
+                self.db_session.remove()
 
             stock_pick = "MELI"
             user_id = 4
@@ -538,7 +556,7 @@ class TestCeleryTasks(BaseTestCase):
                       game_id = %s;
                 """
                 df = pd.read_sql(query, conn, params=[game_id])
-                self.db_session.close()
+                self.db_session.remove()
 
             test_user_id = 1
             test_user_stock = "AMZN"
@@ -557,3 +575,27 @@ class TestCeleryTasks(BaseTestCase):
             shares_sold = miguel_order["amount"]
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
+
+
+class TestVisualAssetsTasks(BaseTestCase):
+
+    def test_line_charts(self):
+        # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
+        # since game #3 is our realistic test case, but could be worth going back and debugging later.
+        rds.flushall()
+
+        res = async_service_open_games.delay()
+        while not res.ready():
+            continue
+
+        res = async_update_play_game_visuals.delay()
+        while not res.ready():
+            continue
+
+        # Verify that the JSON objects for chart visuals were computed and cached as expected
+        field_chart = unpack_redis_json("field_chart_3")
+        while field_chart is None:
+            field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))

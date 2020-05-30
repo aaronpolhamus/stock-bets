@@ -1,6 +1,5 @@
 import time
 
-from backend.config import Config
 from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
@@ -14,7 +13,9 @@ from backend.logic.games import (
     get_order_ticket,
     process_order,
     get_order_expiration_status,
-    get_open_game_ids,
+    get_open_game_invite_ids,
+    get_active_game_ids,
+    get_all_game_users,
     service_open_game,
     translate_usernames_to_ids,
     create_pending_game_status_entry,
@@ -28,32 +29,36 @@ from backend.logic.stock_data import (
     get_all_active_symbols,
     PRICE_CACHING_INTERVAL
 )
+from backend.logic.visuals import (
+    serialize_and_pack_orders_open_orders,
+    serialize_and_pack_current_balances,
+    make_balances_chart_data,
+    serialize_and_pack_balances_chart,
+    make_the_field_charts
+)
 from backend.tasks.celery import (
     celery,
     SqlAlchemyTask,
     pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 
 
-@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
-def async_update_symbols_table(self):
-    try:
-        symbols_table = get_symbols_table()
-        print("writing to db...")
-        with db_session.connection() as conn:
-            conn.execute("TRUNCATE TABLE symbols;")
-            db_session.remove()
+# -------------------------- #
+# Price fetching and caching #
+# -------------------------- #
 
-        with db_session.connection() as conn:
-            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
-            db_session.commit()
-    except Exception as exc:
-        raise self.retry(exc=exc)
+@celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
+def async_fetch_price(self, symbol):
+    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
+    """
+    price, timestamp = fetch_iex_price(symbol)
+    async_cache_price.delay(symbol, price, timestamp)
+    return price, timestamp
 
 
-@celery.task(name="async_cache_price", bind=True)
+@celery.task(name="async_cache_price", bind=True, base=SqlAlchemyTask)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
@@ -68,23 +73,18 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
             return
 
     # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
+    rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
         prices = retrieve_meta_data(db_session.connection()).tables["prices"]
         table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
-        rds.set(symbol, f"{price}_{last_updated}")
 
 
-@celery.task(name="async_fetch_price", bind=True)
-def async_fetch_price(self, symbol):
-    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
-    """
-    price, timestamp = fetch_iex_price(symbol)
-    async_cache_price.delay(symbol, price, timestamp)
-    return price, timestamp
+# --------------- #
+# Game management #
+# --------------- #
 
-
-@celery.task(name="async_update_active_symbol_prices", bind=True)
-def async_update_active_symbol_prices(self):
+@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=SqlAlchemyTask)
+def async_fetch_active_symbol_prices(self):
     active_symbols = get_all_active_symbols(db_session)
     for symbol in active_symbols:
         async_fetch_price.delay(symbol)
@@ -103,6 +103,22 @@ def async_suggest_symbols(text):
         db_session.remove()
 
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
+@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
+def async_update_symbols_table(self):
+    try:
+        symbols_table = get_symbols_table()
+        print("writing to db...")
+        with db_session.connection() as conn:
+            conn.execute("TRUNCATE TABLE symbols;")
+            db_session.remove()
+
+        with db_session.connection() as conn:
+            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
+            db_session.commit()
+    except Exception as exc:
+        raise self.retry(exc=exc)
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
@@ -148,7 +164,7 @@ def async_respond_to_invite(self, game_id, user_id, status):
 
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
-    open_game_ids = get_open_game_ids(db_session)
+    open_game_ids = get_open_game_invite_ids(db_session)
     status_list = []
     for game_id in open_game_ids:
         status_list.append(async_service_one_open_game.delay(game_id))
@@ -159,6 +175,10 @@ def async_service_open_games(self):
 def async_service_one_open_game(self, game_id):
     service_open_game(db_session, game_id)
 
+
+# ---------------- #
+# Order management #
+# ---------------- #
 
 @celery.task(name="async_place_order", base=SqlAlchemyTask)
 def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantity_type, market_price, amount,
@@ -199,17 +219,20 @@ def async_process_single_order(order_id):
                   order_ticket["quantity"], timestamp)
 
 
-@celery.task(name="async_process_all_open_orders", bind=True)
+@celery.task(name="async_process_all_open_orders", bind=True, base=SqlAlchemyTask)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     open_orders = get_all_open_orders(db_session)
     status_list = []
     for order_id, expiration in open_orders:
-        status_list.append(async_process_single_order.delay(order_id, expiration, engine))
+        status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
+
+# ------- #
+# Friends #
+# ------- #
 
 @celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)
 def async_invite_friend(self, requester_id, invited_id):
@@ -265,3 +288,55 @@ def async_suggest_friends(self, user_id, text):
         friend_invite_suggestions = conn.execute(suggest_query, text)
 
         return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
+
+
+# -------------- #
+# Visuals assets #
+# -------------- #
+"""This gets a little bit dense. async_serialize_open_orders and async_serialize_current_balances run at the game-user
+level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
+both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
+expensive task that serializes balance histories for all user positions in all open games and, based on that data, 
+creates a "the field" chart for portfolio level comps. 
+
+In addition to being run by async_update_play_game_visuals, these tasks are also run when calling the place_order
+endpoint in order to have user data be as dynamic and responsive as possible:
+* async_serialize_open_orders
+* async_serialize_current_balances
+* async_serialize_balances_chart
+"""
+
+
+@celery.task(name="async_serialize_open_orders", bind=True, base=SqlAlchemyTask)
+def async_serialize_open_orders(self, game_id, user_id):
+    serialize_and_pack_orders_open_orders(game_id, user_id)
+
+
+@celery.task(name="async_serialize_current_balances", bind=True, base=SqlAlchemyTask)
+def async_serialize_current_balances(self, game_id, user_id):
+    serialize_and_pack_current_balances(game_id, user_id)
+
+
+@celery.task(name="async_serialize_balances_chart", bind=True, base=SqlAlchemyTask)
+def async_serialize_balances_chart(self, game_id, user_id):
+    df = make_balances_chart_data(game_id, user_id)
+    serialize_and_pack_balances_chart(df, game_id, user_id)
+
+
+@celery.task(name="async_make_the_field_charts", bind=True, base=SqlAlchemyTask)
+def async_make_the_field_charts(self, game_id):
+    make_the_field_charts(game_id)
+
+
+@celery.task(name="async_update_play_game_visuals", bind=True, base=SqlAlchemyTask)
+def async_update_play_game_visuals(self):
+    open_game_ids = get_active_game_ids(db_session)
+    task_results = []
+    for game_id in open_game_ids:
+        task_results.append(async_make_the_field_charts.delay(game_id))
+        user_ids = get_all_game_users(db_session, game_id)
+        for user_id in user_ids:
+            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+
+    pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")

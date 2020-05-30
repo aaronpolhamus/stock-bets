@@ -94,7 +94,19 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def get_open_game_ids(db_session):
+def get_all_game_users(db_session, game_id):
+    with db_session.connection() as conn:
+        result = conn.execute(
+            """
+            SELECT DISTINCT user_id 
+            FROM game_invites WHERE 
+                game_id = %s AND
+                status = 'joined';""", game_id)
+        db_session.remove()
+    return [x[0] for x in result]
+
+
+def get_open_game_invite_ids(db_session):
     """This function returns game IDs for the subset of th game that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
     participating
@@ -117,10 +129,31 @@ def get_open_game_ids(db_session):
         ) pending_game_ids
         ON
           g.id = pending_game_ids.game_id
-        WHERE
-            pending_game_ids.status = 'pending' AND
-            invite_window < %s;
+        WHERE invite_window < %s;
         """, time.time()).fetchall()  # yep, I know about UNIX_TIMESTAMP() -- this is necessary for test mocking
+        db_session.remove()
+    return [x[0] for x in result]
+
+
+def get_active_game_ids(db_session):
+    with db_session.connection() as conn:
+        result = conn.execute("""
+        SELECT g.id
+        FROM games g
+        INNER JOIN
+        (
+          SELECT gs.game_id, gs.status
+          FROM game_status gs
+          INNER JOIN
+          (SELECT game_id, max(id) as max_id
+            FROM game_status
+            GROUP BY game_id) grouped_gs
+          ON
+            gs.id = grouped_gs.max_id
+          WHERE gs.status = 'active'
+        ) pending_game_ids
+        ON
+          g.id = pending_game_ids.game_id;""").fetchall()
         db_session.remove()
     return [x[0] for x in result]
 
@@ -169,7 +202,7 @@ def get_accepted_invite_list(db_session, game_id):
 
 def service_open_game(db_session, game_id):
     """Important note: This function doesn't have any logic to verify that it's operating on an open game. It should
-    ONLY be applied to IDs passed in from get_open_game_ids
+    ONLY be applied to IDs passed in from get_open_game_invite_ids
     """
     update_time = time.time()
     game_status = retrieve_meta_data(db_session.connection()).tables["game_status"]
@@ -296,8 +329,7 @@ def get_current_stock_holding(db_session, user_id, game_id, symbol):
 
 
 def get_all_current_stock_holdings(db_session, user_id, game_id):
-    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
-    execution to be passed in from the outside
+    """Get the user's current balances for display in the front end
     """
 
     sql_query = """
@@ -427,6 +459,7 @@ def update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_b
 
 def place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type,
                 quantity_type, market_price, amount, time_in_force, stop_limit_price=None):
+
     timestamp = time.time()
     metadata = retrieve_meta_data(db_session.connection())
     order_status = metadata.tables["order_status"]

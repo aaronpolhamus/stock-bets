@@ -27,6 +27,10 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERIOD,
     DEFAULT_INVITE_OPEN_WINDOW
 )
+from backend.tasks.definitions import (
+    async_fetch_price
+)
+from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from config import Config
 from sqlalchemy import select
@@ -34,7 +38,7 @@ from sqlalchemy import select
 HOST_URL = 'https://localhost:5000/api'
 
 
-class TestAPI(BaseTestCase):
+class TestUserManagement(BaseTestCase):
 
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
@@ -135,6 +139,9 @@ class TestAPI(BaseTestCase):
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
 
+
+class TestCreateGame(BaseTestCase):
+
     def test_game_defaults(self):
         with self.engine.connect() as conn:
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
@@ -214,8 +221,7 @@ class TestAPI(BaseTestCase):
             "title": "stupified northcutt",
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
-                                         verify=False,
-                                         json=game_settings)
+                                         verify=False, json=game_settings)
         current_time = time.time()
         self.assertEqual(res.status_code, 200)
 
@@ -259,3 +265,65 @@ class TestAPI(BaseTestCase):
             lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
+
+
+class TestPlayGame(BaseTestCase):
+
+    def test_play_game(self):
+        """Use the canonical game #3 to interact with the game play API
+        """
+        with self.db_session.connection() as conn:
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
+            self.db_session.remove()
+
+        session_token = create_jwt(email, user_id, user_name)
+        game_id = 3
+        stock_pick = "JETS"
+        order_quantity = 25
+
+        res = async_fetch_price.delay(stock_pick)
+        while not res.ready():
+            continue
+        market_price, _ = res.result
+
+        order_ticket = {
+                "user_id": user_id,
+                "game_id": game_id,
+                "symbol": stock_pick,
+                "order_type": "limit",
+                "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
+                "quantity_type": "Shares",
+                "market_price": market_price,
+                "amount": order_quantity,
+                "buy_or_sell": "buy",
+                "time_in_force": "until_cancelled"
+            }
+        rds.delete(f"balances_chart_{game_id}_{user_id}")
+        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
+                                         verify=False, json=order_ticket)
+        self.assertEqual(res.status_code, 200)
+
+        with self.db_session.connection() as conn:
+            last_order = conn.execute("""
+                SELECT symbol FROM orders
+                ORDER BY id DESC LIMIT 0, 1;
+                """
+            ).fetchone()[0]
+            self.db_session.remove()
+
+        self.assertEqual(last_order, stock_pick)
+        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(stock_pick, res.json()["symbol"].values())
+        balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+        while balances_chart is None:
+            balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+
+        res = self.requests_session.post(f"{HOST_URL}/balances_chart", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
+        returned_current_balances_series = set([x['id'] for x in res.json()])
+        self.assertEqual(expected_current_balances_series, returned_current_balances_series)

@@ -3,6 +3,9 @@
 db-up:
 	docker-compose up -d db
 
+db-stop:
+	docker-compose stop db
+
 db-mysql:
 	docker-compose exec db mysql -uroot -p
 
@@ -12,6 +15,9 @@ db-reset:
 db-mock-data:
 	docker-compose exec backend python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"
 
+db-logs:
+	docker-compose logs -f db
+
 # celery worker
 # -------------
 worker-logs:
@@ -19,7 +25,6 @@ worker-logs:
 
 worker-up:
 	docker-compose up -d worker
-	make worker-logs
 
 worker-build:
 	docker-compose build worker
@@ -66,6 +71,7 @@ backend-build:
 
 backend-up:
 	docker-compose up -d backend
+	make worker-up
 
 backend-logs:
 	docker-compose logs -f backend
@@ -73,11 +79,14 @@ backend-logs:
 backend-bash:
 	docker-compose exec backend bash
 
+backend-python:
+	docker-compose exec backend ipython
+
 backend-stop:
 	docker-compose stop backend
 
 backend-test:
-	docker-compose exec backend coverage run --source . -m unittest discover
+	docker-compose exec backend coverage run --source . -m unittest discover -v
 	docker-compose exec backend coverage report
 
 # frontend 
@@ -105,7 +114,7 @@ down:
 stop:
 	docker-compose stop
 
-# Deployment
+# deployment
 # ----------
 ecr-push:
 	docker tag backend:latest 781982251500.dkr.ecr.us-west-1.amazonaws.com/stockbets/backend:latest
