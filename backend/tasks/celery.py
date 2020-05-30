@@ -54,5 +54,5 @@ def pause_return_until_subtask_completion(status_list, task_name, iteration_limi
     while not all([x.ready() for x in status_list]):
         n += 1
         if n > iteration_limit:
-            raise Exception(f"Not tasks spawned by {task_name} completed. Are celery and the DB in good shape?")
+            raise Exception(f"Tasks spawned by {task_name} not completed. Are celery and the DB in good shape?")
         continue

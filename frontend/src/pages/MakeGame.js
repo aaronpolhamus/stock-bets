@@ -3,7 +3,7 @@ import axios from "axios";
 import { Form, Button, Container, Row } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { Redirect } from "react-router-dom";
-import {optionBuilder} from "../components/functions/forms"
+import {optionBuilder} from "components/functions/forms"
 
 
 const MakeGame = () => {  

@@ -2,8 +2,8 @@
 // miguel to properly integrate into the play game flow
 import React from 'react';
 
-import {BalancesChart} from "../components/charts/BalancesChart"
-import {FieldChart} from "../components/charts/FieldChart"
+import {BalancesChart} from "components/charts/BalancesChart"
+import {FieldChart} from "components/charts/FieldChart"
 
 
 const Workbench = () => {

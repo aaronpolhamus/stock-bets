@@ -2,12 +2,20 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Container, Row, Col, Button, Form } from "react-bootstrap";
 import Autosuggest from "react-autosuggest";
-import {optionBuilder} from "../components/functions/forms"
+import {optionBuilder} from "components/functions/forms"
+import { useParams } from "react-router-dom";
 
+const defaultGameInfo = {}
+const defaultOrderTicket = {
+  order_type: 'limit'
+}
+
+// request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
 const PlayGame = (props) => {
-  const [gameInfo, setGameInfo] = useState({})
-  const [orderTicket, setOrderTicket] = useState({})
+  const { gameId } = useParams();
+  const [gameInfo, setGameInfo] = useState(defaultGameInfo)
+  const [orderTicket, setOrderTicket] = useState(defaultOrderTicket)
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
   const [symbolValue, setSymbolValue] = useState("")
   const [symbolLabel, setSymbolLabel] = useState("")
@@ -15,8 +23,10 @@ const PlayGame = (props) => {
   const [intervalId, setintervalId] = useState(null)
 
   useEffect(() => {
-    fetchGameInfo(props.location.game_id) // ask matheus or julio about a better way to do this
-  }, [])
+    fetchGameInfo(gameId) // ask matheus or julio about a better way to do this
+  }, [gameId])
+
+  console.log({gameInfo, orderTicket})
 
   const fetchGameInfo = async (gameId) => {
     const resp = await axios.post("/api/play_game_landing", {game_id: gameId, withCredentials: true})

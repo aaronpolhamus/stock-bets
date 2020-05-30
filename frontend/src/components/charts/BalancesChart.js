@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import moment from "moment";
 import { ResponsiveLine } from '@nivo/line'
 import { Card } from "react-bootstrap";
 
@@ -16,6 +17,9 @@ const BalancesChart = ({ gameId }) => {
     const data = await fetchChartData(gameId)
     setChartData(data) 
   }, [])
+
+  // backend generates all info -> point
+  // frontend generates missing info -> time
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
@@ -34,10 +38,19 @@ const BalancesChart = ({ gameId }) => {
               tickSize: 5,
               tickPadding: 5,
               tickRotation: 0,
-              legend: 'Time index',
+              format: d => {
+                const date = moment(d, 'YYYY-MM-DD HH:mm')
+                if (
+                  date.isoWeekday() === 1 // 1-7 day of week
+                ) {
+                  return date.format('YYYY-MM-DD')
+                }
+
+                return
+            },
+            legend: 'Time index',
               legendOffset: 36,
               legendPosition: 'middle',
-              tickValues: 20
           }}
           axisLeft={{
               orient: 'left',

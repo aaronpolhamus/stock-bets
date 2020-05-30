@@ -19,7 +19,7 @@ export default function App() {
         <Route exact path='/welcome' component={Welcome} />
         <Route exact path='/make' component={MakeGame} />
         <Route exact path='/join' component={JoinGame} />
-        <Route exact path='/play' component={PlayGame} />
+        <Route exact path='/play/:gameId' component={PlayGame} />
         <Route exact path='/workbench' component={Workbench} />
       </Router>
     </div>

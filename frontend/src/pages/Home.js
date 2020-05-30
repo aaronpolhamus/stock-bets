@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, Redirect } from 'react-router-dom';
 import { Button, Container, Row, Col, Card } from "react-bootstrap";
-import {isEmpty, usePostRequest} from "../components/functions/api";
+import {isEmpty, usePostRequest} from "components/functions/api";
 import axios from "axios";
 
 const Logout = async () => {
@@ -41,7 +41,7 @@ const Home = () => {
           return(
             <Card key={entry.id}>
               <Card.Body>
-                <Link to={{pathname: linkTo, game_id: entry.id}}>{entry.title}</Link>
+                <Link to={{pathname: `${linkTo}/${entry.id}`}}>{entry.title}</Link>
               </Card.Body>
             </Card>
           )
