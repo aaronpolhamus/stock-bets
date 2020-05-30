@@ -15,7 +15,9 @@ from backend.logic.stock_data import (
 )
 from backend.tasks.redis import rds
 
-N_PLOT_POINTS = 100  #
+N_PLOT_POINTS = 100
+# DATE_LABEL_FORMAT = "%b %d, %-I:%-M"
+DATE_LABEL_FORMAT = "%Y-%m-%d %H:%M"
 
 
 # ------------------ #
@@ -123,20 +125,28 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     return df[df["mask"]]
 
 
+def _interpolate_values(df):
+    df["value"] = df["value"].interpolate(method="akima")
+    return df.reset_index(drop=True)
+
+
 def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
     """
     df["value"] = df["balance"] * df["price"]
+    df = df.groupby("symbol", as_index=False).apply(lambda subset: _interpolate_values(subset)).reset_index(drop=True)
     df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
     df["t_index"] = df["t_index"].rank(method="dense")
+    df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     return df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
 
 
-def make_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
+def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
     balances = get_user_balance_history(game_id, user_id)
     df = append_price_data_to_balances(balances)
     df = filter_for_trade_time(df)
-    return reformat_for_plotting(df)
+    df = reformat_for_plotting(df)
+    return df
 
 
 def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
@@ -152,7 +162,7 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
     return output_array
 
 
-def serialize_and_pack_positions_chart(df: pd.DataFrame, game_id: int, user_id: int):
+def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis
     """
     chart_json = []
@@ -160,16 +170,16 @@ def serialize_and_pack_positions_chart(df: pd.DataFrame, game_id: int, user_id: 
     for symbol in symbols:
         entry = dict(id=symbol)
         subset = df[df["symbol"] == symbol]
-        entry["data"] = serialize_pandas_rows_to_json(subset, x="t_index", y="value")
+        entry["data"] = serialize_pandas_rows_to_json(subset, x="timestamp", y="value")
         chart_json.append(entry)
-    rds.set(f"position_chart_{game_id}_{user_id}", json.dumps(chart_json))
+    rds.set(f"balances_chart_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(user_portfolios: dict, game_id: int):
     chart_json = []
     for user_id, df in user_portfolios.items():
         entry = dict(id=user_id)
-        entry["data"] = serialize_pandas_rows_to_json(df, x="t_index", y="value")
+        entry["data"] = serialize_pandas_rows_to_json(df, x="timestamp", y="value")
         chart_json.append(entry)
     rds.set(f"field_chart_{game_id}", json.dumps(chart_json))
 
@@ -183,14 +193,14 @@ def aggregate_portfolio_value(df: pd.DataFrame):
         {"timestamp": "first", "value": "sum"})
 
 
-def build_portfolio_comps(game_id: int):
+def make_the_field_charts(game_id: int):
     """For each user in a game iterate through and make a chart that breaks out the value of their different positions
     """
     user_ids = get_all_game_users(db_session, game_id)
     portfolio_values = {}
     for user_id in user_ids:
-        df = make_chart_data(game_id, user_id)
-        serialize_and_pack_positions_chart(df, game_id, user_id)
+        df = make_balances_chart_data(game_id, user_id)
+        serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio_values[user_id] = aggregate_portfolio_value(df)
     serialize_and_pack_portfolio_comps_chart(portfolio_values, game_id)
 
@@ -244,4 +254,4 @@ def serialize_and_pack_current_balances(game_id: int, user_id: int):
     row["price"] = None
     row["timestamp"] = last_cash_time
     df = row.append(df).reset_index(drop=True)
-    rds.set(f"balances_{game_id}_{user_id}", df.to_json())
+    rds.set(f"current_balances_{game_id}_{user_id}", df.to_json())

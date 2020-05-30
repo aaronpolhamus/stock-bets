@@ -30,10 +30,7 @@ from backend.logic.games import (
 from backend.tasks.definitions import (
     async_fetch_price
 )
-from backend.tasks.redis import(
-    rds,
-    unpack_redis_json
-)
+from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from config import Config
 from sqlalchemy import select
@@ -224,8 +221,7 @@ class TestCreateGame(BaseTestCase):
             "title": "stupified northcutt",
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
-                                         verify=False,
-                                         json=game_settings)
+                                         verify=False, json=game_settings)
         current_time = time.time()
         self.assertEqual(res.status_code, 200)
 
@@ -303,9 +299,9 @@ class TestPlayGame(BaseTestCase):
                 "buy_or_sell": "buy",
                 "time_in_force": "until_cancelled"
             }
+        rds.delete(f"balances_chart_{game_id}_{user_id}")
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
-                                         verify=False,
-                                         json=order_ticket)
+                                         verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 200)
 
         with self.db_session.connection() as conn:
@@ -317,7 +313,17 @@ class TestPlayGame(BaseTestCase):
             self.db_session.remove()
 
         self.assertEqual(last_order, stock_pick)
-        orders_cache = unpack_redis_json(f"open_orders_{game_id}_{user_id}")
-        while orders_cache is None:
-            orders_cache = unpack_redis_json(f"open_orders_{game_id}_{user_id}")
-        self.assertTrue(stock_pick in orders_cache["symbol"].values())
+        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(stock_pick, res.json()["symbol"].values())
+        balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+        while balances_chart is None:
+            balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+
+        res = self.requests_session.post(f"{HOST_URL}/balances_chart", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
+        returned_current_balances_series = set([x['id'] for x in res.json()])
+        self.assertEqual(expected_current_balances_series, returned_current_balances_series)

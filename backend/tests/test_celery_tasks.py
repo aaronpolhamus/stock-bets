@@ -23,9 +23,13 @@ from backend.tasks.definitions import (
     async_respond_to_invite,
     async_service_open_games,
     async_place_order,
-    async_process_single_order
+    async_process_single_order,
+    async_update_play_game_visuals,
 )
-from backend.tasks.redis import rds
+from backend.tasks.redis import (
+    rds,
+    unpack_redis_json
+)
 from backend.tests import BaseTestCase
 
 
@@ -571,3 +575,27 @@ class TestGameIntegration(BaseTestCase):
             shares_sold = miguel_order["amount"]
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
+
+
+class TestVisualAssetsTasks(BaseTestCase):
+
+    def test_line_charts(self):
+        # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
+        # since game #3 is our realistic test case, but could be worth going back and debugging later.
+        rds.flushall()
+
+        res = async_service_open_games.delay()
+        while not res.ready():
+            continue
+
+        res = async_update_play_game_visuals.delay()
+        while not res.ready():
+            continue
+
+        # Verify that the JSON objects for chart visuals were computed and cached as expected
+        field_chart = unpack_redis_json("field_chart_3")
+        while field_chart is None:
+            field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))

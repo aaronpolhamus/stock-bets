@@ -36,7 +36,10 @@ from backend.tasks.definitions import (
     async_place_order,
     async_add_game,
     async_serialize_open_orders,
-    async_serialize_current_balances)
+    async_serialize_current_balances,
+    async_serialize_balances_chart
+)
+from backend.tasks.redis import unpack_redis_json
 from config import Config
 from flask import Blueprint, request, make_response, jsonify
 
@@ -335,6 +338,7 @@ def place_order():
 
     async_serialize_open_orders.delay(game_id, user_id)
     async_serialize_current_balances.delay(game_id, user_id)
+    async_serialize_balances_chart.delay(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -365,24 +369,36 @@ def api_suggest_symbols():
     return jsonify(res.get())
 
 
-# @routes.route("/api/balances_chart", method=["POST"])
-# @authenticate
-# def balances_chart():
-#     game_id = request.json.get("game_id")
-#     pass
-#
-#
-# @routes.route("/api/the_field_chart", method=["POST"])
-# @authenticate
-# def the_field_chart():
-#     game_id = request.json.get("game_id")
-#     pass
-#
-#
-# @routes.route("/api/get_orders")
-# @authenticate
-# def get_orders():
-#     pass
+@routes.route("/api/balances_chart", methods=["POST"])
+@authenticate
+def balances_chart():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
+
+
+@routes.route("/api/field_chart", methods=["POST"])
+@authenticate
+def field_chart():
+    game_id = request.json.get("game_id")
+    f"field_chart_{game_id}"
+    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
+
+
+@routes.route("/api/get_open_orders_table", methods=["POST"])
+@authenticate
+def get_open_orders_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_current_balances_table", methods=["POST"])
+@authenticate
+def get_current_balances_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
 
 
 @routes.route("/healthcheck", methods=["GET"])

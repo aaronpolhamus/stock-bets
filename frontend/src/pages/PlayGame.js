@@ -64,6 +64,8 @@ const PlayGame = (props) => {
   }
 
   const onSuggestionSelected = (event, { suggestion, suggestionValue, suggestionIndex, sectionIndex, method }) => {
+    // This part of the code handles the dynamically-updating price ticker when a stock pick gets made. We need to clear the old interval and set
+    // a new one each time there is a change
     if (intervalId) { 
       clearInterval(intervalId)
     }

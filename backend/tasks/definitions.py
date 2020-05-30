@@ -13,7 +13,8 @@ from backend.logic.games import (
     get_order_ticket,
     process_order,
     get_order_expiration_status,
-    get_open_game_ids,
+    get_open_game_invite_ids,
+    get_active_game_ids,
     get_all_game_users,
     service_open_game,
     translate_usernames_to_ids,
@@ -30,7 +31,10 @@ from backend.logic.stock_data import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_orders_open_orders,
-    serialize_and_pack_current_balances
+    serialize_and_pack_current_balances,
+    make_balances_chart_data,
+    serialize_and_pack_balances_chart,
+    make_the_field_charts
 )
 from backend.tasks.celery import (
     celery,
@@ -160,7 +164,7 @@ def async_respond_to_invite(self, game_id, user_id, status):
 
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
-    open_game_ids = get_open_game_ids(db_session)
+    open_game_ids = get_open_game_invite_ids(db_session)
     status_list = []
     for game_id in open_game_ids:
         status_list.append(async_service_one_open_game.delay(game_id))
@@ -289,6 +293,19 @@ def async_suggest_friends(self, user_id, text):
 # -------------- #
 # Visuals assets #
 # -------------- #
+"""This gets a little bit dense. async_serialize_open_orders and async_serialize_current_balances run at the game-user
+level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
+both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
+expensive task that serializes balance histories for all user positions in all open games and, based on that data, 
+creates a "the field" chart for portfolio level comps. 
+
+In addition to being run by async_update_play_game_visuals, these tasks are also run when calling the place_order
+endpoint in order to have user data be as dynamic and responsive as possible:
+* async_serialize_open_orders
+* async_serialize_current_balances
+* async_serialize_balances_chart
+"""
+
 
 @celery.task(name="async_serialize_open_orders", bind=True, base=SqlAlchemyTask)
 def async_serialize_open_orders(self, game_id, user_id):
@@ -300,11 +317,26 @@ def async_serialize_current_balances(self, game_id, user_id):
     serialize_and_pack_current_balances(game_id, user_id)
 
 
+@celery.task(name="async_serialize_balances_chart", bind=True, base=SqlAlchemyTask)
+def async_serialize_balances_chart(self, game_id, user_id):
+    df = make_balances_chart_data(game_id, user_id)
+    serialize_and_pack_balances_chart(df, game_id, user_id)
+
+
+@celery.task(name="async_make_the_field_charts", bind=True, base=SqlAlchemyTask)
+def async_make_the_field_charts(self, game_id):
+    make_the_field_charts(game_id)
+
+
 @celery.task(name="async_update_play_game_visuals", bind=True, base=SqlAlchemyTask)
 def async_update_play_game_visuals(self):
-    open_game_ids = get_open_game_ids(db_session)
+    open_game_ids = get_active_game_ids(db_session)
+    task_results = []
     for game_id in open_game_ids:
+        task_results.append(async_make_the_field_charts.delay(game_id))
         user_ids = get_all_game_users(db_session, game_id)
         for user_id in user_ids:
-            async_serialize_open_orders.delay(game_id, user_id)
-            async_serialize_current_balances.delay(game_id, user_id)
+            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+
+    pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
