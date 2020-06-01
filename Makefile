@@ -72,6 +72,7 @@ backend-build:
 backend-up:
 	docker-compose up -d backend
 	make worker-up
+	make db-restart
 	make db-mock-data
 
 backend-logs:
