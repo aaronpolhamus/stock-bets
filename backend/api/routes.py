@@ -292,7 +292,7 @@ def create_game():
     return make_response(GAME_CREATED_MSG, 200)
 
 
-@routes.route("/api/play_game_landing", methods=["POST"])
+@routes.route("/api/order_form_defaults", methods=["POST"])
 @authenticate
 def game_info():
     game_id = request.json["game_id"]
