@@ -16,8 +16,8 @@ from backend.logic.stock_data import (
 from backend.tasks.redis import rds
 
 N_PLOT_POINTS = 100
-# DATE_LABEL_FORMAT = "%b %d, %-I:%-M"
-DATE_LABEL_FORMAT = "%Y-%m-%d %H:%M"
+DATE_LABEL_FORMAT = "%m-%d %H:%M"
+N_TIMESTAMP_LABELS = 20  # We control axis formatting backend-side
 
 
 # ------------------ #
@@ -202,7 +202,9 @@ def make_the_field_charts(game_id: int):
         df = make_balances_chart_data(game_id, user_id)
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio_values[user_id] = aggregate_portfolio_value(df)
+    # need to set portfolio-level labels here
     serialize_and_pack_portfolio_comps_chart(portfolio_values, game_id)
+    return portfolio_values
 
 
 # -------------------------- #

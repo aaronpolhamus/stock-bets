@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import moment from "moment";
 import { ResponsiveLine } from "@nivo/line";
 import { Card } from "react-bootstrap";
 
@@ -46,8 +45,7 @@ const BalancesChart = ({ gameId }) => {
           orient: "bottom",
           tickSize: 5,
           tickPadding: 5,
-          tickRotation: 0,
-          legend: "Time index",
+          tickRotation: -45,
           legendOffset: 36,
           legendPosition: "middle",
         }}
