@@ -3,8 +3,7 @@ import { Link, Redirect } from "react-router-dom";
 import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
 import axios from "axios";
-import { Sidebar } from "components/layout/Sidebar";
-import { Layout } from "components/layout/Layout";
+import { Layout, Sidebar } from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
 // Left in un-used for now: we'll almost certainly get to this later
