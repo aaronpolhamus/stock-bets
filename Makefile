@@ -72,8 +72,6 @@ backend-build:
 backend-up:
 	docker-compose up -d backend
 	make worker-up
-	make db-reset
-	make db-mock-data
 
 backend-logs:
 	docker-compose logs -f backend
@@ -104,6 +102,9 @@ frontend-up:
 # --------------
 up:
 	make backend-up
+	make db-reset
+	make db-mock-data
+	npm install --prefix frontend
 	npm start --prefix frontend
 
 build:

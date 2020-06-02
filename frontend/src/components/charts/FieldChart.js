@@ -8,7 +8,6 @@ const fetchChartData = async (gameId) => {
     game_id: gameId,
     withCredentials: true,
   });
-  console.log(response);
   return response.data;
 };
 
@@ -21,7 +20,6 @@ const FieldChart = ({ gameId }) => {
   }, []);
 
   // See here for interactive documentation: https://nivo.rocks/line/
-  console.log(chartData);
   return (
     <Card style={{ width: "75vw", height: "25vw" }}>
       <Card.Title>The field</Card.Title>
@@ -43,8 +41,7 @@ const FieldChart = ({ gameId }) => {
           orient: "bottom",
           tickSize: 5,
           tickPadding: 5,
-          tickRotation: 0,
-          legend: "Time index",
+          tickRotation: -45,
           legendOffset: 36,
           legendPosition: "middle",
           tickValues: 20,
@@ -54,7 +51,6 @@ const FieldChart = ({ gameId }) => {
           tickSize: 5,
           tickPadding: 5,
           tickRotation: 0,
-          legend: "Position value",
           legendOffset: -40,
           legendPosition: "middle",
         }}

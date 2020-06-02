@@ -7,6 +7,7 @@ import { Sidebar } from "components/layout/Sidebar";
 import { Layout } from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
+// Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
   await axios.post("/api/logout");
   window.location.assign("/login");
