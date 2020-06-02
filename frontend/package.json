@@ -10,13 +10,14 @@
     "@testing-library/user-event": "^7.2.1",
     "add": "^2.0.6",
     "axios": "^0.19.2",
-    "bootstrap": "^4.4.1",
+    "bootstrap": "^4.5.0",
     "express": "^4.17.1",
     "http-proxy-middleware": "^1.0.3",
     "husky": "^4.2.5",
     "js-cookie": "^2.2.1",
     "lint-staged": "^10.2.7",
     "moment": "^2.26.0",
+    "node-sass": "^4.14.1",
     "prettier": "^2.0.5",
     "react": "^16.13.1",
     "react-autosuggest": "^10.0.2",
@@ -29,7 +30,8 @@
     "react-router-dom": "^5.1.2",
     "react-scripts": "3.4.1",
     "react-twitter-auth": "0.0.13",
-    "react-use-googlelogin": "^0.11.2"
+    "react-use-googlelogin": "^0.11.2",
+    "styled-components": "^5.1.1"
   },
   "scripts": {
     "start": "react-scripts start",

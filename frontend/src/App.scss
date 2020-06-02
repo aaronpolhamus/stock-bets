@@ -1,16 +1,7 @@
-.App {
-  text-align: center;
-}
+@import "Theme";
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+body {
+  font-family: "proxima-nova", sans-serif;
 }
 
 .App-header {
@@ -35,10 +26,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-body {
-  font-family: Helvetica, sans-serif;
 }
 
 .react-autosuggest__container {
@@ -97,4 +84,10 @@ body {
 
 .react-autosuggest__suggestion--highlighted {
   background-color: #ddd;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
 }

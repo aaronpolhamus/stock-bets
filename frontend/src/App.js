@@ -9,8 +9,6 @@ import { JoinGame } from "pages/JoinGame";
 import { PlayGame } from "pages/PlayGame";
 import { Workbench } from "pages/Workbench";
 
-import "./App.css";
-
 export default function App() {
   return (
     <div className="App">
