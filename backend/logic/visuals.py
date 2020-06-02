@@ -16,7 +16,7 @@ from backend.logic.stock_data import (
 from backend.tasks.redis import rds
 
 N_PLOT_POINTS = 100
-DATE_LABEL_FORMAT = "%m-%d %H:%M"
+DATE_LABEL_FORMAT = "%b %-d, %-H:%-M"
 N_TIMESTAMP_LABELS = 20  # We control axis formatting backend-side
 
 
@@ -137,7 +137,6 @@ def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     df = df.groupby("symbol", as_index=False).apply(lambda subset: _interpolate_values(subset)).reset_index(drop=True)
     df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
     df["t_index"] = df["t_index"].rank(method="dense")
-    df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     return df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
 
 
@@ -170,16 +169,23 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     for symbol in symbols:
         entry = dict(id=symbol)
         subset = df[df["symbol"] == symbol]
-        entry["data"] = serialize_pandas_rows_to_json(subset, x="timestamp", y="value")
+        entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
         chart_json.append(entry)
     rds.set(f"balances_chart_{game_id}_{user_id}", json.dumps(chart_json))
 
 
-def serialize_and_pack_portfolio_comps_chart(user_portfolios: dict, game_id: int):
+def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     chart_json = []
-    for user_id, df in user_portfolios.items():
-        entry = dict(id=user_id)
-        entry["data"] = serialize_pandas_rows_to_json(df, x="timestamp", y="value")
+    user_ids = df["id"].unique()
+    for user_id in user_ids:
+        with db_session.connection() as conn:
+            username = conn.execute("""
+            SELECT username FROM users WHERE id = %s
+            """, int(user_id)).fetchone()[0]
+            db_session.remove()
+        entry = dict(id=username)
+        subset = df[df["id"] == user_id]
+        entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
         chart_json.append(entry)
     rds.set(f"field_chart_{game_id}", json.dumps(chart_json))
 
@@ -193,6 +199,20 @@ def aggregate_portfolio_value(df: pd.DataFrame):
         {"timestamp": "first", "value": "sum"})
 
 
+def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
+    ls = []
+    for _id, df in portfolios_dict.items():
+        df["id"] = _id
+        ls.append(df)
+    df = pd.concat(ls)
+    df["bin"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
+    df["bin"] = df["bin"].rank(method="dense")
+    labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
+    labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+    df = df.merge(labels, how="inner", on="bin")
+    return df.groupby(["id", "bin"], as_index=False).aggregate({"label": "last", "value": "last"})
+
+
 def make_the_field_charts(game_id: int):
     """For each user in a game iterate through and make a chart that breaks out the value of their different positions
     """
@@ -200,16 +220,21 @@ def make_the_field_charts(game_id: int):
     portfolio_values = {}
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
-        serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio_values[user_id] = aggregate_portfolio_value(df)
-    # need to set portfolio-level labels here
-    serialize_and_pack_portfolio_comps_chart(portfolio_values, game_id)
-    return portfolio_values
+        # Before serializing, but after storing in the portfolio values array, reformat the time data
+        df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+        serialize_and_pack_balances_chart(df, game_id, user_id)
+    aggregated_df = aggregate_all_portfolios(portfolio_values)
+    serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 
 
 # -------------------------- #
 # Orders and balances tables #
 # -------------------------- #
+def format_posix_times(sr: pd.Series) -> pd.Series:
+    sr = sr.apply(lambda x: posix_to_datetime(x))
+    return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+
 
 def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
     # this kinda feels like we'd be better off just handling two pandas tables...
@@ -236,24 +261,44 @@ def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
         WHERE game_id = %s and user_id = %s;
     """
     open_orders = pd.read_sql(query, db_session.connection(), params=[game_id, user_id])
-    open_orders["timestamp"] = open_orders["timestamp"].apply(lambda x: posix_to_datetime(x))
-    rds.set(f"open_orders_{game_id}_{user_id}", open_orders.to_json())
+    open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
+    open_orders["time_in_force"] = open_orders["time_in_force"].apply(
+        lambda x: "Day" if x == "day" else "Until cancelled")
+    column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
+                       "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
+    open_orders.rename(columns=column_mappings, inplace=True)
+    out_dict = dict(
+        data=open_orders.to_dict(orient="records"),
+        headers=list(column_mappings.values())
+    )
+    rds.set(f"open_orders_{game_id}_{user_id}", json.dumps(out_dict))
 
 
 def serialize_and_pack_current_balances(game_id: int, user_id: int):
     sql = """
-        SELECT symbol, balance, balance_type, timestamp FROM game_balances WHERE game_id = %s AND user_id = %s;
-    """
+        SELECT symbol, balance, balance_type, clear_price, timestamp
+        FROM game_balances g
+        INNER JOIN (
+          SELECT id, clear_price
+          FROM order_status WHERE
+          status = 'fulfilled'
+        ) os
+        ON g.order_status_id = os.id
+        WHERE
+          game_id = %s AND
+          user_id = %s AND
+          symbol IS NOT NULL;
+        """
     balances = pd.read_sql(sql, db_session.connection(), params=[game_id, user_id])
-    _, last_cash_balance, _, last_cash_time = balances[balances["balance_type"] == "virtual_cash"].tail(1).iloc[0]
     symbols = balances["symbol"].unique()
     prices = get_most_recent_prices(symbols)
-    df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last"})
+    df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
     df = df.merge(prices, on="symbol", how="left")
-    row = df.head(1).copy()
-    row["symbol"] = "Cash"
-    row["balance"] = last_cash_balance
-    row["price"] = None
-    row["timestamp"] = last_cash_time
-    df = row.append(df).reset_index(drop=True)
-    rds.set(f"current_balances_{game_id}_{user_id}", df.to_json())
+    df["timestamp"] = format_posix_times(df["timestamp"])
+    column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price", "price": "Last price", "timestamp": "Updated at"}
+    df.rename(columns=column_mappings, inplace=True)
+    out_dict = dict(
+        data=df.to_dict(orient="records"),
+        headers=list(column_mappings.values())
+    )
+    rds.set(f"current_balances_{game_id}_{user_id}", json.dumps(out_dict))

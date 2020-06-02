@@ -19,8 +19,6 @@ const PlaceOrder = ({ gameId }) => {
     fetchGameInfo(gameId);
   }, [gameId]);
 
-  console.log({ gameInfo, orderTicket });
-
   const fetchGameInfo = async (gameId) => {
     const resp = await axios.post("/api/order_form_defaults", {
       game_id: gameId,

@@ -5,13 +5,17 @@ import React from "react";
 import { BalancesChart } from "components/charts/BalancesChart";
 import { FieldChart } from "components/charts/FieldChart";
 import { PlaceOrder } from "components/forms/PlaceOrder";
+import { MakeGame } from "components/forms/MakeGame";
+import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
 
 const Workbench = () => {
   return (
     <>
       <BalancesChart gameId={3} />
+      <OrdersAndBalancesCard gameId={3} />
       <FieldChart gameId={3} />
       <PlaceOrder gameId={3} />
+      <MakeGame />
     </>
   );
 };

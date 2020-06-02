@@ -8,7 +8,6 @@ const fetchChartData = async (gameId) => {
     game_id: gameId,
     withCredentials: true,
   });
-  console.log(response);
   return response.data;
 };
 
@@ -54,7 +53,6 @@ const BalancesChart = ({ gameId }) => {
           tickSize: 5,
           tickPadding: 5,
           tickRotation: 0,
-          legend: "Position value",
           legendOffset: -40,
           legendPosition: "middle",
         }}
