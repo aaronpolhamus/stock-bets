@@ -23,7 +23,7 @@ const BalancesChart = ({ gameId }) => {
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <div style={{ width: "75vw", height: "25vw" }}>
+    <div style={{ width: "100%", height: "25vw" }}>
       <ResponsiveLine
         data={chartData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
