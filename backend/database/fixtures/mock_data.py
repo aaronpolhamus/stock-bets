@@ -7,6 +7,11 @@ from backend.logic.stock_data import (
     nyse,
     posix_to_datetime,
 )
+from backend.tasks.definitions import (
+    async_update_play_game_visuals,
+    async_update_player_stats,
+    async_compile_player_sidebar_data
+)
 from config import Config
 from sqlalchemy import create_engine
 
@@ -284,6 +289,13 @@ def make_mock_data():
         mock_entry = MOCK_DATA.get(table)
         if mock_entry:
             conn.execute(table_meta.insert(), mock_entry)
+
+
+def make_redis_mocks():
+    test_game_id = 3
+    async_update_player_stats.delay()
+    async_compile_player_sidebar_data.delay(test_game_id)
+    async_update_play_game_visuals.delay()
 
 
 if __name__ == '__main__':

@@ -25,6 +25,7 @@ from backend.tasks.definitions import (
     async_place_order,
     async_process_single_order,
     async_update_play_game_visuals,
+    async_update_player_stats
 )
 from backend.tasks.redis import (
     rds,
@@ -327,7 +328,7 @@ class TestGameIntegration(BaseTestCase):
             ])
 
             original_amzn_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             expected_quantity = int(order_quantity / amzn_price)
             expected_cost = expected_quantity * amzn_price
             self.assertEqual(original_amzn_holding, expected_quantity)
@@ -366,7 +367,7 @@ class TestGameIntegration(BaseTestCase):
                 None
             ])
             original_meli_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            original_miguel_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
             miguel_cash = DEFAULT_VIRTUAL_CASH - order_quantity * meli_price
             self.assertAlmostEqual(original_miguel_cash, miguel_cash, 2)
@@ -406,7 +407,7 @@ class TestGameIntegration(BaseTestCase):
                 toofast_order["stop_limit_price"]
             ])
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
@@ -465,7 +466,7 @@ class TestGameIntegration(BaseTestCase):
 
             async_process_single_order.apply(args=[open_order_id])
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
             self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
 
@@ -561,7 +562,7 @@ class TestGameIntegration(BaseTestCase):
             test_user_id = 1
             test_user_stock = "AMZN"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
-            updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+            updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
             shares_sold = int(250_000 / amzn_clear_price)
             self.assertEqual(updated_holding, original_amzn_holding - shares_sold)
@@ -570,7 +571,7 @@ class TestGameIntegration(BaseTestCase):
             test_user_id = 4
             test_user_stock = "MELI"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
-            updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+            updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
             shares_sold = miguel_order["amount"]
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
@@ -599,3 +600,27 @@ class TestVisualAssetsTasks(BaseTestCase):
         self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
+
+
+class TestStatsProduction(BaseTestCase):
+
+    def test_game_player_stats(self):
+        rds.flushall()
+        res = async_update_player_stats.delay()
+        while not res.ready():
+            continue
+
+        sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
+        while sharpe_ratio_3_4 is None:
+            sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
+        sharpe_ratio_3_3 = rds.get("sharpe_ratio_3_3")
+        sharpe_ratio_3_1 = rds.get("sharpe_ratio_3_1")
+        total_return_3_1 = rds.get("total_return_3_1")
+        total_return_3_3 = rds.get("total_return_3_3")
+        total_return_3_4 = rds.get("total_return_3_4")
+        self.assertIsNotNone(sharpe_ratio_3_3)
+        self.assertIsNotNone(sharpe_ratio_3_1)
+        self.assertIsNotNone(total_return_3_1)
+        self.assertIsNotNone(total_return_3_3)
+        self.assertIsNotNone(total_return_3_4)
+

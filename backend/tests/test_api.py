@@ -13,6 +13,7 @@ from backend.api.routes import (
 )
 from backend.database.fixtures.mock_data import DUMMY_USER_EMAIL
 from backend.database.helpers import (
+    orm_rows_to_dict,
     retrieve_meta_data
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
@@ -28,7 +29,9 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.tasks.definitions import (
-    async_fetch_price
+    async_fetch_price,
+    async_update_player_stats,
+    async_compile_player_sidebar_data
 )
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
@@ -316,7 +319,9 @@ class TestPlayGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-        self.assertIn(stock_pick, res.json()["symbol"].values())
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
+        self.assertIn(stock_pick, stocks_in_table_response)
+
         balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
         while balances_chart is None:
             balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
@@ -327,3 +332,52 @@ class TestPlayGame(BaseTestCase):
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
         returned_current_balances_series = set([x['id'] for x in res.json()])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
+
+
+class TestGetGameStats(BaseTestCase):
+
+    def test_sidebar_stats(self):
+        rds.flushall()
+
+        game_id = 3
+        res = async_update_player_stats.delay()
+        while not res.ready():
+            continue
+
+        res = async_compile_player_sidebar_data.delay(game_id)
+        while not res.ready():
+            continue
+
+        with self.db_session.connection() as conn:
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
+            self.db_session.remove()
+        session_token = create_jwt(email, user_id, user_name)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        self.assertEqual(len(res.json()), 3)
+        expected_usernames = {"miguel", "toofast", "cheetos"}
+        returned_usernames = set([x["username"] for x in res.json()])
+        self.assertEqual(expected_usernames, returned_usernames)
+
+    def test_get_game_info(self):
+        game_id = 3
+
+        with self.db_session.connection() as conn:
+            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
+            self.db_session.remove()
+        session_token = create_jwt(email, user_id, user_name)
+
+        res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        games = retrieve_meta_data(self.db_session.connection()).tables["games"]
+        row = self.db_session.query(games).filter(games.c.id == game_id)
+        db_dict = orm_rows_to_dict(row)
+        for k, v in res.json().items():
+            self.assertEqual(db_dict[k], v)

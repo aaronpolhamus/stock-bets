@@ -31,13 +31,15 @@ from backend.logic.games import (
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
     async_fetch_price,
+    async_compile_player_sidebar_data,
     async_cache_price,
     async_suggest_symbols,
     async_place_order,
     async_add_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
-    async_serialize_balances_chart
+    async_serialize_balances_chart,
+    async_get_game_info
 )
 from backend.tasks.redis import unpack_redis_json
 from config import Config
@@ -292,9 +294,19 @@ def create_game():
     return make_response(GAME_CREATED_MSG, 200)
 
 
-@routes.route("/api/order_form_defaults", methods=["POST"])
+@routes.route("/api/game_info", methods=["POST"])
 @authenticate
 def game_info():
+    game_id = request.json.get("game_id")
+    res = async_get_game_info.delay(game_id)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+
+@routes.route("/api/order_form_defaults", methods=["POST"])
+@authenticate
+def order_form_defaults():
     game_id = request.json["game_id"]
     with db.engine.connect() as conn:
         title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
@@ -339,6 +351,7 @@ def place_order():
     async_serialize_open_orders.delay(game_id, user_id)
     async_serialize_current_balances.delay(game_id, user_id)
     async_serialize_balances_chart.delay(game_id, user_id)
+    async_compile_player_sidebar_data.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -399,6 +412,13 @@ def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_sidebar_stats", methods=["POST"])
+@authenticate
+def get_game_player_stats():
+    game_id = request.json.get("game_id")
+    return jsonify(unpack_redis_json(f"sidebar_stats_{game_id}"))
 
 
 @routes.route("/healthcheck", methods=["GET"])

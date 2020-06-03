@@ -8,6 +8,7 @@ from datetime import timedelta
 import pandas_market_calendars as mcal
 from sqlalchemy import select
 
+from backend.database.db import db_session
 from backend.database.helpers import (
     unpack_enumerated_field_mappings,
     retrieve_meta_data,
@@ -27,6 +28,7 @@ from backend.logic.stock_data import (
     get_schedule_start_and_end,
     during_trading_day
 )
+from backend.logic.base import get_current_game_cash_balance
 from funkybob import RandomNameGenerator
 
 # Default make game settings
@@ -273,31 +275,6 @@ def service_open_game(db_session, game_id):
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------
-def get_current_game_cash_balance(db_session, user_id, game_id):
-    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
-    execution to be passed in from the outside
-    """
-
-    sql_query = """
-        SELECT balance
-        FROM game_balances gb
-        INNER JOIN
-        (SELECT user_id, game_id, balance_type, max(id) as max_id
-          FROM game_balances
-          WHERE
-            user_id = %s AND
-            game_id = %s AND
-            balance_type = 'virtual_cash'
-          GROUP BY game_id, balance_type, user_id) grouped_gb
-        ON
-          gb.id = grouped_gb.max_id;    
-    """
-    with db_session.connection() as conn:
-        result = conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
-        db_session.remove()
-    return result
-
-
 def get_current_stock_holding(db_session, user_id, game_id, symbol):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
@@ -504,7 +481,7 @@ def process_order(db_session, game_id, user_id, symbol, order_id, buy_or_sell, o
     # Only process active outstanding orders during trading day
     if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
         order_status = retrieve_meta_data(db_session.connection()).tables["order_status"]
-        cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
         update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding,
                         market_price, quantity, symbol)
@@ -561,3 +538,11 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
             return True
 
     return False
+
+
+# Functions for serving information about games
+# ---------------------------------------------
+def get_game_info(game_id: int):
+    games = retrieve_meta_data(db_session.connection()).tables["games"]
+    row = db_session.query(games).filter(games.c.id == game_id)
+    return orm_rows_to_dict(row)

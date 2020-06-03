@@ -34,10 +34,11 @@ worker-stop:
 
 worker-restart:
 	make worker-stop
+	make worker-build
 	make worker-up
 
-# celery worker
-# -------------
+# celery scheduler
+# ----------------
 scheduler-logs:
 	docker-compose logs -f scheduler
 
@@ -62,6 +63,11 @@ flower-up:
 
 flower-stop:
 	docker-compose stop flower
+
+# redis
+# -----
+redis-mock-data:
+	docker-compose exec backend python -c "from backend.database.fixtures.mock_data import make_redis_mocks;make_redis_mocks()"
 
 # backend
 # -------
@@ -104,6 +110,7 @@ up:
 	make backend-up
 	make db-reset
 	make db-mock-data
+	make redis-mock-data
 	npm install --prefix frontend
 	npm start --prefix frontend
 
