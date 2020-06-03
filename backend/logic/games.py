@@ -28,7 +28,10 @@ from backend.logic.stock_data import (
     get_schedule_start_and_end,
     during_trading_day
 )
-from backend.logic.base import get_current_game_cash_balance
+from backend.logic.base import (
+    get_current_game_cash_balance,
+    get_username
+)
 from funkybob import RandomNameGenerator
 
 # Default make game settings
@@ -545,4 +548,6 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
 def get_game_info(game_id: int):
     games = retrieve_meta_data(db_session.connection()).tables["games"]
     row = db_session.query(games).filter(games.c.id == game_id)
-    return orm_rows_to_dict(row)
+    info = orm_rows_to_dict(row)
+    info["creator_username"] = get_username(info["creator_id"])
+    return info

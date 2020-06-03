@@ -1,21 +1,13 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { ResponsiveLine } from "@nivo/line";
 import { Card } from "react-bootstrap";
-
-const fetchChartData = async (gameId) => {
-  const response = await axios.post("/api/balances_chart", {
-    game_id: gameId,
-    withCredentials: true,
-  });
-  return response.data;
-};
+import { fetchGameData } from "components/functions/api";
 
 const BalancesChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
 
   useEffect(async () => {
-    const data = await fetchChartData(gameId);
+    const data = await fetchGameData(gameId, "balances_chart");
     setChartData(data);
   }, []);
 

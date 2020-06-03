@@ -293,7 +293,9 @@ def make_mock_data():
 
 def make_redis_mocks():
     test_game_id = 3
-    async_update_player_stats.delay()
+    res = async_update_player_stats.delay()
+    while not res.ready():
+        continue
     async_compile_player_sidebar_data.delay(test_game_id)
     async_update_play_game_visuals.delay()
 

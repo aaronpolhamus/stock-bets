@@ -289,15 +289,14 @@ def async_get_friend_names(self, user_id):
 def async_suggest_friends(self, user_id, text):
     with db_session.connect() as conn:
         friend_ids = async_get_friend_ids.apply(user_id)
-
         suggest_query = """
             SELECT id, username FROM users
             WHERE username LIKE %s
             LIMIT 20;
         """
         friend_invite_suggestions = conn.execute(suggest_query, text)
-
-        return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
+        db_session.remove()
+    return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
 
 
 # ------------- #

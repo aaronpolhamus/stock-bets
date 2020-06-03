@@ -416,7 +416,7 @@ def get_current_balances_table():
 
 @routes.route("/api/get_sidebar_stats", methods=["POST"])
 @authenticate
-def get_game_player_stats():
+def get_sidebar_stats():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"sidebar_stats_{game_id}"))
 
