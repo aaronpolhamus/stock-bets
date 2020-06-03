@@ -4,11 +4,18 @@ import Autosuggest from "react-autosuggest";
 import { optionBuilder } from "components/functions/forms";
 import { useParams } from "react-router-dom";
 import { PlaceOrder } from "components/forms/PlaceOrder";
-import { Layout, Sidebar, PageSection } from "components/layout/Layout";
+import {
+  Layout,
+  Sidebar,
+  PageSection,
+  Content,
+  SmallColumn,
+} from "components/layout/Layout";
 import { FieldChart } from "components/charts/FieldChart";
 import { BalancesChart } from "components/charts/BalancesChart";
 import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
 import { GameHeader } from "pages/game/GameHeader";
+import { PlayGameStats } from "components/lists/PlayGameStats";
 
 const PlayGame = (props) => {
   const { gameId } = useParams();
@@ -18,10 +25,13 @@ const PlayGame = (props) => {
       <Sidebar>
         <PlaceOrder gameId={gameId} />
       </Sidebar>
-      <Container>
+      <SmallColumn>
+        <PlayGameStats gameId={gameId} />
+      </SmallColumn>
+      <Content>
         <PageSection>
           <p>
-            <a href="/">Dashboard</a>
+            <a href="/">&lt; Dashboard</a>
           </p>
           <GameHeader gameId={gameId} />
         </PageSection>
@@ -38,7 +48,7 @@ const PlayGame = (props) => {
         <PageSection>
           <OrdersAndBalancesCard gameId={gameId} />
         </PageSection>
-      </Container>
+      </Content>
     </Layout>
   );
 };

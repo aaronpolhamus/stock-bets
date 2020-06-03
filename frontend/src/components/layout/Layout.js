@@ -20,7 +20,19 @@ const SidebarWrapper = styled.div`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   padding: 2rem;
-  min-width: 340px;
+  width: 320px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: 100vh;
+  border-radius: 0 1rem 0 0;
+`;
+
+const SmallColumnWrapper = styled.div`
+  background-color: var(--color-light-gray);
+  padding: var(--space-400);
+  width: 280px;
+  flex-shrink: 0;
+  box-sizing: border-box;
   min-height: 100vh;
   border-radius: 0 1rem 0 0;
 `;
@@ -37,6 +49,11 @@ const Logo = styled.a`
   }
 `;
 
+const Content = styled.div`
+  padding: var(--space-400);
+  flex-grow: 1;
+`;
+
 const Sidebar = ({ children }) => (
   <SidebarWrapper>
     <Logo href="/">Stockbets</Logo>
@@ -45,9 +62,13 @@ const Sidebar = ({ children }) => (
   </SidebarWrapper>
 );
 
+const SmallColumn = ({ children }) => (
+  <SmallColumnWrapper>{children}</SmallColumnWrapper>
+);
+
 //Section Component
 const PageSection = styled.section`
   margin-bottom: 4rem;
 `;
 
-export { Layout, Sidebar, PageSection };
+export { Layout, Sidebar, PageSection, Content, SmallColumn };
