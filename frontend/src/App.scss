@@ -6,12 +6,6 @@ body {
 
 h1 {
   letter-spacing: -0.03em;
-  small {
-    display: block;
-    font-size: var(--font-size-min);
-    letter-spacing: var(--letter-spacing-smallcaps);
-    text-transform: uppercase;
-  }
 }
 
 .container {

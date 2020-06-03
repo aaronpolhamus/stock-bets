@@ -8,18 +8,11 @@ import { Layout, Sidebar, PageSection } from "components/layout/Layout";
 import { FieldChart } from "components/charts/FieldChart";
 import { BalancesChart } from "components/charts/BalancesChart";
 import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
-import { fetchGameData } from "components/functions/api";
+import { GameHeader } from "pages/game/GameHeader";
 
 const PlayGame = (props) => {
   const { gameId } = useParams();
-  const [gameInfo, setGameInfo] = useState([]);
 
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "game_info");
-    setGameInfo(data);
-  }, []);
-
-  console.log(gameInfo);
   return (
     <Layout>
       <Sidebar>
@@ -30,14 +23,7 @@ const PlayGame = (props) => {
           <p>
             <a href="/">Dashboard</a>
           </p>
-          <h1>
-            {gameInfo.title}
-            <small>
-              {gameInfo.mode}
-              <span> | </span>
-              Sidebet: {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
-            </small>
-          </h1>
+          <GameHeader gameId={gameId} />
         </PageSection>
         <PageSection>
           <Tabs>
