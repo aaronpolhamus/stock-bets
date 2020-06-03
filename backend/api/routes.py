@@ -31,7 +31,7 @@ from backend.logic.games import (
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
     async_fetch_price,
-    async_compile_player_sidebar_data,
+    async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
     async_place_order,
@@ -39,7 +39,12 @@ from backend.tasks.definitions import (
     async_serialize_open_orders,
     async_serialize_current_balances,
     async_serialize_balances_chart,
-    async_get_game_info
+    async_get_game_info,
+    async_invite_friend,
+    async_respond_to_friend_invite,
+    async_suggest_friends,
+    async_get_friend_usernames,
+    async_get_friend_invites
 )
 from backend.tasks.redis import unpack_redis_json
 from config import Config
@@ -61,6 +66,8 @@ GAME_CREATED_MSG = "Game created! "
 INVALID_OAUTH_PROVIDER_MSG = "Not a valid OAuth provider"
 MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
 ORDER_PLACED_MESSAGE = "Order placed successfully!"
+FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
+FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 
 
 def verify_google_oauth(token_id):
@@ -75,15 +82,6 @@ def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SES
     payload = {"email": email, "user_id": user_id, "username": username,
                "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
     return jwt.encode(payload, secret_key, algorithm=Config.JWT_ENCODE_ALGORITHM).decode("utf-8")
-
-
-def get_invitee_list(username):
-    """This is an unsustainable way to do this, but it works for now. If this app goes anywhere we will either have to
-    stream values from the API, or introduce some kind of a friends feature
-    """
-    with db.engine.connect() as conn:
-        invitees = conn.execute("SELECT username FROM users WHERE username != %s;", username).fetchall()
-    return [invitee[0] for invitee in invitees]
 
 
 def decode_token(req, element="user_id"):
@@ -253,9 +251,12 @@ def game_defaults():
     """Returns information to the MakeGame form that contains the defaults and optional values that it needs
     to render fields correctly
     """
-    username = decode_token(request, "username")
+    user_id = decode_token(request)
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    available_invitees = get_invitee_list(username)
+    res = async_get_friend_usernames.delay(user_id)
+    while not res.ready():
+        continue
+    available_invitees = res.get()
     resp = {
         "title": default_title,
         "mode": DEFAULT_GAME_MODE,
@@ -351,7 +352,7 @@ def place_order():
     async_serialize_open_orders.delay(game_id, user_id)
     async_serialize_current_balances.delay(game_id, user_id)
     async_serialize_balances_chart.delay(game_id, user_id)
-    async_compile_player_sidebar_data.delay(game_id)
+    async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -419,6 +420,63 @@ def get_current_balances_table():
 def get_sidebar_stats():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"sidebar_stats_{game_id}"))
+
+
+@routes.route("/api/send_friend_request", methods=["POST"])
+@authenticate
+def send_friend_request():
+    user_id = decode_token(request)
+    invited_username = request.json.get("friend_invitee")
+    res = async_invite_friend.delay(user_id, invited_username)
+    while not res.ready():
+        continue
+    return make_response(FRIEND_INVITE_SENT_MSG, 200)
+
+
+@routes.route("/api/respond_to_friend_request", methods=["POST"])
+@authenticate
+def respond_to_friend_request():
+    """Note to frontend developers working with this endpoint: the acceptable response options are 'accepted' and
+    'declined'
+    """
+    user_id = decode_token(request)
+    requester_username = request.json.get("requester_username")
+    response = request.json.get("response")
+    res = async_respond_to_friend_invite.delay(requester_username, user_id, response)
+    while not res.ready():
+        continue
+    return make_response(FRIEND_INVITE_RESPONSE_MSG, 200)
+
+
+@routes.route("/api/get_list_of_friends", methods=["POST"])
+@authenticate
+def get_list_of_friends():
+    user_id = decode_token(request)
+    res = async_get_friend_usernames.delay(user_id)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+
+@routes.route("/api/get_list_of_friend_invites", methods=["POST"])
+@authenticate
+def get_list_of_friend_invites():
+    user_id = decode_token(request)
+    res = async_get_friend_invites.delay(user_id)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+
+@routes.route("/api/suggest_friend_invites", methods=["POST"])
+@authenticate
+def suggest_friend_invites():
+    user_id = decode_token(request)
+    text = request.json.get("text")
+    res = async_suggest_friends.delay(user_id, text)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
 
 
 @routes.route("/healthcheck", methods=["GET"])

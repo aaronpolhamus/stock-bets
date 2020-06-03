@@ -58,6 +58,15 @@ def get_game_end_date(game_id: int):
     return start_time + duration * 24 * 60 * 60
 
 
+def get_user_id(username: str):
+    with db_session.connection() as conn:
+        user_id = conn.execute("""
+        SELECT id FROM users WHERE username = %s
+        """, username).fetchone()[0]
+        db_session.remove()
+    return user_id
+
+
 def get_username(user_id: int):
     with db_session.connection() as conn:
         username = conn.execute("""

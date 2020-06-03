@@ -11,7 +11,6 @@ from backend.api.routes import (
     INVALID_OAUTH_PROVIDER_MSG,
     create_jwt
 )
-from backend.database.fixtures.mock_data import DUMMY_USER_EMAIL
 from backend.database.helpers import (
     orm_rows_to_dict,
     retrieve_meta_data
@@ -31,7 +30,7 @@ from backend.logic.games import (
 from backend.tasks.definitions import (
     async_fetch_price,
     async_update_player_stats,
-    async_compile_player_sidebar_data
+    async_compile_player_sidebar_stats
 )
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
@@ -115,7 +114,7 @@ class TestUserManagement(BaseTestCase):
         # set username endpoint test
         with self.engine.connect() as conn:
             user_id, name, email, pic, username, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", DUMMY_USER_EMAIL).fetchone()
+                "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
@@ -135,7 +134,7 @@ class TestUserManagement(BaseTestCase):
         # take username fails with 400 error
         with self.engine.connect() as conn:
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", DUMMY_USER_EMAIL).fetchone()
+                "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                          cookies={"session_token": session_token}, verify=False)
@@ -146,10 +145,7 @@ class TestUserManagement(BaseTestCase):
 class TestCreateGame(BaseTestCase):
 
     def test_game_defaults(self):
-        with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-        session_token = create_jwt(email, user_id, user_name)
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token},
                                          verify=False)
         self.assertEqual(res.status_code, 200)
@@ -182,7 +178,8 @@ class TestCreateGame(BaseTestCase):
         for column in column_names:
             self.assertIn(column, game_defaults.keys())
 
-        self.assertEqual(len(game_defaults["available_invitees"]), 3)
+        expected_available_invitees = {'toofast', 'miguel'}
+        self.assertEqual(set(game_defaults["available_invitees"]), expected_available_invitees)
 
         dropdown_fields_dict = {
             "game_modes": GameModes,
@@ -208,10 +205,9 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
 
     def test_create_game(self):
-        with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-        session_token = create_jwt(email, user_id, user_name)
+        user_id = 1
+        user_name = "cheetos"
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
@@ -275,12 +271,8 @@ class TestPlayGame(BaseTestCase):
     def test_play_game(self):
         """Use the canonical game #3 to interact with the game play API
         """
-        with self.db_session.connection() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-            self.db_session.remove()
-
-        session_token = create_jwt(email, user_id, user_name)
+        user_id = 1
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
         stock_pick = "JETS"
         order_quantity = 25
@@ -291,17 +283,17 @@ class TestPlayGame(BaseTestCase):
         market_price, _ = res.result
 
         order_ticket = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "limit",
-                "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
-                "quantity_type": "Shares",
-                "market_price": market_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "until_cancelled"
-            }
+            "user_id": user_id,
+            "game_id": game_id,
+            "symbol": stock_pick,
+            "order_type": "limit",
+            "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
+            "quantity_type": "Shares",
+            "market_price": market_price,
+            "amount": order_quantity,
+            "buy_or_sell": "buy",
+            "time_in_force": "until_cancelled"
+        }
         rds.delete(f"balances_chart_{game_id}_{user_id}")
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
                                          verify=False, json=order_ticket)
@@ -312,7 +304,7 @@ class TestPlayGame(BaseTestCase):
                 SELECT symbol FROM orders
                 ORDER BY id DESC LIMIT 0, 1;
                 """
-            ).fetchone()[0]
+                                      ).fetchone()[0]
             self.db_session.remove()
 
         self.assertEqual(last_order, stock_pick)
@@ -344,33 +336,24 @@ class TestGetGameStats(BaseTestCase):
         while not res.ready():
             continue
 
-        res = async_compile_player_sidebar_data.delay(game_id)
+        res = async_compile_player_sidebar_stats.delay(game_id)
         while not res.ready():
             continue
 
-        with self.db_session.connection() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-            self.db_session.remove()
-        session_token = create_jwt(email, user_id, user_name)
-
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-
-        self.assertEqual(len(res.json()), 3)
+        self.assertEqual(len(res.json()), 2)
+        records = res.json()["records"]
+        self.assertEqual(len(records), 3)
         expected_usernames = {"miguel", "toofast", "cheetos"}
-        returned_usernames = set([x["username"] for x in res.json()])
+        returned_usernames = set([x["username"] for x in records])
         self.assertEqual(expected_usernames, returned_usernames)
 
     def test_get_game_info(self):
         game_id = 3
-
-        with self.db_session.connection() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-            self.db_session.remove()
-        session_token = create_jwt(email, user_id, user_name)
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
 
         res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -387,3 +370,71 @@ class TestGetGameStats(BaseTestCase):
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark"], "RETURN RATIO")
         self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")
+
+
+class TestFriendManagement(BaseTestCase):
+
+    def test_friend_management(self):
+        """Integration test of the API's ability to interface with the celery functions tested in
+        test_celery_tasks.TestFriendManagement
+        """
+        test_username = "cheetos"
+        dummy_username = "dummy2"
+        test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
+
+        # look at our list of test user's friends
+        res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        expected_friends = {"toofast", "miguel"}
+        self.assertEqual(set(res.json()), expected_friends)
+
+        # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
+        # should be just one, the dummy user. we'll confirm this, but won't send an invite
+        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "d"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.json(), [dummy_username])
+
+        # what friend invites does test user currently have pending?
+        res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.json(), ["murcitdev"])
+
+        # the test user get's a new friend invite: does that show up as expected?
+        res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
+                                         cookies={"session_token": dummy_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        # check the invites again. we should have the dummy user in there
+        res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(set(res.json()), {dummy_username, "murcitdev"})
+
+        #  the test user rejects the invite. He'll accept the outstanding invite from murcitdev, though
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
+                                         json={"requester_username": dummy_username, "response": "declined"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
+                                         json={"requester_username": "murcitdev", "response": "accepted"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        # the test user has responded to all friend invites, so there shouldn't be any pending
+        res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertTrue(len(res.json()) == 0)
+
+        # the test user is ready to make a game. murcitdev should now show up in their list of friend possibilities
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(set(res.json()["available_invitees"]), {"miguel", "murcitdev", "toofast"})
+
+        # finally, confirm that the new friends list looks good
+        res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        expected_friends = {"toofast", "miguel", "murcitdev"}
+        self.assertEqual(set(res.json()), expected_friends)

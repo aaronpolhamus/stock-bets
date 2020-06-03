@@ -5,7 +5,10 @@ from backend.database.helpers import (
     retrieve_meta_data,
     table_updater
 )
-from backend.logic.base import get_current_game_cash_balance
+from backend.logic.base import (
+    get_user_id,
+    get_current_game_cash_balance
+)
 from backend.logic.games import (
     get_current_stock_holding,
     get_all_open_orders,
@@ -41,13 +44,17 @@ from backend.logic.visuals import (
 from backend.logic.payouts import (
     calculate_and_pack_metrics
 )
+from backend.logic.friends import (
+    get_names_from_ids,
+    get_friend_ids,
+    get_friend_invite_ids
+)
 from backend.tasks.celery import (
     celery,
     SqlAlchemyTask,
     pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
-from sqlalchemy import select
 
 
 # -------------------------- #
@@ -245,58 +252,54 @@ def async_process_all_open_orders(self):
 # ------- #
 
 @celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)
-def async_invite_friend(self, requester_id, invited_id):
+def async_invite_friend(self, requester_id, invited_username):
+    """Since the user is sending the request, we'll know their user ID via their web token. We don't post this
+    information to the frontend for other users, though, so we'll look up their ID based on username
+    """
+    invited_id = get_user_id(invited_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
     table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status="invited",
                   timestamp=time.time())
 
 
 @celery.task(name="async_respond_to_friend_invite", bind=True, base=SqlAlchemyTask)
-def async_respond_to_friend_invite(self, requester_id, invited_id, response):
+def async_respond_to_friend_invite(self, requester_username, invited_id, response):
+    """Since the user is responding to the request, we'll know their user ID via their web token. We don't post this
+    information to the frontend for other users, though, so we'll look up the request ID based on the username
+    """
+    requester_id = get_user_id(requester_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
     table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status=response,
                   timestamp=time.time())
 
 
-@celery.task(name="async_get_friend_ids", bind=True, base=SqlAlchemyTask)
-def async_get_friend_ids(self, user_id):
-    with db_session.connection() as conn:
-        invited_friends = conn.execute("""
-            SELECT requester_id
-            FROM friends 
-            WHERE invited_id = %s;
-        """, user_id).fetchall()
-
-        requested_friends = conn.execute("""
-            SELECT invited_id
-            FROM friends
-            WHERE requester_id = %s;
-        """, user_id).fetchall()
-        db_session.remove()
-
-    return [x[0] for x in invited_friends + requested_friends]
-
-
-@celery.task(name="async_get_friend_names", bind=True, base=SqlAlchemyTask)
-def async_get_friend_names(self, user_id):
-    friend_ids = async_get_friend_ids.apply(user_id)
-    users = retrieve_meta_data(db_session.connetion()).tables["users"]
-    invitee_ids = db_session.execute(select([users.c.username], users.c.id.in_(friend_ids))).fetchall()
-    return invitee_ids
+@celery.task(name="async_get_friend_usernames", bind=True, base=SqlAlchemyTask)
+def async_get_friend_usernames(self, user_id):
+    friend_ids = get_friend_ids(user_id)
+    return get_names_from_ids(friend_ids)
 
 
 @celery.task(name="async_suggest_friends", bind=True, base=SqlAlchemyTask)
 def async_suggest_friends(self, user_id, text):
-    with db_session.connect() as conn:
-        friend_ids = async_get_friend_ids.apply(user_id)
+    friend_ids = get_friend_ids(user_id)
+    friend_invite_ids = get_friend_invite_ids(user_id)
+    to_match = f"{text}%"
+    with db_session.connection() as conn:
+        excluded_ids = friend_ids + friend_invite_ids
         suggest_query = """
             SELECT id, username FROM users
             WHERE username LIKE %s
-            LIMIT 20;
+            LIMIT 10;
         """
-        friend_invite_suggestions = conn.execute(suggest_query, text)
+        friend_invite_suggestions = conn.execute(suggest_query, to_match)
         db_session.remove()
-    return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
+    return [x[1] for x in friend_invite_suggestions if x[0] not in excluded_ids]
+
+
+@celery.task(name="async_get_friend_invites", bind=True, base=SqlAlchemyTask)
+def async_get_friend_invites(self, user_id):
+    invite_ids = get_friend_invite_ids(user_id)
+    return get_names_from_ids(invite_ids)
 
 
 # ------------- #
@@ -373,10 +376,10 @@ def async_update_player_stats(self):
 
 
 @celery.task(name="async_compile_player_stats", bind=True, base=SqlAlchemyTask)
-def async_compile_player_sidebar_data(self, game_id):
+def async_compile_player_sidebar_stats(self, game_id):
     compile_and_pack_player_sidebar_stats(game_id)
 
 
 @celery.task(name="async_get_player_cash_balance", bind=True, base=SqlAlchemyTask)
 def async_get_player_cash_balance(self, game_id, user_id):
-    pass
+    return get_current_game_cash_balance(user_id, game_id)
