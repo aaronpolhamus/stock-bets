@@ -6,6 +6,7 @@ import Login from "pages/Login";
 import Welcome from "components/Welcome";
 import { Workbench } from "pages/Workbench";
 import { PlayGame } from "pages/PlayGame";
+import { JoinGame } from "pages/JoinGame";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route exact path="/welcome" component={Welcome} />
         <Route exact path="/workbench" component={Workbench} />
         <Route exact path="/play/:gameId" component={PlayGame} />
+        <Route exact path="/join/:gameId" component={JoinGame} />
       </Router>
     </div>
   );
