@@ -1,0 +1,36 @@
+$color-primary: #ffaf74;
+$color-primary-darken: #f46f10;
+$color-secondary: #2d263b;
+$color-secondary-muted: #473231;
+$color-terciary: #ff4a4b;
+$color-lightest: #ffffff;
+$color-cool-gray: #d7dbdf;
+$color-light-gray: #f0efed;
+$color-text--primary: #1d1b23;
+$color-text--gray: #7f7192;
+$color-text--light-gray: #abaac6;
+
+:root {
+  --color-primary: #{$color-primary};
+  --color-primary-darken: #{$color-primary-darken};
+  --color-secondary: #{$color-secondary};
+  --color-secondary-muted: #{$color-secondary-muted};
+  --color-terciary: #{$color-terciary};
+  --color-lightest: #{$color-lightest};
+  --color-cool-gray: #{$color-cool-gray};
+  --color-light-gray: #{$color-light-gray};
+  --color-text--primary: #{$color-text--primary};
+  --color-text--gray: #{$color-text--gray};
+  --color-text--light-gray: #{$color-text--light-gray};
+
+  --font-size--min: 0.75rem;
+}
+
+$theme-colors: (
+  "primary": $color-primary,
+  "secondary": $color-secondary,
+  "danger": teal,
+);
+
+/* import bootstrap to set changes */
+@import "../node_modules/bootstrap/scss/bootstrap";

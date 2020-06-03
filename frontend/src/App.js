@@ -6,8 +6,6 @@ import Login from "pages/Login";
 import Welcome from "components/Welcome";
 import { Workbench } from "pages/Workbench";
 
-import "./App.css";
-
 export default function App() {
   return (
     <div className="App">

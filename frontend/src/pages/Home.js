@@ -1,8 +1,11 @@
 import React from "react";
-import { Redirect } from "react-router-dom";
-import { Row } from "react-bootstrap";
+import { Link, Redirect } from "react-router-dom";
+import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
 import axios from "axios";
+import { Sidebar } from "components/layout/Sidebar";
+import { Layout } from "components/layout/Layout";
+import { UserMiniCard } from "components/users/UserMiniCard";
 
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
@@ -27,23 +30,64 @@ const Home = () => {
     return <Redirect to="/welcome" />;
   }
 
+  const gameCardBuilder = (statusType, gamesArray) => {
+    return gamesArray.map((entry) => {
+      let linkTo = null;
+      if (entry.status === "pending") {
+        linkTo = "/join";
+      } else if (entry.status === "active") {
+        linkTo = "/play";
+      }
+
+      if (entry.status === statusType) {
+        return (
+          <Card key={entry.id}>
+            <Card.Body>
+              <Link to={{ pathname: `${linkTo}/${entry.id}` }}>
+                {entry.title}
+              </Link>
+            </Card.Body>
+          </Card>
+        );
+      }
+    });
+  };
+
   return (
-    <div className="App">
-      <Row>
-        <h1>
-          {" "}
-          What's up, {data.name} ( {data.username} )? Your email is {data.email}{" "}
-        </h1>
-      </Row>
-      <Row className="justify-content-md-center">
-        <img
-          src={data.profile_pic}
-          height="200"
-          width="200"
-          alt="your beautiful profile pic"
+    <Layout>
+      <Sidebar>
+        <UserMiniCard
+          pictureSrc={data.profile_pic}
+          name={data.name}
+          username={data.username}
+          email={data.email}
+          stats={{
+            absoluteReturn: "50%",
+            sharpeRatio: "0.17",
+          }}
         />
-      </Row>
-    </div>
+      </Sidebar>
+      <Container fluid="md">
+        <Row>
+          <Col>
+            <Button href="/make">Make a new game</Button>
+          </Col>
+          <Col>
+            <Button onClick={Logout}>Logout</Button>
+          </Col>
+        </Row>
+        <Row>
+          <Col>
+            <Card.Header>Active games</Card.Header>
+            {data && gameCardBuilder("active", data.game_info)}
+          </Col>
+          <Col>
+            <Card.Header>Game invites</Card.Header>
+            {data && gameCardBuilder("pending", data.game_info)}
+          </Col>
+        </Row>
+      </Container>
+    </Layout>
   );
 };
 
