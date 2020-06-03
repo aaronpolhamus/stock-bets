@@ -12,8 +12,8 @@ const MiniCard = styled.div`
 `;
 const Stats = styled.p`
   text-transform: uppercase;
-  font-size: var(--font-size--min);
-  color: var(--color-text--light-gray);
+  font-size: var(--font-size-min);
+  color: var(--color-text-light-gray);
   span {
     display: inline-block;
     margin: 0 0.4rem 0 0.25rem;

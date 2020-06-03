@@ -4,19 +4,36 @@ body {
   font-family: "proxima-nova", sans-serif;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+h1 {
+  letter-spacing: -0.03em;
+  small {
+    display: block;
+    font-size: var(--font-size-min);
+    letter-spacing: var(--letter-spacing-smallcaps);
+    text-transform: uppercase;
+  }
 }
 
-.App-link {
-  color: #61dafb;
+.container {
+  padding-right: 2rem;
+  padding-left: 2rem;
+}
+
+.nav-tabs {
+  border: none;
+  .nav-link {
+    text-transform: uppercase;
+    font-weight: bold;
+    font-size: var(--font-size-min);
+    border: none;
+    letter-spacing: var(--letter-spacing-smallcaps);
+    color: var(--color-text-gray);
+  }
+  .nav-link.active,
+  .nav-item.show .nav-link {
+    font-size: var(--font-size-small);
+    border-bottom: 2px solid var(--color-primary-darken);
+  }
 }
 
 @keyframes App-logo-spin {

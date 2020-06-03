@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { ResponsiveLine } from "@nivo/line";
-import { Card } from "react-bootstrap";
 
 const fetchChartData = async (gameId) => {
   const response = await axios.post("/api/field_chart", {
@@ -21,8 +20,7 @@ const FieldChart = ({ gameId }) => {
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <Card style={{ width: "75vw", height: "25vw" }}>
-      <Card.Title>The field</Card.Title>
+    <div style={{ width: "100%", height: "25vw" }}>
       <ResponsiveLine
         data={chartData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
@@ -84,7 +82,7 @@ const FieldChart = ({ gameId }) => {
           },
         ]}
       />
-    </Card>
+    </div>
   );
 };
 

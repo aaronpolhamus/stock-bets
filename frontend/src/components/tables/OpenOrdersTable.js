@@ -11,7 +11,7 @@ const OpenOrdersTable = ({ gameId }) => {
   }, []);
 
   return (
-    <Table striped bordered hover>
+    <Table striped hover>
       {tableData.data && MakeTable(tableData)}
     </Table>
   );

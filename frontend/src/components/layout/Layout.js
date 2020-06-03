@@ -22,6 +22,7 @@ const SidebarWrapper = styled.div`
   padding: 2rem;
   min-width: 340px;
   min-height: 100vh;
+  border-radius: 0 1rem 0 0;
 `;
 
 const Logo = styled.a`
@@ -44,4 +45,9 @@ const Sidebar = ({ children }) => (
   </SidebarWrapper>
 );
 
-export { Layout, Sidebar };
+//Section Component
+const PageSection = styled.section`
+  margin-bottom: 4rem;
+`;
+
+export { Layout, Sidebar, PageSection };

@@ -10,11 +10,7 @@ const BalancesTable = ({ gameId }) => {
     setTableData(data);
   }, []);
 
-  return (
-    <Table striped bordered hover>
-      {tableData.data && MakeTable(tableData)}
-    </Table>
-  );
+  return <Table hover>{tableData.data && MakeTable(tableData)}</Table>;
 };
 
 export { BalancesTable };

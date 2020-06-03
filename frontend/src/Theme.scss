@@ -6,9 +6,9 @@ $color-terciary: #ff4a4b;
 $color-lightest: #ffffff;
 $color-cool-gray: #d7dbdf;
 $color-light-gray: #f0efed;
-$color-text--primary: #1d1b23;
-$color-text--gray: #7f7192;
-$color-text--light-gray: #abaac6;
+$color-text-primary: #1d1b23;
+$color-text-gray: #7f7192;
+$color-text-light-gray: #abaac6;
 
 :root {
   --color-primary: #{$color-primary};
@@ -19,18 +19,28 @@ $color-text--light-gray: #abaac6;
   --color-lightest: #{$color-lightest};
   --color-cool-gray: #{$color-cool-gray};
   --color-light-gray: #{$color-light-gray};
-  --color-text--primary: #{$color-text--primary};
-  --color-text--gray: #{$color-text--gray};
-  --color-text--light-gray: #{$color-text--light-gray};
+  --color-text-primary: #{$color-text-primary};
+  --color-text-gray: #{$color-text-gray};
+  --color-text-light-gray: #{$color-text-light-gray};
 
-  --font-size--min: 0.75rem;
+  --font-size-min: 0.75rem;
+  --font-size-small: 0.875rem;
+  --font-size-normal: 1rem;
+  --letter-spacing-smallcaps: 0.03em;
 }
 
+// Bootstrap customization
 $theme-colors: (
   "primary": $color-primary,
   "secondary": $color-secondary,
   "danger": teal,
 );
+
+$h1-font-size: 3rem;
+$headings-font-weight: 200;
+
+$table-hover-bg: $color-cool-gray;
+$table-border-color: $color-cool-gray;
 
 /* import bootstrap to set changes */
 @import "../node_modules/bootstrap/scss/bootstrap";
