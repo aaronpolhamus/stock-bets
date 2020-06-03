@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Card, Row, Col } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
 import styled from "styled-components";
-import { UserAvatar } from "components/users/UserAvatar";
+import { UserMiniCard } from "components/users/UserMiniCard";
 
 const SectionTitle = styled.h2`
   text-transform: uppercase;
@@ -15,25 +15,22 @@ const entryBuilder = (data) => {
   return data.map((row, index) => {
     return (
       <div>
-        <UserAvatar src={row.profile_pic} size="small" />
-
-        {row.username}
-        <Row>
-          <Col>
-            <Card.Text>{row.stocks_held.join(", ")} </Card.Text>
-          </Col>
-          <Col>
-            <Row>
-              <Card.Text>{row.portfolio_value} (portfolio value) </Card.Text>
-            </Row>
-            <Row>
-              <Card.Text>
-                {row.total_return} (total return) | {row.sharpe_ratio} (sharpe
-                ratio){" "}
-              </Card.Text>
-            </Row>
-          </Col>
-        </Row>
+        <UserMiniCard
+          avatarSrc={row.profile_pic}
+          avatarSize="small"
+          username={row.username}
+          nameFontSize="var(--font-size-small)"
+          info={[`${row.stocks_held.join(", ")}`]}
+        />
+        <p title="Portfolio Value">${Math.round(row.portfolio_value, 10)}</p>
+        <p>
+          <span>
+            {row.total_return && `${parseFloat(row.total_return).toFixed(3)}%`}
+          </span>
+          <span>
+            {row.sharpe_ratio && `${parseFloat(row.sharpe_ratio).toFixed(3)}`}
+          </span>
+        </p>
       </div>
     );
   });
