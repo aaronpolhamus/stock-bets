@@ -2,6 +2,12 @@ import React from "react";
 import styled from "styled-components";
 import { UserAvatar } from "components/users/UserAvatar";
 
+const infoBuilder = (info) => {
+  return info.map((part, index) => {
+    return <span>{part}</span>;
+  });
+};
+
 const MiniCard = styled.div`
   display: flex;
   align-items: center;
@@ -10,10 +16,10 @@ const MiniCard = styled.div`
     line-height: 1;
   }
 `;
-const Info = styled.p`
+const UserData = styled.p`
   text-transform: uppercase;
-  font-size: var(--font-size-min);
-  color: var(--color-text-light-gray);
+  font-size: ${(props) => props.fontSize || "var(--font-size-min)"};
+  color: ${(props) => props.color || "var(--color-text-gray)"};
   margin-top: var(--space-50);
   span {
     &::before {
@@ -29,21 +35,24 @@ const Info = styled.p`
   }
 `;
 
+const UserName = styled.p`
+  color: ${(props) => props.color || "var(--color-text-gray)"};
+  font-size: ${(props) => props.fontSize || "var(--font-size-normal)"};
+`;
+
 const UserInfo = styled.div`
   margin-left: var(--space-100);
 `;
-
-const infoBuilder = (info) => {
-  return info.map((part, index) => {
-    return <span>{part}</span>;
-  });
-};
 
 const UserMiniCard = ({
   name,
   username,
   avatarSrc,
   avatarSize,
+  nameColor,
+  nameFontSize,
+  dataColor,
+  dataFontSize,
   email,
   info,
 }) => {
@@ -51,8 +60,12 @@ const UserMiniCard = ({
     <MiniCard title={email}>
       <UserAvatar src={avatarSrc} size={avatarSize} />
       <UserInfo>
-        <p>{username}</p>
-        <Info>{info && infoBuilder(info)}</Info>
+        <UserName color={nameColor} fontSize={nameFontSize}>
+          {username}
+        </UserName>
+        <UserData color={dataColor} fontSize={dataFontSize}>
+          {info && infoBuilder(info)}
+        </UserData>
       </UserInfo>
     </MiniCard>
   );

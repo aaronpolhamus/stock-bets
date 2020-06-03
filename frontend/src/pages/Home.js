@@ -60,6 +60,8 @@ const Home = () => {
           name={data.name}
           username={data.username}
           email={data.email}
+          nameColor="var(--color-lighter)"
+          dataColor="var(--color-text-light-gray)"
           info={["Return: 50%", "Sharpe: 0.324"]}
         />
       </Sidebar>
