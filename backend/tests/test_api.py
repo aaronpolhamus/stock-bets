@@ -380,8 +380,10 @@ class TestGetGameStats(BaseTestCase):
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():
-            if k == "creator_username":
+            if k in ["creator_username", "mode", "benchmark"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
         self.assertEqual(res.json()["creator_username"], "cheetos")
+        self.assertEqual(res.json()["benchmark"], "RETURN RATIO")
+        self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")

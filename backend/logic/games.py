@@ -550,4 +550,6 @@ def get_game_info(game_id: int):
     row = db_session.query(games).filter(games.c.id == game_id)
     info = orm_rows_to_dict(row)
     info["creator_username"] = get_username(info["creator_id"])
+    info["mode"] = info["mode"].upper().replace("_", " ")
+    info["benchmark"] = info["benchmark"].upper().replace("_", " ")
     return info
