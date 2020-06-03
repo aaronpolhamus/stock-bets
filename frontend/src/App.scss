@@ -26,11 +26,18 @@ h1 {
     font-weight: bold;
     font-size: var(--font-size-min);
     border: none;
+    line-height: 1rem;
     letter-spacing: var(--letter-spacing-smallcaps);
     color: var(--color-text-gray);
+    border-bottom: 2px solid transparent;
+  }
+  .nav-link:focus {
+    outline: none;
+    border-bottom-color: blue;
   }
   .nav-link.active,
   .nav-item.show .nav-link {
+    line-height: 1rem;
     font-size: var(--font-size-small);
     border-bottom: 2px solid var(--color-primary-darken);
   }
