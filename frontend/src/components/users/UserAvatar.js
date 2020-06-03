@@ -4,7 +4,7 @@ import styled from "styled-components";
 const handleSize = (size) => {
   switch (size) {
     case "small":
-      return "2rem";
+      return "1.5rem";
       break;
     default:
       return "3rem";

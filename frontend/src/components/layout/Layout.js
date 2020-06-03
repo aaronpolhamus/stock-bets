@@ -54,6 +54,12 @@ const Content = styled.div`
   flex-grow: 1;
 `;
 
+const Header = styled.header`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
 const Sidebar = ({ children }) => (
   <SidebarWrapper>
     <Logo href="/">Stockbets</Logo>
@@ -71,4 +77,4 @@ const PageSection = styled.section`
   margin-bottom: 4rem;
 `;
 
-export { Layout, Sidebar, PageSection, Content, SmallColumn };
+export { Layout, Sidebar, PageSection, Content, SmallColumn, Header };

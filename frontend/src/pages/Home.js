@@ -3,14 +3,25 @@ import { Link, Redirect } from "react-router-dom";
 import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
 import axios from "axios";
-import { Layout, Sidebar } from "components/layout/Layout";
+import styled from "styled-components";
+import { Layout, Sidebar, Content, Header } from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
+
+import { GameCard } from "pages/game/GameCard";
 
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
   await axios.post("/api/logout");
   window.location.assign("/login");
 };
+
+const GameList = styled.div`
+  margin-top: var(--space-400);
+`;
+
+const Invitation = styled(Link)`
+  color: var(--color-text-primary);
+`;
 
 const Home = () => {
   const { data, loading, error } = usePostRequest("/api/home");
@@ -32,21 +43,22 @@ const Home = () => {
   const gameCardBuilder = (statusType, gamesArray) => {
     return gamesArray.map((entry) => {
       let linkTo = null;
-      if (entry.status === "pending") {
-        linkTo = "/join";
-      } else if (entry.status === "active") {
-        linkTo = "/play";
-      }
-
       if (entry.status === statusType) {
+        return <GameCard gameId={entry.id} />;
+      }
+    });
+  };
+
+  const invitesBuilder = (gamesArray) => {
+    return gamesArray.map((entry) => {
+      if (entry.status === "pending") {
         return (
-          <Card key={entry.id}>
-            <Card.Body>
-              <Link to={{ pathname: `${linkTo}/${entry.id}` }}>
-                {entry.title}
-              </Link>
-            </Card.Body>
-          </Card>
+          <div>
+            <Invitation to={{ pathname: `join/${entry.id}` }}>
+              You have an invitation to:
+              <strong> {entry.title}</strong>
+            </Invitation>
+          </div>
         );
       }
     });
@@ -63,27 +75,18 @@ const Home = () => {
           dataColor="var(--color-text-light-gray)"
           info={["Return: 50%", "Sharpe: 0.324"]}
         />
+        <p>
+          <Button onClick={Logout}>Logout</Button>
+        </p>
       </Sidebar>
-      <Container fluid="md">
-        <Row>
-          <Col>
-            <Button href="/make">Make a new game</Button>
-          </Col>
-          <Col>
-            <Button onClick={Logout}>Logout</Button>
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            <Card.Header>Active games</Card.Header>
-            {data && gameCardBuilder("active", data.game_info)}
-          </Col>
-          <Col>
-            <Card.Header>Game invites</Card.Header>
-            {data && gameCardBuilder("pending", data.game_info)}
-          </Col>
-        </Row>
-      </Container>
+      <Content>
+        <Header>
+          <h1>Games</h1>
+          <Button href="/make">Make a new game</Button>
+        </Header>
+        <GameList>{data && invitesBuilder(data.game_info)}</GameList>
+        <GameList>{data && gameCardBuilder("active", data.game_info)}</GameList>
+      </Content>
     </Layout>
   );
 };
