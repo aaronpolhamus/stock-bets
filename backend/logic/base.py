@@ -53,7 +53,7 @@ def get_game_end_date(game_id: int):
             ) gs
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
-        """, game_id).fetchone()[0]
+        """, game_id).fetchone()
         db_session.remove()
     return start_time + duration * 24 * 60 * 60
 
