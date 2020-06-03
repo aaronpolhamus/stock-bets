@@ -5,13 +5,14 @@ from backend.database.helpers import (
     retrieve_meta_data,
     table_updater
 )
+from backend.logic.base import get_current_game_cash_balance
 from backend.logic.games import (
-    get_current_game_cash_balance,
     get_current_stock_holding,
     get_all_open_orders,
     place_order,
     get_order_ticket,
     process_order,
+    get_game_info,
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
@@ -30,11 +31,15 @@ from backend.logic.stock_data import (
     PRICE_CACHING_INTERVAL
 )
 from backend.logic.visuals import (
+    compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
     make_the_field_charts
+)
+from backend.logic.payouts import (
+    calculate_and_pack_metrics
 )
 from backend.tasks.celery import (
     celery,
@@ -176,6 +181,11 @@ def async_service_one_open_game(self, game_id):
     service_open_game(db_session, game_id)
 
 
+@celery.task(name="async_get_game_info", bind=True, base=SqlAlchemyTask)
+def async_get_game_info(self, game_id):
+    return get_game_info(game_id)
+
+
 # ---------------- #
 # Order management #
 # ---------------- #
@@ -190,7 +200,7 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
     an ongoing basis by the celery schedule and book as their requirements are satisfies
     """
     # extract relevant data
-    cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
 
     place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding,
@@ -290,9 +300,9 @@ def async_suggest_friends(self, user_id, text):
         return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
 
 
-# -------------- #
-# Visuals assets #
-# -------------- #
+# ------------- #
+# Visual assets #
+# ------------- #
 """This gets a little bit dense. async_serialize_open_orders and async_serialize_current_balances run at the game-user
 level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
 both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
@@ -338,5 +348,36 @@ def async_update_play_game_visuals(self):
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
-
     pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
+
+
+@celery.task(name="async_calculate_metrics", bind=True, base=SqlAlchemyTask)
+def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_date=None):
+    calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
+
+
+# ---------------------- #
+# Player stat production #
+# ---------------------- #
+
+@celery.task(name="async_update_player_stats", bind=True, base=SqlAlchemyTask)
+def async_update_player_stats(self):
+    """This task calculates game-level metrics for all players in all games, caching those metrics to redis
+    """
+    open_game_ids = get_active_game_ids(db_session)
+    task_results = []
+    for game_id in open_game_ids:
+        user_ids = get_all_game_users(db_session, game_id)
+        for user_id in user_ids:
+            task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
+    pause_return_until_subtask_completion(task_results, "async_update_player_stats")
+
+
+@celery.task(name="async_compile_player_stats", bind=True, base=SqlAlchemyTask)
+def async_compile_player_sidebar_data(self, game_id):
+    compile_and_pack_player_sidebar_stats(game_id)
+
+
+@celery.task(name="async_get_player_cash_balance", bind=True, base=SqlAlchemyTask)
+def async_get_player_cash_balance(self, game_id, user_id):
+    pass

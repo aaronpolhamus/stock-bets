@@ -43,7 +43,7 @@ class TestGameLogic(BaseTestCase):
         # Tests related to inspecting game data using test case
         test_user_id = 1
         game_id = 3
-        test_user_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+        test_user_cash = get_current_game_cash_balance(test_user_id, game_id)
         self.assertAlmostEqual(test_user_cash, 14037.0190, 3)
 
         expctd = {
@@ -92,7 +92,7 @@ class TestGameLogic(BaseTestCase):
         test_user_id = 4
         game_id = 3
         meli_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "MELI")
-        current_cash_balance = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+        current_cash_balance = get_current_game_cash_balance(test_user_id, game_id)
 
         self.assertEqual(meli_holding, 107)
         self.assertAlmostEqual(current_cash_balance, 8130.8312, 3)
@@ -342,7 +342,7 @@ class TestGameLogic(BaseTestCase):
                               "time_in_force": "until_cancelled",
                               "title": "gentleman's game"}
 
-            current_cash_balance = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
             place_order(self.db_session,
                         user_id,
@@ -357,7 +357,7 @@ class TestGameLogic(BaseTestCase):
                         mock_buy_order["amount"],
                         mock_buy_order["time_in_force"])
 
-            new_cash_balance = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            new_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance - mock_buy_order["market_price"], 2)
             self.assertEqual(current_holding, mock_buy_order["amount"])
@@ -384,7 +384,7 @@ class TestGameLogic(BaseTestCase):
                                "time_in_force": "until_cancelled",
                                "title": "gentleman's game"}
 
-            current_cash_balance = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
             place_order(self.db_session,
                         user_id,
@@ -399,7 +399,7 @@ class TestGameLogic(BaseTestCase):
                         mock_sell_order["amount"],
                         mock_sell_order["time_in_force"])
 
-            new_cash_balance = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            new_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
