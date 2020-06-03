@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Card, Row, Col } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
 import { simplifyCurrency } from "components/functions/currencyHelpers";
+import {
+  SimplifiedCurrency,
+  AuxiliarText,
+} from "components/textComponents/Text";
 import styled from "styled-components";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
@@ -12,10 +16,35 @@ const SectionTitle = styled.h2`
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
 
+const UserRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-400);
+`;
+const UserStatsInfo = styled.div`
+  text-align: right;
+  font-weight: medium;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  p {
+    margin: var(--space-50) 0 0 0;
+    line-height: 1;
+  }
+`;
+
+const FieldHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
+const FieldParticipants = styled.div`
+  margin-top: var(--space-400);
+`;
+
 const entryBuilder = (data) => {
   return data.map((row, index) => {
     return (
-      <div>
+      <UserRow index={index}>
         <UserMiniCard
           avatarSrc={row.profile_pic}
           avatarSize="small"
@@ -23,16 +52,20 @@ const entryBuilder = (data) => {
           nameFontSize="var(--font-size-small)"
           info={[`${row.stocks_held.join(", ")}`]}
         />
-        <p title="Portfolio Value"> {simplifyCurrency(row.portfolio_value)}</p>
-        <p>
-          <span>
-            {row.total_return && `${parseFloat(row.total_return).toFixed(3)}%`}
-          </span>
-          <span>
-            {row.sharpe_ratio && `${parseFloat(row.sharpe_ratio).toFixed(3)}`}
-          </span>
-        </p>
-      </div>
+        <UserStatsInfo>
+          <p>
+            <SimplifiedCurrency value={row.portfolio_value} />
+          </p>
+          <p>
+            <AuxiliarText>
+              {row.total_return &&
+                `${parseFloat(row.total_return).toFixed(3)}%`}
+              <divider> | </divider>
+              {row.sharpe_ratio && `${parseFloat(row.sharpe_ratio).toFixed(3)}`}
+            </AuxiliarText>
+          </p>
+        </UserStatsInfo>
+      </UserRow>
     );
   });
 };
@@ -47,9 +80,15 @@ const PlayGameStats = ({ gameId }) => {
 
   return (
     <div>
-      <SectionTitle>The Field</SectionTitle>|{" "}
-      {statData.days_left && Math.abs(statData.days_left)} days left
-      {statData.records && entryBuilder(statData.records)}
+      <FieldHeader>
+        <SectionTitle>The Field</SectionTitle>
+        <AuxiliarText>
+          {statData.days_left && Math.abs(statData.days_left)} days left
+        </AuxiliarText>
+      </FieldHeader>
+      <FieldParticipants>
+        {statData.records && entryBuilder(statData.records)}
+      </FieldParticipants>
     </div>
   );
 };
