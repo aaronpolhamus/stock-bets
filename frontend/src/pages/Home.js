@@ -57,7 +57,6 @@ const Home = () => {
       <Sidebar>
         <UserMiniCard
           avatarSrc={data.profile_pic}
-          name={data.name}
           username={data.username}
           email={data.email}
           nameColor="var(--color-lighter)"

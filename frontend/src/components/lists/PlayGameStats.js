@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Row, Col } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
+import { simplifyCurrency } from "components/functions/currencyHelpers";
 import styled from "styled-components";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
@@ -22,7 +23,7 @@ const entryBuilder = (data) => {
           nameFontSize="var(--font-size-small)"
           info={[`${row.stocks_held.join(", ")}`]}
         />
-        <p title="Portfolio Value">${Math.round(row.portfolio_value, 10)}</p>
+        <p title="Portfolio Value"> {simplifyCurrency(row.portfolio_value)}</p>
         <p>
           <span>
             {row.total_return && `${parseFloat(row.total_return).toFixed(3)}%`}
