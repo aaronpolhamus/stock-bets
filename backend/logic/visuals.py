@@ -1,6 +1,7 @@
 """Logic for rendering visual asset data and returning to frontend
 """
 import json
+import time
 
 import pandas as pd
 from backend.database.db import db_session
@@ -11,7 +12,8 @@ from backend.logic.base import (
     get_active_balances,
     get_username,
     get_profile_pic,
-    get_portfolio_value
+    get_portfolio_value,
+    get_game_end_date
 )
 from backend.logic.games import get_all_game_users
 from backend.logic.stock_data import (
@@ -212,4 +214,10 @@ def compile_and_pack_player_sidebar_stats(game_id: int):
             portfolio_value=get_portfolio_value(game_id, user_id)
         )
         records.append(record)
-    rds.set(f"sidebar_stats_{game_id}", json.dumps(records))
+
+    seconds_left = get_game_end_date(game_id) - time.time()
+    output = dict(
+        days_left=int(seconds_left / (24 * 60 * 60)),
+        records=records
+    )
+    rds.set(f"sidebar_stats_{game_id}", json.dumps(output))

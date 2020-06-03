@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { fetchTableData, MakeTable } from "components/functions/tables";
+import { MakeTable } from "components/functions/tables";
+import { fetchGameData } from "components/functions/api";
 
 const BalancesTable = ({ gameId }) => {
   const [tableData, setTableData] = useState([]);
 
   useEffect(async () => {
-    const data = await fetchTableData(gameId, "get_current_balances_table");
+    const data = await fetchGameData(gameId, "get_current_balances_table");
     setTableData(data);
   }, []);
 

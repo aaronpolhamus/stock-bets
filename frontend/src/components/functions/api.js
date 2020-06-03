@@ -1,6 +1,15 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
+const fetchGameData = async (gameId, apiEndpoint) => {
+  // helper function for components whose data can be retrieved just passing a gameId
+  const response = await axios.post(`/api/${apiEndpoint}`, {
+    game_id: gameId,
+    withCredentials: true,
+  });
+  return response.data;
+};
+
 const isEmpty = function (data) {
   if (typeof data === "object") {
     if (JSON.stringify(data) === "{}" || JSON.stringify(data) === "[]") {
@@ -63,4 +72,4 @@ const fetchGameInfo = async (gameId) => {
   });
 };
 
-export { isEmpty, usePostRequest, fetchGameInfo };
+export { isEmpty, usePostRequest, fetchGameData };

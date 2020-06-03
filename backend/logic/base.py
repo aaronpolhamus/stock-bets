@@ -41,6 +41,23 @@ def get_current_game_cash_balance(user_id, game_id):
     return result
 
 
+def get_game_end_date(game_id: int):
+    with db_session.connection() as conn:
+        start_time, duration = conn.execute("""
+            SELECT timestamp as start_time, duration
+            FROM games g
+            INNER JOIN (
+              SELECT game_id, timestamp
+              FROM game_status
+              WHERE status = 'active'
+            ) gs
+            ON gs.game_id = g.id
+            WHERE gs.game_id = %s;
+        """, game_id).fetchone()[0]
+        db_session.remove()
+    return start_time + duration * 24 * 60 * 60
+
+
 def get_username(user_id: int):
     with db_session.connection() as conn:
         username = conn.execute("""

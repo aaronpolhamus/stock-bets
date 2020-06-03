@@ -1,13 +1,4 @@
 import React from "react";
-import axios from "axios";
-
-const fetchTableData = async (gameId, apiEndpoint) => {
-  const response = await axios.post(`/api/${apiEndpoint}`, {
-    game_id: gameId,
-    withCredentials: true,
-  });
-  return response.data;
-};
 
 const renderRow = (row, headers) => {
   return headers.map((key, index) => {
@@ -38,4 +29,4 @@ const MakeTable = (tableData) => {
   );
 };
 
-export { fetchTableData, MakeTable };
+export { MakeTable };

@@ -1,20 +1,13 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { ResponsiveLine } from "@nivo/line";
-
-const fetchChartData = async (gameId) => {
-  const response = await axios.post("/api/field_chart", {
-    game_id: gameId,
-    withCredentials: true,
-  });
-  return response.data;
-};
+import { Card } from "react-bootstrap";
+import { fetchGameData } from "components/functions/api";
 
 const FieldChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
 
   useEffect(async () => {
-    const data = await fetchChartData(gameId);
+    const data = await fetchGameData(gameId, "field_chart");
     setChartData(data);
   }, []);
 

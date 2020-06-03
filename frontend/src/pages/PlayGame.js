@@ -8,14 +8,14 @@ import { Layout, Sidebar, PageSection } from "components/layout/Layout";
 import { FieldChart } from "components/charts/FieldChart";
 import { BalancesChart } from "components/charts/BalancesChart";
 import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
-import { fetchGameInfo } from "components/functions/api";
+import { fetchGameData } from "components/functions/api";
 
 const PlayGame = (props) => {
   const { gameId } = useParams();
   const [gameInfo, setGameInfo] = useState([]);
 
   useEffect(async () => {
-    const data = await fetchGameInfo(gameId);
+    const data = await fetchGameData(gameId, "game_info");
     setGameInfo(data);
   }, []);
 
