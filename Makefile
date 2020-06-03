@@ -108,9 +108,7 @@ frontend-up:
 # --------------
 up:
 	make backend-up
-	make db-reset
-	make db-mock-data
-	make redis-mock-data
+	./backend/docker/mock-data-runner.sh
 	npm install --prefix frontend
 	npm start --prefix frontend
 
