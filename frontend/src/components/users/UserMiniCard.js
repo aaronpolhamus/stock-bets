@@ -10,30 +10,50 @@ const MiniCard = styled.div`
     line-height: 1;
   }
 `;
-const Stats = styled.p`
+const Info = styled.p`
   text-transform: uppercase;
   font-size: var(--font-size-min);
   color: var(--color-text-light-gray);
+  margin-top: var(--space-50);
   span {
-    display: inline-block;
-    margin: 0 0.4rem 0 0.25rem;
-    color: var(--color-primary-darken);
-    font-weight: bold;
+    &::before {
+      content: "|";
+      display: inline-block;
+      font-weight: bold;
+      color: var(--color-primary-darken);
+      margin: 0 0.5em;
+    }
+    &:first-child::before {
+      display: none;
+    }
   }
 `;
 
-const UserMiniCard = ({ name, pictureSrc, email, stats }) => {
+const UserInfo = styled.div`
+  margin-left: var(--space-100);
+`;
+
+const infoBuilder = (info) => {
+  return info.map((part, index) => {
+    return <span>{part}</span>;
+  });
+};
+
+const UserMiniCard = ({
+  name,
+  username,
+  avatarSrc,
+  avatarSize,
+  email,
+  info,
+}) => {
   return (
     <MiniCard title={email}>
-      <UserAvatar src={pictureSrc} size="normal" />
-      <div>
-        <p>{name}</p>
-        <Stats>
-          Return: <strong>{stats.absoluteReturn} </strong>
-          <span>|</span>
-          Sharpe: <strong>{stats.sharpeRatio}</strong>
-        </Stats>
-      </div>
+      <UserAvatar src={avatarSrc} size={avatarSize} />
+      <UserInfo>
+        <p>{username}</p>
+        <Info>{info && infoBuilder(info)}</Info>
+      </UserInfo>
     </MiniCard>
   );
 };

@@ -56,14 +56,11 @@ const Home = () => {
     <Layout>
       <Sidebar>
         <UserMiniCard
-          pictureSrc={data.profile_pic}
+          avatarSrc={data.profile_pic}
           name={data.name}
           username={data.username}
           email={data.email}
-          stats={{
-            absoluteReturn: "50%",
-            sharpeRatio: "0.17",
-          }}
+          info={["Return: 50%", "Sharpe: 0.324"]}
         />
       </Sidebar>
       <Container fluid="md">

@@ -3,6 +3,9 @@ import styled from "styled-components";
 
 const handleSize = (size) => {
   switch (size) {
+    case "small":
+      return "2rem";
+      break;
     default:
       return "3rem";
   }
@@ -11,13 +14,13 @@ const handleSize = (size) => {
 const Avatar = styled.img`
   border-radius: 50%;
   width: ${({ size }) => handleSize(size)};
-  height: auto;
+  height: ${({ size }) => handleSize(size)};
   display: block;
   background-color: var(--color-lightest);
 `;
 
 const UserAvatar = ({ src, size }) => {
-  return <Avatar src={src} alt="user avatar" />;
+  return <Avatar src={src} alt="user avatar" size={size} />;
 };
 
 export { UserAvatar };
