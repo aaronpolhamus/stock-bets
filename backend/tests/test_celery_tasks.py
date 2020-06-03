@@ -25,7 +25,10 @@ from backend.tasks.definitions import (
     async_place_order,
     async_process_single_order,
     async_update_play_game_visuals,
-    async_update_player_stats
+    async_update_player_stats,
+    async_get_friend_usernames,
+    async_get_friend_invites,
+    async_suggest_friends
 )
 from backend.tasks.redis import (
     rds,
@@ -624,3 +627,27 @@ class TestStatsProduction(BaseTestCase):
         self.assertIsNotNone(total_return_3_3)
         self.assertIsNotNone(total_return_3_4)
 
+
+class TestFriendManagement(BaseTestCase):
+
+    def test_friend_management(self):
+        user_id = 1
+        # check out who the tests user's friends are currently:
+        res = async_get_friend_usernames.delay(user_id)
+        while not res.ready():
+            continue
+        expected_friends = {"toofast", "miguel"}
+        self.assertEqual(set(res.get()), expected_friends)
+
+        # what friend invites does the test user have pending?
+        res = async_get_friend_invites.delay(user_id)
+        while not res.ready():
+            continue
+        self.assertEqual(res.get(), ["murcitdev"])
+
+        # if the test user wants to invite some friends, who's available? We shouldn't see the invite from murcitdev,
+        # and we shouldn't the original dummy user, who hasn't picked a username yet
+        res = async_suggest_friends.delay(user_id, "d")
+        while not res.ready():
+            continue
+        self.assertEqual(res.get(), ["dummy2"])

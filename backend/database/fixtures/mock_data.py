@@ -10,7 +10,7 @@ from backend.logic.stock_data import (
 from backend.tasks.definitions import (
     async_update_play_game_visuals,
     async_update_player_stats,
-    async_compile_player_sidebar_data
+    async_compile_player_sidebar_stats
 )
 from config import Config
 from sqlalchemy import create_engine
@@ -47,13 +47,12 @@ def get_stock_finish_price(symbol, records=price_records, order_time=close_of_si
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
-DUMMY_USER_EMAIL = "dummy@example.test"
 MOCK_DATA = {
     "users": [
         {"name": Config.TEST_CASE_NAME, "email": Config.TEST_CASE_EMAIL, "profile_pic": "https://i.imgur.com/P5LO9v4.png",
          "username": "cheetos", "created_at": 1588307605.0, "provider": "google",
          "resource_uuid": Config.TEST_CASE_UUID},
-        {"name": "dummy", "email": DUMMY_USER_EMAIL,
+        {"name": "dummy", "email": "dummy@example.test",
          "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
          "username": None, "created_at": 1588702321.0, "provider": "google", "resource_uuid": "efg456"},
         {"name": "Eddie", "email": "eddie@example.test",
@@ -66,7 +65,10 @@ MOCK_DATA = {
         {"name": "Eli", "email": "eli@example.test",
          "profile_pic": "https://nationalpostcom.files.wordpress.com/2018/11/gettyimages-1067958662.jpg",
          "username": "murcitdev", "created_at": 1588308406.0, "provider": "google",
-         "resource_uuid": "nop112"}
+         "resource_uuid": "nop112"},
+        {"name": "dummy2", "email": "dummy2@example.test",
+         "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
+         "username": "dummy2", "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
     ],
     "games": [
         {"title": "fervent swartz", "mode": "consolation_prize", "duration": 365, "buy_in": 100, "n_rebuys": 2,
@@ -265,7 +267,6 @@ MOCK_DATA = {
         {"requester_id": 1, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
         {"requester_id": 1, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
         {"requester_id": 5, "invited_id": 1, "status": "invited", "timestamp": 1589758324},
-        {"requester_id": 5, "invited_id": 1, "status": "accepted", "timestamp": 1590363091},
         {"requester_id": 3, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
         {"requester_id": 3, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
         {"requester_id": 3, "invited_id": 5, "status": "invited", "timestamp": 1589758324},
@@ -296,7 +297,7 @@ def make_redis_mocks():
     res = async_update_player_stats.delay()
     while not res.ready():
         continue
-    async_compile_player_sidebar_data.delay(test_game_id)
+    async_compile_player_sidebar_stats.delay(test_game_id)
     async_update_play_game_visuals.delay()
 
 
