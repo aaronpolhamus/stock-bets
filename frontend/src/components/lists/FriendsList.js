@@ -22,6 +22,7 @@ const FriendsListItem = styled.li`
 const FriendRequest = styled.p`
   font-size: var(--font-size-small);
   display: flex;
+  align-items: center;
   justify-content: space-between;
 `;
 
@@ -70,13 +71,15 @@ const FriendsList = () => {
     return data.map((friend, index) => {
       return (
         <FriendRequest key={index}>
-          {friend} wants to be friends with you
+          <span>
+            Friend request from <strong>{friend}</strong>
+          </span>
           <Button
             size="sm"
             variant="secondary"
             onClick={() => handleShow(friend)}
           >
-            View Request
+            View
           </Button>
         </FriendRequest>
       );
