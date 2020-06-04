@@ -1,5 +1,6 @@
 from typing import List
 
+import pandas as pd
 from sqlalchemy import select
 
 from backend.database.helpers import retrieve_meta_data
@@ -47,7 +48,11 @@ def get_friend_invite_ids(user_id):
     return [x[0] for x in invited_friends]
 
 
-def get_names_from_ids(user_id_list: List[int]):
-    users = retrieve_meta_data(db_session.connection()).tables["users"]
-    result = db_session.execute(select([users.c.username], users.c.id.in_(user_id_list))).fetchall()
-    return [x[0] for x in result]
+def get_user_details_from_ids(user_id_list: List[int]):
+    sql = f"""
+        SELECT id, username, profile_pic, name
+        FROM users
+        WHERE id IN ({','.join(['%s'] * len(user_id_list))})
+    """
+    df = pd.read_sql(sql, db_session.connection(), params=user_id_list)
+    return df.to_dict(orient="records")
