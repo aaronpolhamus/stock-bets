@@ -77,10 +77,13 @@ MOCK_DATA = {
         {"title": "max aggression", "mode": "winner_takes_all", "duration": 1, "buy_in": 100_000, "n_rebuys": 0,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
          "invite_window": 1589368380.0},
-        {"title": "gentleman's game", "mode": "return_weighted", "duration": 14, "buy_in": 100, "n_rebuys": 3,
+        {"title": "test game", "mode": "return_weighted", "duration": 14, "buy_in": 100, "n_rebuys": 3,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
          "invite_window": 1589368380.0},
         {"title": "test user excluded", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+         "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
+         "invite_window": 1580630520.0},
+        {"title": "valiant roset", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0}
     ],
@@ -90,7 +93,8 @@ MOCK_DATA = {
         {"game_id": 3, "status": "pending", "timestamp": 1589281860.0, "users": [1, 3, 4]},
         {"game_id": 3, "status": "active", "timestamp": 1589368260.0, "users": [1, 3, 4]},
         {"game_id": 4, "status": "pending", "timestamp": 1589281860.0, "users": [3, 4, 5]},
-        {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]}
+        {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]},
+        {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4]}
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
@@ -112,6 +116,10 @@ MOCK_DATA = {
         {"game_id": 1, "user_id": 1, "status": "declined", "timestamp": 1590363478.0},
         {"game_id": 1, "user_id": 3, "status": "joined", "timestamp": 1590363478.0},
         {"game_id": 2, "user_id": 1, "status": "declined", "timestamp": 1589368260.0},
+        {"game_id": 5, "user_id": 5, "status": "joined", "timestamp": 1589368260.0},
+        {"game_id": 5, "user_id": 1, "status": "invited", "timestamp": 1589368260.0},
+        {"game_id": 5, "user_id": 3, "status": "invited", "timestamp": 1589368260.0},
+        {"game_id": 5, "user_id": 4, "status": "invited", "timestamp": 1589368260.0},
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},

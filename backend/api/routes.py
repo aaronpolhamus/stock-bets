@@ -3,7 +3,6 @@ from datetime import datetime as dt, timedelta
 from functools import wraps
 
 import jwt
-import pandas as pd
 import requests
 from backend.database.db import db
 from backend.database.helpers import retrieve_meta_data
@@ -30,6 +29,8 @@ from backend.logic.games import (
 )
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
+    async_get_user_info,
+    async_get_game_info_for_user,
     async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
@@ -45,6 +46,8 @@ from backend.tasks.definitions import (
     async_suggest_friends,
     async_get_friends_details,
     async_get_friend_invites
+    async_serialize_balances_chart,
+    async_respond_to_game_invite
 )
 from backend.tasks.redis import unpack_redis_json
 from config import Config
@@ -66,6 +69,7 @@ GAME_CREATED_MSG = "Game created! "
 INVALID_OAUTH_PROVIDER_MSG = "Not a valid OAuth provider"
 MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
 ORDER_PLACED_MESSAGE = "Order placed successfully!"
+GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 
@@ -108,6 +112,10 @@ def authenticate(f):
 
     return decorated
 
+
+# -------------- #
+# Auth and login #
+# -------------- #
 
 @routes.route("/api/login", methods=["POST"])
 def register_user():
@@ -179,37 +187,25 @@ def index():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-    with db.engine.connect() as conn:
-        user_info = conn.execute("SELECT * FROM users WHERE id = %s", user_id).fetchone()
 
-    # Retrieve open invites and active games
-    # TODO: There's a cleaner way to do this with the sqlalchemy ORM, I think
-    game_info_query = """
-        SELECT g.id, g.title, gs.status
-        FROM games g
-          INNER JOIN game_status gs
-            ON g.id = gs.game_id
-          INNER JOIN (
-              SELECT game_id, MAX(timestamp) timestamp
-            FROM game_status
-            GROUP BY game_id
-          ) tmp ON tmp.game_id = gs.game_id AND
-                    tmp.timestamp = gs.timestamp
-          WHERE
-            JSON_CONTAINS(gs.users, %s) AND
-            gs.status IN ('pending', 'active');
-    """
-    with db.engine.connect() as conn:
-        game_info_df = pd.read_sql(game_info_query, conn, params=str(user_id))
-    game_info_resp = game_info_df.to_dict(orient="records")
+    res = async_get_user_info.delay(user_id)
+    while not res.ready():
+        continue
+    user_info = res.get()
 
-    resp = jsonify(
-        {"name": user_info[1],
-         "email": user_info[2],
-         "profile_pic": user_info[3],
-         "username": user_info[4],
-         "game_info": game_info_resp})
-    return resp
+    res = async_get_game_info_for_user.delay(user_id)
+    while not res.ready():
+        continue
+    game_data = res.get()
+
+    # sanitize some sensitive user info before sending back response
+    del user_info["created_at"]
+    del user_info["provider"]
+    del user_info["resource_uuid"]
+
+    # append game data to make reponse
+    user_info["game_info"] = game_data
+    return jsonify(user_info)
 
 
 @routes.route("/api/logout", methods=["POST"])
@@ -244,6 +240,10 @@ def set_username():
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
+
+# ---------------- #
+# Games management #
+# ---------------- #
 
 @routes.route("/api/game_defaults", methods=["POST"])
 @authenticate
@@ -293,6 +293,23 @@ def create_game():
     while not res.ready():
         continue
     return make_response(GAME_CREATED_MSG, 200)
+
+
+@routes.route("/api/respond_to_game_invite", methods=["POST"])
+@authenticate
+def respond_to_game_invite():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    decision = request.json.get("decision")
+    res = async_respond_to_game_invite.delay(game_id, user_id, decision)
+    while not res.ready():
+        continue
+    return make_response(GAME_RESPONSE_MSG, 200)
+
+
+# -------------------------- #
+# Order management and prices#
+# -------------------------- #
 
 
 @routes.route("/api/game_info", methods=["POST"])
@@ -382,6 +399,10 @@ def api_suggest_symbols():
         continue
     return jsonify(res.get())
 
+# ------- #
+# Visuals #
+# ------- #
+
 
 @routes.route("/api/balances_chart", methods=["POST"])
 @authenticate
@@ -413,6 +434,10 @@ def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+
+# ------ #
+# DevOps #
+# ------ #
 
 
 @routes.route("/api/get_sidebar_stats", methods=["POST"])

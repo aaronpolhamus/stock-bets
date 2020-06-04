@@ -106,7 +106,7 @@ class TestGameLogic(BaseTestCase):
                           "stop_limit_price": 800,
                           "symbol": "MELI",
                           "time_in_force": "until_cancelled",
-                          "title": "gentleman's game"}
+                          "title": "test game"}
 
         order_price = get_order_price(mock_buy_order["order_type"], mock_buy_order["market_price"],
                                       mock_buy_order["stop_limit_price"])
@@ -189,7 +189,7 @@ class TestGameLogic(BaseTestCase):
                            "stop_limit_price": 800,
                            "symbol": "MELI",
                            "time_in_force": "until_cancelled",
-                           "title": "gentleman's game"}
+                           "title": "test game"}
 
         order_price = get_order_price(mock_sell_order["order_type"], mock_sell_order["market_price"],
                                       mock_sell_order["stop_limit_price"])
@@ -273,7 +273,7 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 1
         open_game_ids = get_open_game_invite_ids(self.db_session)
-        self.assertEqual(open_game_ids, [1, 2])
+        self.assertEqual(open_game_ids, [1, 2, 5])
 
         service_open_game(self.db_session, game_id)
         game_status = self.meta.tables["game_status"]
@@ -340,7 +340,7 @@ class TestGameLogic(BaseTestCase):
                               "quantity_type": "Shares",
                               "symbol": buy_stock,
                               "time_in_force": "until_cancelled",
-                              "title": "gentleman's game"}
+                              "title": "test game"}
 
             current_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
@@ -382,7 +382,7 @@ class TestGameLogic(BaseTestCase):
                                "quantity_type": "Shares",
                                "symbol": sell_stock,
                                "time_in_force": "until_cancelled",
-                               "title": "gentleman's game"}
+                               "title": "test game"}
 
             current_cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)

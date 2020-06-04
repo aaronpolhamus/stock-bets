@@ -20,7 +20,7 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_add_game,
-    async_respond_to_invite,
+    async_respond_to_game_invite,
     async_service_open_games,
     async_place_order,
     async_process_single_order,
@@ -198,7 +198,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        game_id = 5
+        game_id = 6
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
@@ -210,7 +210,7 @@ class TestGameIntegration(BaseTestCase):
         game_status = self.meta.tables["game_status"]
         row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
         game_status_entry = orm_rows_to_dict(row)
-        self.assertEqual(game_status_entry["id"], 7)
+        self.assertEqual(game_status_entry["id"], 8)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
@@ -247,7 +247,7 @@ class TestGameIntegration(BaseTestCase):
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        self.assertEqual(gi_count_post - gi_count_pre, 2)  # We expect to see two expired invites
+        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
         with self.db_session.connection() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
@@ -257,8 +257,8 @@ class TestGameIntegration(BaseTestCase):
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
         for user_id in [3, 4]:
-            async_respond_to_invite.apply(args=[game_id, user_id, "joined"])
-        async_respond_to_invite.apply(args=[game_id, 5, "declined"])
+            async_respond_to_game_invite.apply(args=[game_id, user_id, "joined"])
+        async_respond_to_game_invite.apply(args=[game_id, 5, "declined"])
 
         # So far so good. Pretend that we're now past the invite open window and it's time to play
         # ----------------------------------------------------------------------------------------
