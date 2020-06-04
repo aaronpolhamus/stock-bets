@@ -9,6 +9,15 @@ const FriendsListWrapper = styled.div`
   margin-top: var(--space-300);
 `;
 
+const FriendsListList = styled.ul`
+  list-style-type: none;
+  padding: 0;
+`;
+
+const FriendsListItem = styled.li`
+  padding: var(--space-100) 0;
+`;
+
 const FriendsList = () => {
   const [friendsData, setFriendsData] = useState({});
 
@@ -25,7 +34,7 @@ const FriendsList = () => {
   const friendsListBuilder = (data) => {
     return data.map((friend, index) => {
       return (
-        <li>
+        <FriendsListItem>
           <UserMiniCard
             key={index}
             avatarSrc={friend.profile_pic}
@@ -34,7 +43,7 @@ const FriendsList = () => {
             nameFontSize="var(--font-size-small)"
             nameColor="var(--color-light-gray)"
           />
-        </li>
+        </FriendsListItem>
       );
     });
   };
@@ -44,7 +53,9 @@ const FriendsList = () => {
       <Header>
         <SectionTitle color="var(--color-primary)">Friends</SectionTitle>
       </Header>
-      <ul>{friendsData.length && friendsListBuilder(friendsData)}</ul>
+      <FriendsListList>
+        {friendsData.length && friendsListBuilder(friendsData)}
+      </FriendsListList>
     </FriendsListWrapper>
   );
 };
