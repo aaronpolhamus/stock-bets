@@ -72,18 +72,15 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(data["username"], username)
         self.assertEqual(data["profile_pic"], pic)
 
-        # check game info
-        with self.engine.connect() as conn:
-            # these define the games that our test user should be in
-            game_ids = conn.execute("SELECT game_id FROM game_status WHERE JSON_CONTAINS(users, %s)",
-                                    str(user_id)).fetchall()
-            game_ids = [x[0] for x in game_ids]
-            # the test user shouldn't be associated with the game that we left them out of in the mock
-            excluded_game_id = conn.execute("SELECT id FROM games WHERE title = 'test user excluded'").fetchone()[0]
+        # check valid output from the /home endpoint. There should be one pending invite for valiant roset, with
+        # test game being active
+        self.assertEqual(len(data["game_info"]), 2)
+        for game_data in data["game_info"]:
+            if game_data["title"] == "valiant roset":
+                self.assertEqual(game_data["status"], "pending")
 
-        game_ids_from_response = [x["id"] for x in data["game_info"]]
-        self.assertEqual(set(game_ids), set(game_ids_from_response))
-        self.assertTrue(excluded_game_id not in game_ids_from_response)
+            if game_data["title"] == "test game":
+                self.assertEqual(game_data["status"], "active")
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
