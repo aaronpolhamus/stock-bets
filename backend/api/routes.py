@@ -39,13 +39,12 @@ from backend.tasks.definitions import (
     async_add_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
-    async_serialize_balances_chart,
     async_get_game_info,
     async_invite_friend,
     async_respond_to_friend_invite,
     async_suggest_friends,
     async_get_friends_details,
-    async_get_friend_invites
+    async_get_friend_invites,
     async_serialize_balances_chart,
     async_respond_to_game_invite
 )

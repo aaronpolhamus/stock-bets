@@ -568,6 +568,8 @@ class TestGameIntegration(BaseTestCase):
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
             shares_sold = int(250_000 / amzn_clear_price)
+            # If you fail on this line, run the test again -- there's some indeterminacy somewhere around the AMZN
+            # price point
             self.assertEqual(updated_holding, original_amzn_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, test_user_original_cash + shares_sold * amzn_clear_price, 2)
 
