@@ -12,7 +12,7 @@ import {
   Breadcrumb,
 } from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
-
+import { FriendsList } from "components/lists/FriendsList";
 import { GameCard } from "pages/game/GameCard";
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -30,21 +30,6 @@ const Invitation = styled(Link)`
 `;
 
 const Home = () => {
-  const test = async () => {
-    // helper function for components whose data can be retrieved just passing a gameId
-    const response = await axios.post(`/api/get_list_of_friends`, {});
-    return response.data;
-  };
-
-  const [statData, setStatData] = useState({});
-
-  useEffect(async () => {
-    const data = await test();
-    setStatData(data);
-  }, []);
-
-  console.log(statData);
-
   const { data, loading, error } = usePostRequest("/api/home");
 
   if (loading) {
@@ -98,6 +83,7 @@ const Home = () => {
           dataColor="var(--color-text-light-gray)"
           info={["Return: 50%", "Sharpe: 0.324"]}
         />
+        <FriendsList />
       </Sidebar>
       <Content>
         <Breadcrumb justifyContent="flex-end">
