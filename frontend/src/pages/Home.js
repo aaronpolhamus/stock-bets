@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Link, Redirect } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
@@ -27,6 +27,22 @@ const GameList = styled.div`
 
 const Invitation = styled(Link)`
   color: var(--color-text-primary);
+`;
+
+const StyledMiniCard = styled(UserMiniCard)`
+  padding-bottom: var(--space-400);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
+  position: relative;
+  &::after {
+    position: absolute;
+    bottom: 0px;
+    left: 0;
+    content: "";
+    display: block;
+    height: 1px;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
 `;
 
 const Home = () => {
@@ -75,7 +91,7 @@ const Home = () => {
   return (
     <Layout>
       <Sidebar>
-        <UserMiniCard
+        <StyledMiniCard
           avatarSrc={data.profile_pic}
           username={data.username}
           email={data.email}

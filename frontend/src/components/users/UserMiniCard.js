@@ -45,6 +45,7 @@ const UserInfo = styled.div`
 `;
 
 const UserMiniCard = ({
+  className,
   name,
   username,
   avatarSrc,
@@ -57,7 +58,7 @@ const UserMiniCard = ({
   info,
 }) => {
   return (
-    <MiniCard title={email}>
+    <MiniCard title={email} className={className}>
       <UserAvatar src={avatarSrc} size={avatarSize} />
       <UserInfo>
         <UserName color={nameColor} fontSize={nameFontSize}>
