@@ -4,7 +4,13 @@ import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
 import axios from "axios";
 import styled from "styled-components";
-import { Layout, Sidebar, Content, Header } from "components/layout/Layout";
+import {
+  Layout,
+  Sidebar,
+  Content,
+  Header,
+  Breadcrumb,
+} from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
 import { GameCard } from "pages/game/GameCard";
@@ -75,11 +81,13 @@ const Home = () => {
           dataColor="var(--color-text-light-gray)"
           info={["Return: 50%", "Sharpe: 0.324"]}
         />
-        <p>
-          <Button onClick={Logout}>Logout</Button>
-        </p>
       </Sidebar>
       <Content>
+        <Breadcrumb justifyContent="flex-end">
+          <a href="#" onClick={Logout}>
+            Logout
+          </a>
+        </Breadcrumb>
         <Header>
           <h1>Games</h1>
           <Button href="/make">Make a new game</Button>

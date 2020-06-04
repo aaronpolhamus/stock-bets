@@ -60,6 +60,17 @@ const Header = styled.header`
   align-items: center;
 `;
 
+const Breadcrumb = styled.div`
+  display: flex;
+  margin-bottom: var(--space-200);
+  font-size: var(--font-size-small);
+  color: var(--color-text-gray);
+  justify-content: ${(props) => props.justifyContent || "flex-start"};
+  a {
+    color: inherit;
+  }
+`;
+
 const Sidebar = ({ children }) => (
   <SidebarWrapper>
     <Logo href="/">Stockbets</Logo>
@@ -77,4 +88,12 @@ const PageSection = styled.section`
   margin-bottom: 4rem;
 `;
 
-export { Layout, Sidebar, PageSection, Content, SmallColumn, Header };
+export {
+  Layout,
+  Sidebar,
+  PageSection,
+  Content,
+  SmallColumn,
+  Header,
+  Breadcrumb,
+};

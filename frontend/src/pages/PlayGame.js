@@ -10,6 +10,7 @@ import {
   PageSection,
   Content,
   SmallColumn,
+  Breadcrumb,
 } from "components/layout/Layout";
 import { FieldChart } from "components/charts/FieldChart";
 import { BalancesChart } from "components/charts/BalancesChart";
@@ -30,9 +31,9 @@ const PlayGame = (props) => {
       </SmallColumn>
       <Content>
         <PageSection>
-          <p>
+          <Breadcrumb>
             <a href="/">&lt; Dashboard</a>
-          </p>
+          </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>
         <PageSection>
