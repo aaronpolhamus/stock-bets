@@ -43,7 +43,7 @@ from backend.tasks.definitions import (
     async_invite_friend,
     async_respond_to_friend_invite,
     async_suggest_friends,
-    async_get_friend_usernames,
+    async_get_friends_details,
     async_get_friend_invites
 )
 from backend.tasks.redis import unpack_redis_json
@@ -253,10 +253,10 @@ def game_defaults():
     """
     user_id = decode_token(request)
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    res = async_get_friend_usernames.delay(user_id)
+    res = async_get_friends_details.delay(user_id)
     while not res.ready():
         continue
-    available_invitees = res.get()
+    available_invitees = [x["username"] for x in res.get()]
     resp = {
         "title": default_title,
         "mode": DEFAULT_GAME_MODE,
@@ -452,7 +452,7 @@ def respond_to_friend_request():
 @authenticate
 def get_list_of_friends():
     user_id = decode_token(request)
-    res = async_get_friend_usernames.delay(user_id)
+    res = async_get_friends_details.delay(user_id)
     while not res.ready():
         continue
     return jsonify(res.get())

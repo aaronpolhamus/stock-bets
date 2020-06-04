@@ -26,7 +26,7 @@ from backend.tasks.definitions import (
     async_process_single_order,
     async_update_play_game_visuals,
     async_update_player_stats,
-    async_get_friend_usernames,
+    async_get_friends_details,
     async_get_friend_invites,
     async_suggest_friends
 )
@@ -633,11 +633,11 @@ class TestFriendManagement(BaseTestCase):
     def test_friend_management(self):
         user_id = 1
         # check out who the tests user's friends are currently:
-        res = async_get_friend_usernames.delay(user_id)
+        res = async_get_friends_details.delay(user_id)
         while not res.ready():
             continue
         expected_friends = {"toofast", "miguel"}
-        self.assertEqual(set(res.get()), expected_friends)
+        self.assertEqual(set([x["username"] for x in res.get()]), expected_friends)
 
         # what friend invites does the test user have pending?
         res = async_get_friend_invites.delay(user_id)
