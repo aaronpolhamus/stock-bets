@@ -1,5 +1,3 @@
-import React from "react";
-
 const simplifyCurrency = (value) => {
   let affix = "";
   let baseline = 1;

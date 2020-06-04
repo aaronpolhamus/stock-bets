@@ -5,7 +5,7 @@ import axios from "axios";
 import { Redirect } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import { Content } from "components/layout/Layout";
-import logo, { ReactComponent as Logo } from "assets/logo.svg";
+import { ReactComponent as Logo } from "assets/logo.svg";
 import styled from "styled-components";
 
 const RightCol = styled(Col)`

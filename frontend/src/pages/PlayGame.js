@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Container, Tabs, Tab } from "react-bootstrap";
-import Autosuggest from "react-autosuggest";
-import { optionBuilder } from "components/functions/forms";
+import React from "react";
+import { Tabs, Tab } from "react-bootstrap";
 import { useParams } from "react-router-dom";
 import { PlaceOrder } from "components/forms/PlaceOrder";
 import {

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
-
-import { Card } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
 
 const BalancesChart = ({ gameId }) => {

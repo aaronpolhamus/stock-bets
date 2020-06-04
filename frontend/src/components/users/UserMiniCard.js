@@ -4,7 +4,7 @@ import { UserAvatar } from "components/users/UserAvatar";
 
 const infoBuilder = (info) => {
   return info.map((part, index) => {
-    return <span>{part}</span>;
+    return <span key={index}>{part}</span>;
   });
 };
 

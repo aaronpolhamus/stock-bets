@@ -60,16 +60,4 @@ const usePostRequest = (url, payload) => {
   };
 };
 
-const fetchData = async (endpoint, data) => {
-  const response = await axios.post(`/api/${endpoint}`, data);
-  return response.data;
-};
-
-const fetchGameInfo = async (gameId) => {
-  return await fetchData("game_info", {
-    game_id: gameId,
-    withCredentials: true,
-  });
-};
-
 export { isEmpty, usePostRequest, fetchGameData };

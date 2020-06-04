@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, Redirect } from "react-router-dom";
-import { Button, Container, Row, Col, Card } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
 import axios from "axios";
 import styled from "styled-components";
@@ -63,10 +63,11 @@ const Home = () => {
 
   const gameCardBuilder = (statusType, gamesArray) => {
     return gamesArray.map((entry) => {
-      let linkTo = null;
       if (entry.status === statusType) {
         return <GameCard gameId={entry.id} />;
       }
+
+      return "";
     });
   };
 
@@ -82,6 +83,7 @@ const Home = () => {
           </div>
         );
       }
+      return "";
     });
   };
 
@@ -99,9 +101,9 @@ const Home = () => {
       </Sidebar>
       <Content>
         <Breadcrumb justifyContent="flex-end">
-          <a href="#" onClick={Logout}>
+          <Button variant="link" onClick={Logout}>
             Logout
-          </a>
+          </Button>
         </Breadcrumb>
         <Header>
           <h1>Games</h1>

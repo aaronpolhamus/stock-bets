@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, Row, Col } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
-import { simplifyCurrency } from "components/functions/currencyHelpers";
 import {
   SimplifiedCurrency,
   AuxiliarText,
@@ -44,7 +42,7 @@ const FieldParticipants = styled.div`
 const entryBuilder = (data) => {
   return data.map((row, index) => {
     return (
-      <UserRow index={index}>
+      <UserRow key={index}>
         <UserMiniCard
           avatarSrc={row.profile_pic}
           avatarSize="small"
@@ -60,7 +58,7 @@ const entryBuilder = (data) => {
             <AuxiliarText>
               {row.total_return &&
                 `${parseFloat(row.total_return).toFixed(3)}%`}
-              <divider> | </divider>
+              <span> | </span>
               {row.sharpe_ratio && `${parseFloat(row.sharpe_ratio).toFixed(3)}`}
             </AuxiliarText>
           </p>

@@ -5,7 +5,6 @@ const handleSize = (size) => {
   switch (size) {
     case "small":
       return "1.5rem";
-      break;
     default:
       return "3rem";
   }
