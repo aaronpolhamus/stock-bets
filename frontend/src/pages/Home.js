@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, Redirect } from "react-router-dom";
 import { Button, Container, Row, Col, Card } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
@@ -30,6 +30,21 @@ const Invitation = styled(Link)`
 `;
 
 const Home = () => {
+  const test = async () => {
+    // helper function for components whose data can be retrieved just passing a gameId
+    const response = await axios.post(`/api/get_list_of_friends`, {});
+    return response.data;
+  };
+
+  const [statData, setStatData] = useState({});
+
+  useEffect(async () => {
+    const data = await test();
+    setStatData(data);
+  }, []);
+
+  console.log(statData);
+
   const { data, loading, error } = usePostRequest("/api/home");
 
   if (loading) {
@@ -90,7 +105,7 @@ const Home = () => {
         </Breadcrumb>
         <Header>
           <h1>Games</h1>
-          <Button href="/make">Make a new game</Button>
+          <Button href="/new">Make a new game</Button>
         </Header>
         <GameList>{data && invitesBuilder(data.game_info)}</GameList>
         <GameList>{data && gameCardBuilder("active", data.game_info)}</GameList>

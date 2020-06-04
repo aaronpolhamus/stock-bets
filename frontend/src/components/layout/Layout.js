@@ -52,6 +52,10 @@ const Logo = styled.a`
 const Content = styled.div`
   padding: var(--space-400);
   flex-grow: 1;
+  display: ${(props) => props.display || "block"};
+  height: ${(props) => props.height || "auto"};
+  align-items: ${(props) => props.alignItems || "flex-start"};
+  justify-content: ${(props) => props.justifyContent || "flex-start"};
 `;
 
 const Header = styled.header`
