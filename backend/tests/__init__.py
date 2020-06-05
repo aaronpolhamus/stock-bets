@@ -3,7 +3,7 @@ import unittest
 import requests
 from sqlalchemy import create_engine
 
-from backend.api.routes import create_jwt
+from backend.logic.auth import create_jwt
 from backend.database.fixtures.mock_data import make_mock_data
 from backend.database.helpers import retrieve_meta_data
 from sqlalchemy.orm import scoped_session

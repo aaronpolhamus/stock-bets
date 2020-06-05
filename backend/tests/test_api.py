@@ -9,8 +9,8 @@ from backend.api.routes import (
     USERNAME_TAKE_ERROR_MSG,
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
-    create_jwt
 )
+from backend.logic.auth import create_jwt
 from backend.database.helpers import (
     orm_rows_to_dict,
     retrieve_meta_data
@@ -43,7 +43,7 @@ HOST_URL = 'https://localhost:5000/api'
 class TestUserManagement(BaseTestCase):
 
     def test_jwt_and_authentication(self):
-        # TODO: Missing a good test for routes.register_user -- OAuth dependency is trick
+        # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
         res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"},
                                          verify=False)
@@ -268,6 +268,7 @@ class TestPlayGame(BaseTestCase):
     def test_play_game(self):
         """Use the canonical game #3 to interact with the game play API
         """
+        rds.flushall()
         user_id = 1
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
@@ -295,6 +296,9 @@ class TestPlayGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
                                          verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 200)
+        res = rds.get(f"open_orders_{game_id}_{user_id}")
+        while res is None:
+            res = rds.get(f"open_orders_{game_id}_{user_id}")
 
         with self.db_session.connection() as conn:
             last_order = conn.execute("""
@@ -303,7 +307,6 @@ class TestPlayGame(BaseTestCase):
                 """
                                       ).fetchone()[0]
             self.db_session.remove()
-
         self.assertEqual(last_order, stock_pick)
         res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})

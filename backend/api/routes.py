@@ -1,11 +1,15 @@
-import time
-from datetime import datetime as dt, timedelta
+import jwt
 from functools import wraps
 
-import jwt
-import requests
+from backend.config import Config
 from backend.database.db import db
-from backend.database.helpers import retrieve_meta_data
+from backend.logic.auth import (
+    decode_token,
+    make_user_entry_from_google,
+    make_user_entry_from_facebook,
+    make_session_token_from_uuid,
+    register_username_with_token
+)
 from backend.logic.games import (
     make_random_game_title,
     DEFAULT_GAME_MODE,
@@ -49,7 +53,6 @@ from backend.tasks.definitions import (
     async_respond_to_game_invite
 )
 from backend.tasks.redis import unpack_redis_json
-from config import Config
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -73,27 +76,9 @@ FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 
 
-def verify_google_oauth(token_id):
-    return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
-
-
-def verify_facebook_oauth(access_token):
-    return requests.post(Config.FACEBOOK_VALIDATION_URL, data={"access_token": access_token})
-
-
-def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
-    payload = {"email": email, "user_id": user_id, "username": username,
-               "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
-    return jwt.encode(payload, secret_key, algorithm=Config.JWT_ENCODE_ALGORITHM).decode("utf-8")
-
-
-def decode_token(req, element="user_id"):
-    """Parse user information from the HTTP token that comes with each authenticated request from the frontend
-    """
-    decoded_session_token = jwt.decode(req.cookies["session_token"], Config.SECRET_KEY)
-    return decoded_session_token[element]
-
-
+# -------------- #
+# Auth and login #
+# -------------- #
 def authenticate(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -112,12 +97,8 @@ def authenticate(f):
     return decorated
 
 
-# -------------- #
-# Auth and login #
-# -------------- #
-
 @routes.route("/api/login", methods=["POST"])
-def register_user():
+def login():
     """Following a successful login, this allows us to create a new users. If the user already exists in the DB send
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
     response is the returned value from the React-Google-Login component.
@@ -128,61 +109,26 @@ def register_user():
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
     if provider == "google":
-        token_id = oauth_data.get("tokenId")
-        response = verify_google_oauth(token_id)
-        if response.status_code == 200:
-            resource_uuid = oauth_data.get("googleId")
-            decoded_json = response.json()
-            user_entry = {
-                "name": decoded_json["given_name"],
-                "email": decoded_json["email"],
-                "profile_pic": decoded_json["picture"],
-                "username": None,
-                "created_at": time.time(),
-                "provider": provider,
-                "resource_uuid": resource_uuid
-            }
-        else:
-            return make_response(OAUTH_ERROR_MSG, response.status_code)
+        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data)
 
     if provider == "facebook":
-        access_token = oauth_data.get("accessToken")
-        response = verify_facebook_oauth(access_token)
-        if response.status_code == 200:
-            resource_uuid = oauth_data.get("userID")
-            user_entry = {
-                "name": oauth_data["name"],
-                "email": oauth_data["email"],
-                "profile_pic": oauth_data["picture"]["data"]["url"],
-                "username": None,
-                "created_at": time.time(),
-                "provider": provider,
-                "resource_uuid": resource_uuid
-            }
-        else:
-            return make_response(OAUTH_ERROR_MSG, response.status_code)
+        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data)
 
     if provider == "twitter":
         pass
 
-    with db.engine.connect() as conn:
-        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
-        if user is None:
-            metadata = retrieve_meta_data(db.engine)
-            users = metadata.tables["users"]
-            conn.execute(users.insert(), user_entry)
+    if status_code is not 200:
+        return make_response(OAUTH_ERROR_MSG, status_code)
 
-        user_id, email, username = conn.execute("SELECT id, email, username FROM users WHERE resource_uuid = %s",
-                                                resource_uuid).fetchone()
-        session_token = create_jwt(email, user_id, username)
-        resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True)
-        return resp
+    session_token = make_session_token_from_uuid(resource_uuid)
+    resp = make_response()
+    resp.set_cookie("session_token", session_token, httponly=True)
+    return resp
 
 
 @routes.route("/api/home", methods=["POST"])
 @authenticate
-def index():
+def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
@@ -228,14 +174,11 @@ def set_username():
     if candidate_username is None:
         make_response(MISSING_USERNAME_ERROR_MSG, 400)
 
-    with db.engine.connect() as conn:
-        matches = conn.execute("SELECT name FROM users WHERE username = %s", candidate_username).fetchone()
-        if matches is None:
-            conn.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
-            session_token = create_jwt(user_email, user_id, candidate_username)
-            resp = make_response()
-            resp.set_cookie("session_token", session_token, httponly=True)
-            return resp
+    session_token = register_username_with_token(user_id, user_email, candidate_username)
+    if session_token is not None:
+        resp = make_response()
+        resp.set_cookie("session_token", session_token, httponly=True)
+        return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
@@ -256,20 +199,20 @@ def game_defaults():
     while not res.ready():
         continue
     available_invitees = [x["username"] for x in res.get()]
-    resp = {
-        "title": default_title,
-        "mode": DEFAULT_GAME_MODE,
-        "game_modes": GAME_MODES,
-        "duration": DEFAULT_GAME_DURATION,
-        "buy_in": DEFAULT_BUYIN,
-        "n_rebuys": DEFAULT_REBUYS,
-        "benchmark": DEFAULT_BENCHMARK,
-        "side_bets_perc": DEFAULT_SIDEBET_PERCENT,
-        "side_bets_period": DEFAULT_SIDEBET_PERIOD,
-        "sidebet_periods": SIDE_BET_PERIODS,
-        "benchmarks": BENCHMARKS,
-        "available_invitees": available_invitees
-    }
+    resp = dict(
+        title=default_title,
+        mode=DEFAULT_GAME_MODE,
+        game_modes=GAME_MODES,
+        duration=DEFAULT_GAME_DURATION,
+        buy_in=DEFAULT_BUYIN,
+        n_rebuys=DEFAULT_REBUYS,
+        benchmark=DEFAULT_BENCHMARK,
+        side_bets_perc=DEFAULT_SIDEBET_PERCENT,
+        side_bets_period=DEFAULT_SIDEBET_PERIOD,
+        sidebet_periods=SIDE_BET_PERIODS,
+        benchmarks=BENCHMARKS,
+        available_invitees=available_invitees
+    )
     return jsonify(resp)
 
 
@@ -399,44 +342,8 @@ def api_suggest_symbols():
     return jsonify(res.get())
 
 # ------- #
-# Visuals #
+# Friends #
 # ------- #
-
-
-@routes.route("/api/balances_chart", methods=["POST"])
-@authenticate
-def balances_chart():
-    game_id = request.json.get("game_id")
-    user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
-
-
-@routes.route("/api/field_chart", methods=["POST"])
-@authenticate
-def field_chart():
-    game_id = request.json.get("game_id")
-    f"field_chart_{game_id}"
-    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
-
-
-@routes.route("/api/get_open_orders_table", methods=["POST"])
-@authenticate
-def get_open_orders_table():
-    game_id = request.json.get("game_id")
-    user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
-
-
-@routes.route("/api/get_current_balances_table", methods=["POST"])
-@authenticate
-def get_current_balances_table():
-    game_id = request.json.get("game_id")
-    user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
-
-# ------ #
-# DevOps #
-# ------ #
 
 
 @routes.route("/api/get_sidebar_stats", methods=["POST"])
@@ -501,6 +408,46 @@ def suggest_friend_invites():
     while not res.ready():
         continue
     return jsonify(res.get())
+
+# ------- #
+# Visuals #
+# ------- #
+
+
+@routes.route("/api/balances_chart", methods=["POST"])
+@authenticate
+def balances_chart():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
+
+
+@routes.route("/api/field_chart", methods=["POST"])
+@authenticate
+def field_chart():
+    game_id = request.json.get("game_id")
+    f"field_chart_{game_id}"
+    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
+
+
+@routes.route("/api/get_open_orders_table", methods=["POST"])
+@authenticate
+def get_open_orders_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_current_balances_table", methods=["POST"])
+@authenticate
+def get_current_balances_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+
+# ------ #
+# DevOps #
+# ------ #
 
 
 @routes.route("/healthcheck", methods=["GET"])
