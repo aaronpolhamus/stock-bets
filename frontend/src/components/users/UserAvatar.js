@@ -10,16 +10,30 @@ const handleSize = (size) => {
   }
 };
 
-const Avatar = styled.img`
+const Avatar = styled.div`
   border-radius: 50%;
   width: ${({ size }) => handleSize(size)};
   height: ${({ size }) => handleSize(size)};
   display: block;
-  background-color: var(--color-lightest);
+  background-color: var(--color-light-gray);
+  overflow: hidden;
+  img {
+    display: block;
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
 `;
 
 const UserAvatar = ({ src, size }) => {
-  return <Avatar src={src} alt="user avatar" size={size} />;
+  if (src) {
+    return (
+      <Avatar size={size}>
+        <img src={src} />
+      </Avatar>
+    );
+  }
+  return <Avatar size={size} />;
 };
 
 export { UserAvatar };

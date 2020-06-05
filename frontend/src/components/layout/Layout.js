@@ -66,6 +66,10 @@ const Breadcrumb = styled.div`
   }
 `;
 
+const SidebarSection = styled.div`
+  margin-bottom: var(--space-500);
+`;
+
 const Sidebar = ({ children }) => (
   <SidebarWrapper>
     <Logo href="/">Stockbets</Logo>
@@ -91,4 +95,5 @@ export {
   SmallColumn,
   Header,
   Breadcrumb,
+  SidebarSection,
 };

@@ -3,7 +3,10 @@ import axios from "axios";
 
 const fetchGameData = async (gameId, apiEndpoint) => {
   // helper function for components whose data can be retrieved just passing a gameId
-  return fetchData(apiEndpoint, { game_id: gameId, withCredentials: true });
+  return await fetchData(apiEndpoint, {
+    game_id: gameId,
+    withCredentials: true,
+  });
 };
 
 //helper function to fetch api providing an endpoint and json post data
