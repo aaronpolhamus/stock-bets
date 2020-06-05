@@ -13,13 +13,12 @@ from backend.config import Config
 WHITE_LIST = [
     "aaron@stockbets.io",
     "miguel@stockbets.io",
-    "miguel@ruidovisual.com ",
+    "miguel@ruidovisual.com",
     "benspener@gmail.com",
     "eddie.strickler@gmail.com",
     "gavarj@spu.edu",
     "mpolovin@gmail.com",
     "matheus@sat.ws",
-    "mpolovin@gmail.com",
     "pattycampam@gmail.com",
     "jmz7v.com@gmail.com",
     "gustavo@captec.io",
@@ -28,7 +27,7 @@ WHITE_LIST = [
     "adrian@captec.io",
     "charly@captec.io",
     "jaime@rodas.mx",
-    "renny@wearefirstin.com "
+    "renny@wearefirstin.com"
 ]
 
 

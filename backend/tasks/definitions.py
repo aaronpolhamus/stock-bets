@@ -11,6 +11,7 @@ from backend.logic.base import (
     get_current_game_cash_balance
 )
 from backend.logic.games import (
+    get_user_responses_for_pending_game,
     get_current_stock_holding,
     get_all_open_orders,
     place_order,
@@ -109,9 +110,14 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
         prices = retrieve_meta_data(db_session.connection()).tables["prices"]
         table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
 
+
 # --------------- #
 # Game management #
 # --------------- #
+
+@celery.task(name="async_get_user_responses_for_pending_game", bind=True, base=SqlAlchemyTask)
+def async_get_user_responses_for_pending_game(self, game_id):
+    return get_user_responses_for_pending_game(game_id)
 
 
 @celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)

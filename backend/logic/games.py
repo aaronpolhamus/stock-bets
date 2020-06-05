@@ -330,6 +330,30 @@ def get_pending_game_id_for_user(user_id):
     return [x[0] for x in result]
 
 
+def get_user_responses_for_pending_game(game_id):
+    sql = f"""
+            SELECT users.username, gi_status.status
+            FROM game_status gs
+            INNER JOIN
+              (SELECT game_id, max(id) as max_id
+                FROM game_status
+                GROUP BY game_id) grouped_gs
+                ON gs.id = grouped_gs.max_id
+            INNER JOIN
+              (SELECT gi.game_id, gi.user_id, gi.status
+                FROM game_invites gi
+                INNER JOIN
+                (SELECT game_id, user_id, max(id) as max_id
+                    FROM game_invites
+                    GROUP BY game_id, user_id) gg_invites
+                    ON gi.id = gg_invites.max_id) gi_status
+                ON gi_status.game_id = gs.game_id
+            INNER JOIN users ON users.id = gi_status.user_id
+            WHERE gs.game_id = %s;
+    """
+    return pd.read_sql(sql, db_session.connection(), params=[game_id]).to_dict(orient="records")
+
+
 def get_game_details_based_on_ids(game_ids: List[int]):
     sql = f"""
         SELECT g.id, g.title, gs.status, gs.users

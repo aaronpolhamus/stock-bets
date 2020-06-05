@@ -41,6 +41,7 @@ from backend.tasks.definitions import (
     async_suggest_symbols,
     async_place_order,
     async_add_game,
+    async_get_user_responses_for_pending_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
     async_get_game_info,
@@ -126,33 +127,6 @@ def login():
     return resp
 
 
-@routes.route("/api/home", methods=["POST"])
-@authenticate
-def home():
-    """Return some basic information about the user's profile, games, and bets in order to
-    populate the landing page"""
-    user_id = decode_token(request)
-
-    res = async_get_user_info.delay(user_id)
-    while not res.ready():
-        continue
-    user_info = res.get()
-
-    res = async_get_game_info_for_user.delay(user_id)
-    while not res.ready():
-        continue
-    game_data = res.get()
-
-    # sanitize some sensitive user info before sending back response
-    del user_info["created_at"]
-    del user_info["provider"]
-    del user_info["resource_uuid"]
-
-    # append game data to make reponse
-    user_info["game_info"] = game_data
-    return jsonify(user_info)
-
-
 @routes.route("/api/logout", methods=["POST"])
 @authenticate
 def logout():
@@ -183,9 +157,51 @@ def set_username():
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
 
+# --------- #
+# User info #
+# --------- #
+
+
+@routes.route("/api/get_user_info", methods=["POST"])
+@authenticate
+def get_user_info():
+    user_id = decode_token(request)
+    res = async_get_user_info.delay(user_id)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+
+@routes.route("/api/home", methods=["POST"])
+@authenticate
+def home():
+    """Return some basic information about the user's profile, games, and bets in order to
+    populate the landing page"""
+    user_id = decode_token(request)
+
+    res = async_get_user_info.delay(user_id)
+    while not res.ready():
+        continue
+    user_info = res.get()
+
+    res = async_get_game_info_for_user.delay(user_id)
+    while not res.ready():
+        continue
+    game_data = res.get()
+
+    # sanitize some sensitive user info before sending back response
+    del user_info["created_at"]
+    del user_info["provider"]
+    del user_info["resource_uuid"]
+
+    # append game data to make reponse
+    user_info["game_info"] = game_data
+    return jsonify(user_info)
+
 # ---------------- #
 # Games management #
 # ---------------- #
+
 
 @routes.route("/api/game_defaults", methods=["POST"])
 @authenticate
@@ -249,9 +265,18 @@ def respond_to_game_invite():
     return make_response(GAME_RESPONSE_MSG, 200)
 
 
-# -------------------------- #
-# Order management and prices#
-# -------------------------- #
+@routes.route("/api/get_pending_game_info", methods=["POST"])
+@authenticate
+def get_pending_game_info():
+    game_id = request.json.get("game_id")
+    res = async_get_user_responses_for_pending_game.delay(game_id)
+    while not res.ready():
+        continue
+    return jsonify(res.get())
+
+# --------------------------- #
+# Order management and prices #
+# --------------------------- #
 
 
 @routes.route("/api/game_info", methods=["POST"])

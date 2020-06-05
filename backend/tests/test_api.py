@@ -10,12 +10,12 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.logic.auth import create_jwt
 from backend.database.helpers import (
     orm_rows_to_dict,
     retrieve_meta_data
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
+from backend.logic.auth import create_jwt
 from backend.logic.games import (
     unpack_enumerated_field_mappings,
     DEFAULT_GAME_MODE,
@@ -261,6 +261,37 @@ class TestCreateGame(BaseTestCase):
             lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
+
+    def test_pending_game_management(self):
+        user_id = 1
+        game_id = 5
+        test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_user_info",
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["id"], user_id)
+        self.assertEqual(res.json()["email"], Config.TEST_CASE_EMAIL)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(set([x["username"] for x in res.json()]), {"cheetos", "toofast", "miguel", "murcitdev"})
+        self.assertEqual(set([x["status"] for x in res.json()]), {"joined", "invited", "invited", "invited"})
+
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
+                                         json={"game_id": game_id, "decision": "joined"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        for user_entry in res.json():
+            if user_entry["username"] in ["murcitdev", "cheetos"]:
+                self.assertEqual(user_entry["status"], "joined")
+            else:
+                self.assertEqual(user_entry["status"], "invited")
 
 
 class TestPlayGame(BaseTestCase):
