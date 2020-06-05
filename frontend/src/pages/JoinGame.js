@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { fetchGameData } from "components/functions/api";
+import { fetchGameData, apiPost } from "components/functions/api";
 import {
   Layout,
   Sidebar,
   Content,
   Header,
   PageSection,
+  Breadcrumb,
 } from "components/layout/Layout";
 import { PlaceOrder } from "components/forms/PlaceOrder";
 import { GameSettings } from "pages/game/GameSettings";
@@ -19,6 +20,8 @@ const JoinGame = (props) => {
 
   const [gameInfo, setGameInfo] = useState([]);
   const [gameParticipants, setGameParticipants] = useState([]);
+
+  const [invite, setInvite] = useState("");
 
   useEffect(() => {
     const getGameData = async () => {
@@ -35,6 +38,15 @@ const JoinGame = (props) => {
     getGameData();
   }, [gameId]);
 
+  const handleRespondInvite = async (decision) => {
+    const respondInvite = await apiPost("respond_to_game_invite", {
+      game_id: gameId,
+      decision: decision,
+    });
+
+    setInvite(decision);
+  };
+
   return (
     <Layout>
       <Sidebar>
@@ -42,11 +54,30 @@ const JoinGame = (props) => {
       </Sidebar>
       <Content>
         <PageSection>
+          <Breadcrumb>
+            <a href="/">&lt; Dashboard</a>
+          </Breadcrumb>
           <Header>
             <h1>{gameInfo.title}</h1>
             <div>
-              <Button variant="outline-secondary">Decline</Button>
-              <Button variant="success">Accept Invitation</Button>
+              <Button
+                variant="outline-secondary"
+                disabled={invite === "" ? false : true}
+                onClick={() => {
+                  handleRespondInvite("declined");
+                }}
+              >
+                {invite === "declined" ? "Declined" : "Decline"}
+              </Button>
+              <Button
+                variant="success"
+                disabled={invite === "" ? false : true}
+                onClick={() => {
+                  handleRespondInvite("joined");
+                }}
+              >
+                {invite === "joined" ? "Accepted" : "Accept Invite"}
+              </Button>
             </div>
           </Header>
         </PageSection>

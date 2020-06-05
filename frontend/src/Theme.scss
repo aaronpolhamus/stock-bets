@@ -44,7 +44,7 @@ $color-text-light-gray: #abaac6;
 $theme-colors: (
   "primary": $color-primary,
   "secondary": $color-secondary,
-  "danger": teal,
+  "info": #efefef,
 );
 
 $h1-font-size: 3rem;
@@ -52,6 +52,7 @@ $headings-font-weight: 100;
 
 $table-hover-bg: $color-light-gray;
 $table-border-color: $color-cool-gray;
+$badge-pill-padding-x: 0.75em;
 
 /* import bootstrap to set changes */
 @import "../node_modules/bootstrap/scss/bootstrap";

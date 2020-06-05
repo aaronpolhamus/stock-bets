@@ -23,7 +23,13 @@ const MakeGame = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await axios.post("/api/create_game", formValues);
+    console.log(e, formValues);
+    await axios
+      .post("/api/create_game", formValues)
+      .then()
+      .catch((e) => {
+        console.log(e);
+      });
   };
 
   const handleChange = (e) => {
@@ -149,7 +155,7 @@ const MakeGame = () => {
         />
       </Form.Group>
       <Button variant="primary" type="submit">
-        Submit
+        Create New Game
       </Button>
     </Form>
   );

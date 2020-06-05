@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchData } from "components/functions/api";
+import { apiPost } from "components/functions/api";
 import { UserMiniCard } from "components/users/UserMiniCard";
 import { Button, Modal } from "react-bootstrap";
 import { Header } from "components/layout/Layout";
@@ -41,10 +41,10 @@ const FriendsList = () => {
 
   useEffect(() => {
     const getFriendsLists = async () => {
-      const friends = await fetchData("get_list_of_friends");
+      const friends = await apiPost("get_list_of_friends");
       setFriendsData(friends);
 
-      const friendRequests = await fetchData("get_list_of_friend_invites");
+      const friendRequests = await apiPost("get_list_of_friend_invites");
       setFriendRequestsData(friendRequests);
     };
 

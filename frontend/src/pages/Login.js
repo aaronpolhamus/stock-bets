@@ -12,24 +12,24 @@ const RightCol = styled(Col)`
   &::before {
     content: "";
     display: block;
-    width: 60vw;
-    height: 60vw;
+    width: 150vh;
+    height: 120vh;
     background: var(--color-secondary);
     position: fixed;
-    top: -10vw;
-    right: -10vw;
+    bottom: 2vh;
+    left: 50vw;
     border-radius: 50% 50% / 45% 50%;
     z-index: -1;
   }
   &::after {
     content: "";
     display: block;
-    width: 50vw;
-    height: 50vw;
+    width: 100vh;
+    height: 100vh;
     background: var(--color-primary);
     position: fixed;
-    bottom: -10vw;
-    right: -10vw;
+    top: 50vh;
+    left: 60vw;
     border-radius: 50% 50% / 45% 50%;
     z-index: -2;
   }
@@ -44,6 +44,11 @@ const LoginButton = styled.button`
   font-weight: bold;
   border: none;
   padding: var(--space-100);
+`;
+
+const StyledLogo = styled(Logo)`
+  max-width: 460px;
+  width: 90%;
 `;
 
 function responseError(response) {
@@ -74,7 +79,7 @@ export default function AlphabetLogin() {
       <Container fluid>
         <Row noGutters sm={2}>
           <Col>
-            <Logo />
+            <StyledLogo />
           </Col>
           <RightCol>
             <Row className="justify-content-md-center">
