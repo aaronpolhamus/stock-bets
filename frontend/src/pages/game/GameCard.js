@@ -28,10 +28,14 @@ const GameCardWrapper = styled.div`
 const GameCard = ({ gameId }) => {
   const [gameInfo, setGameInfo] = useState([]);
 
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "game_info");
-    setGameInfo(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "game_info");
+      setGameInfo(data);
+    };
+
+    getGameData();
+  }, [gameId]);
 
   return (
     <GameCardWrapper>

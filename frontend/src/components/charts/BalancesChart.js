@@ -4,11 +4,13 @@ import { fetchGameData } from "components/functions/api";
 
 const BalancesChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
-
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "balances_chart");
-    setChartData(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "balances_chart");
+      setChartData(data);
+    };
+    getGameData();
+  }, [gameId]);
 
   // backend generates all info -> point
   // frontend generates missing info -> time

@@ -53,7 +53,7 @@ const usePostRequest = (url, payload) => {
   };
   useEffect(() => {
     postUrl(url, payload);
-  }, []);
+  }, [url, payload]);
 
   return {
     data,

@@ -5,10 +5,13 @@ import { fetchGameData } from "components/functions/api";
 const FieldChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
 
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "field_chart");
-    setChartData(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "field_chart");
+      setChartData(data);
+    };
+    getGameData();
+  }, [gameId]);
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
