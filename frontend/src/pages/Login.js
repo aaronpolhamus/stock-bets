@@ -85,10 +85,7 @@ export default function AlphabetLogin() {
                 onFailure={responseError}
                 cookiePolicy={"single_host_origin"}
                 render={(renderProps) => (
-                  <LoginButton
-                    onClick={renderProps.onClick}
-                    disabled={renderProps.disabled}
-                  >
+                  <LoginButton onClick={renderProps.onClick}>
                     Login with Google
                   </LoginButton>
                 )}
