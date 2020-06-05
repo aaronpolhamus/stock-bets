@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import GoogleLogin from "react-google-login";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
-import axios from "axios";
+import api from "services/api";
 import { Redirect } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import { Content } from "components/layout/Layout";
@@ -62,7 +62,7 @@ export default function AlphabetLogin() {
     const provider = detectProvider(response);
     let responseCopy = { ...response };
     responseCopy["provider"] = provider;
-    axios.post("/api/login", responseCopy).then(() => setRedirect(true));
+    api.post("/api/login", responseCopy).then(() => setRedirect(true));
   }
 
   if (redirect) {
