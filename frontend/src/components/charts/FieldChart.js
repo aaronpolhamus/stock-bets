@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { fetchGameData } from "components/functions/api";
 
-const FieldChart = ({ gameId }) => {
+const FieldChart = ({ gameId, height }) => {
   const [chartData, setChartData] = useState([]);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ const FieldChart = ({ gameId }) => {
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <div style={{ width: "100%", height: "25vw" }}>
+    <div style={{ width: "100%", height: height || "25vw" }}>
       <ResponsiveLine
         data={chartData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
