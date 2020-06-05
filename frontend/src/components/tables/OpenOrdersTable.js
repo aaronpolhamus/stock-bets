@@ -5,11 +5,13 @@ import { fetchGameData } from "components/functions/api";
 
 const OpenOrdersTable = ({ gameId }) => {
   const [tableData, setTableData] = useState([]);
-
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "get_open_orders_table");
-    setTableData(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "get_open_orders_table");
+      setTableData(data);
+    };
+    getGameData();
+  }, [gameId]);
 
   return (
     <Table striped hover>

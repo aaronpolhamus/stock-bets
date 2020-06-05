@@ -19,10 +19,14 @@ const TextDivider = styled.span`
 const GameHeader = ({ gameId }) => {
   const [gameInfo, setGameInfo] = useState([]);
 
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "game_info");
-    setGameInfo(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "game_info");
+      setGameInfo(data);
+    };
+
+    getGameData();
+  }, [gameId]);
 
   return (
     <h1>

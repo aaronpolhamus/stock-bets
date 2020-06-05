@@ -71,10 +71,14 @@ const entryBuilder = (data) => {
 const PlayGameStats = ({ gameId }) => {
   const [statData, setStatData] = useState({});
 
-  useEffect(async () => {
-    const data = await fetchGameData(gameId, "get_sidebar_stats");
-    setStatData(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "get_sidebar_stats");
+      setStatData(data);
+    };
+
+    getGameData();
+  }, [gameId]);
 
   return (
     <div>
