@@ -125,6 +125,8 @@ def async_get_game_info_for_user(self, user_id):
     active_ids = get_active_game_ids_for_user(user_id)
     pending_ids = get_pending_game_id_for_user(user_id)
     game_details = get_game_details_based_on_ids(active_ids + pending_ids)
+    if game_details is None:
+        return []
     return game_details.to_dict(orient="records")
 
 

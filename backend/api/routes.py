@@ -8,7 +8,8 @@ from backend.logic.auth import (
     make_user_entry_from_google,
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
-    register_username_with_token
+    register_username_with_token,
+    register_user_if_first_visit
 )
 from backend.logic.games import (
     make_random_game_title,
@@ -121,6 +122,7 @@ def login():
     if status_code is not 200:
         return make_response(OAUTH_ERROR_MSG, status_code)
 
+    register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True)

@@ -355,6 +355,8 @@ def get_user_responses_for_pending_game(game_id):
 
 
 def get_game_details_based_on_ids(game_ids: List[int]):
+    if not game_ids:
+        return None
     sql = f"""
         SELECT g.id, g.title, gs.status, gs.users
         FROM games g
