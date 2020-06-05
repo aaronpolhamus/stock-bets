@@ -29,7 +29,7 @@ class TestConfig(unittest.TestCase):
         self.assertIsNotNone(Config.SQLALCHEMY_DATABASE_URI)
         self.assertEqual(Config.SQLALCHEMY_TRACK_MODIFICATIONS, getenv("SQLALCHEMY_TRACK_MODIFICATIONS"))
         self.assertIsNotNone(Config.SQLALCHEMY_TRACK_MODIFICATIONS)
-        self.assertEqual(Config.SQLALCHEMY_ECHO, bool(getenv("SQLALCHEMY_ECHO")))
+        self.assertEqual(Config.SQLALCHEMY_ECHO, bool(getenv("SQLALCHEMY_ECHO") == "True"))
         self.assertIsNotNone(Config.SQLALCHEMY_ECHO)
         self.assertEqual(Config.DEBUG_MODE, bool(getenv("DEBUG_MODE") == "True"))
         self.assertIsNotNone(Config.DEBUG_MODE)

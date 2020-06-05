@@ -271,18 +271,18 @@ def order_form_defaults():
     with db.engine.connect() as conn:
         title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
 
-    resp = {
-        "title": title,
-        "game_id": game_id,
-        "order_type_options": ORDER_TYPES,
-        "order_type": DEFAULT_ORDER_TYPE,
-        "buy_sell_options": BUY_SELL_TYPES,
-        "buy_or_sell": DEFAULT_BUY_SELL,
-        "time_in_force_options": TIME_IN_FORCE_TYPES,
-        "time_in_force": DEFAULT_TIME_IN_FORCE,
-        "quantity_type": QUANTITY_DEFAULT,
-        "quantity_options": QUANTITY_OPTIONS
-    }
+    resp = dict(
+        title=title,
+        game_id=game_id,
+        order_type_options=ORDER_TYPES,
+        order_type=DEFAULT_ORDER_TYPE,
+        buy_sell_options=BUY_SELL_TYPES,
+        buy_or_sell=DEFAULT_BUY_SELL,
+        time_in_force_options=TIME_IN_FORCE_TYPES,
+        time_in_force=DEFAULT_TIME_IN_FORCE,
+        quantity_type=QUANTITY_DEFAULT,
+        quantity_options=QUANTITY_OPTIONS
+    )
     return jsonify(resp)
 
 

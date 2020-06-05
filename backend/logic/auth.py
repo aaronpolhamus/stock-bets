@@ -11,6 +11,9 @@ from backend.database.helpers import (
 from backend.config import Config
 
 WHITE_LIST = [
+    "aaron@stockbets.io",
+    "miguel@stockbets.io",
+    "miguel@ruidovisual.com ",
     "benspener@gmail.com",
     "eddie.strickler@gmail.com",
     "gavarj@spu.edu",
@@ -20,7 +23,12 @@ WHITE_LIST = [
     "pattycampam@gmail.com",
     "jmz7v.com@gmail.com",
     "gustavo@captec.io",
-    "jaime@rodas.mx"
+    "jafet@captec.io",
+    "edgar@captec.io",
+    "adrian@captec.io",
+    "charly@captec.io",
+    "jaime@rodas.mx",
+    "renny@wearefirstin.com "
 ]
 
 
@@ -98,6 +106,9 @@ def make_user_entry(user_entry, resource_uuid):
     with db_session.connection() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
         db_session.remove()
+
+    if Config.CHECK_WHITE_LIST:
+        check_against_whitelist(user_entry["email"])
 
     if user is None:
         metadata = retrieve_meta_data(db_session.connection())
