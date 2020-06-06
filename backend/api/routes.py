@@ -1,6 +1,6 @@
-import jwt
 from functools import wraps
 
+import jwt
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
@@ -125,7 +125,9 @@ def login():
     register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    resp.set_cookie("session_token", session_token, httponly=True)
+    # TODO: Variabilize domain
+    resp.set_cookie("session_token", session_token, httponly=True, secure=True, samesite="Lax",
+                    domain="api.stockbets.io")
     return resp
 
 
@@ -199,6 +201,7 @@ def home():
     # append game data to make reponse
     user_info["game_info"] = game_data
     return jsonify(user_info)
+
 
 # ---------------- #
 # Games management #
@@ -275,6 +278,7 @@ def get_pending_game_info():
     while not res.ready():
         continue
     return jsonify(res.get())
+
 
 # --------------------------- #
 # Order management and prices #
@@ -368,6 +372,7 @@ def api_suggest_symbols():
         continue
     return jsonify(res.get())
 
+
 # ------- #
 # Friends #
 # ------- #
@@ -436,6 +441,7 @@ def suggest_friend_invites():
         continue
     return jsonify(res.get())
 
+
 # ------- #
 # Visuals #
 # ------- #
@@ -471,6 +477,7 @@ def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+
 
 # ------ #
 # DevOps #

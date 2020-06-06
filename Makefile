@@ -141,7 +141,6 @@ ecr-push:
 	docker push 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/scheduler:latest
 
 frontend-deploy:
-#	NODE_ENV=production npm run-script build --prefix frontend
-	npm run-script build --prefix frontend
+	NODE_ENV=production npm run-script build --prefix frontend
 	aws s3 sync frontend/build s3://app.stockbets.io --delete
 	aws cloudfront create-invalidation --distribution-id E2PFNY4LEJWBAH --paths "/*"
