@@ -2,6 +2,17 @@ from os import getenv
 
 
 class Config:
+    # Configs set by prod versus dev env
+    # ----------------------------------
+    ENV = getenv("ENV")
+    if ENV == "dev":
+        API_DOMAIN = "localhost:5000"
+        CORS_ORIGINS = "http://localhost:3000"
+
+    if ENV == "prod":
+        API_DOMAIN = "api.stockbets.io"
+        CORS_ORIGINS = "https://app.stockbets.io"
+
     # External dependencies:
     # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"

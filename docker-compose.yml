@@ -67,6 +67,9 @@ services:
     build:
       context: "./backend"
       dockerfile: "docker/backend.Dockerfile"
+    env_file:
+      - backend/.env
+      - backend/.flaskenv
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
   flower:

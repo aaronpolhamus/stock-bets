@@ -68,6 +68,9 @@ redis-mock-data:
 # backend
 # -------
 
+backend-up:
+	docker-compose up -d api
+
 backend-build:
 	docker-compose build backend
 
@@ -91,7 +94,7 @@ api-python:
 	docker-compose exec api ipython
 
 api-stop:
-	docker-compose stop backend
+	docker-compose stop api
 
 # all containers
 # --------------

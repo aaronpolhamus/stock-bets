@@ -125,9 +125,8 @@ def login():
     register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    # TODO: Variabilize domain
     resp.set_cookie("session_token", session_token, httponly=True, secure=True, samesite="Lax",
-                    domain="api.stockbets.io")
+                    domain=Config.API_DOMAIN)
     return resp
 
 
@@ -137,7 +136,8 @@ def logout():
     """Log user out of the backend by blowing away their session token
     """
     resp = make_response()
-    resp.set_cookie("session_token", "", httponly=True, expires=0)
+    resp.set_cookie("session_token", "", httponly=True, secure=True, samesite="Lax", expires=0,
+                    domain=Config.API_DOMAIN)
     return resp
 
 
