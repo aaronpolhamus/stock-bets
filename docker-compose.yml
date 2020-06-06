@@ -20,8 +20,6 @@ services:
     ports:
       - 5672:5672
       - 15672:15672
-    links:
-      - redis
 
   redis:
     image: redis:alpine
@@ -30,41 +28,47 @@ services:
       - 6379:6379
 
   worker:
-    image: worker
+    image: backend
     container_name: worker
-    build:
-      context: "./backend"
-      dockerfile: "docker/worker.Dockerfile"
-    volumes:
-      - ./backend:/home/backend
-    links:
-      - rabbitmq
+    environment:
+      - SERVICE=worker
     env_file:
       - backend/.env
-    depends_on:
-      - redis
-      - rabbitmq
-      - db
-      - backend
 
   scheduler:
-    image: scheduler
+    image: backend
     container_name: scheduler
-    build:
-      context: "./backend"
-      dockerfile: "docker/scheduler.Dockerfile"
-    volumes:
-      - ./backend:/home/backend
-    links:
-      - rabbitmq
+    environment:
+      - SERVICE=scheduler
     env_file:
       - backend/.env
+
+  api:
+    image: backend
+    container_name: api
+    environment:
+      - SERVICE=api
+    env_file:
+      - backend/.env
+      - backend/.flaskenv
     depends_on:
+      - db
       - redis
       - rabbitmq
-      - db
-      - backend
+      - worker
+    ports:
+      - 5000:5000
+    volumes:
+      - ./backend:/home/backend
 
+  backend:
+    image: backend
+    container_name: backend
+    build:
+      context: "./backend"
+      dockerfile: "docker/backend.Dockerfile"
+
+  # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
   flower:
     container_name: flower
     image: mher/flower
@@ -74,34 +78,3 @@ services:
     ports:
       - 5555:5555
 
-  backend:
-    image: backend
-    container_name: backend
-    build:
-      context: "./backend"
-      dockerfile: "docker/backend.Dockerfile"
-    volumes:
-      - ./backend:/home/backend
-    ports:
-      - 5000:5000
-    env_file:
-      - backend/.env
-      - backend/.flaskenv
-    depends_on:
-      - db
-
-  frontend:
-    image: frontend
-    build:
-      context: "./frontend"
-      dockerfile: "frontend.Dockerfile"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    ports:
-      - 3000:3000
-    env_file:
-      - frontend/.env
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    stdin_open: true
