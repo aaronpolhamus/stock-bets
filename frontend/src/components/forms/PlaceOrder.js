@@ -3,6 +3,7 @@ import axios from "axios";
 import { Row, Col, Button, Form } from "react-bootstrap";
 import Autosuggest from "react-autosuggest";
 import { optionBuilder } from "components/functions/forms";
+import { AuxiliarText } from "components/textComponents/Text";
 
 // request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
@@ -12,7 +13,7 @@ const PlaceOrder = ({ gameId }) => {
   const [symbolSuggestions, setSymbolSuggestions] = useState([]);
   const [symbolValue, setSymbolValue] = useState("");
   const [symbolLabel, setSymbolLabel] = useState("");
-  const [priceData, setPriceData] = useState(null);
+  const [priceData, setPriceData] = useState({});
   const [intervalId, setintervalId] = useState(null);
 
   useEffect(() => {
@@ -111,6 +112,20 @@ const PlaceOrder = ({ gameId }) => {
   return (
     <Form onSubmit={handleSubmit}>
       <Form.Group>
+        <Form.Label>Buy or Sell</Form.Label>
+        <Form.Control
+          name="buy_or_sell"
+          as="select"
+          defaultValue={gameInfo.default_buy_sell}
+          onChange={handleChange}
+        >
+          {gameInfo.buy_sell_options &&
+            optionBuilder(gameInfo.buy_sell_options)}
+        </Form.Control>
+      </Form.Group>
+
+      <Form.Group>
+        <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
           <Autosuggest
             suggestions={symbolSuggestions}
@@ -126,29 +141,15 @@ const PlaceOrder = ({ gameId }) => {
             }}
           />
         )}
-      </Form.Group>
-      <Row>
-        <Form.Label>{symbolLabel}</Form.Label>
-      </Row>
-      <Row>
-        <Form.Label>
-          {priceData
-            ? `$${priceData.price} (last updated: ${priceData.last_updated})`
-            : null}
-        </Form.Label>
-      </Row>
-
-      <Form.Group>
-        <Form.Label>Buy or Sell</Form.Label>
-        <Form.Control
-          name="buy_or_sell"
-          as="select"
-          defaultValue={gameInfo.default_buy_sell}
-          onChange={handleChange}
-        >
-          {gameInfo.buy_sell_options &&
-            optionBuilder(gameInfo.buy_sell_options)}
-        </Form.Control>
+        {Object.keys(priceData).length > 0 && (
+          <AuxiliarText color="var(--color-light-gray)">
+            <strong>
+              {symbolLabel} ${priceData.price}
+            </strong>
+            <br />
+            <small>Last updated: {priceData.last_updated}</small>
+          </AuxiliarText>
+        )}
       </Form.Group>
 
       <Row>

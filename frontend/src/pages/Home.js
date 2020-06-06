@@ -71,7 +71,6 @@ const Home = () => {
       return "";
     });
   };
-  console.log(data);
 
   const invitesBuilder = (gamesArray) => {
     return gamesArray.map((entry, index) => {
