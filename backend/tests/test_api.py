@@ -79,10 +79,10 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(len(data["game_info"]), 2)
         for game_data in data["game_info"]:
             if game_data["title"] == "valiant roset":
-                self.assertEqual(game_data["status"], "pending")
+                self.assertEqual(game_data["game_status"], "pending")
 
             if game_data["title"] == "test game":
-                self.assertEqual(game_data["status"], "active")
+                self.assertEqual(game_data["game_status"], "active")
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
@@ -469,3 +469,33 @@ class TestFriendManagement(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         expected_friends = {"toofast", "miguel", "murcitdev"}
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
+
+
+class TestHomePage(BaseTestCase):
+
+    def test_home_page(self):
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        # verify that the test page landing looks like we expect it to
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()["game_info"]), 2)
+        for game_entry in res.json()["game_info"]:
+            if game_entry["title"] == "test game":
+                self.assertEqual(game_entry["invite_status"], "joined")
+
+            if game_entry["title"] == "valiant roset":
+                self.assertEqual(game_entry["invite_status"], "invited")
+
+        # now accept a game invite, and verify that while that game's info still posts, the test user's invite status
+        # is now updated to "joined
+        game_id = 5
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
+                                         json={"game_id": game_id, "decision": "joined"},
+                                         cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()["game_info"]), 2)
+        for game_entry in res.json()["game_info"]:
+            self.assertEqual(game_entry["invite_status"], "joined")

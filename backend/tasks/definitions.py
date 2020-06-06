@@ -27,9 +27,8 @@ from backend.logic.games import (
     create_pending_game_status_entry,
     create_game_invites_entries,
     start_game_if_all_invites_responded,
-    get_pending_game_id_for_user,
-    get_game_details_based_on_ids,
-    get_active_game_ids_for_user,
+    get_pending_game_info_for_user,
+    get_active_game_info_for_user,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
@@ -122,10 +121,9 @@ def async_get_user_responses_for_pending_game(self, game_id):
 
 @celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)
 def async_get_game_info_for_user(self, user_id):
-    active_ids = get_active_game_ids_for_user(user_id)
-    pending_ids = get_pending_game_id_for_user(user_id)
-    game_details = get_game_details_based_on_ids(active_ids + pending_ids)
-    return game_details.to_dict(orient="records")
+    active_game_info = get_active_game_info_for_user(user_id)
+    pending_game_info = get_pending_game_info_for_user(user_id)
+    return active_game_info + pending_game_info
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)

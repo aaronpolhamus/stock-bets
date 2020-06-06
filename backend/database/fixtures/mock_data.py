@@ -94,7 +94,7 @@ MOCK_DATA = {
         {"game_id": 3, "status": "active", "timestamp": 1589368260.0, "users": [1, 3, 4]},
         {"game_id": 4, "status": "pending", "timestamp": 1589281860.0, "users": [3, 4, 5]},
         {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]},
-        {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4]}
+        {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]}
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},

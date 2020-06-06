@@ -287,52 +287,70 @@ def start_game_if_all_invites_responded(db_session, game_id):
         kick_off_game(db_session, game_id, accepted_invite_user_ids, time.time())
 
 
-def get_active_game_ids_for_user(user_id):
-    with db_session.connection() as conn:
-        result = conn.execute("""
-            SELECT gs.game_id
-            FROM game_status gs
-            INNER JOIN
-              (SELECT game_id, max(id) as max_id
-                FROM game_status
-                GROUP BY game_id) grouped_gs
+def get_active_game_info_for_user(user_id):
+    """This function is identical to get_pending_game_info_for_user, with the exception that get_pending_game_info_for_user
+    has to differentiate between pending games that a user has joined and pending games that a user is still invited to.
+    We fill in the invite status of "joined" manually before serializing the data frame.
+    """
+    sql = """
+        SELECT 
+            gs.game_id, 
+            g.title, 
+            g.creator_id, 
+            gs.users, 
+            gs.status as game_status
+        FROM game_status gs
+        INNER JOIN
+          (SELECT game_id, max(id) as max_id
+            FROM game_status
+            GROUP BY game_id) grouped_gs
             ON gs.id = grouped_gs.max_id
-            WHERE gs.status = 'active' AND
-            JSON_CONTAINS(users, %s)
-        """, str(user_id)).fetchall()
-        db_session.remove()
-    return [x[0] for x in result]
+        INNER JOIN
+          games g on gs.game_id = g.id
+        WHERE gs.status = 'active' AND
+        JSON_CONTAINS(users, %s)
+    """
+    df = pd.read_sql(sql, db_session.connection(), params=[str(user_id)])
+    df["invite_status"] = "joined"
+    return df.to_dict(orient="records")
 
 
-def get_pending_game_id_for_user(user_id):
-    with db_session.connection() as conn:
-        result = conn.execute("""
-            SELECT gs.game_id
-            FROM game_status gs
+def get_pending_game_info_for_user(user_id):
+    sql = """
+        SELECT 
+            gs.game_id, 
+            g.title,
+            g.creator_id,
+            gs.users,
+            gs.status as game_status,
+            gi_status.status AS invite_status
+        FROM game_status gs
+        INNER JOIN
+          (SELECT game_id, max(id) as max_id
+            FROM game_status
+            GROUP BY game_id) grouped_gs
+            ON gs.id = grouped_gs.max_id
+        INNER JOIN
+          (SELECT gi.game_id, gi.status
+            FROM game_invites gi
             INNER JOIN
-              (SELECT game_id, max(id) as max_id
-                FROM game_status
-                GROUP BY game_id) grouped_gs
-                ON gs.id = grouped_gs.max_id
-            INNER JOIN
-              (SELECT gi.game_id
-                FROM game_invites gi
-                INNER JOIN
-                (SELECT game_id, user_id, max(id) as max_id
-                    FROM game_invites
-                    GROUP BY game_id, user_id) gg_invites
-                    ON gi.id = gg_invites.max_id
-                    WHERE gi.user_id = %s AND
-                    gi.status = 'invited') gi_status
-                ON gi_status.game_id = gs.game_id        
-            WHERE gs.status = 'pending';""", user_id).fetchall()
-        db_session.remove()
-    return [x[0] for x in result]
+            (SELECT game_id, user_id, max(id) as max_id
+                FROM game_invites
+                GROUP BY game_id, user_id) gg_invites
+                ON gi.id = gg_invites.max_id
+                WHERE gi.user_id = %s AND
+                gi.status IN ('invited', 'joined')) gi_status
+            ON gi_status.game_id = gs.game_id
+        INNER JOIN
+          games g on gs.game_id = g.id
+        WHERE gs.status = 'pending';
+    """
+    return pd.read_sql(sql, db_session.connection(), params=[str(user_id)]).to_dict(orient="records")
 
 
 def get_user_responses_for_pending_game(game_id):
     sql = f"""
-            SELECT users.username, gi_status.status
+            SELECT creator_id, users.username, gi_status.status
             FROM game_status gs
             INNER JOIN
               (SELECT game_id, max(id) as max_id
@@ -349,26 +367,10 @@ def get_user_responses_for_pending_game(game_id):
                     ON gi.id = gg_invites.max_id) gi_status
                 ON gi_status.game_id = gs.game_id
             INNER JOIN users ON users.id = gi_status.user_id
+            INNER JOIN games g ON g.id = gs.game_id
             WHERE gs.game_id = %s;
     """
     return pd.read_sql(sql, db_session.connection(), params=[game_id]).to_dict(orient="records")
-
-
-def get_game_details_based_on_ids(game_ids: List[int]):
-    sql = f"""
-        SELECT g.id, g.title, gs.status, gs.users
-        FROM games g
-          INNER JOIN game_status gs
-            ON g.id = gs.game_id
-          INNER JOIN (
-              SELECT game_id, MAX(timestamp) timestamp
-            FROM game_status
-            GROUP BY game_id
-          ) tmp ON tmp.game_id = gs.game_id AND
-                    tmp.timestamp = gs.timestamp
-          WHERE
-            g.id IN ({','.join(['%s'] * len(game_ids))});"""
-    return pd.read_sql(sql, db_session.connection(), params=game_ids)
 
 
 # Functions for handling placing and execution of orders
