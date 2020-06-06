@@ -444,12 +444,12 @@ class TestFriendManagement(BaseTestCase):
 
         #  the test user rejects the invite. He'll accept the outstanding invite from murcitdev, though
         res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
-                                         json={"requester_username": dummy_username, "response": "declined"},
+                                         json={"requester_username": dummy_username, "decision": "declined"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
-                                         json={"requester_username": "murcitdev", "response": "accepted"},
+                                         json={"requester_username": "murcitdev", "decision": "accepted"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
 

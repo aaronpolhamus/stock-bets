@@ -397,8 +397,8 @@ def respond_to_friend_request():
     """
     user_id = decode_token(request)
     requester_username = request.json.get("requester_username")
-    response = request.json.get("response")
-    res = async_respond_to_friend_invite.delay(requester_username, user_id, response)
+    decision = request.json.get("decision")
+    res = async_respond_to_friend_invite.delay(requester_username, user_id, decision)
     while not res.ready():
         continue
     return make_response(FRIEND_INVITE_RESPONSE_MSG, 200)

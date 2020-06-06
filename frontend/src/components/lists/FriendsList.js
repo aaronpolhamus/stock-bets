@@ -43,7 +43,7 @@ const FriendsList = () => {
     };
 
     getFriendsLists();
-  }, []);
+  }, [requestRespondMessage]);
 
   const getFriendInvites = async () => {
     const friendRequests = await apiPost("get_list_of_friend_invites");

@@ -288,13 +288,13 @@ def async_invite_friend(self, requester_id, invited_username):
 
 
 @celery.task(name="async_respond_to_friend_invite", bind=True, base=SqlAlchemyTask)
-def async_respond_to_friend_invite(self, requester_username, invited_id, response):
+def async_respond_to_friend_invite(self, requester_username, invited_id, decision):
     """Since the user is responding to the request, we'll know their user ID via their web token. We don't post this
     information to the frontend for other users, though, so we'll look up the request ID based on the username
     """
     requester_id = get_user_id(requester_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
-    table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status=response,
+    table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status=decision,
                   timestamp=time.time())
 
 
