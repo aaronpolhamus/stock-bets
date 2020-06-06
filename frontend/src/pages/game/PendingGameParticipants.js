@@ -1,7 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { Button, Table, Badge } from "react-bootstrap";
-import { Header, SidebarSection } from "components/layout/Layout";
+import { Table, Badge } from "react-bootstrap";
 import { SectionTitle } from "components/textComponents/Text";
 import { UserMiniCard } from "components/users/UserMiniCard";
 

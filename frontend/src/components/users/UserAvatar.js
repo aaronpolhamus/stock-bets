@@ -29,7 +29,7 @@ const UserAvatar = ({ src, size }) => {
   if (src) {
     return (
       <Avatar size={size}>
-        <img src={src} />
+        <img src={src} alt="Avatar" />
       </Avatar>
     );
   }

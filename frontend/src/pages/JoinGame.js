@@ -9,7 +9,6 @@ import {
   PageSection,
   Breadcrumb,
 } from "components/layout/Layout";
-import { PlaceOrder } from "components/forms/PlaceOrder";
 import { GameSettings } from "pages/game/GameSettings";
 import { PendingGameParticipants } from "pages/game/PendingGameParticipants";
 
@@ -39,7 +38,7 @@ const JoinGame = (props) => {
   }, [gameId]);
 
   const handleRespondInvite = async (decision) => {
-    const respondInvite = await apiPost("respond_to_game_invite", {
+    await apiPost("respond_to_game_invite", {
       game_id: gameId,
       decision: decision,
     });
