@@ -64,8 +64,8 @@ const Home = () => {
 
   const gameCardBuilder = (statusType, gamesArray) => {
     return gamesArray.map((entry, index) => {
-      if (entry.status === statusType) {
-        return <GameCard gameId={entry.id} key={index} />;
+      if (entry.game_status === statusType) {
+        return <GameCard gameId={entry.game_id} key={index} />;
       }
 
       return "";
@@ -111,8 +111,10 @@ const Home = () => {
           <h1>Games</h1>
           <Button href="/new">Make a new game</Button>
         </Header>
-        <GameList>{data && invitesBuilder(data.game_info)}</GameList>
-        <GameList>{data && gameCardBuilder("active", data.game_info)}</GameList>
+        <GameList>{data.game_info && invitesBuilder(data.game_info)}</GameList>
+        <GameList>
+          {data.game_info && gameCardBuilder("active", data.game_info)}
+        </GameList>
       </Content>
     </Layout>
   );

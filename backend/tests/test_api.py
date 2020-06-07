@@ -86,8 +86,8 @@ class TestUserManagement(BaseTestCase):
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
-        erase_cookie_msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; HttpOnly; Path=/'
-        self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
+        msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; Secure; HttpOnly; Path=/; SameSite=None'
+        self.assertEqual(res.headers['Set-Cookie'], msg)
 
         # expired token...
         session_token = create_jwt(email, user_id, None, mins_per_session=1 / 60)

@@ -8,12 +8,14 @@ import { PlaceOrder } from "components/forms/PlaceOrder";
 import { MakeGame } from "components/forms/MakeGame";
 import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
 import { PlayGameStats } from "components/lists/PlayGameStats";
+import { GameCard } from "pages/game/GameCard";
 
 const Workbench = () => {
   return (
     <>
       <BalancesChart gameId={3} />
       <OrdersAndBalancesCard gameId={3} />
+      <GameCard gameId={3} />
       <FieldChart gameId={3} />
       <PlaceOrder gameId={3} />
       <PlayGameStats gameId={3} />
