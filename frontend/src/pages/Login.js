@@ -63,14 +63,20 @@ export default function AlphabetLogin() {
     if (response.graphDomain === "facebook") return "facebook";
   };
 
-  function handleSubmit(response) {
+  const handleSubmit = async (response) => {
     const provider = detectProvider(response);
     let responseCopy = { ...response };
     responseCopy["provider"] = provider;
-    api
-      .post("/api/login", responseCopy)
-      .then((r) => console.log({ r }) || setRedirect(true));
-  }
+    try {
+      await api
+        .post("/api/login", responseCopy)
+        .then((r) => console.log({ r }) || setRedirect(true));
+    } catch (error) {
+      alert(
+        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email aaron@stockbets.io for access before that :)"
+      );
+    }
+  };
 
   if (redirect) {
     return <Redirect to="/" />;

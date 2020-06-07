@@ -299,9 +299,11 @@ def get_active_game_info_for_user(user_id):
         SELECT 
             gs.game_id, 
             g.title, 
-            g.creator_id, 
+            g.creator_id,
+            creator_info.profile_pic AS creator_avatar,
+            creator_info.username AS creator_username,
             gs.users, 
-            gs.status as game_status
+            gs.status AS game_status
         FROM game_status gs
         INNER JOIN
           (SELECT game_id, max(id) as max_id
@@ -309,7 +311,9 @@ def get_active_game_info_for_user(user_id):
             GROUP BY game_id) grouped_gs
             ON gs.id = grouped_gs.max_id
         INNER JOIN
-          games g on gs.game_id = g.id
+          games g ON gs.game_id = g.id
+        INNER JOIN
+          users creator_info ON creator_info.id = g.creator_id
         WHERE gs.status = 'active' AND
         JSON_CONTAINS(users, %s)
     """
@@ -324,8 +328,10 @@ def get_pending_game_info_for_user(user_id):
             gs.game_id, 
             g.title,
             g.creator_id,
+            creator_info.profile_pic AS creator_avatar,
+            creator_info.username AS creator_username,
             gs.users,
-            gs.status as game_status,
+            gs.status AS game_status,
             gi_status.status AS invite_status
         FROM game_status gs
         INNER JOIN
@@ -346,6 +352,8 @@ def get_pending_game_info_for_user(user_id):
             ON gi_status.game_id = gs.game_id
         INNER JOIN
           games g on gs.game_id = g.id
+        INNER JOIN
+          users creator_info ON creator_info.id = g.creator_id
         WHERE gs.status = 'pending';
     """
     return pd.read_sql(sql, db_session.connection(), params=[str(user_id)]).to_dict(orient="records")

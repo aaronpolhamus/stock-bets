@@ -9,7 +9,9 @@ from backend.logic.auth import (
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user_if_first_visit
+    register_user_if_first_visit,
+    check_against_whitelist,
+    WhiteListException
 )
 from backend.logic.games import (
     make_random_game_title,
@@ -122,6 +124,12 @@ def login():
     if status_code is not 200:
         return make_response(OAUTH_ERROR_MSG, status_code)
 
+    if Config.CHECK_WHITE_LIST:
+        try:
+            check_against_whitelist(user_entry["email"])
+        except WhiteListException as err:
+            return make_response(str(err), 401)
+
     register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
@@ -157,7 +165,6 @@ def set_username():
         return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
-
 
 # --------- #
 # User info #
@@ -199,7 +206,6 @@ def home():
     # append game data to make reponse
     user_info["game_info"] = game_data
     return jsonify(user_info)
-
 
 # ---------------- #
 # Games management #
@@ -276,7 +282,6 @@ def get_pending_game_info():
     while not res.ready():
         continue
     return jsonify(res.get())
-
 
 # --------------------------- #
 # Order management and prices #
@@ -370,7 +375,6 @@ def api_suggest_symbols():
         continue
     return jsonify(res.get())
 
-
 # ------- #
 # Friends #
 # ------- #
@@ -439,7 +443,6 @@ def suggest_friend_invites():
         continue
     return jsonify(res.get())
 
-
 # ------- #
 # Visuals #
 # ------- #
@@ -475,7 +478,6 @@ def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
-
 
 # ------ #
 # DevOps #

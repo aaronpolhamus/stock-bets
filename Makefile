@@ -102,6 +102,7 @@ api-stop:
 # all containers
 # --------------
 up:
+	make backend-build
 	make api-up
 	./backend/docker/mock-data-runner.sh
 	npm install --prefix frontend

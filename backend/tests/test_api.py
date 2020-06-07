@@ -482,9 +482,13 @@ class TestHomePage(BaseTestCase):
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
+                self.assertEqual(game_entry["creator_username"], "cheetos")
+                self.assertEqual(game_entry["creator_id"], 1)
 
             if game_entry["title"] == "valiant roset":
                 self.assertEqual(game_entry["invite_status"], "invited")
+                self.assertEqual(game_entry["creator_username"], "murcitdev")
+                self.assertEqual(game_entry["creator_id"], 5)
 
         # now accept a game invite, and verify that while that game's info still posts, the test user's invite status
         # is now updated to "joined

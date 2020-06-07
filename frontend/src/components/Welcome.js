@@ -15,7 +15,6 @@ const Welcome = () => {
     e.preventDefault();
     try {
       await api.post("/api/set_username", {
-        withCredentials: true,
         username: username,
       });
       setUpdated(true);
