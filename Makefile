@@ -105,8 +105,6 @@ api-stop:
 # all containers
 # --------------
 up:
-	set -a
-	source backend/.env
 	make backend-build
 	make api-up
 	./backend/docker/mock-data-runner.sh
