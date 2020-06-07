@@ -57,6 +57,7 @@ from backend.tasks.definitions import (
     async_respond_to_game_invite
 )
 from backend.tasks.redis import unpack_redis_json
+from backend.tasks.celery import pause_return_until_subtask_completion
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -325,7 +326,7 @@ def place_order():
         order_ticket["symbol"],
         order_ticket["buy_or_sell"],
         order_ticket["order_type"],
-        order_ticket["quantity_type"],
+        order_ticket["shares_or_usd"],
         order_ticket["market_price"],
         order_ticket["amount"],
         order_ticket["time_in_force"],
@@ -334,8 +335,10 @@ def place_order():
     while not res.ready():
         continue
 
-    async_serialize_open_orders.delay(game_id, user_id)
-    async_serialize_current_balances.delay(game_id, user_id)
+    open_orders_res = async_serialize_open_orders.delay(game_id, user_id)
+    balances_res = async_serialize_current_balances.delay(game_id, user_id)
+    error_msg = f"/api/placer_order for user_id {user_id}, game_id {game_id}"
+    pause_return_until_subtask_completion([open_orders_res, balances_res], error_msg)
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)

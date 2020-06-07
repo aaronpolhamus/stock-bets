@@ -520,7 +520,6 @@ def update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_b
 
 def place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type,
                 quantity_type, market_price, amount, time_in_force, stop_limit_price=None):
-
     timestamp = time.time()
     metadata = retrieve_meta_data(db_session.connection())
     order_status = metadata.tables["order_status"]
