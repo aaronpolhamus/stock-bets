@@ -652,4 +652,5 @@ class TestFriendManagement(BaseTestCase):
         res = async_suggest_friends.delay(user_id, "d")
         while not res.ready():
             continue
-        self.assertEqual(res.get(), ["dummy2"])
+        dummy_match = [x["username"] for x in res.get() if x["label"] == "suggested"]
+        self.assertEqual(dummy_match, ["dummy2"])

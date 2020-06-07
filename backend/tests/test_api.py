@@ -317,7 +317,7 @@ class TestPlayGame(BaseTestCase):
             "symbol": stock_pick,
             "order_type": "limit",
             "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
-            "quantity_type": "Shares",
+            "shares_or_usd": "Shares",
             "market_price": market_price,
             "amount": order_quantity,
             "buy_or_sell": "buy",
@@ -413,6 +413,7 @@ class TestFriendManagement(BaseTestCase):
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
+        jack_session_token = self.make_test_token_from_email("jack@black.pearl")
 
         # look at our list of test user's friends
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
@@ -425,15 +426,15 @@ class TestFriendManagement(BaseTestCase):
         # should be just one, the dummy user. we'll confirm this, but won't send an invite
         res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "j"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
-        self.assertEqual(len(res.json()), 5)
+        self.assertEqual(len(res.json()), 4)
         for entry in res.json():
             if entry["username"] == "murcitdev":
                 self.assertEqual(entry["label"], "invited_you")
 
-            if entry["username"] == "dummy2":
+            if entry["username"] == "jack":
                 self.assertEqual(entry["label"], "you_invited")
 
-            if entry["username"] in ["jack", "johnny", "jadis"]:
+            if entry["username"] in ["johnny", "jadis"]:
                 self.assertEqual(entry["label"], "suggested")
 
         # what friend invites does test user currently have pending?
@@ -479,9 +480,19 @@ class TestFriendManagement(BaseTestCase):
         expected_friends = {"toofast", "miguel", "murcitdev"}
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
 
-        # dummy2 is going to reject test user's invite. since test user just accepted murcitdev's invite we'll now
-        # excepted a list with only 3 "suggested" entries, with no outstanding sent or received invitations
+        # jack sparrow is too cool for the user and rejects his invite. since test user just accepted murcitdev's
+        # invite we'll now excepted a list with 2 "suggested" entries, with no outstanding sent or received invitations
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
+                                         json={"requester_username": test_username, "decision": "declined"},
+                                         cookies={"session_token": jack_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
 
+        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "j"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(len(res.json()), 2)
+        self.assertNotIn("jack", [x["username"] for x in res.json()])
+        for entry in res.json():
+            self.assertEqual(entry["label"], "suggested")
 
 
 class TestHomePage(BaseTestCase):

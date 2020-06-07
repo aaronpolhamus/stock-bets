@@ -291,7 +291,7 @@ MOCK_DATA = {
         {"requester_id": 3, "invited_id": 5, "status": "accepted", "timestamp": 1590363091},
         {"requester_id": 5, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
         {"requester_id": 5, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
-        {"requester_id": 1, "invited_id": 6, "status": "invited", "timestamp": 1591561793},
+        {"requester_id": 1, "invited_id": 7, "status": "invited", "timestamp": 1591561793},
     ]
 }
 

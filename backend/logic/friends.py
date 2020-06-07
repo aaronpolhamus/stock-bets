@@ -98,7 +98,20 @@ def get_suggested_friend_ids(text: str, excluded_ids: List[int]):
         """
         result = conn.execute(suggest_query, to_match).fetchall()
         db_session.remove()
-    return [x[0] for x in result if x not in excluded_ids]
+    return [x[0] for x in result if x[0] not in excluded_ids]
+
+
+def get_friend_rejections(user_id):
+    with db_session.connection() as conn:
+        sql = """
+            SELECT DISTINCT invited_id
+            FROM friends WHERE
+            requester_id = %s AND
+            status = 'declined'
+        """
+        result = conn.execute(sql, user_id).fetchall()
+        db_session.remove()
+    return [x[0] for x in result]
 
 
 def suggest_friends(user_id, text):
@@ -112,7 +125,8 @@ def suggest_friends(user_id, text):
     you_invited_details = get_user_details_from_ids(invited_friend_ids, "you_invited")
 
     current_friend_ids = get_friend_ids(user_id)
-    excluded_ids = current_friend_ids + friend_invite_ids + invited_friend_ids
+    rejected_request_ids = get_friend_rejections(user_id)
+    excluded_ids = current_friend_ids + friend_invite_ids + invited_friend_ids + rejected_request_ids
 
     suggested_friend_ids = get_suggested_friend_ids(text, excluded_ids)
     suggest_friend_details = get_user_details_from_ids(suggested_friend_ids, "suggested")
