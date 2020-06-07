@@ -36,8 +36,8 @@ from backend.logic.games import (
 )
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
-    async_get_user_info,
     async_get_game_info_for_user,
+    async_get_user_information,
     async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
@@ -175,7 +175,7 @@ def set_username():
 @authenticate
 def get_user_info():
     user_id = decode_token(request)
-    res = async_get_user_info.delay(user_id)
+    res = async_get_user_information.delay(user_id)
     while not res.ready():
         continue
     return jsonify(res.get())
@@ -187,8 +187,7 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-
-    res = async_get_user_info.delay(user_id)
+    res = async_get_user_information.delay(user_id)
     while not res.ready():
         continue
     user_info = res.get()
@@ -196,15 +195,8 @@ def home():
     res = async_get_game_info_for_user.delay(user_id)
     while not res.ready():
         continue
-    game_data = res.get()
 
-    # sanitize some sensitive user info before sending back response
-    del user_info["created_at"]
-    del user_info["provider"]
-    del user_info["resource_uuid"]
-
-    # append game data to make reponse
-    user_info["game_info"] = game_data
+    user_info["game_info"] = res.get()
     return jsonify(user_info)
 
 # ---------------- #

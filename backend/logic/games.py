@@ -290,39 +290,10 @@ def start_game_if_all_invites_responded(db_session, game_id):
         kick_off_game(db_session, game_id, accepted_invite_user_ids, time.time())
 
 
-def get_active_game_info_for_user(user_id):
-    """This function is identical to get_pending_game_info_for_user, with the exception that get_pending_game_info_for_user
-    has to differentiate between pending games that a user has joined and pending games that a user is still invited to.
-    We fill in the invite status of "joined" manually before serializing the data frame.
+def get_game_info_for_user(user_id):
+    """This big, ugly SQL query aggregates a bunch of information about a user's game invites and active games for
+    display on the home page
     """
-    sql = """
-        SELECT 
-            gs.game_id, 
-            g.title, 
-            g.creator_id,
-            creator_info.profile_pic AS creator_avatar,
-            creator_info.username AS creator_username,
-            gs.users, 
-            gs.status AS game_status
-        FROM game_status gs
-        INNER JOIN
-          (SELECT game_id, max(id) as max_id
-            FROM game_status
-            GROUP BY game_id) grouped_gs
-            ON gs.id = grouped_gs.max_id
-        INNER JOIN
-          games g ON gs.game_id = g.id
-        INNER JOIN
-          users creator_info ON creator_info.id = g.creator_id
-        WHERE gs.status = 'active' AND
-        JSON_CONTAINS(users, %s)
-    """
-    df = pd.read_sql(sql, db_session.connection(), params=[str(user_id)])
-    df["invite_status"] = "joined"
-    return df.to_dict(orient="records")
-
-
-def get_pending_game_info_for_user(user_id):
     sql = """
         SELECT 
             gs.game_id, 
@@ -354,9 +325,11 @@ def get_pending_game_info_for_user(user_id):
           games g on gs.game_id = g.id
         INNER JOIN
           users creator_info ON creator_info.id = g.creator_id
-        WHERE gs.status = 'pending';
+        WHERE gs.status IN ('active', 'pending');
     """
-    return pd.read_sql(sql, db_session.connection(), params=[str(user_id)]).to_dict(orient="records")
+    df = pd.read_sql(sql, db_session.connection(), params=[str(user_id)]).to_dict(orient="records")
+    db_session.remove()
+    return df
 
 
 def get_user_responses_for_pending_game(game_id):

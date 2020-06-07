@@ -4,10 +4,10 @@ from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
     table_updater,
-    orm_rows_to_dict
 )
 from backend.logic.base import (
     get_user_id,
+    get_user_information,
     get_current_game_cash_balance
 )
 from backend.logic.games import (
@@ -27,8 +27,7 @@ from backend.logic.games import (
     create_pending_game_status_entry,
     create_game_invites_entries,
     start_game_if_all_invites_responded,
-    get_pending_game_info_for_user,
-    get_active_game_info_for_user,
+    get_game_info_for_user,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
@@ -62,16 +61,14 @@ from backend.tasks.celery import (
 from backend.tasks.redis import rds
 
 
-@celery.task(name="async_get_user_info", bind=True, base=SqlAlchemyTask)
-def async_get_user_info(self, user_id):
-    users = retrieve_meta_data(db_session.connection()).tables["users"]
-    row = db_session.query(users).filter(users.c.id == user_id)
-    return orm_rows_to_dict(row)
+@celery.task(name="async_get_user_information", bind=True, base=SqlAlchemyTask)
+def async_get_user_information(self, user_id):
+    return get_user_information(user_id)
+
 
 # -------------------------- #
 # Price fetching and caching #
 # -------------------------- #
-
 
 @celery.task(name="async_fetch_active_symbol_prices", bind=True, base=SqlAlchemyTask)
 def async_fetch_active_symbol_prices(self):
@@ -117,13 +114,6 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
 @celery.task(name="async_get_user_responses_for_pending_game", bind=True, base=SqlAlchemyTask)
 def async_get_user_responses_for_pending_game(self, game_id):
     return get_user_responses_for_pending_game(game_id)
-
-
-@celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)
-def async_get_game_info_for_user(self, user_id):
-    active_game_info = get_active_game_info_for_user(user_id)
-    pending_game_info = get_pending_game_info_for_user(user_id)
-    return active_game_info + pending_game_info
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
@@ -186,6 +176,10 @@ def async_service_one_open_game(self, game_id):
 def async_get_game_info(self, game_id):
     return get_game_info(game_id)
 
+
+@celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)
+def async_get_game_info_for_user(self, user_id):
+    return get_game_info_for_user(user_id)
 
 # ---------------- #
 # Order management #
