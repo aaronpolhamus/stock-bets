@@ -86,8 +86,8 @@ class TestUserManagement(BaseTestCase):
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
-        erase_cookie_msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; HttpOnly; Path=/'
-        self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
+        msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; Secure; HttpOnly; Path=/; SameSite=None'
+        self.assertEqual(res.headers['Set-Cookie'], msg)
 
         # expired token...
         session_token = create_jwt(email, user_id, None, mins_per_session=1 / 60)
@@ -482,9 +482,13 @@ class TestHomePage(BaseTestCase):
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
+                self.assertEqual(game_entry["creator_username"], "cheetos")
+                self.assertEqual(game_entry["creator_id"], 1)
 
             if game_entry["title"] == "valiant roset":
                 self.assertEqual(game_entry["invite_status"], "invited")
+                self.assertEqual(game_entry["creator_username"], "murcitdev")
+                self.assertEqual(game_entry["creator_id"], 5)
 
         # now accept a game invite, and verify that while that game's info still posts, the test user's invite status
         # is now updated to "joined

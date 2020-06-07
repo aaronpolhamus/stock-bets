@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "services/api";
 import { Form, Button } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
@@ -10,7 +10,7 @@ const MakeGame = () => {
   const [formValues, setFormValues] = useState({});
 
   const fetchData = async () => {
-    const response = await axios.post("/api/game_defaults");
+    const response = await api.post("/api/game_defaults");
     if (response.status === 200) {
       setDefaults(response.data);
       setFormValues(response.data); // this syncs our form value submission state with the incoming defaults
@@ -24,7 +24,7 @@ const MakeGame = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log(e, formValues);
-    await axios
+    await api
       .post("/api/create_game", formValues)
       .then()
       .catch((e) => {

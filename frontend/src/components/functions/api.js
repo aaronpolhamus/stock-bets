@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import api from "services/api";
 
 const fetchGameData = async (gameId, apiEndpoint) => {
   // helper function for components whose data can be retrieved just passing a gameId
@@ -11,7 +11,7 @@ const fetchGameData = async (gameId, apiEndpoint) => {
 
 //helper function to fetch api providing an endpoint and json post data
 const apiPost = async (endpoint, data) => {
-  const response = await axios.post(`/api/${endpoint}`, data);
+  const response = await api.post(`/api/${endpoint}`, data);
   return response.data;
 };
 
@@ -43,7 +43,7 @@ const usePostRequest = (url, payload) => {
   const postUrl = async (url, payload) => {
     try {
       setLoading(true);
-      const response = await axios.post(url, {
+      const response = await api.post(url, {
         withCredentials: true,
         data: payload,
       });

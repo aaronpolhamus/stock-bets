@@ -1,6 +1,6 @@
-import jwt
 from functools import wraps
 
+import jwt
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
@@ -8,7 +8,10 @@ from backend.logic.auth import (
     make_user_entry_from_google,
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
-    register_username_with_token
+    register_username_with_token,
+    register_user_if_first_visit,
+    check_against_whitelist,
+    WhiteListException
 )
 from backend.logic.games import (
     make_random_game_title,
@@ -121,9 +124,16 @@ def login():
     if status_code is not 200:
         return make_response(OAUTH_ERROR_MSG, status_code)
 
+    if Config.CHECK_WHITE_LIST:
+        try:
+            check_against_whitelist(user_entry["email"])
+        except WhiteListException as err:
+            return make_response(str(err), 401)
+
+    register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    resp.set_cookie("session_token", session_token, httponly=True)
+    resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
     return resp
 
 
@@ -133,7 +143,7 @@ def logout():
     """Log user out of the backend by blowing away their session token
     """
     resp = make_response()
-    resp.set_cookie("session_token", "", httponly=True, expires=0)
+    resp.set_cookie("session_token", "", httponly=True, samesite="None", secure=True, expires=0)
     return resp
 
 
@@ -151,11 +161,10 @@ def set_username():
     session_token = register_username_with_token(user_id, user_email, candidate_username)
     if session_token is not None:
         resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True)
+        resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
         return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
-
 
 # --------- #
 # User info #

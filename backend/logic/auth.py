@@ -18,6 +18,7 @@ WHITE_LIST = [
     "eddie.strickler@gmail.com",
     "gavarj@spu.edu",
     "mpolovin@gmail.com",
+    "Ryan@amoils.com",
     "matheus@sat.ws",
     "pattycampam@gmail.com",
     "jmz7v.com@gmail.com",
@@ -33,8 +34,8 @@ WHITE_LIST = [
 
 class WhiteListException(Exception):
 
-    def __str__(self):
-        return "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
+    def __init__(self, message="The product is still in it's early beta and we're whitelisting. You'll get on soon!"):
+        super().__init__(message)
 
 
 def check_against_whitelist(email):
@@ -101,20 +102,14 @@ def make_user_entry_from_facebook(oauth_data):
     return None, None, response.status_code
 
 
-def make_user_entry(user_entry, resource_uuid):
+def register_user_if_first_visit(user_entry):
+    metadata = retrieve_meta_data(db_session.connection())
     with db_session.connection() as conn:
-        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid).fetchone()
-        db_session.remove()
-
-    if Config.CHECK_WHITE_LIST:
-        check_against_whitelist(user_entry["email"])
-
-    if user is None:
-        metadata = retrieve_meta_data(db_session.connection())
-        with db_session.connection() as conn:
+        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
+        if user is None:
             users = metadata.tables["users"]
             conn.execute(users.insert(), user_entry)
-            db_session.remove()
+        db_session.commit()
 
 
 def make_session_token_from_uuid(resource_uuid):
