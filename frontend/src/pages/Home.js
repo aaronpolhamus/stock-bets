@@ -138,7 +138,9 @@ const Home = () => {
         </Breadcrumb>
         <Header>
           <h1>Games</h1>
-          <Button href="/new">Make a new game</Button>
+          <Button variant="success" href="/new">
+            Make a new game
+          </Button>
         </Header>
         <GameList>
           {data.game_info && pendingListBuilder(data.game_info, "invited")}
