@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "services/api";
 import { Row, Col, Button, Form } from "react-bootstrap";
 import Autosuggest from "react-autosuggest";
 import { optionBuilder } from "components/functions/forms";
@@ -19,10 +19,8 @@ const PlaceOrder = ({ gameId }) => {
     fetchGameInfo(gameId);
   }, [gameId]);
 
-  console.log({ gameInfo, orderTicket });
-
   const fetchGameInfo = async (gameId) => {
-    const resp = await axios.post("/api/order_form_defaults", {
+    const resp = await api.post("/api/order_form_defaults", {
       game_id: gameId,
       withCredentials: true,
     });
@@ -42,7 +40,7 @@ const PlaceOrder = ({ gameId }) => {
     orderTicketCopy["symbol"] = symbolValue;
     orderTicketCopy["market_price"] = priceData.price;
     setOrderTicket(orderTicketCopy);
-    await axios.post("/api/place_order", orderTicket);
+    await api.post("/api/place_order", orderTicket);
   };
 
   const getSuggestionValue = (suggestion) => {
@@ -59,7 +57,7 @@ const PlaceOrder = ({ gameId }) => {
   };
 
   const onSuggestionsFetchRequested = async (text) => {
-    const response = await axios.post("/api/suggest_symbols", {
+    const response = await api.post("/api/suggest_symbols", {
       text: text.value,
       withCredentials: true,
     });
@@ -103,7 +101,7 @@ const PlaceOrder = ({ gameId }) => {
   };
 
   const fetchPrice = async (symbol) => {
-    const response = await axios.post("/api/fetch_price", {
+    const response = await api.post("/api/fetch_price", {
       symbol: symbol,
       withCredentials: true,
     });

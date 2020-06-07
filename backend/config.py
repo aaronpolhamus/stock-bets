@@ -2,6 +2,15 @@ from os import getenv
 
 
 class Config:
+    # Configs set by prod versus dev env
+    # ----------------------------------
+    ENV = getenv("ENV")
+    if ENV == "dev":
+        CORS_ORIGINS = "http://localhost:3000"
+
+    if ENV == "prod":
+        CORS_ORIGINS = "https://app.stockbets.io"
+
     # External dependencies:
     # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
@@ -13,11 +22,12 @@ class Config:
     GAME_STATUS_UPDATE_RATE = 1  # The n-minute interval on which to refresh all active game statuses
     OPEN_ORDER_PROCESS_RATE = 5  # The n-minute interval on which to process all open orders (careful, this costs $$$)
 
-    # API security
+    # Security
     # --------
     SECRET_KEY = getenv("SECRET_KEY")
     MINUTES_PER_SESSION = int(getenv("MINUTES_PER_SESSION"))  # how long, in minutes, should a user session be?
     JWT_ENCODE_ALGORITHM = "HS256"
+    CHECK_WHITE_LIST = bool(getenv("CHECK_WHITE_LIST") == "True")
 
     # Database
     # --------
@@ -28,7 +38,7 @@ class Config:
     db_name = getenv("DB_NAME")
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
-    SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO"))
+    SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO") == "True")
     MIGRATIONS_DIRECTORY = "/home/backend/database/migrations"
 
     # App configurations

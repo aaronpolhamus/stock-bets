@@ -20,11 +20,15 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_add_game,
-    async_respond_to_invite,
+    async_respond_to_game_invite,
     async_service_open_games,
     async_place_order,
     async_process_single_order,
     async_update_play_game_visuals,
+    async_update_player_stats,
+    async_get_friends_details,
+    async_get_friend_invites,
+    async_suggest_friends
 )
 from backend.tasks.redis import (
     rds,
@@ -194,7 +198,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        game_id = 5
+        game_id = 6
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
@@ -206,7 +210,7 @@ class TestGameIntegration(BaseTestCase):
         game_status = self.meta.tables["game_status"]
         row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
         game_status_entry = orm_rows_to_dict(row)
-        self.assertEqual(game_status_entry["id"], 7)
+        self.assertEqual(game_status_entry["id"], 8)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
@@ -243,7 +247,7 @@ class TestGameIntegration(BaseTestCase):
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        self.assertEqual(gi_count_post - gi_count_pre, 2)  # We expect to see two expired invites
+        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
         with self.db_session.connection() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
@@ -253,8 +257,8 @@ class TestGameIntegration(BaseTestCase):
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
         for user_id in [3, 4]:
-            async_respond_to_invite.apply(args=[game_id, user_id, "joined"])
-        async_respond_to_invite.apply(args=[game_id, 5, "declined"])
+            async_respond_to_game_invite.apply(args=[game_id, user_id, "joined"])
+        async_respond_to_game_invite.apply(args=[game_id, 5, "declined"])
 
         # So far so good. Pretend that we're now past the invite open window and it's time to play
         # ----------------------------------------------------------------------------------------
@@ -327,7 +331,7 @@ class TestGameIntegration(BaseTestCase):
             ])
 
             original_amzn_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             expected_quantity = int(order_quantity / amzn_price)
             expected_cost = expected_quantity * amzn_price
             self.assertEqual(original_amzn_holding, expected_quantity)
@@ -366,7 +370,7 @@ class TestGameIntegration(BaseTestCase):
                 None
             ])
             original_meli_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            original_miguel_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
             miguel_cash = DEFAULT_VIRTUAL_CASH - order_quantity * meli_price
             self.assertAlmostEqual(original_miguel_cash, miguel_cash, 2)
@@ -406,7 +410,7 @@ class TestGameIntegration(BaseTestCase):
                 toofast_order["stop_limit_price"]
             ])
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
@@ -465,7 +469,7 @@ class TestGameIntegration(BaseTestCase):
 
             async_process_single_order.apply(args=[open_order_id])
             updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
-            updated_cash = get_current_game_cash_balance(self.db_session, user_id, game_id)
+            updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
             self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
 
@@ -561,16 +565,18 @@ class TestGameIntegration(BaseTestCase):
             test_user_id = 1
             test_user_stock = "AMZN"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
-            updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+            updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
             shares_sold = int(250_000 / amzn_clear_price)
+            # If you fail on this line, run the test again -- there's some indeterminacy somewhere around the AMZN
+            # price point
             self.assertEqual(updated_holding, original_amzn_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, test_user_original_cash + shares_sold * amzn_clear_price, 2)
 
             test_user_id = 4
             test_user_stock = "MELI"
             updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
-            updated_cash = get_current_game_cash_balance(self.db_session, test_user_id, game_id)
+            updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
             shares_sold = miguel_order["amount"]
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
@@ -599,3 +605,51 @@ class TestVisualAssetsTasks(BaseTestCase):
         self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
+
+
+class TestStatsProduction(BaseTestCase):
+
+    def test_game_player_stats(self):
+        rds.flushall()
+        res = async_update_player_stats.delay()
+        while not res.ready():
+            continue
+
+        sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
+        while sharpe_ratio_3_4 is None:
+            sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
+        sharpe_ratio_3_3 = rds.get("sharpe_ratio_3_3")
+        sharpe_ratio_3_1 = rds.get("sharpe_ratio_3_1")
+        total_return_3_1 = rds.get("total_return_3_1")
+        total_return_3_3 = rds.get("total_return_3_3")
+        total_return_3_4 = rds.get("total_return_3_4")
+        self.assertIsNotNone(sharpe_ratio_3_3)
+        self.assertIsNotNone(sharpe_ratio_3_1)
+        self.assertIsNotNone(total_return_3_1)
+        self.assertIsNotNone(total_return_3_3)
+        self.assertIsNotNone(total_return_3_4)
+
+
+class TestFriendManagement(BaseTestCase):
+
+    def test_friend_management(self):
+        user_id = 1
+        # check out who the tests user's friends are currently:
+        res = async_get_friends_details.delay(user_id)
+        while not res.ready():
+            continue
+        expected_friends = {"toofast", "miguel"}
+        self.assertEqual(set([x["username"] for x in res.get()]), expected_friends)
+
+        # what friend invites does the test user have pending?
+        res = async_get_friend_invites.delay(user_id)
+        while not res.ready():
+            continue
+        self.assertEqual(res.get(), ["murcitdev"])
+
+        # if the test user wants to invite some friends, who's available? We shouldn't see the invite from murcitdev,
+        # and we shouldn't the original dummy user, who hasn't picked a username yet
+        res = async_suggest_friends.delay(user_id, "d")
+        while not res.ready():
+            continue
+        self.assertEqual(res.get(), ["dummy2"])

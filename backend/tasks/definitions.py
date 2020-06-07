@@ -3,15 +3,21 @@ import time
 from backend.database.db import db_session
 from backend.database.helpers import (
     retrieve_meta_data,
-    table_updater
+    table_updater,
+    orm_rows_to_dict
+)
+from backend.logic.base import (
+    get_user_id,
+    get_current_game_cash_balance
 )
 from backend.logic.games import (
-    get_current_game_cash_balance,
+    get_user_responses_for_pending_game,
     get_current_stock_holding,
     get_all_open_orders,
     place_order,
     get_order_ticket,
     process_order,
+    get_game_info,
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
@@ -20,6 +26,10 @@ from backend.logic.games import (
     translate_usernames_to_ids,
     create_pending_game_status_entry,
     create_game_invites_entries,
+    start_game_if_all_invites_responded,
+    get_pending_game_id_for_user,
+    get_game_details_based_on_ids,
+    get_active_game_ids_for_user,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.stock_data import (
@@ -30,11 +40,20 @@ from backend.logic.stock_data import (
     PRICE_CACHING_INTERVAL
 )
 from backend.logic.visuals import (
+    compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
     make_the_field_charts
+)
+from backend.logic.payouts import (
+    calculate_and_pack_metrics
+)
+from backend.logic.friends import (
+    get_user_details_from_ids,
+    get_friend_ids,
+    get_friend_invite_ids
 )
 from backend.tasks.celery import (
     celery,
@@ -42,12 +61,25 @@ from backend.tasks.celery import (
     pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
-from sqlalchemy import select
 
+
+@celery.task(name="async_get_user_info", bind=True, base=SqlAlchemyTask)
+def async_get_user_info(self, user_id):
+    users = retrieve_meta_data(db_session.connection()).tables["users"]
+    row = db_session.query(users).filter(users.c.id == user_id)
+    return orm_rows_to_dict(row)
 
 # -------------------------- #
 # Price fetching and caching #
 # -------------------------- #
+
+
+@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=SqlAlchemyTask)
+def async_fetch_active_symbol_prices(self):
+    active_symbols = get_all_active_symbols(db_session)
+    for symbol in active_symbols:
+        async_fetch_price.delay(symbol)
+
 
 @celery.task(name="async_fetch_price", bind=True, base=SqlAlchemyTask)
 def async_fetch_price(self, symbol):
@@ -83,42 +115,19 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
 # Game management #
 # --------------- #
 
-@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=SqlAlchemyTask)
-def async_fetch_active_symbol_prices(self):
-    active_symbols = get_all_active_symbols(db_session)
-    for symbol in active_symbols:
-        async_fetch_price.delay(symbol)
+@celery.task(name="async_get_user_responses_for_pending_game", bind=True, base=SqlAlchemyTask)
+def async_get_user_responses_for_pending_game(self, game_id):
+    return get_user_responses_for_pending_game(game_id)
 
 
-@celery.task(name="async_suggest_symbols", base=SqlAlchemyTask)
-def async_suggest_symbols(text):
-    to_match = f"{text.upper()}%"
-    suggest_query = """
-        SELECT * FROM symbols
-        WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;
-    """
-
-    with db_session.connection() as conn:
-        symbol_suggestions = conn.execute(suggest_query, (to_match, to_match))
-        db_session.remove()
-
-    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
-
-
-@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
-def async_update_symbols_table(self):
-    try:
-        symbols_table = get_symbols_table()
-        print("writing to db...")
-        with db_session.connection() as conn:
-            conn.execute("TRUNCATE TABLE symbols;")
-            db_session.remove()
-
-        with db_session.connection() as conn:
-            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
-            db_session.commit()
-    except Exception as exc:
-        raise self.retry(exc=exc)
+@celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)
+def async_get_game_info_for_user(self, user_id):
+    active_ids = get_active_game_ids_for_user(user_id)
+    pending_ids = get_pending_game_id_for_user(user_id)
+    game_details = get_game_details_based_on_ids(active_ids + pending_ids)
+    if game_details is None:
+        return []
+    return game_details.to_dict(orient="records")
 
 
 @celery.task(name="async_add_game", bind=True, base=SqlAlchemyTask)
@@ -148,10 +157,9 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
     create_game_invites_entries(db_session, game_id, creator_id, user_ids, opened_at)
 
 
-@celery.task(name="async_respond_to_invite", bind=True, base=SqlAlchemyTask)
-def async_respond_to_invite(self, game_id, user_id, status):
+@celery.task(name="async_respond_to_game_invite", bind=True, base=SqlAlchemyTask)
+def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]
-
     response_time = time.time()
     metadata = retrieve_meta_data(db_session.connection())
     game_invites = metadata.tables["game_invites"]
@@ -160,6 +168,8 @@ def async_respond_to_invite(self, game_id, user_id, status):
                   user_id=user_id,
                   status=status,
                   timestamp=response_time)
+    # Check to see if we everyone has either joined or declined and whether we can start the game early
+    start_game_if_all_invites_responded(db_session, game_id)
 
 
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
@@ -176,9 +186,43 @@ def async_service_one_open_game(self, game_id):
     service_open_game(db_session, game_id)
 
 
+@celery.task(name="async_get_game_info", bind=True, base=SqlAlchemyTask)
+def async_get_game_info(self, game_id):
+    return get_game_info(game_id)
+
+
 # ---------------- #
 # Order management #
 # ---------------- #
+
+
+@celery.task(name="async_suggest_symbols", base=SqlAlchemyTask)
+def async_suggest_symbols(text):
+    with db_session.connection() as conn:
+        to_match = f"{text.upper()}%"
+        symbol_suggestions = conn.execute("""
+            SELECT * FROM symbols
+            WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", (to_match, to_match))
+        db_session.remove()
+
+    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
+@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=SqlAlchemyTask)
+def async_update_symbols_table(self):
+    try:
+        symbols_table = get_symbols_table()
+        print("writing to db...")
+        with db_session.connection() as conn:
+            conn.execute("TRUNCATE TABLE symbols;")
+            db_session.remove()
+
+        with db_session.connection() as conn:
+            symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
+            db_session.commit()
+    except Exception as exc:
+        raise self.retry(exc=exc)
+
 
 @celery.task(name="async_place_order", base=SqlAlchemyTask)
 def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantity_type, market_price, amount,
@@ -190,7 +234,7 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
     an ongoing basis by the celery schedule and book as their requirements are satisfies
     """
     # extract relevant data
-    cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
 
     place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding,
@@ -229,70 +273,68 @@ def async_process_all_open_orders(self):
         status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
-
 # ------- #
 # Friends #
 # ------- #
 
+
 @celery.task(name="async_invite_friend", bind=True, base=SqlAlchemyTask)
-def async_invite_friend(self, requester_id, invited_id):
+def async_invite_friend(self, requester_id, invited_username):
+    """Since the user is sending the request, we'll know their user ID via their web token. We don't post this
+    information to the frontend for other users, though, so we'll look up their ID based on username
+    """
+    invited_id = get_user_id(invited_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
     table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status="invited",
                   timestamp=time.time())
 
 
 @celery.task(name="async_respond_to_friend_invite", bind=True, base=SqlAlchemyTask)
-def async_respond_to_friend_invite(self, requester_id, invited_id, response):
+def async_respond_to_friend_invite(self, requester_username, invited_id, response):
+    """Since the user is responding to the request, we'll know their user ID via their web token. We don't post this
+    information to the frontend for other users, though, so we'll look up the request ID based on the username
+    """
+    requester_id = get_user_id(requester_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
     table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status=response,
                   timestamp=time.time())
 
 
-@celery.task(name="async_get_friend_ids", bind=True, base=SqlAlchemyTask)
-def async_get_friend_ids(self, user_id):
-    with db_session.connection() as conn:
-        invited_friends = conn.execute("""
-            SELECT requester_id
-            FROM friends 
-            WHERE invited_id = %s;
-        """, user_id).fetchall()
-
-        requested_friends = conn.execute("""
-            SELECT invited_id
-            FROM friends
-            WHERE requester_id = %s;
-        """, user_id).fetchall()
-        db_session.remove()
-
-    return [x[0] for x in invited_friends + requested_friends]
-
-
-@celery.task(name="async_get_friend_names", bind=True, base=SqlAlchemyTask)
-def async_get_friend_names(self, user_id):
-    friend_ids = async_get_friend_ids.apply(user_id)
-    users = retrieve_meta_data(db_session.connetion()).tables["users"]
-    invitee_ids = db_session.execute(select([users.c.username], users.c.id.in_(friend_ids))).fetchall()
-    return invitee_ids
+@celery.task(name="async_get_friends_details", bind=True, base=SqlAlchemyTask)
+def async_get_friends_details(self, user_id):
+    friend_ids = get_friend_ids(user_id)
+    return get_user_details_from_ids(friend_ids)
 
 
 @celery.task(name="async_suggest_friends", bind=True, base=SqlAlchemyTask)
 def async_suggest_friends(self, user_id, text):
-    with db_session.connect() as conn:
-        friend_ids = async_get_friend_ids.apply(user_id)
-
+    friend_ids = get_friend_ids(user_id)
+    friend_invite_ids = get_friend_invite_ids(user_id)
+    to_match = f"{text}%"
+    with db_session.connection() as conn:
+        excluded_ids = friend_ids + friend_invite_ids
         suggest_query = """
             SELECT id, username FROM users
             WHERE username LIKE %s
-            LIMIT 20;
+            LIMIT 10;
         """
-        friend_invite_suggestions = conn.execute(suggest_query, text)
+        friend_invite_suggestions = conn.execute(suggest_query, to_match)
+        db_session.remove()
+    return [x[1] for x in friend_invite_suggestions if x[0] not in excluded_ids]
 
-        return [x[1] for x in friend_invite_suggestions if x[0] not in friend_ids]
+
+@celery.task(name="async_get_friend_invites", bind=True, base=SqlAlchemyTask)
+def async_get_friend_invites(self, user_id):
+    invite_ids = get_friend_invite_ids(user_id)
+    if not invite_ids:
+        return []
+    details = get_user_details_from_ids(invite_ids)
+    return [x["username"] for x in details]
 
 
-# -------------- #
-# Visuals assets #
-# -------------- #
+# ------------- #
+# Visual assets #
+# ------------- #
 """This gets a little bit dense. async_serialize_open_orders and async_serialize_current_balances run at the game-user
 level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
 both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
@@ -338,5 +380,36 @@ def async_update_play_game_visuals(self):
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
-
     pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
+
+
+@celery.task(name="async_calculate_metrics", bind=True, base=SqlAlchemyTask)
+def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_date=None):
+    calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
+
+
+# ---------------------- #
+# Player stat production #
+# ---------------------- #
+
+@celery.task(name="async_update_player_stats", bind=True, base=SqlAlchemyTask)
+def async_update_player_stats(self):
+    """This task calculates game-level metrics for all players in all games, caching those metrics to redis
+    """
+    open_game_ids = get_active_game_ids(db_session)
+    task_results = []
+    for game_id in open_game_ids:
+        user_ids = get_all_game_users(db_session, game_id)
+        for user_id in user_ids:
+            task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
+    pause_return_until_subtask_completion(task_results, "async_update_player_stats")
+
+
+@celery.task(name="async_compile_player_stats", bind=True, base=SqlAlchemyTask)
+def async_compile_player_sidebar_stats(self, game_id):
+    compile_and_pack_player_sidebar_stats(game_id)
+
+
+@celery.task(name="async_get_player_cash_balance", bind=True, base=SqlAlchemyTask)
+def async_get_player_cash_balance(self, game_id, user_id):
+    return get_current_game_cash_balance(user_id, game_id)

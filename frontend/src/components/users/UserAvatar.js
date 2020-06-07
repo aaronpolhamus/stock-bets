@@ -1,0 +1,39 @@
+import React from "react";
+import styled from "styled-components";
+
+const handleSize = (size) => {
+  switch (size) {
+    case "small":
+      return "1.5rem";
+    default:
+      return "3rem";
+  }
+};
+
+const Avatar = styled.div`
+  border-radius: 50%;
+  width: ${({ size }) => handleSize(size)};
+  height: ${({ size }) => handleSize(size)};
+  display: block;
+  background-color: var(--color-light-gray);
+  overflow: hidden;
+  img {
+    display: block;
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
+`;
+
+const UserAvatar = ({ src, size }) => {
+  if (src) {
+    return (
+      <Avatar size={size}>
+        <img src={src} />
+      </Avatar>
+    );
+  }
+  return <Avatar size={size} />;
+};
+
+export { UserAvatar };

@@ -1,32 +1,23 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { ResponsiveLine } from "@nivo/line";
-import { Card } from "react-bootstrap";
-
-const fetchChartData = async (gameId) => {
-  const response = await axios.post("/api/balances_chart", {
-    game_id: gameId,
-    withCredentials: true,
-  });
-  console.log(response);
-  return response.data;
-};
+import { fetchGameData } from "components/functions/api";
 
 const BalancesChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
-
-  useEffect(async () => {
-    const data = await fetchChartData(gameId);
-    setChartData(data);
-  }, []);
+  useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, "balances_chart");
+      setChartData(data);
+    };
+    getGameData();
+  }, [gameId]);
 
   // backend generates all info -> point
   // frontend generates missing info -> time
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <Card style={{ width: "75vw", height: "25vw" }}>
-      <Card.Title>Balances over time</Card.Title>
+    <div style={{ width: "100%", height: "25vw" }}>
       <ResponsiveLine
         data={chartData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
@@ -54,7 +45,6 @@ const BalancesChart = ({ gameId }) => {
           tickSize: 5,
           tickPadding: 5,
           tickRotation: 0,
-          legend: "Position value",
           legendOffset: -40,
           legendPosition: "middle",
         }}
@@ -88,7 +78,7 @@ const BalancesChart = ({ gameId }) => {
           },
         ]}
       />
-    </Card>
+    </div>
   );
 };
 

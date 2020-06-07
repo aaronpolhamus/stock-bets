@@ -1,5 +1,6 @@
 celery==4.4.2
 Flask==1.0.2
+Flask_Cors==3.0.8
 Flask-Migrate==2.5.3
 Flask-SQLAlchemy==2.4.1
 funkybob==2018.5.1

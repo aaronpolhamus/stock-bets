@@ -3,11 +3,14 @@
 import json
 import math
 import time
+from typing import List
 from datetime import timedelta
 
+import pandas as pd
 import pandas_market_calendars as mcal
 from sqlalchemy import select
 
+from backend.database.db import db_session
 from backend.database.helpers import (
     unpack_enumerated_field_mappings,
     retrieve_meta_data,
@@ -26,6 +29,10 @@ from backend.logic.stock_data import (
     get_next_trading_day_schedule,
     get_schedule_start_and_end,
     during_trading_day
+)
+from backend.logic.base import (
+    get_current_game_cash_balance,
+    get_username
 )
 from funkybob import RandomNameGenerator
 
@@ -192,12 +199,75 @@ def create_game_invites_entries(db_session, game_id, creator_id, user_ids, opene
         db_session.commit()
 
 
-def get_accepted_invite_list(db_session, game_id):
+def get_invite_list_by_status(db_session, game_id, status="joined"):
     with db_session.connection() as conn:
-        result = conn.execute("SELECT user_id FROM game_invites WHERE game_id = %s AND status = 'joined';",
-                              game_id).fetchall()
+        result = conn.execute("SELECT user_id FROM game_invites WHERE game_id = %s AND status = %s;",
+                              game_id, status).fetchall()
         db_session.remove()
     return [x[0] for x in result]
+
+
+def kick_off_game(db_session, game_id: int, user_id_list: List[int], update_time):
+    """Mark a game as active and seed users' virtual cash balances
+    """
+    game_status = retrieve_meta_data(db_session.connection()).tables["game_status"]
+    row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
+    game_status_entry = orm_rows_to_dict(row)
+    table_updater(db_session, game_status, game_id=game_status_entry["game_id"], status="active",
+                  users=user_id_list, timestamp=update_time)
+
+    with db_session.connection() as conn:
+        game_balances = retrieve_meta_data(conn).tables["game_balances"]
+        # Initialize each joining player's virtual trading cash balance in the game
+        virtual_cash_entries = []
+        for user_id in user_id_list:
+            virtual_cash_entries.append(dict(user_id=user_id, game_id=game_id, timestamp=update_time,
+                                             balance_type="virtual_cash", balance=DEFAULT_VIRTUAL_CASH))
+        conn.execute(game_balances.insert(), virtual_cash_entries)
+        db_session.commit()
+
+    # Mark any outstanding invitations as "expired" now that the game is active
+    mark_invites_expired(db_session, game_id, ["invited"], update_time)
+
+
+def close_game(db_session, game_id, update_time):
+    game_status = retrieve_meta_data(db_session.connection()).tables["game_status"]
+    row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
+    game_status_entry = orm_rows_to_dict(row)
+    table_updater(db_session, game_status, game_id=game_status_entry["game_id"], status="expired",
+                  users=json.loads(game_status_entry["users"]), timestamp=update_time)
+    mark_invites_expired(db_session, game_id, ["invited", "joined"], update_time)
+
+
+def mark_invites_expired(db_session, game_id, status_list: List[str], update_time):
+    """For a given game ID and list of statuses, this function will convert those invitations to "expired." This
+    happens when games past their invite window still have pending invitations, or when games pass their invite window
+    without meeting the minimum user count to kick off
+    """
+    if not status_list:
+        return
+
+    with db_session.connection() as conn:
+        result = conn.execute(f"""
+            SELECT gi.user_id
+            FROM game_invites gi
+            INNER JOIN
+              (SELECT game_id, user_id, max(id) as max_id
+                FROM game_invites
+                GROUP BY game_id, user_id) grouped_gi
+            ON
+              gi.id = grouped_gi.max_id
+            WHERE
+              gi.game_id = %s AND
+              status IN ({','.join(['%s'] * len(status_list))});
+              """, game_id, *status_list)
+        ids_to_close = [x[0] for x in result]
+        db_session.remove()
+
+    game_invites = retrieve_meta_data(db_session.connection()).tables["game_invites"]
+    for user_id in ids_to_close:
+        table_updater(db_session, game_invites, game_id=game_id, user_id=user_id, status="expired",
+                      timestamp=update_time)
 
 
 def service_open_game(db_session, game_id):
@@ -205,99 +275,110 @@ def service_open_game(db_session, game_id):
     ONLY be applied to IDs passed in from get_open_game_invite_ids
     """
     update_time = time.time()
-    game_status = retrieve_meta_data(db_session.connection()).tables["game_status"]
-    row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
-    game_status_entry = orm_rows_to_dict(row)
-    accepted_invite_user_ids = get_accepted_invite_list(db_session, game_id)
-
-    active_game = False
+    accepted_invite_user_ids = get_invite_list_by_status(db_session, game_id)
     if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
-        active_game = True
         # If we have quorum, game is active and we can mark it as such on the game status table
-        table_updater(db_session, game_status, game_id=game_status_entry["game_id"], status="active",
-                      users=accepted_invite_user_ids, timestamp=update_time)
-
-        # Any users with an outstanding invite who haven't joined now have their invitations marked as "expired"
-        with db_session.connection() as conn:
-            result = conn.execute("""
-                SELECT gi.user_id
-                    FROM game_invites gi
-                    INNER JOIN
-                      (SELECT game_id, user_id, max(id) as max_id
-                        FROM game_invites
-                        GROUP BY game_id, user_id) grouped_gi
-                    ON
-                      gi.id = grouped_gi.max_id
-                    WHERE
-                      gi.game_id = %s AND
-                      status = 'invited';""", game_id).fetchall()
-            ids_to_close = [x[0] for x in result]
-            db_session.remove()
+        kick_off_game(db_session, game_id, accepted_invite_user_ids, update_time)
     else:
-        with db_session.connection() as conn:
-            result = conn.execute("""
-                SELECT gi.user_id
+        close_game(db_session, game_id, update_time)
+
+
+def start_game_if_all_invites_responded(db_session, game_id):
+    accepted_invite_user_ids = get_invite_list_by_status(db_session, game_id)
+    pending_invite_ids = get_invite_list_by_status(db_session, game_id, "invited")
+    if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START and len(pending_invite_ids) == 0:
+        kick_off_game(db_session, game_id, accepted_invite_user_ids, time.time())
+
+
+def get_active_game_ids_for_user(user_id):
+    with db_session.connection() as conn:
+        result = conn.execute("""
+            SELECT gs.game_id
+            FROM game_status gs
+            INNER JOIN
+              (SELECT game_id, max(id) as max_id
+                FROM game_status
+                GROUP BY game_id) grouped_gs
+            ON gs.id = grouped_gs.max_id
+            WHERE gs.status = 'active' AND
+            JSON_CONTAINS(users, %s)
+        """, str(user_id)).fetchall()
+        db_session.remove()
+    return [x[0] for x in result]
+
+
+def get_pending_game_id_for_user(user_id):
+    with db_session.connection() as conn:
+        result = conn.execute("""
+            SELECT gs.game_id
+            FROM game_status gs
+            INNER JOIN
+              (SELECT game_id, max(id) as max_id
+                FROM game_status
+                GROUP BY game_id) grouped_gs
+                ON gs.id = grouped_gs.max_id
+            INNER JOIN
+              (SELECT gi.game_id
                 FROM game_invites gi
                 INNER JOIN
-                  (SELECT game_id, user_id, max(id) as max_id
+                (SELECT game_id, user_id, max(id) as max_id
                     FROM game_invites
-                    GROUP BY game_id, user_id) grouped_gi
-                ON
-                  gi.id = grouped_gi.max_id
-                WHERE
-                  gi.game_id = %s AND
-                  status IN ('invited', 'joined');""", game_id).fetchall()
-            ids_to_close = [x[0] for x in result]
-            db_session.remove()
+                    GROUP BY game_id, user_id) gg_invites
+                    ON gi.id = gg_invites.max_id
+                    WHERE gi.user_id = %s AND
+                    gi.status = 'invited') gi_status
+                ON gi_status.game_id = gs.game_id        
+            WHERE gs.status = 'pending';""", user_id).fetchall()
+        db_session.remove()
+    return [x[0] for x in result]
 
-        table_updater(db_session, game_status, game_id=game_status_entry["game_id"], status="expired",
-                      users=json.loads(game_status_entry["users"]), timestamp=update_time)
 
-    if active_game:
-        with db_session.connection() as conn:
-            game_balances = retrieve_meta_data(conn).tables["game_balances"]
-            # Initialize each joining player's virtual trading cash balance in the game
-            virtual_cash_entries = []
-            for user_id in accepted_invite_user_ids:
-                virtual_cash_entries.append(dict(user_id=user_id, game_id=game_id, timestamp=update_time,
-                                                 balance_type="virtual_cash", balance=DEFAULT_VIRTUAL_CASH))
-            conn.execute(game_balances.insert(), virtual_cash_entries)
-            db_session.commit()
+def get_user_responses_for_pending_game(game_id):
+    sql = f"""
+            SELECT users.username, gi_status.status
+            FROM game_status gs
+            INNER JOIN
+              (SELECT game_id, max(id) as max_id
+                FROM game_status
+                GROUP BY game_id) grouped_gs
+                ON gs.id = grouped_gs.max_id
+            INNER JOIN
+              (SELECT gi.game_id, gi.user_id, gi.status
+                FROM game_invites gi
+                INNER JOIN
+                (SELECT game_id, user_id, max(id) as max_id
+                    FROM game_invites
+                    GROUP BY game_id, user_id) gg_invites
+                    ON gi.id = gg_invites.max_id) gi_status
+                ON gi_status.game_id = gs.game_id
+            INNER JOIN users ON users.id = gi_status.user_id
+            WHERE gs.game_id = %s;
+    """
+    return pd.read_sql(sql, db_session.connection(), params=[game_id]).to_dict(orient="records")
 
-    # close any expired invites from either active or expired games
-    game_invites = retrieve_meta_data(db_session.connection()).tables["game_invites"]
-    for user_id in ids_to_close:
-        table_updater(db_session, game_invites, game_id=game_id, user_id=user_id, status="expired",
-                      timestamp=update_time)
+
+def get_game_details_based_on_ids(game_ids: List[int]):
+    if not game_ids:
+        return None
+
+    sql = f"""
+        SELECT g.id, g.title, gs.status, gs.users
+        FROM games g
+          INNER JOIN game_status gs
+            ON g.id = gs.game_id
+          INNER JOIN (
+              SELECT game_id, MAX(timestamp) timestamp
+            FROM game_status
+            GROUP BY game_id
+          ) tmp ON tmp.game_id = gs.game_id AND
+                    tmp.timestamp = gs.timestamp
+          WHERE
+            g.id IN ({','.join(['%s'] * len(game_ids))});"""
+    return pd.read_sql(sql, db_session.connection(), params=game_ids)
 
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------
-def get_current_game_cash_balance(db_session, user_id, game_id):
-    """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
-    execution to be passed in from the outside
-    """
-
-    sql_query = """
-        SELECT balance
-        FROM game_balances gb
-        INNER JOIN
-        (SELECT user_id, game_id, balance_type, max(id) as max_id
-          FROM game_balances
-          WHERE
-            user_id = %s AND
-            game_id = %s AND
-            balance_type = 'virtual_cash'
-          GROUP BY game_id, balance_type, user_id) grouped_gb
-        ON
-          gb.id = grouped_gb.max_id;    
-    """
-    with db_session.connection() as conn:
-        result = conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
-        db_session.remove()
-    return result
-
-
 def get_current_stock_holding(db_session, user_id, game_id, symbol):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
@@ -504,7 +585,7 @@ def process_order(db_session, game_id, user_id, symbol, order_id, buy_or_sell, o
     # Only process active outstanding orders during trading day
     if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
         order_status = retrieve_meta_data(db_session.connection()).tables["order_status"]
-        cash_balance = get_current_game_cash_balance(db_session, user_id, game_id)
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
         update_balances(db_session, user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding,
                         market_price, quantity, symbol)
@@ -561,3 +642,15 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
             return True
 
     return False
+
+
+# Functions for serving information about games
+# ---------------------------------------------
+def get_game_info(game_id: int):
+    games = retrieve_meta_data(db_session.connection()).tables["games"]
+    row = db_session.query(games).filter(games.c.id == game_id)
+    info = orm_rows_to_dict(row)
+    info["creator_username"] = get_username(info["creator_id"])
+    info["mode"] = info["mode"].upper().replace("_", " ")
+    info["benchmark"] = info["benchmark"].upper().replace("_", " ")
+    return info

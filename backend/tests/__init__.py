@@ -3,6 +3,7 @@ import unittest
 import requests
 from sqlalchemy import create_engine
 
+from backend.logic.auth import create_jwt
 from backend.database.fixtures.mock_data import make_mock_data
 from backend.database.helpers import retrieve_meta_data
 from sqlalchemy.orm import scoped_session
@@ -31,3 +32,9 @@ class BaseTestCase(unittest.TestCase):
         self.requests_session.close()
         self.engine.dispose()
 
+    def make_test_token_from_email(self, user_email: str):
+        with self.db_session.connection() as conn:
+            user_id, _, email, _, user_name, _, _, _ = conn.execute(
+                "SELECT * FROM users WHERE email = %s;", user_email).fetchone()
+            self.db_session.remove()
+        return create_jwt(email, user_id, user_name)
