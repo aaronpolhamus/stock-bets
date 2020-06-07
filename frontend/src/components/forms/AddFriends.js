@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { Button, Modal, Accordion, Card, Form } from "react-bootstrap";
-import { SectionTitle, TextButton } from "components/textComponents/Text";
+import React, { useState, useCallback } from "react";
+import { Button, Modal, Accordion, Form } from "react-bootstrap";
+import {
+  TextButton,
+  AuxiliarText,
+  FlexRow,
+} from "components/textComponents/Text";
 import { AsyncTypeahead } from "react-bootstrap-typeahead";
 import styled from "styled-components";
 import * as Icon from "react-feather";
 import { apiPost } from "components/functions/api";
+import { UserMiniCard } from "components/users/UserMiniCard";
 
 const AddFriends = (props) => {
-  const [defaults, setDefaults] = useState({});
-
-  const [formValues, setFormValues] = useState({});
   const [friendSuggestions, setFriendSuggestions] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+
   const [friendInvitee, setFriendInvitee] = useState("");
 
   const [show, setShow] = useState(false);
@@ -27,22 +29,30 @@ const AddFriends = (props) => {
     e.preventDefault();
 
     if (friendInvitee !== "") {
-      const invite = await apiPost("send_friend_request", {
+      await apiPost("send_friend_request", {
         friend_invitee: friendInvitee,
       });
       setShow(true);
     }
   };
 
-  const handleChange = (e) => {
-    setFriendInvitee(e[0]);
-    console.log(friendInvitee);
+  const handleChange = (invitee) => {
+    if (invitee[0] === undefined) return;
+    setFriendInvitee(invitee[0].username);
   };
 
-  const handleSuggestions = useCallback((query) => {
-    setIsLoading(true);
+  const handleSuggestions = (query) => {
     getFriendSuggestions(query);
-  });
+  };
+
+  const friendLabel = (label) => {
+    switch (label) {
+      case "you_invited":
+        return <AuxiliarText>Invite sent</AuxiliarText>;
+      case "invited_you":
+        return <AuxiliarText>Invited you</AuxiliarText>;
+    }
+  };
 
   return (
     <Accordion defaultActiveKey="0" className="text-right">
@@ -65,6 +75,16 @@ const AddFriends = (props) => {
               placeholder="Who's playing?"
               onSearch={handleSuggestions}
               onChange={handleChange}
+              renderMenuItemChildren={(option, props) => (
+                <FlexRow justify="space-between">
+                  <UserMiniCard
+                    avatarSrc={option.profile_pic}
+                    avatarSize="small"
+                    username={option.username}
+                  />
+                  {friendLabel(option.label)}
+                </FlexRow>
+              )}
             />
           </Form.Group>
           <Accordion.Toggle as={Button} size="sm" variant="outline-primary">
@@ -77,14 +97,14 @@ const AddFriends = (props) => {
       </Accordion.Collapse>
       <Modal show={show} onHide={handleClose}>
         <Modal.Body>
-          <p className="text-center">
+          <div className="text-center">
             You've invited
             <strong> {friendInvitee} </strong>
             <div>to be friends with you.</div>
             <div>
               <small>We'll let them know!</small>
             </div>
-          </p>
+          </div>
         </Modal.Body>
         <Modal.Footer className="centered">
           <Button variant="primary" onClick={handleClose}>

@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { apiPost } from "components/functions/api";
 import { UserMiniCard } from "components/users/UserMiniCard";
-import { Button, Modal, Accordion, Card, Form } from "react-bootstrap";
+import { Button, Modal } from "react-bootstrap";
 import { Header } from "components/layout/Layout";
-import { SectionTitle, TextButton } from "components/textComponents/Text";
+import { SectionTitle } from "components/textComponents/Text";
 import { AddFriends } from "components/forms/AddFriends";
 import styled from "styled-components";
-import * as Icon from "react-feather";
 
 const FriendsListWrapper = styled.div`
   margin-top: var(--space-400);

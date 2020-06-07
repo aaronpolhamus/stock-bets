@@ -29,4 +29,11 @@ const TextButton = styled.button`
   padding: 0;
 `;
 
-export { SimplifiedCurrency, AuxiliarText, SectionTitle, TextButton };
+const FlexRow = styled.div`
+  display: flex;
+  width: 100%;
+  justify-content: ${(props) => props.justify || "center"};
+  align-items: ${(props) => props.align || "center"};
+`;
+
+export { SimplifiedCurrency, AuxiliarText, SectionTitle, TextButton, FlexRow };
