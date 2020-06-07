@@ -36,6 +36,12 @@ h1 {
     border-bottom: 2px solid var(--color-primary-darken);
   }
 }
+.btn + .btn {
+  margin-left: 0.5em;
+}
+.modal-footer.centered {
+  justify-content: center;
+}
 
 .table {
   margin-top: var(--space-400);
