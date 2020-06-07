@@ -1,9 +1,7 @@
 from typing import List
 
 import pandas as pd
-from sqlalchemy import select
 
-from backend.database.helpers import retrieve_meta_data
 from backend.database.db import db_session
 
 
@@ -49,6 +47,9 @@ def get_friend_invite_ids(user_id):
 
 
 def get_user_details_from_ids(user_id_list: List[int]):
+    if not user_id_list:
+        return []
+
     sql = f"""
         SELECT id, username, profile_pic, name
         FROM users

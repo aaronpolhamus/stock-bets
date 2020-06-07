@@ -117,6 +117,16 @@ def make_user_entry(user_entry, resource_uuid):
             db_session.remove()
 
 
+def register_user_if_first_visit(user_entry):
+    metadata = retrieve_meta_data(db_session.connection())
+    with db_session.connection() as conn:
+        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
+        if user is None:
+            users = metadata.tables["users"]
+            conn.execute(users.insert(), user_entry)
+        db_session.commit()
+
+
 def make_session_token_from_uuid(resource_uuid):
     with db_session.connection() as conn:
         user_id, email, username = conn.execute("SELECT id, email, username FROM users WHERE resource_uuid = %s",

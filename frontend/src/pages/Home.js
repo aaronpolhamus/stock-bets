@@ -2,7 +2,7 @@ import React from "react";
 import { Link, Redirect } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
-import axios from "axios";
+import api from "services/api";
 import styled from "styled-components";
 import {
   Layout,
@@ -17,7 +17,7 @@ import { GameCard } from "pages/game/GameCard";
 
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
-  await axios.post("/api/logout");
+  await api.post("/api/logout");
   window.location.assign("/login");
 };
 
