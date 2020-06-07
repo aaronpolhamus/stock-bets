@@ -69,7 +69,17 @@ MOCK_DATA = {
         {"name": "dummy2", "email": "dummy2@example.test",
          "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
          "username": "dummy2", "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
+        {"name": "jack sparrow", "email": "jack@black.pearl",
+         "profile_pic": "https://i2.wp.com/www.californiaherald.com/wp-content/uploads/2020/03/jack-sparrow.jpg",
+         "username": "jack", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+        {"name": "johnny walker", "email": "jack@black.pearl",
+         "profile_pic": "https://www.brandemia.org/sites/default/files/sites/default/files/johnnie_walker_nuevo_logo.png",
+         "username": "johnny", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+        {"name": "jadis", "email": "jadis@rick.lives",
+         "profile_pic": "https://vignette.wikia.nocookie.net/villains/images/7/78/Season_eight_jadis.png",
+         "username": "jadis", "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
     ],
+
     "games": [
         {"title": "fervent swartz", "mode": "consolation_prize", "duration": 365, "buy_in": 100, "n_rebuys": 2,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
@@ -281,6 +291,7 @@ MOCK_DATA = {
         {"requester_id": 3, "invited_id": 5, "status": "accepted", "timestamp": 1590363091},
         {"requester_id": 5, "invited_id": 4, "status": "invited", "timestamp": 1589758324},
         {"requester_id": 5, "invited_id": 4, "status": "accepted", "timestamp": 1590363091},
+        {"requester_id": 1, "invited_id": 6, "status": "invited", "timestamp": 1591561793},
     ]
 }
 

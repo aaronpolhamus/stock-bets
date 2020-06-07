@@ -49,6 +49,7 @@ from backend.logic.payouts import (
     calculate_and_pack_metrics
 )
 from backend.logic.friends import (
+    suggest_friends,
     get_user_details_from_ids,
     get_friend_ids,
     get_friend_invite_ids
@@ -298,19 +299,7 @@ def async_get_friends_details(self, user_id):
 
 @celery.task(name="async_suggest_friends", bind=True, base=SqlAlchemyTask)
 def async_suggest_friends(self, user_id, text):
-    friend_ids = get_friend_ids(user_id)
-    friend_invite_ids = get_friend_invite_ids(user_id)
-    to_match = f"{text}%"
-    with db_session.connection() as conn:
-        excluded_ids = friend_ids + friend_invite_ids
-        suggest_query = """
-            SELECT id, username FROM users
-            WHERE username LIKE %s
-            LIMIT 10;
-        """
-        friend_invite_suggestions = conn.execute(suggest_query, to_match)
-        db_session.remove()
-    return [x[1] for x in friend_invite_suggestions if x[0] not in excluded_ids]
+    return suggest_friends(user_id, text)
 
 
 @celery.task(name="async_get_friend_invites", bind=True, base=SqlAlchemyTask)
