@@ -14,6 +14,7 @@ import {
 import { UserMiniCard } from "components/users/UserMiniCard";
 import { FriendsList } from "components/lists/FriendsList";
 import { GameCard } from "pages/game/GameCard";
+import * as Icon from "react-feather";
 
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
@@ -26,7 +27,8 @@ const GameList = styled.div`
 `;
 
 const Invitation = styled(Link)`
-  color: var(--color-text-primary);
+  color: ${(props) => props.color || "var(--color-text-primary)"};
+  font-size: var(--font-size-small);
 `;
 
 const StyledMiniCard = styled(UserMiniCard)`
@@ -62,29 +64,56 @@ const Home = () => {
     return <Redirect to="/welcome" />;
   }
 
-  const gameCardBuilder = (statusType, gamesArray) => {
-    return gamesArray.map((entry, index) => {
-      if (entry.game_status === statusType) {
+  const gameListBuilder = (data) => {
+    return data.map((entry, index) => {
+      if (entry.game_status === "active") {
         return <GameCard gameId={entry.game_id} key={index} />;
       }
-
       return "";
     });
   };
 
-  const invitesBuilder = (gamesArray) => {
-    return gamesArray.map((entry, index) => {
-      if (entry.status === "pending") {
+  const pendingListBuilder = (data, inviteStatus) => {
+    return data.map((entry, index) => {
+      if (
+        entry.game_status === "pending" &&
+        entry.invite_status === inviteStatus &&
+        entry.invite_status === "invited"
+      ) {
         return (
           <div key={index}>
-            <Invitation to={{ pathname: `join/${entry.id}` }}>
-              You have an invitation to:
+            <Invitation to={{ pathname: `join/${entry.game_id}` }}>
+              <span>
+                <Icon.UserCheck color="var(--color-terciary)" size={16} />
+              </span>
+              <span> [username] invited you to </span>
               <strong> {entry.title}</strong>
             </Invitation>
           </div>
         );
+      } else if (
+        entry.game_status === "pending" &&
+        entry.invite_status === inviteStatus &&
+        entry.invite_status === "joined"
+      ) {
+        return (
+          <div key={index}>
+            <Invitation
+              to={{ pathname: `join/${entry.game_id}` }}
+              color="var(--color-text-gray)"
+            >
+              <Icon.CheckCircle color="var(--color-success)" size={16} />
+              <span>
+                {" "}
+                You joined
+                <strong> {entry.title}</strong>. The Game will start once all
+                participants respond to their invitations.
+              </span>
+            </Invitation>
+          </div>
+        );
       }
-      return "";
+      return null;
     });
   };
 
@@ -111,9 +140,12 @@ const Home = () => {
           <h1>Games</h1>
           <Button href="/new">Make a new game</Button>
         </Header>
-        <GameList>{data.game_info && invitesBuilder(data.game_info)}</GameList>
         <GameList>
-          {data.game_info && gameCardBuilder("active", data.game_info)}
+          {data.game_info && pendingListBuilder(data.game_info, "invited")}
+        </GameList>
+        <GameList>{data.game_info && gameListBuilder(data.game_info)}</GameList>
+        <GameList>
+          {data.game_info && pendingListBuilder(data.game_info, "joined")}
         </GameList>
       </Content>
     </Layout>

@@ -21,4 +21,12 @@ const SectionTitle = styled.h2`
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
 
-export { SimplifiedCurrency, AuxiliarText, SectionTitle };
+const TextButton = styled.button`
+  font-size: ${(props) => props.size || "var(--font-size-min)"};
+  color: ${(props) => props.color || "var(--text-primary)"};
+  background-color: transparent;
+  border: none;
+  padding: 0;
+`;
+
+export { SimplifiedCurrency, AuxiliarText, SectionTitle, TextButton };
