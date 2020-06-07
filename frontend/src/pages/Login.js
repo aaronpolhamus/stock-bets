@@ -62,7 +62,10 @@ export default function AlphabetLogin() {
     const provider = detectProvider(response);
     let responseCopy = { ...response };
     responseCopy["provider"] = provider;
-    api.post("/api/login", responseCopy).then(() => setRedirect(true));
+    console.log({ responseCopy });
+    api
+      .post("/api/login", responseCopy)
+      .then((r) => console.log({ r }) || setRedirect(true));
   }
 
   if (redirect) {

@@ -125,8 +125,7 @@ def login():
     register_user_if_first_visit(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    resp.set_cookie("session_token", session_token, httponly=True, secure=True, samesite="Lax",
-                    domain=Config.API_DOMAIN)
+    resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
     return resp
 
 
@@ -136,8 +135,7 @@ def logout():
     """Log user out of the backend by blowing away their session token
     """
     resp = make_response()
-    resp.set_cookie("session_token", "", httponly=True, secure=True, samesite="Lax", expires=0,
-                    domain=Config.API_DOMAIN)
+    resp.set_cookie("session_token", "", httponly=True, samesite="None", secure=True, expires=0)
     return resp
 
 
@@ -155,7 +153,7 @@ def set_username():
     session_token = register_username_with_token(user_id, user_email, candidate_username)
     if session_token is not None:
         resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True)
+        resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
         return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)

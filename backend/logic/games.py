@@ -244,6 +244,9 @@ def mark_invites_expired(db_session, game_id, status_list: List[str], update_tim
     happens when games past their invite window still have pending invitations, or when games pass their invite window
     without meeting the minimum user count to kick off
     """
+    if not status_list:
+        return
+
     with db_session.connection() as conn:
         result = conn.execute(f"""
             SELECT gi.user_id
@@ -357,6 +360,7 @@ def get_user_responses_for_pending_game(game_id):
 def get_game_details_based_on_ids(game_ids: List[int]):
     if not game_ids:
         return None
+
     sql = f"""
         SELECT g.id, g.title, gs.status, gs.users
         FROM games g

@@ -6,11 +6,9 @@ class Config:
     # ----------------------------------
     ENV = getenv("ENV")
     if ENV == "dev":
-        API_DOMAIN = "localhost:5000"
         CORS_ORIGINS = "http://localhost:3000"
 
     if ENV == "prod":
-        API_DOMAIN = "api.stockbets.io"
         CORS_ORIGINS = "https://app.stockbets.io"
 
     # External dependencies:

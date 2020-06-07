@@ -34,6 +34,8 @@ services:
       - SERVICE=worker
     env_file:
       - backend/.env
+    volumes:
+      - ./backend:/home/backend
 
   scheduler:
     image: backend
@@ -42,6 +44,8 @@ services:
       - SERVICE=scheduler
     env_file:
       - backend/.env
+    volumes:
+      - ./backend:/home/backend
 
   api:
     image: backend

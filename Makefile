@@ -65,6 +65,9 @@ flower-stop:
 redis-mock-data:
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_redis_mocks;make_redis_mocks()"
 
+redis-clear:
+	docker-compose exec api python -c "from backend.tasks.redis import rds;rds.flushall()"
+
 # backend
 # -------
 
@@ -110,7 +113,7 @@ down:
 stop:
 	docker-compose stop
 
-destroy: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
+destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
 	# stop and remove all containers
 	make stop
 	docker container rm $(docker container ls -aq) -f
@@ -128,7 +131,6 @@ destroy: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to
 # deployment
 # ----------
 ecr-push:
-	# push backend
 	make backend-build
 	docker tag backend:latest 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/backend:latest
 	docker push 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/backend:latest
