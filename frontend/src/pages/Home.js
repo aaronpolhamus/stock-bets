@@ -73,7 +73,6 @@ const Home = () => {
     });
   };
 
-  console.log(data);
   const pendingListBuilder = (data, inviteStatus) => {
     return data.map((entry, index) => {
       if (

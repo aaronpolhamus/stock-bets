@@ -53,7 +53,7 @@ const MakeGame = () => {
     formValuesCopy["invitees"] = inviteesInput;
     setFormValues(formValuesCopy);
   };
-
+  console.log(defaults);
   return (
     <Form onSubmit={handleSubmit}>
       {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
