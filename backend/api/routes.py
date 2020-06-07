@@ -36,8 +36,8 @@ from backend.logic.games import (
 )
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
 from backend.tasks.definitions import (
-    async_get_user_info,
     async_get_game_info_for_user,
+    async_get_user_information,
     async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
@@ -57,6 +57,7 @@ from backend.tasks.definitions import (
     async_respond_to_game_invite
 )
 from backend.tasks.redis import unpack_redis_json
+from backend.tasks.celery import pause_return_until_subtask_completion
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -175,7 +176,7 @@ def set_username():
 @authenticate
 def get_user_info():
     user_id = decode_token(request)
-    res = async_get_user_info.delay(user_id)
+    res = async_get_user_information.delay(user_id)
     while not res.ready():
         continue
     return jsonify(res.get())
@@ -187,8 +188,7 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-
-    res = async_get_user_info.delay(user_id)
+    res = async_get_user_information.delay(user_id)
     while not res.ready():
         continue
     user_info = res.get()
@@ -196,15 +196,8 @@ def home():
     res = async_get_game_info_for_user.delay(user_id)
     while not res.ready():
         continue
-    game_data = res.get()
 
-    # sanitize some sensitive user info before sending back response
-    del user_info["created_at"]
-    del user_info["provider"]
-    del user_info["resource_uuid"]
-
-    # append game data to make reponse
-    user_info["game_info"] = game_data
+    user_info["game_info"] = res.get()
     return jsonify(user_info)
 
 # ---------------- #
@@ -333,7 +326,7 @@ def place_order():
         order_ticket["symbol"],
         order_ticket["buy_or_sell"],
         order_ticket["order_type"],
-        order_ticket["quantity_type"],
+        order_ticket["shares_or_usd"],
         order_ticket["market_price"],
         order_ticket["amount"],
         order_ticket["time_in_force"],
@@ -342,8 +335,10 @@ def place_order():
     while not res.ready():
         continue
 
-    async_serialize_open_orders.delay(game_id, user_id)
-    async_serialize_current_balances.delay(game_id, user_id)
+    open_orders_res = async_serialize_open_orders.delay(game_id, user_id)
+    balances_res = async_serialize_current_balances.delay(game_id, user_id)
+    error_msg = f"/api/placer_order for user_id {user_id}, game_id {game_id}"
+    pause_return_until_subtask_completion([open_orders_res, balances_res], error_msg)
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)

@@ -7,6 +7,10 @@ import time
 import pandas as pd
 
 from backend.database.db import db_session
+from backend.database.helpers import (
+    retrieve_meta_data,
+    orm_rows_to_dict
+)
 from backend.logic.stock_data import (
     PRICE_CACHING_INTERVAL,
     get_end_of_last_trading_day,
@@ -14,6 +18,12 @@ from backend.logic.stock_data import (
     get_schedule_start_and_end,
     nyse
 )
+
+
+def get_user_information(user_id):
+    users = retrieve_meta_data(db_session.connection()).tables["users"]
+    row = db_session.query(users).filter(users.c.id == user_id)
+    return orm_rows_to_dict(row)
 
 
 def get_current_game_cash_balance(user_id, game_id):
