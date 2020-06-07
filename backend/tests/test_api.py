@@ -423,9 +423,18 @@ class TestFriendManagement(BaseTestCase):
 
         # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
         # should be just one, the dummy user. we'll confirm this, but won't send an invite
-        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "d"},
+        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "j"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
-        self.assertEqual(res.json(), [dummy_username])
+        self.assertEqual(len(res.json()), 5)
+        for entry in res.json():
+            if entry["username"] == "murcitdev":
+                self.assertEqual(entry["label"], "invited_you")
+
+            if entry["username"] == "dummy2":
+                self.assertEqual(entry["label"], "you_invited")
+
+            if entry["username"] in ["jack", "johnny", "jadis"]:
+                self.assertEqual(entry["label"], "suggested")
 
         # what friend invites does test user currently have pending?
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
@@ -469,6 +478,10 @@ class TestFriendManagement(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         expected_friends = {"toofast", "miguel", "murcitdev"}
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
+
+        # dummy2 is going to reject test user's invite. since test user just accepted murcitdev's invite we'll now
+        # excepted a list with only 3 "suggested" entries, with no outstanding sent or received invitations
+
 
 
 class TestHomePage(BaseTestCase):
