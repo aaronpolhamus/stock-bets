@@ -8,6 +8,7 @@ import { Workbench } from "pages/Workbench";
 import { PlayGame } from "pages/PlayGame";
 import { JoinGame } from "pages/JoinGame";
 import { NewGame } from "pages/NewGame";
+import { PrivacyPolicy } from "pages/PrivacyPolicy";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route exact path="/new" component={NewGame} />
         <Route exact path="/play/:gameId" component={PlayGame} />
         <Route exact path="/join/:gameId" component={JoinGame} />
+        <Route exact path="/privacy" component={PrivacyPolicy} />
       </Router>
     </div>
   );

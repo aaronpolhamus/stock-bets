@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import GoogleLogin from "react-google-login";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import api from "services/api";
@@ -117,6 +118,11 @@ export default function AlphabetLogin() {
               />
             </Row>
           </RightCol>
+        </Row>
+        <Row>
+          <Link to="/privacy">
+            Have a look at our privacy policy before getting started
+          </Link>
         </Row>
       </Container>
     </Content>
