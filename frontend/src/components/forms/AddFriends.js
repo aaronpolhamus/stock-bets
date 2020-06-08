@@ -66,7 +66,7 @@ const AddFriends = (props) => {
             <AsyncTypeahead
               id="typeahead-particpants"
               name="invitees"
-              labelKey={"username"}
+              labelKey="username"
               options={friendSuggestions}
               placeholder="Who's playing?"
               onSearch={handleSuggestions}
