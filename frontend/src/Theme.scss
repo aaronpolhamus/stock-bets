@@ -9,6 +9,7 @@ $color-light-gray: #f0efed;
 $color-text-primary: #1d1b23;
 $color-text-gray: #7f7192;
 $color-text-light-gray: #abaac6;
+$color-success: #6bb77b;
 
 :root {
   --color-primary: #{$color-primary};
@@ -22,6 +23,7 @@ $color-text-light-gray: #abaac6;
   --color-text-primary: #{$color-text-primary};
   --color-text-gray: #{$color-text-gray};
   --color-text-light-gray: #{$color-text-light-gray};
+  --color-success: #{$color-success};
 
   --font-size-min: 0.75rem;
   --font-size-small: 0.875rem;
@@ -44,7 +46,7 @@ $color-text-light-gray: #abaac6;
 $theme-colors: (
   "primary": $color-primary,
   "secondary": $color-secondary,
-  "danger": teal,
+  "info": #efefef,
 );
 
 $h1-font-size: 3rem;
@@ -52,6 +54,7 @@ $headings-font-weight: 100;
 
 $table-hover-bg: $color-light-gray;
 $table-border-color: $color-cool-gray;
+$badge-pill-padding-x: 0.75em;
 
 /* import bootstrap to set changes */
 @import "../node_modules/bootstrap/scss/bootstrap";

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { fetchData } from "components/functions/api";
+import { apiPost } from "components/functions/api";
 import { UserMiniCard } from "components/users/UserMiniCard";
 import { Button, Modal } from "react-bootstrap";
 import { Header } from "components/layout/Layout";
 import { SectionTitle } from "components/textComponents/Text";
+import { AddFriends } from "components/forms/AddFriends";
 import styled from "styled-components";
 
 const FriendsListWrapper = styled.div`
@@ -32,24 +33,40 @@ const FriendsList = () => {
 
   const [show, setShow] = useState(false);
   const [requester, setRequester] = useState("");
-
-  const handleClose = () => setShow(false);
-  const handleShow = (requester) => {
-    setRequester(requester);
-    setShow(true);
-  };
+  const [requestRespondMessage, setRequestRespondMessage] = useState("");
 
   useEffect(() => {
     const getFriendsLists = async () => {
-      const friends = await fetchData("get_list_of_friends");
+      const friends = await apiPost("get_list_of_friends");
       setFriendsData(friends);
 
-      const friendRequests = await fetchData("get_list_of_friend_invites");
-      setFriendRequestsData(friendRequests);
+      setFriendRequestsData(getFriendInvites);
     };
 
     getFriendsLists();
-  }, []);
+  }, [requestRespondMessage]);
+
+  const getFriendInvites = async () => {
+    const friendRequests = await apiPost("get_list_of_friend_invites");
+    setFriendRequestsData(friendRequests);
+  };
+
+  const handleRespondFriend = async (requesterUsername, decision) => {
+    const respondInvite = await apiPost("respond_to_friend_request", {
+      requester_username: requesterUsername,
+      decision: decision,
+    });
+
+    setRequestRespondMessage(respondInvite);
+    setFriendRequestsData(getFriendInvites);
+  };
+
+  const handleClose = () => setShow(false);
+  const handleShow = (requester) => {
+    setRequestRespondMessage("");
+    setRequester(requester);
+    setShow(true);
+  };
 
   const friendsListBuilder = (data) => {
     return data.map((friend, index) => {
@@ -91,26 +108,50 @@ const FriendsList = () => {
       <Header>
         <SectionTitle color="var(--color-primary)">Friends</SectionTitle>
       </Header>
-      {friendRequestsData.length && friendRequestsBuilder(friendRequestsData)}
+      {friendRequestsData.length > 0 &&
+        friendRequestsBuilder(friendRequestsData)}
       <FriendsListList>
-        {friendsData.length && friendsListBuilder(friendsData)}
+        {friendsData.length > 0 && friendsListBuilder(friendsData)}
       </FriendsListList>
+      <AddFriends />
 
       <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton>
           <Modal.Title>
-            New friend request from
+            New friend invite from
             <strong> {requester}</strong>!
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body>{requester} wants to be your friend</Modal.Body>
+        <Modal.Body>
+          {requestRespondMessage === ""
+            ? `${requester} wants to be your friend`
+            : requestRespondMessage}
+        </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleClose}>
-            Close
-          </Button>
-          <Button variant="primary" onClick={handleClose}>
-            Accept
-          </Button>
+          {requestRespondMessage === "" ? (
+            <>
+              <Button
+                variant="outline-secondary"
+                onClick={() => {
+                  handleRespondFriend(requester, "declined");
+                }}
+              >
+                Decline
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => {
+                  handleRespondFriend(requester, "accepted");
+                }}
+              >
+                Accept invite
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" onClick={handleClose}>
+              Awesome!
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
     </FriendsListWrapper>

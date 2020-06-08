@@ -6,6 +6,10 @@ db-up:
 db-stop:
 	docker-compose stop db
 
+db-restart:
+	make db-stop
+	make db-up
+
 db-mysql:
 	docker-compose exec db mysql -uroot -p
 
@@ -70,7 +74,6 @@ redis-clear:
 
 # backend
 # -------
-
 backend-up:
 	docker-compose up -d api
 
@@ -102,6 +105,7 @@ api-stop:
 # all containers
 # --------------
 up:
+	make backend-build
 	make api-up
 	./backend/docker/mock-data-runner.sh
 	npm install --prefix frontend
@@ -114,9 +118,7 @@ stop:
 	docker-compose stop
 
 destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
-	# stop and remove all containers
 	make stop
-	docker container rm $(docker container ls -aq) -f
 
 	# remove all images
 	docker rmi $(docker images -a -q) -f

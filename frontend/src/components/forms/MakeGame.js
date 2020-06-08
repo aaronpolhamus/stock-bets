@@ -23,7 +23,13 @@ const MakeGame = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await api.post("/api/create_game", formValues);
+    console.log(e, formValues);
+    await api
+      .post("/api/create_game", formValues)
+      .then()
+      .catch((e) => {
+        console.log(e);
+      });
   };
 
   const handleChange = (e) => {
@@ -47,7 +53,7 @@ const MakeGame = () => {
     formValuesCopy["invitees"] = inviteesInput;
     setFormValues(formValuesCopy);
   };
-
+  console.log(defaults);
   return (
     <Form onSubmit={handleSubmit}>
       {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
@@ -149,7 +155,7 @@ const MakeGame = () => {
         />
       </Form.Group>
       <Button variant="primary" type="submit">
-        Submit
+        Create New Game
       </Button>
     </Form>
   );

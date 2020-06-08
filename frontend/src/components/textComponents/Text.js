@@ -10,6 +10,7 @@ const AuxiliarText = styled.span`
   color: ${(props) => props.color || "var(--color-text-gray)"};
   font-weight: bold;
   font-size: var(--font-size-min);
+  line-height: 1.2;
 `;
 
 const SectionTitle = styled.h2`
@@ -20,4 +21,19 @@ const SectionTitle = styled.h2`
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
 
-export { SimplifiedCurrency, AuxiliarText, SectionTitle };
+const TextButton = styled.button`
+  font-size: ${(props) => props.size || "var(--font-size-min)"};
+  color: ${(props) => props.color || "var(--text-primary)"};
+  background-color: transparent;
+  border: none;
+  padding: 0;
+`;
+
+const FlexRow = styled.div`
+  display: flex;
+  width: 100%;
+  justify-content: ${(props) => props.justify || "center"};
+  align-items: ${(props) => props.align || "center"};
+`;
+
+export { SimplifiedCurrency, AuxiliarText, SectionTitle, TextButton, FlexRow };

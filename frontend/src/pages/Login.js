@@ -12,24 +12,24 @@ const RightCol = styled(Col)`
   &::before {
     content: "";
     display: block;
-    width: 60vw;
-    height: 60vw;
+    width: 150vh;
+    height: 120vh;
     background: var(--color-secondary);
     position: fixed;
-    top: -10vw;
-    right: -10vw;
+    bottom: 2vh;
+    left: 50vw;
     border-radius: 50% 50% / 45% 50%;
     z-index: -1;
   }
   &::after {
     content: "";
     display: block;
-    width: 50vw;
-    height: 50vw;
+    width: 100vh;
+    height: 100vh;
     background: var(--color-primary);
     position: fixed;
-    bottom: -10vw;
-    right: -10vw;
+    top: 50vh;
+    left: 60vw;
     border-radius: 50% 50% / 45% 50%;
     z-index: -2;
   }
@@ -46,6 +46,11 @@ const LoginButton = styled.button`
   padding: var(--space-100);
 `;
 
+const StyledLogo = styled(Logo)`
+  max-width: 460px;
+  width: 90%;
+`;
+
 function responseError(response) {
   return response;
 }
@@ -58,15 +63,20 @@ export default function AlphabetLogin() {
     if (response.graphDomain === "facebook") return "facebook";
   };
 
-  function handleSubmit(response) {
+  const handleSubmit = async (response) => {
     const provider = detectProvider(response);
     let responseCopy = { ...response };
     responseCopy["provider"] = provider;
-    console.log({ responseCopy });
-    api
-      .post("/api/login", responseCopy)
-      .then((r) => console.log({ r }) || setRedirect(true));
-  }
+    try {
+      await api
+        .post("/api/login", responseCopy)
+        .then((r) => console.log({ r }) || setRedirect(true));
+    } catch (error) {
+      alert(
+        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email aaron@stockbets.io for access before that :)"
+      );
+    }
+  };
 
   if (redirect) {
     return <Redirect to="/" />;
@@ -77,7 +87,7 @@ export default function AlphabetLogin() {
       <Container fluid>
         <Row noGutters sm={2}>
           <Col>
-            <Logo />
+            <StyledLogo />
           </Col>
           <RightCol>
             <Row className="justify-content-md-center">

@@ -155,11 +155,8 @@ class TestGameIntegration(BaseTestCase):
             {"symbol": "T", "label": "T (AT&T)"},
         ]
 
-        res = async_suggest_symbols.delay(text)
-        while not res.ready():
-            continue
-
-        self.assertEqual(res.result, expected_suggestions)
+        result = async_suggest_symbols.apply(args=[text]).result
+        self.assertEqual(result, expected_suggestions)
 
         start_time = time.time()
         game_title = "lucky few"
@@ -649,7 +646,6 @@ class TestFriendManagement(BaseTestCase):
 
         # if the test user wants to invite some friends, who's available? We shouldn't see the invite from murcitdev,
         # and we shouldn't the original dummy user, who hasn't picked a username yet
-        res = async_suggest_friends.delay(user_id, "d")
-        while not res.ready():
-            continue
-        self.assertEqual(res.get(), ["dummy2"])
+        result = async_suggest_friends.apply(args=[user_id, "d"]).result
+        dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
+        self.assertEqual(dummy_match, ["dummy2"])

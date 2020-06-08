@@ -1,13 +1,14 @@
 import React from "react";
 import styled from "styled-components";
-import { Button, Table } from "react-bootstrap";
-import { Header, SidebarSection } from "components/layout/Layout";
+import { Table, Badge } from "react-bootstrap";
 import { SectionTitle } from "components/textComponents/Text";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
+const StyledBadge = styled(Badge)`
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-smallcaps);
+`;
 const PendingGameParticipants = ({ participants }) => {
-  console.log(participants);
-
   const participantsBuilder = (participants) => {
     return participants.map((participant, index) => {
       return (
@@ -19,7 +20,14 @@ const PendingGameParticipants = ({ participants }) => {
               username={participant.username}
             />
           </td>
-          <td>{participant.status}</td>
+          <td>
+            <StyledBadge
+              pill
+              variant={participant.status === "joined" ? "success" : "info"}
+            >
+              {participant.status}
+            </StyledBadge>
+          </td>
         </tr>
       );
     });

@@ -21,9 +21,8 @@ from backend.logic.stock_data import (
 )
 from backend.tasks.redis import rds
 
-N_PLOT_POINTS = 100
+N_PLOT_POINTS = 25
 DATE_LABEL_FORMAT = "%b %-d, %-H:%-M"
-N_TIMESTAMP_LABELS = 20  # We control axis formatting backend-side
 
 
 # ------------------ #

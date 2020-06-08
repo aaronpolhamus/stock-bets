@@ -4,6 +4,7 @@ import { fetchGameData } from "components/functions/api";
 import { Button } from "react-bootstrap";
 import { PlayGameStats } from "components/lists/PlayGameStats";
 import { Header } from "components/layout/Layout";
+import { FieldChart } from "components/charts/FieldChart";
 
 const CardLeftColumn = styled.div`
   width: 300px;
@@ -47,6 +48,7 @@ const GameCard = ({ gameId }) => {
           <h2>{gameInfo.title}</h2>
           <Button href={`/play/${gameId}`}>Play</Button>
         </Header>
+        <FieldChart gameId={gameId} height="200px" />
       </CardMainColumn>
     </GameCardWrapper>
   );

@@ -79,15 +79,15 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(len(data["game_info"]), 2)
         for game_data in data["game_info"]:
             if game_data["title"] == "valiant roset":
-                self.assertEqual(game_data["status"], "pending")
+                self.assertEqual(game_data["game_status"], "pending")
 
             if game_data["title"] == "test game":
-                self.assertEqual(game_data["status"], "active")
+                self.assertEqual(game_data["game_status"], "active")
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
-        erase_cookie_msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; HttpOnly; Path=/'
-        self.assertEqual(res.headers['Set-Cookie'], erase_cookie_msg)
+        msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; Secure; HttpOnly; Path=/; SameSite=None'
+        self.assertEqual(res.headers['Set-Cookie'], msg)
 
         # expired token...
         session_token = create_jwt(email, user_id, None, mins_per_session=1 / 60)
@@ -317,7 +317,7 @@ class TestPlayGame(BaseTestCase):
             "symbol": stock_pick,
             "order_type": "limit",
             "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
-            "quantity_type": "Shares",
+            "shares_or_usd": "Shares",
             "market_price": market_price,
             "amount": order_quantity,
             "buy_or_sell": "buy",
@@ -413,6 +413,7 @@ class TestFriendManagement(BaseTestCase):
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
+        jack_session_token = self.make_test_token_from_email("jack@black.pearl")
 
         # look at our list of test user's friends
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
@@ -423,9 +424,18 @@ class TestFriendManagement(BaseTestCase):
 
         # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
         # should be just one, the dummy user. we'll confirm this, but won't send an invite
-        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "d"},
+        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "j"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
-        self.assertEqual(res.json(), [dummy_username])
+        self.assertEqual(len(res.json()), 4)
+        for entry in res.json():
+            if entry["username"] == "murcitdev":
+                self.assertEqual(entry["label"], "invited_you")
+
+            if entry["username"] == "jack":
+                self.assertEqual(entry["label"], "you_invited")
+
+            if entry["username"] in ["johnny", "jadis"]:
+                self.assertEqual(entry["label"], "suggested")
 
         # what friend invites does test user currently have pending?
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
@@ -444,12 +454,12 @@ class TestFriendManagement(BaseTestCase):
 
         #  the test user rejects the invite. He'll accept the outstanding invite from murcitdev, though
         res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
-                                         json={"requester_username": dummy_username, "response": "declined"},
+                                         json={"requester_username": dummy_username, "decision": "declined"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
-                                         json={"requester_username": "murcitdev", "response": "accepted"},
+                                         json={"requester_username": "murcitdev", "decision": "accepted"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
 
@@ -469,3 +479,51 @@ class TestFriendManagement(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         expected_friends = {"toofast", "miguel", "murcitdev"}
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
+
+        # jack sparrow is too cool for the user and rejects his invite. since test user just accepted murcitdev's
+        # invite we'll now excepted a list with 2 "suggested" entries, with no outstanding sent or received invitations
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
+                                         json={"requester_username": test_username, "decision": "declined"},
+                                         cookies={"session_token": jack_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/suggest_friend_invites", json={"text": "j"},
+                                         cookies={"session_token": test_user_session_token}, verify=False)
+        self.assertEqual(len(res.json()), 2)
+        self.assertNotIn("jack", [x["username"] for x in res.json()])
+        for entry in res.json():
+            self.assertEqual(entry["label"], "suggested")
+
+
+class TestHomePage(BaseTestCase):
+
+    def test_home_page(self):
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        # verify that the test page landing looks like we expect it to
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()["game_info"]), 2)
+        for game_entry in res.json()["game_info"]:
+            if game_entry["title"] == "test game":
+                self.assertEqual(game_entry["invite_status"], "joined")
+                self.assertEqual(game_entry["creator_username"], "cheetos")
+                self.assertEqual(game_entry["creator_id"], 1)
+
+            if game_entry["title"] == "valiant roset":
+                self.assertEqual(game_entry["invite_status"], "invited")
+                self.assertEqual(game_entry["creator_username"], "murcitdev")
+                self.assertEqual(game_entry["creator_id"], 5)
+
+        # now accept a game invite, and verify that while that game's info still posts, the test user's invite status
+        # is now updated to "joined
+        game_id = 5
+        res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
+                                         json={"game_id": game_id, "decision": "joined"},
+                                         cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()["game_info"]), 2)
+        for game_entry in res.json()["game_info"]:
+            self.assertEqual(game_entry["invite_status"], "joined")
