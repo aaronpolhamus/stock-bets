@@ -136,9 +136,9 @@ const PrivacyPolicy = () => {
         <p>
           stockbets.io uses Amazon Web Services (AWS) for all third-party data
           storage and hosting. We maintain two types of logs: server logs and
-          event logs. By using the Services, you authorize us to transfer,
-          store, and use your information for the purposes elaborated here in
-          the United States and any other country where we operate.
+          event logs. By using the site you authorize us to transfer, store, and
+          use your information for the purposes elaborated here in the United
+          States and any other country where we operate.
         </p>
 
         <h2>Tracking, cookies, and data security</h2>
