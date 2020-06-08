@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import GoogleLogin from "react-google-login";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import api from "services/api";
@@ -6,9 +7,11 @@ import { Redirect } from "react-router-dom";
 import { Container, Row, Col } from "react-bootstrap";
 import { Content } from "components/layout/Layout";
 import { ReactComponent as Logo } from "assets/logo.svg";
+import { SmallText } from "components/textComponents/Text";
 import styled from "styled-components";
 
-const RightCol = styled(Col)`
+const RightCol = styled.div`
+  padding: 8vw;
   &::before {
     content: "";
     display: block;
@@ -16,7 +19,7 @@ const RightCol = styled(Col)`
     height: 120vh;
     background: var(--color-secondary);
     position: fixed;
-    bottom: 2vh;
+    bottom: 6vh;
     left: 50vw;
     border-radius: 50% 50% / 45% 50%;
     z-index: -1;
@@ -33,6 +36,16 @@ const RightCol = styled(Col)`
     border-radius: 50% 50% / 45% 50%;
     z-index: -2;
   }
+  a {
+    position: fixed;
+    bottom: 2vh;
+    right: 2vw;
+  }
+`;
+
+const LeftCol = styled.div`
+  display: flex;
+  align-items: center;
 `;
 
 const LoginButton = styled.button`
@@ -73,7 +86,7 @@ export default function AlphabetLogin() {
         .then((r) => console.log({ r }) || setRedirect(true));
     } catch (error) {
       alert(
-        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email aaron@stockbets.io for access before that :)"
+        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email contact@stockbets.io for access before that :)"
       );
     }
   };
@@ -86,11 +99,11 @@ export default function AlphabetLogin() {
     <Content height="100vh" alignItems="center" display="flex">
       <Container fluid>
         <Row noGutters sm={2}>
-          <Col>
+          <LeftCol>
             <StyledLogo />
-          </Col>
+          </LeftCol>
           <RightCol>
-            <Row className="justify-content-md-center">
+            <p>
               <GoogleLogin
                 clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
                 buttonText="Login with Google"
@@ -103,8 +116,8 @@ export default function AlphabetLogin() {
                   </LoginButton>
                 )}
               />
-            </Row>
-            <Row className="justify-content-md-center">
+            </p>
+            <p>
               <FacebookLogin
                 appId={process.env.REACT_APP_FACEBOOK_APP_ID}
                 fields="name,email,picture"
@@ -115,7 +128,13 @@ export default function AlphabetLogin() {
                   </LoginButton>
                 )}
               />
-            </Row>
+            </p>
+            <Link to="/privacy">
+              <SmallText color="var(--color-secondary)">
+                Have a look at our
+                <strong> privacy policy </strong>before getting started.
+              </SmallText>
+            </Link>
           </RightCol>
         </Row>
       </Container>

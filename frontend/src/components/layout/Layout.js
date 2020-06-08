@@ -41,7 +41,7 @@ const Logo = styled.a`
 `;
 
 const Content = styled.div`
-  padding: var(--space-400);
+  padding: ${(props) => props.padding || "var(--space-400)"};
   flex-grow: 1;
   display: ${(props) => props.display || "block"};
   height: ${(props) => props.height || "auto"};
