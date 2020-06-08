@@ -46,6 +46,17 @@ def get_stock_finish_price(symbol, records=price_records, order_time=close_of_si
     return stock_record["price"]
 
 
+def refresh_table(table_name):
+    # first flush all data from all tables
+    table_meta = metadata.tables[table_name]
+    conn.execute(table_meta.delete())
+
+    # then fill in mock data
+    mock_entry = MOCK_DATA.get(table_name)
+    if mock_entry:
+        conn.execute(table_meta.insert(), mock_entry)
+
+
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
 MOCK_DATA = {
     "users": [
@@ -72,9 +83,9 @@ MOCK_DATA = {
         {"name": "jack sparrow", "email": "jack@black.pearl",
          "profile_pic": "https://i2.wp.com/www.californiaherald.com/wp-content/uploads/2020/03/jack-sparrow.jpg",
          "username": "jack", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "johnny walker", "email": "jack@black.pearl",
+        {"name": "johnnie walker", "email": "johnnie@walker.com",
          "profile_pic": "https://www.brandemia.org/sites/default/files/sites/default/files/johnnie_walker_nuevo_logo.png",
-         "username": "johnny", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+         "username": "johnnie", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
         {"name": "jadis", "email": "jadis@rick.lives",
          "profile_pic": "https://vignette.wikia.nocookie.net/villains/images/7/78/Season_eight_jadis.png",
          "username": "jadis", "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
@@ -301,14 +312,7 @@ def make_mock_data():
     reset_db()
     table_names = MOCK_DATA.keys()
     for table in table_names:
-        # first flush all data from all tables
-        table_meta = metadata.tables[table]
-        conn.execute(table_meta.delete())
-
-        # then fill in mock data
-        mock_entry = MOCK_DATA.get(table)
-        if mock_entry:
-            conn.execute(table_meta.insert(), mock_entry)
+        refresh_table(table)
 
 
 def make_redis_mocks():

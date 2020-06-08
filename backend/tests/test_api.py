@@ -434,7 +434,7 @@ class TestFriendManagement(BaseTestCase):
             if entry["username"] == "jack":
                 self.assertEqual(entry["label"], "you_invited")
 
-            if entry["username"] in ["johnny", "jadis"]:
+            if entry["username"] in ["johnnie", "jadis"]:
                 self.assertEqual(entry["label"], "suggested")
 
         # what friend invites does test user currently have pending?
