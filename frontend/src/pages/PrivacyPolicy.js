@@ -57,11 +57,11 @@ const PrivacyPolicy = () => {
           major online platforms--as opposed to more standard usernames and
           passwords--is that we value your privacy and security, and want to
           make sure that you are in complete control of your account access and
-          data. When you login today we only request basic profile information
-          from your authentication provider (Google, Facebook, or Twitter). This
-          lets us know that you are who you say are, and that you do indeed
-          control the account that you're using to login. When you create your
-          account, we save the following information about you:
+          data. When you login we only request basic profile information from
+          your authentication provider (Google, Facebook, or Twitter). This lets
+          us know that you are who you say are, and that you do indeed control
+          the account that you're using to login. When you create your account,
+          we save the following information about you:
           <ul>
             <li>Your name</li>
             <li>Your email address</li>
@@ -88,10 +88,12 @@ const PrivacyPolicy = () => {
               you should know about
             </li>
           </ul>
-          That's it. Here's a list of things that we will never do with your
-          personal data:
+          Here's a list of things that we will never do with your personal data:
           <ul>
-            <li>Share it with any third party for any purpose whatsoever</li>
+            <li>
+              Share it with any third party for any purpose whatsoever without
+              your explicit and informed consent
+            </li>
             <li>Spam you with annoying content that clutters your inbox</li>
             <li>
               Share it with other users on the platform without your consent and
@@ -118,7 +120,7 @@ const PrivacyPolicy = () => {
         </p>
 
         <h2>
-          I created and account, and now I want to delete it along with my
+          I created an account, and now I want to delete it along with my
           personal data and virtual trading data. How do I do that?
         </h2>
         <p>
