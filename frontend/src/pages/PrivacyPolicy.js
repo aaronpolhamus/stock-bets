@@ -147,7 +147,7 @@ const PrivacyPolicy = () => {
           to javascript applications running on your browser, and even if it
           was, would be un-readable without our server-side secret encryption
           key. We are PCI-compliant and implement a CORS policy that validates
-          that origin of all requests send to the stockbets API, protecting you
+          that origin of all requests sent to the stockbets API, protecting you
           from cross-site third party attacks. We have your personal data and
           session access on lock.
         </p>
