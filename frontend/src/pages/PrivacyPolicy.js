@@ -20,7 +20,7 @@ const PrivacyPolicy = () => {
   }
 
   return (
-    <Content padding="var(--space-lg-200)">
+    <Content className="text-page" padding="var(--space-lg-200)">
       <Container>
         <StyledLogo />
         <h1>stockbets.io privacy policy</h1>
