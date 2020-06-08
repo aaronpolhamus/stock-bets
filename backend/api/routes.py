@@ -365,10 +365,7 @@ def fetch_price():
 @authenticate
 def api_suggest_symbols():
     text = request.json["text"]
-    res = async_suggest_symbols.delay(text)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_suggest_symbols.apply(args=[text]).result)
 
 # ------- #
 # Friends #
@@ -433,10 +430,7 @@ def get_list_of_friend_invites():
 def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
-    res = async_suggest_friends.delay(user_id, text)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_suggest_friends.apply(args=[user_id, text]).result)
 
 # ------- #
 # Visuals #

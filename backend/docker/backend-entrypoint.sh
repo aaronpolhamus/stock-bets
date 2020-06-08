@@ -5,6 +5,8 @@ do
   sleep 1
 done
 
+# TODO refactor according to this pattern at some point: https://gist.github.com/mathop/37d817e720460b6689f9887b16e339f7
+
 # would be ideal not to worry about this, since we use Chromium instead of Firefox, but the webscraping
 # has been fragile due to versioning and this creates some redundancy
 ./docker/install_geckodriver.sh

@@ -20,6 +20,8 @@ const AddFriends = (props) => {
 
   const getFriendSuggestions = async (query) => {
     const friends = await apiPost("suggest_friend_invites", { text: query });
+    console.log(query);
+    console.log(friends);
     setFriendSuggestions(friends);
   };
 

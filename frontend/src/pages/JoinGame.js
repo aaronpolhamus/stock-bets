@@ -19,7 +19,6 @@ const JoinGame = (props) => {
 
   const [gameInfo, setGameInfo] = useState([]);
   const [gameParticipants, setGameParticipants] = useState([]);
-
   const [invite, setInvite] = useState("");
 
   useEffect(() => {
