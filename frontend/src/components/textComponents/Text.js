@@ -13,6 +13,11 @@ const AuxiliarText = styled.span`
   line-height: 1.2;
 `;
 
+const SmallText = styled.span`
+  color: ${(props) => props.color || "inherit"};
+  font-size: var(--font-size-min);
+`;
+
 const SectionTitle = styled.h2`
   font-size: var(--font-size-small);
   color: ${(props) => props.color || "var(--color-text-primary)"};
@@ -36,4 +41,11 @@ const FlexRow = styled.div`
   align-items: ${(props) => props.align || "center"};
 `;
 
-export { SimplifiedCurrency, AuxiliarText, SectionTitle, TextButton, FlexRow };
+export {
+  SimplifiedCurrency,
+  AuxiliarText,
+  SectionTitle,
+  TextButton,
+  FlexRow,
+  SmallText,
+};

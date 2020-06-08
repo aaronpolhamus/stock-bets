@@ -1,8 +1,15 @@
 import React, { useState } from "react";
 import { Redirect, useHistory } from "react-router-dom";
+import { Button, Card, Row, Container } from "react-bootstrap";
+import { ReactComponent as Logo } from "assets/logo.svg";
+import { Content } from "components/layout/Layout";
+import styled from "styled-components";
 
-import { Button, Card, Row } from "react-bootstrap";
-import { CardHeader } from "react-bootstrap/Card";
+const StyledLogo = styled(Logo)`
+  max-width: 300px;
+  width: 90%;
+  margin-bottom: 2rem;
+`;
 
 const PrivacyPolicy = () => {
   const [redirect, setRedirect] = useState(false);
@@ -13,21 +20,18 @@ const PrivacyPolicy = () => {
   }
 
   return (
-    <Card>
-      <Card.Body>
-        <Card.Title>
-          <b>stockbets.io privacy policy</b>
-        </Card.Title>
-        <Card.Text>
+    <Content padding="var(--space-lg-200)">
+      <Container>
+        <StyledLogo />
+        <h1>stockbets.io privacy policy</h1>
+        <p>
           This policy explains what information we collect when you use
           stockbets.io It also has information about how we store, use,
           transfer, and delete that information. We don't just want to comply
           with minimum legal privacy requirements, but to earn your trust.
-        </Card.Text>
-        <Card.Subtitle>
-          <b>What is stockbets.io?</b>
-        </Card.Subtitle>
-        <Card.Text>
+        </p>
+        <h2>What is stockbets.io?</h2>
+        <p>
           A fully-featured virtual trading experience that allows people who are
           fascinated by markets to play fantasy-style stock trading competitions
           with each other. We hope that you love it. stockbets.io is currently
@@ -45,12 +49,10 @@ const PrivacyPolicy = () => {
           . If/when we formalize the project further, we will register the
           stockbets as a separate legal entity and update this policy
           accordingly.
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>What information does stockbets.io collect and store?</b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>What information does stockbets.io collect and store?</h2>
+        <p>
           One of the main reasons that stockbets.io strictly uses logins from
           major online platforms--as opposed to more standard usernames and
           passwords--is that we value your privacy and security, and want to
@@ -69,12 +71,10 @@ const PrivacyPolicy = () => {
           That's it. We don't gain ongoing access to your account, and have no
           ability to produce or distribute content on your behalf, or gain any
           other form of control or access to your account of personal data.
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>What we do with your personal data once we have it?</b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>What we do with your personal data once we have it?</h2>
+        <p>
           We use your data for account authentication, and, in the case of your
           profile picture, to create an avatar for you that identifies you to
           friends / to the community when you create or receive friend
@@ -99,14 +99,12 @@ const PrivacyPolicy = () => {
               thing they can know about you is your username and avatar.{" "}
             </li>
           </ul>
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>
-            What we do with the information that you generate on the platform?
-          </b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>
+          What we do with the information that you generate on the platform?
+        </h2>
+        <p>
           stockbets.io's goal is to provide a fun, low-stakes, virtual platform
           for playing competitive stock trading games with your friends. As you
           do this, you'll create data about virtual orders, balances, and
@@ -117,38 +115,32 @@ const PrivacyPolicy = () => {
           that you are in unless they're also playing that game with you. We
           apply the same privacy policy to this virtual trading and performance
           data that we apply to handling your personal information.
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>
-            I created and account, and now I want to delete it along with my
-            personal data and virtual trading data. How do I do that?
-          </b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>
+          I created and account, and now I want to delete it along with my
+          personal data and virtual trading data. How do I do that?
+        </h2>
+        <p>
           We'll deliver an account removal feature as we grow the platform. For
           now we'll help you out with that by hand. Please email{" "}
           <a href="mailto: contact@stockbets.io">
             contact [at] stockbets [dot] io
           </a>{" "}
           for assistance.
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>Data storage</b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>Data storage</h2>
+        <p>
           stockbets.io uses Amazon Web Services (AWS) for all third-party data
           storage and hosting. We maintain two types of logs: server logs and
           event logs. By using the Services, you authorize us to transfer,
           store, and use your information for the purposes elaborated here in
           the United States and any other country where we operate.
-        </Card.Text>
+        </p>
 
-        <Card.Subtitle>
-          <b>Tracking, cookies, and data security</b>
-        </Card.Subtitle>
-        <Card.Text>
+        <h2>Tracking, cookies, and data security</h2>
+        <p>
           When you login we set an HTTP-only web token that encrypts the basic
           profile information that we describe above. That's the only browser
           session information that we store. This information is not available
@@ -158,17 +150,18 @@ const PrivacyPolicy = () => {
           that origin of all requests send to the stockbets API, protecting you
           from cross-site third party attacks. We have your personal data and
           session access on lock.
-        </Card.Text>
-      </Card.Body>
-      <Row>
-        <Button variant="outline-primary" onClick={() => setRedirect(true)}>
-          Sounds great, sign me in!
-        </Button>
-        <Button variant="outline-secondary" onClick={() => history.go(-2)}>
-          Thanks but no, thanks.
-        </Button>
-      </Row>
-    </Card>
+        </p>
+        <hr />
+        <p className="text-right">
+          <Button variant="outline-secondary" onClick={() => history.go(-2)}>
+            Thanks but no, thanks.
+          </Button>
+          <Button variant="primary" onClick={() => setRedirect(true)}>
+            Sounds great, sign me in!
+          </Button>
+        </p>
+      </Container>
+    </Content>
   );
 };
 
