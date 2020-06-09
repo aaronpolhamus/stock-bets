@@ -6,11 +6,8 @@ import time
 
 import pandas as pd
 
-from backend.database.db import db_session
-from backend.database.helpers import (
-    retrieve_meta_data,
-    orm_rows_to_dict
-)
+from backend.database.db import db_session, db_metadata
+from backend.database.helpers import orm_rows_to_dict
 from backend.logic.stock_data import (
     PRICE_CACHING_INTERVAL,
     get_end_of_last_trading_day,
@@ -21,7 +18,7 @@ from backend.logic.stock_data import (
 
 
 def get_user_information(user_id):
-    users = retrieve_meta_data(db_session.connection()).tables["users"]
+    users = db_metadata.tables["users"]
     row = db_session.query(users).filter(users.c.id == user_id)
     return orm_rows_to_dict(row)
 

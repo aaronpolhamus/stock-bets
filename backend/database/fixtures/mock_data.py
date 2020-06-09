@@ -1,7 +1,11 @@
 from datetime import timedelta
 
+from backend.database.db import (
+    db_session,
+    db_metadata
+)
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import retrieve_meta_data, reset_db
+from backend.database.helpers import reset_db
 from backend.logic.stock_data import (
     get_schedule_start_and_end,
     nyse,
@@ -13,14 +17,8 @@ from backend.tasks.definitions import (
     async_compile_player_sidebar_stats
 )
 from config import Config
-from sqlalchemy import create_engine
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
-
-engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-conn = engine.connect()
-metadata = retrieve_meta_data(engine)
-
 price_records = make_stock_data_records()
 market_order_time = min([record["timestamp"] for record in price_records])
 close_of_simulation_time = max([record["timestamp"] for record in price_records])
@@ -47,14 +45,13 @@ def get_stock_finish_price(symbol, records=price_records, order_time=close_of_si
 
 
 def refresh_table(table_name):
-    # first flush all data from all tables
-    table_meta = metadata.tables[table_name]
-    conn.execute(table_meta.delete())
-
-    # then fill in mock data
     mock_entry = MOCK_DATA.get(table_name)
     if mock_entry:
-        conn.execute(table_meta.insert(), mock_entry)
+        table_meta = db_metadata.tables[table_name]
+        with db_session.connection() as conn:
+            conn.execute(table_meta.delete())
+            conn.execute(table_meta.insert(), mock_entry)
+            db_session.commit()
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
@@ -308,8 +305,6 @@ MOCK_DATA = {
 
 
 def make_mock_data():
-    # reset the database for each test class in order to maintain consistency of auto-incremented IDs
-    reset_db()
     table_names = MOCK_DATA.keys()
     for table in table_names:
         refresh_table(table)

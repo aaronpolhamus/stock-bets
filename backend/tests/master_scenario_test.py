@@ -14,10 +14,10 @@ A few important things about this test:
 import json
 
 from backend.config import Config
+from backend.database.db import db_metadata
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
-    retrieve_meta_data,
     orm_rows_to_dict
 )
 from backend.logic.friends import get_user_details_from_ids
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
 
-    games = retrieve_meta_data(btc.db_session.connection()).tables["games"]
+    games = db_metadata.tables["games"]
     row = btc.db_session.query(games).filter(games.c.id == 1)
     game_entry = orm_rows_to_dict(row)
     for k, v in game_settings.items():
@@ -126,7 +126,7 @@ if __name__ == '__main__':
             continue
         assert game_entry[k] == v
 
-    game_status = retrieve_meta_data(btc.db_session.connection()).tables["game_status"]
+    game_status = db_metadata.tables["game_status"]
     row = btc.db_session.query(game_status).filter(game_status.c.game_id == 1)
     game_entry = orm_rows_to_dict(row)
     user_id_list = json.loads(game_entry["users"])

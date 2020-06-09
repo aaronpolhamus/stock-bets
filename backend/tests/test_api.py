@@ -10,10 +10,7 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.database.helpers import (
-    orm_rows_to_dict,
-    retrieve_meta_data
-)
+from backend.database.helpers import orm_rows_to_dict
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
@@ -29,7 +26,7 @@ from backend.logic.games import (
 )
 from backend.tasks.definitions import (
     async_fetch_price,
-    async_update_player_stats,
+    async_calculate_game_metrics,
     async_compile_player_sidebar_stats
 )
 from backend.tasks.redis import rds
@@ -56,9 +53,10 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(res.text, INVALID_OAUTH_PROVIDER_MSG)
 
         # token creation and landing
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             user_id, name, email, pic, username, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
+            self.db_session.remove()
         session_token = create_jwt(email, user_id, username)
         decoded_token = jwt.decode(session_token, Config.SECRET_KEY, algorithms=Config.JWT_ENCODE_ALGORITHM)
         self.assertEqual(decoded_token["email"], email)
@@ -109,9 +107,10 @@ class TestUserManagement(BaseTestCase):
 
     def test_set_username(self):
         # set username endpoint test
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             user_id, name, email, pic, username, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
+            self.db_session.remove()
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
@@ -119,8 +118,9 @@ class TestUserManagement(BaseTestCase):
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             updated_username = conn.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
+            self.db_session.remove()
         self.assertEqual(new_username, updated_username)
         # check the cookie to be sure that it has been updated with the new proper username as well
         decoded_token = jwt.decode(res.cookies.get("session_token"), Config.SECRET_KEY,
@@ -129,9 +129,10 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(decoded_token["email"], email)
 
         # take username fails with 400 error
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
+            self.db_session.remove()
         session_token = create_jwt(email, user_id, user_name)
         res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                          cookies={"session_token": session_token}, verify=False)
@@ -168,8 +169,9 @@ class TestCreateGame(BaseTestCase):
 
         # For ease of use, make sure that the JSON object being passed back and forth with the  database has the same
         # column names, and that we are being explicit about declaring games fields that are handled server-side
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
+            self.db_session.remove()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
         for column in column_names:
@@ -222,11 +224,15 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             games_entry = conn.execute(
                 "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
             game_id = games_entry[0]
+            self.db_session.remove()
+
+        with self.db_session.connection() as conn:
             status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
+            self.db_session.remove()
 
         # games table tests
         for field in games_entry:  # make sure that we're test-writing all fields
@@ -254,11 +260,11 @@ class TestCreateGame(BaseTestCase):
         time_diff = abs((status_entry[4] - current_time))
         self.assertLess(time_diff, 1)
         invited_users = json.loads(status_entry[3])
-        metadata = retrieve_meta_data(self.engine)
-        users = metadata.tables["users"]
+        users = self.db_metadata.tables["users"]
         invitees = tuple(game_settings["invitees"] + [user_name])
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
+            self.db_session.remove()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
 
@@ -363,9 +369,9 @@ class TestGetGameStats(BaseTestCase):
         rds.flushall()
 
         game_id = 3
-        res = async_update_player_stats.delay()
-        while not res.ready():
-            continue
+        async_calculate_game_metrics.apply(args=(game_id, 1))
+        async_calculate_game_metrics.apply(args=(game_id, 3))
+        async_calculate_game_metrics.apply(args=(game_id, 4))
 
         res = async_compile_player_sidebar_stats.delay(game_id)
         while not res.ready():
@@ -390,7 +396,7 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        games = retrieve_meta_data(self.db_session.connection()).tables["games"]
+        games = self.db_metadata.tables["games"]
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():

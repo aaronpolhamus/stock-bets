@@ -79,7 +79,7 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(len(expected), len(all_open_orders))
 
         with self.db_session.connection() as conn:
-            orders = self.meta.tables["orders"]
+            orders = self.db_metadata.tables["orders"]
             res = conn.execute(select([orders.c.symbol], orders.c.id.in_(expected))).fetchall()
             stocks = [x[0] for x in res]
             self.assertEqual(stocks, ["MELI", "SPXU"])
@@ -276,7 +276,7 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(open_game_ids, [1, 2, 5])
 
         service_open_game(game_id)
-        game_status = self.meta.tables["game_status"]
+        game_status = self.db_metadata.tables["game_status"]
         row = self.db_session.query(game_status).filter(
             game_status.c.game_id == game_id, game_status.c.status == "active")
         game_status_entry = orm_rows_to_dict(row)
@@ -298,7 +298,7 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 2
         service_open_game(game_id)
-        game_status = self.meta.tables["game_status"]
+        game_status = self.db_metadata.tables["game_status"]
         row = self.db_session.query(game_status).filter(
             game_status.c.game_id == 2, game_status.c.status == "expired")
         game_status_entry = orm_rows_to_dict(row)

@@ -1,10 +1,7 @@
 import time
 
-from backend.database.db import db_session
-from backend.database.helpers import (
-    retrieve_meta_data,
-    table_updater,
-)
+from backend.database.db import db_session, db_metadata
+from backend.database.helpers import table_updater
 from backend.logic.base import (
     get_user_id,
     get_user_information,
@@ -104,7 +101,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
     rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
-        prices = retrieve_meta_data(db_session.connection()).tables["prices"]
+        prices = db_metadata.tables["prices"]
         table_updater(prices, symbol=symbol, price=price, timestamp=last_updated)
 
 
@@ -123,7 +120,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
 
-    metadata = retrieve_meta_data(db_session.connection())
+    metadata = db_metadata
     games = metadata.tables["games"]
     result = table_updater(games,
                            creator_id=creator_id,
@@ -148,7 +145,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
 def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]
     response_time = time.time()
-    metadata = retrieve_meta_data(db_session.connection())
+    metadata = db_metadata
     game_invites = metadata.tables["game_invites"]
     table_updater(game_invites,
                   game_id=game_id,
@@ -237,7 +234,7 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
 def async_process_single_order(order_id):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
-        order_status = retrieve_meta_data(db_session.connection()).tables["order_status"]
+        order_status = db_metadata.tables["order_status"]
         table_updater(order_status, order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
@@ -274,7 +271,7 @@ def async_invite_friend(self, requester_id, invited_username):
     information to the frontend for other users, though, so we'll look up their ID based on username
     """
     invited_id = get_user_id(invited_username)
-    friends = retrieve_meta_data(db_session.connection()).tables["friends"]
+    friends = db_metadata.tables["friends"]
     table_updater(friends, requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
@@ -284,7 +281,7 @@ def async_respond_to_friend_invite(self, requester_username, invited_id, decisio
     information to the frontend for other users, though, so we'll look up the request ID based on the username
     """
     requester_id = get_user_id(requester_username)
-    friends = retrieve_meta_data(db_session.connection()).tables["friends"]
+    friends = db_metadata.tables["friends"]
     table_updater(friends, requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
 
@@ -349,7 +346,7 @@ def async_make_the_field_charts(self, game_id):
 @celery.task(name="async_update_play_game_visuals", bind=True, base=SqlAlchemyTask)
 def async_update_play_game_visuals(self):
     open_game_ids = get_active_game_ids()
-    task_results = []
+    task_results = list()
     for game_id in open_game_ids:
         task_results.append(async_make_the_field_charts.delay(game_id))
         user_ids = get_all_game_users(game_id)

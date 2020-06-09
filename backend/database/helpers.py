@@ -2,24 +2,11 @@
 """
 import os
 
-from backend.database.db import db_session
-from sqlalchemy import create_engine, MetaData
-from config import Config
-
-
-def retrieve_meta_data(engine):
-    """Retrive metadata that can be used to instantiate table references with the sqlalchemy ORM
-    """
-    metadata = MetaData()
-    metadata.reflect(engine)
-    return metadata
+from backend.database.db import db_session, db_metadata
 
 
 def reset_db():
-    # first we drop the main db and restart it in order to reset all auto-incrementing IDs
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    engine.execute("DROP DATABASE main;")
-    engine.execute("CREATE DATABASE main;")
+    db_metadata.drop_all()
     os.system("flask db upgrade")
 
 

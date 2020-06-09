@@ -9,11 +9,11 @@ from backend.database.helpers import (
 class TestDBHelpers(BaseTestCase):
 
     def test_basic_helpers(self):
-        symbols = self.meta.tables["symbols"]
+        symbols = self.db_metadata.tables["symbols"]
         dummy_symbol = "ACME"
         dummy_name = "ACME CORP"
         with self.db_session.connection() as conn:
-            meta_table_inventory = self.meta.tables.keys()
+            meta_table_inventory = self.db_metadata.tables.keys()
             database_tables = [x[0] for x in conn.execute("SHOW TABLES;").fetchall()]
             table_diff = set(meta_table_inventory) - set(database_tables)
             self.assertIs(len(table_diff), 0)

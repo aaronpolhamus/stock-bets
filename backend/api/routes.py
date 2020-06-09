@@ -239,7 +239,7 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    res = async_add_game.delay(
+    async_add_game.apply(args=(
         user_id,
         game_settings["title"],
         game_settings["mode"],
@@ -249,9 +249,7 @@ def create_game():
         game_settings["benchmark"],
         game_settings["side_bets_perc"],
         game_settings["side_bets_period"],
-        game_settings["invitees"])
-    while not res.ready():
-        continue
+        game_settings["invitees"]))
     return make_response(GAME_CREATED_MSG, 200)
 
 

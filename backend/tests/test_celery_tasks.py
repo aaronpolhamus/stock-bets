@@ -24,7 +24,9 @@ from backend.tasks.definitions import (
     async_service_open_games,
     async_place_order,
     async_process_single_order,
-    async_update_play_game_visuals,
+    async_make_the_field_charts,
+    async_serialize_current_balances,
+    async_serialize_open_orders,
     async_calculate_game_metrics,
     async_get_friends_details,
     async_get_friend_invites,
@@ -34,6 +36,7 @@ from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
+from backend.tasks.celery import pause_return_until_subtask_completion
 from backend.tests import BaseTestCase
 
 
@@ -189,7 +192,7 @@ class TestGameIntegration(BaseTestCase):
         while not res.ready():
             continue
 
-        games = self.meta.tables["games"]
+        games = self.db_metadata.tables["games"]
         row = self.db_session.query(games).filter(games.c.title == game_title)
         game_entry = orm_rows_to_dict(row)
 
@@ -204,7 +207,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status = self.meta.tables["game_status"]
+        game_status = self.db_metadata.tables["game_status"]
         row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
         game_status_entry = orm_rows_to_dict(row)
         self.assertEqual(game_status_entry["id"], 8)
@@ -215,8 +218,9 @@ class TestGameIntegration(BaseTestCase):
 
         # and that the game invites table is working as well
         # --------------------------------------------------
-        with self.engine.connect() as conn:
+        with self.db_session.connection() as conn:
             game_invites_df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=[game_id])
+            self.db_session.remove()
 
         self.assertEqual(game_invites_df.shape, (4, 5))
         for _, row in game_invites_df.iterrows():
@@ -591,9 +595,15 @@ class TestVisualAssetsTasks(BaseTestCase):
         while not res.ready():
             continue
 
-        res = async_update_play_game_visuals.delay()
-        while not res.ready():
-            continue
+        game_id = 3
+        user_ids = [1, 3, 4]
+
+        # this is basically the intenrals of async_update_play_game_visuals for one game
+        task_results = list()
+        task_results.append(async_make_the_field_charts.delay(game_id))
+        for user_id in user_ids:
+            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
         field_chart = unpack_redis_json("field_chart_3")
