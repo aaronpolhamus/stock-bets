@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link, Redirect } from "react-router-dom";
 import { Button } from "react-bootstrap";
 import { isEmpty, usePostRequest } from "components/functions/api";
@@ -15,6 +15,7 @@ import { UserMiniCard } from "components/users/UserMiniCard";
 import { FriendsList } from "components/lists/FriendsList";
 import { GameCard } from "pages/game/GameCard";
 import * as Icon from "react-feather";
+import LogRocket from "logrocket";
 
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
@@ -49,6 +50,14 @@ const StyledMiniCard = styled(UserMiniCard)`
 
 const Home = () => {
   const { data, loading, error } = usePostRequest("/api/home");
+
+  useEffect(() => {
+    // identify user once they've hit the homepage
+    LogRocket.identify(data.id, {
+      name: data.name,
+      email: data.email,
+    });
+  }, [data]);
 
   if (loading) {
     return <p>Loading...</p>;

@@ -17,6 +17,7 @@
     "husky": "^4.2.5",
     "js-cookie": "^2.2.1",
     "lint-staged": "^10.2.7",
+    "logrocket": "^1.0.7",
     "moment": "^2.26.0",
     "node-sass": "^4.14.1",
     "prettier": "^2.0.5",
