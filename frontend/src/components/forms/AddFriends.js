@@ -18,13 +18,6 @@ const AddFriends = (props) => {
 
   const [show, setShow] = useState(false);
 
-  const getFriendSuggestions = async (query) => {
-    const friends = await apiPost("suggest_friend_invites", { text: query });
-    console.log(query);
-    console.log(friends);
-    setFriendSuggestions(friends);
-  };
-
   const handleClose = () => setShow(false);
 
   const handleFriendInvite = async (e) => {
@@ -43,8 +36,9 @@ const AddFriends = (props) => {
     setFriendInvitee(invitee[0].username);
   };
 
-  const handleSuggestions = (query) => {
-    getFriendSuggestions(query);
+  const handleSuggestions = async (query) => {
+    const friends = await apiPost("suggest_friend_invites", { text: query });
+    setFriendSuggestions(friends);
   };
 
   const friendLabel = (label) => {
@@ -72,7 +66,7 @@ const AddFriends = (props) => {
             <AsyncTypeahead
               id="typeahead-particpants"
               name="invitees"
-              labelKey="name"
+              labelKey="username"
               options={friendSuggestions}
               placeholder="Who's playing?"
               onSearch={handleSuggestions}
