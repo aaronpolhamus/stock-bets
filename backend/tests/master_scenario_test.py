@@ -146,15 +146,10 @@ if __name__ == '__main__':
                               json={"game_id": 1, "decision": "joined"}, verify=False)
     btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": toofast_token},
                               json={"game_id": 1, "decision": "declined"}, verify=False)
+
     accepted_invite_user_ids = get_invite_list_by_status(1, "joined")
     details = get_user_details_from_ids(accepted_invite_user_ids)
-    import ipdb;ipdb.set_trace()
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "jack", "jadis"}
-
-    # We'll make sure that, from toofast's perspective, he doesn't have any pending game invites left
-    res = btc.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": 1},
-                                    cookies={"session_token": toofast_token}, verify=False)
-    assert len(res.json()) == 0
 
     input("""
     We got a game! Time to put in our first order.

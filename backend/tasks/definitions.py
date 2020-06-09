@@ -155,7 +155,6 @@ def async_respond_to_game_invite(self, game_id, user_id, status):
                   user_id=user_id,
                   status=status,
                   timestamp=response_time)
-    db_session.commit()
     # Check to see if we everyone has either joined or declined and whether we can start the game early
     start_game_if_all_invites_responded(game_id)
 
