@@ -9,4 +9,4 @@ db = SQLAlchemy()
 
 # db_session for creating scoped sessions for other applications that interact with the DB
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-db_session = scoped_session(sessionmaker(autocommit=True, autoflush=True, bind=engine))
+db_session = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))

@@ -25,7 +25,7 @@ from backend.tasks.definitions import (
     async_place_order,
     async_process_single_order,
     async_update_play_game_visuals,
-    async_update_player_stats,
+    async_calculate_game_metrics,
     async_get_friends_details,
     async_get_friend_invites,
     async_suggest_friends
@@ -608,9 +608,10 @@ class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
         rds.flushall()
-        res = async_update_player_stats.delay()
-        while not res.ready():
-            continue
+        game_id = 3
+        async_calculate_game_metrics.apply(args=(game_id, 1))
+        async_calculate_game_metrics.apply(args=(game_id, 3))
+        async_calculate_game_metrics.apply(args=(game_id, 4))
 
         sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:
