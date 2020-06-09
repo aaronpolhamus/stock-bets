@@ -15,10 +15,7 @@ const PrivacyPolicy = () => {
   const [redirect, setRedirect] = useState(false);
   const history = useHistory();
 
-  if (redirect) {
-    return <Redirect to="/login" />;
-  }
-
+  if (redirect) return <Redirect to="/login" />;
   return (
     <Content className="text-page" padding="var(--space-lg-200)">
       <Container>

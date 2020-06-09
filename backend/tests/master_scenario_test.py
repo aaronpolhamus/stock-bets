@@ -13,7 +13,11 @@ A few important things about this test:
 """
 from backend.config import Config
 from backend.database.fixtures.mock_data import refresh_table
-from backend.database.helpers import reset_db
+from backend.database.helpers import (
+    reset_db,
+    retrieve_meta_data,
+    orm_rows_to_dict
+)
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
@@ -26,6 +30,7 @@ if __name__ == '__main__':
     refresh_table("users")
 
     # setup user tokens
+    user_id = 1
     user_token = btc.make_test_token_from_email(Config.TEST_CASE_EMAIL)
     username = "cheetos"
     miguel_token = btc.make_test_token_from_email("mike@example.test")
@@ -51,10 +56,15 @@ if __name__ == '__main__':
         btc.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": "jadis"},
                                   cookies={"session_token": user_token}, verify=False)
 
+    with btc.db_session.connection() as conn:
+        friend_entries_count = conn.execute("SELECT COUNT(*) FROM friends;").fetchone()[0]
+        assert friend_entries_count == 5
+        btc.db_session.remove()
+
     input("""
     If you try to re-add the same people, you should see "invite sent" next to each of their names. Go ahead and hit any
-    key for jadis and jack to accept your invites. johnnie is going to reject you, but whatever. If you refresh the 
-    page, you should now have them in your friend list:
+    key for miguel, toofast, jadis and jack to accept your invites. johnnie is going to reject you, but whatever. If you
+    refresh the page, you should now have them in your friend list:
     """)
     btc.requests_session.post(f"{HOST_URL}/respond_to_friend_request",
                               json={"requester_username": username, "decision": "accepted"},
@@ -72,5 +82,43 @@ if __name__ == '__main__':
                               json={"requester_username": username, "decision": "accepted"},
                               cookies={"session_token": jack_token}, verify=False)
 
-    # we're done here. go ahead and tear it all down
+    with btc.db_session.connection() as conn:
+        friend_count = conn.execute("SELECT COUNT(*) FROM friends WHERE requester_id = %s AND status = 'accepted';",
+                                    user_id).fetchone()[0]
+        assert friend_count == 4
+        btc.db_session.remove()
+
+    game_settings = {
+        "title": "test",
+        "mode": "winner_takes_all",
+        "duration": 90,
+        "buy_in": 100,
+        "n_rebuys": 3,
+        "benchmark": "sharpe_ratio",
+        "side_bets_perc": 50,
+        "side_bets_period": "weekly",
+        "invitees": ["miguel", "toofast", "jadis", "jack"],
+    }
+
+    value = input(f"""
+    Time to make a game! Hit 'c' to have the test runner do this for you, or make the game by hand, paying close
+    attention to these settings: (come back and hit any key once you've submitted the game ticket)
+    {game_settings}
+    """)
+
+    if value == "c":
+        res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
+                                        json=game_settings)
+
+    games = retrieve_meta_data(btc.db_session.connection()).tables["games"]
+    row = btc.db_session.query(games).filter(games.c.id == 1)
+    game_entry = orm_rows_to_dict(row)
+    for k, v in game_entry.items():
+        assert game_settings[k] == v
+
+    input("""
+    Great, we've got the game on the board. jadis, jack, and miguel are going to play, toofast is going to bow out of 
+    this round.
+    """)
+
     btc.tearDown()
