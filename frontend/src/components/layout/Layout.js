@@ -37,7 +37,7 @@ const Logo = styled.a`
   font-weight: bold;
   color: var(--color-lightest);
   display: block;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.2rem;
   &:hover {
     color: inherit;
     text-decoration: none;
