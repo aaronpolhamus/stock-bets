@@ -31,11 +31,11 @@ class Config:
 
     # Database
     # --------
-    db_user = getenv("DB_USER")
-    db_password = getenv("DB_PASSWORD")
-    db_host = getenv("DB_HOST")
-    db_port = getenv("DB_PORT")
-    db_name = getenv("DB_NAME")
+    db_user = getenv("MYSQL_USER")
+    db_password = getenv("MYSQL_ROOT_PASSWORD")
+    db_host = getenv("MYSQL_HOST")
+    db_port = getenv("MYSQL_PORT")
+    db_name = getenv("MYSQL_DATABASE")
     SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8"
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO") == "True")
@@ -54,10 +54,10 @@ class Config:
     # Distributed processing
     # ----------------------
     REDIS_HOST = getenv('REDIS_HOST')
-    RABBITMQ_USER = getenv("RABBITMQ_USER")
-    RABBITMQ_PASS = getenv("RABBITMQ_PASS")
+    RABBITMQ_DEFAULT_USER = getenv("RABBITMQ_DEFAULT_USER")
+    RABBITMQ_DEFAULT_PASS = getenv("RABBITMQ_DEFAULT_PASS")
     RABBITMQ_HOST = getenv("RABBITMQ_HOST")
-    CELERY_BROKER_URL = f'amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:5672'
+    CELERY_BROKER_URL = f'amqp://{RABBITMQ_DEFAULT_USER}:{RABBITMQ_DEFAULT_PASS}@{RABBITMQ_HOST}:5672'
     CELERY_RESULTS_BACKEND = f"redis://{getenv('REDIS_HOST')}"
 
     # Data harvesting

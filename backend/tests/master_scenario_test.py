@@ -12,7 +12,6 @@ A few important things about this test:
   different user actions.
 """
 import json
-import time
 
 from backend.config import Config
 from backend.database.fixtures.mock_data import refresh_table

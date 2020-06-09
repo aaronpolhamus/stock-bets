@@ -8,11 +8,11 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `ENV` (string): Can be `dev`, `prod`, or `staging`. For local development you should always have this set to dev
   - `SECRET_KEY` (string): An impossible-to-guess secret key used for encrypting API data
   - `MINUTES_PER_SESSION` (integer):  How many minutes should a logged-in user's session last for (1440 is recommended)
-  - `DB_HOST` (string): The MySQL database host for the API
-  - `DB_PORT` (int): What port to expose the DB on
-  - `DB_USER` (string): The user that the backend will use to login to the DB 
-  - `DB_NAME` (string): The name of the DB that the aapplication will use
-  - `DB_PASSWORD` (string): The DB password
+  - `MYSQL_HOST` (string): The MySQL database host for the API
+  - `MYSQL_PORT` (int): What port to expose the DB on
+  - `MYSQL_USER` (string): The user that the backend will use to login to the DB 
+  - `MYSQL_DATABASE` (string): The name of the DB that the aapplication will use
+  - `MYSQL_ROOT_PASSWORD` (string): The DB password
   - `SQLALCHEMY_TRACK_MODIFICATIONS` (`True`/`False`): Set to `False` unless you have a really good reason not to
   - `SQLALCHEMY_ECHO` (`True`/`False`): Same here
   - `DEBUG_MODE` (`True`/`False`): As a rule of thumb, `True` for development, `False` for production
@@ -24,8 +24,8 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `IEX_API_PRODUCTION` (True/False): Always False for development! Otherwise you'll consume paid price data from IEX when developing locally.
   - `IEX_API_SECRET_PROD` (string): IEX production API secret
   - `IEX_API_SECRET_SANDBOX` (string): IEX sandbox API secret
-  - `RABBITMQ_USER` (string): Username for rabbitmq task broker
-  - `RABBITMQ_PASS` (string): Password for rabbitmq task broker
+  - `RABBITMQ_DEFAULT_USER` (string): Username for rabbitmq task broker
+  - `RABBITMQ_DEFAULT_PASS` (string): Password for rabbitmq task broker
   - `RABBITMQ_HOST` (string): Host for rabbitmq task broker
   - `REDIS_HOST` (string): Host for the redis caching layer
 * To use the frontend with SSL locally, paste `chrome://flags/#allow-insecure-localhost` into your Google Chrome url. Just be careful: you may want to turn this back on at some point.

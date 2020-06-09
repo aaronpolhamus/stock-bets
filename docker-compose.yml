@@ -4,19 +4,16 @@ services:
   db:
     image: mysql
     container_name: db
-    environment:
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
+    env_file:
+      - backend/.env
     ports:
       - 3306:3306
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    env_file:
+      - backend/.env
     ports:
       - 5672:5672
       - 15672:15672
@@ -80,7 +77,7 @@ services:
     container_name: flower
     image: mher/flower
     environment:
-      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:5672
       - FLOWER_PORT=5555
     ports:
       - 5555:5555
