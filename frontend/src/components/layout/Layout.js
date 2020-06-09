@@ -94,7 +94,7 @@ const Layout = ({ children }) => (
 
 //Section Component
 const PageSection = styled.section`
-  margin-bottom: 4rem;
+  margin-bottom: var(--space-600);
 `;
 
 export {
