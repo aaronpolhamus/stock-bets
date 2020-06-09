@@ -261,9 +261,7 @@ def respond_to_game_invite():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     decision = request.json.get("decision")
-    res = async_respond_to_game_invite.delay(game_id, user_id, decision)
-    while not res.ready():
-        continue
+    async_respond_to_game_invite.apply(args=[game_id, user_id, decision])
     return make_response(GAME_RESPONSE_MSG, 200)
 
 
@@ -271,10 +269,8 @@ def respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-    res = async_get_user_responses_for_pending_game.delay(game_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    res = async_get_user_responses_for_pending_game.apply(args=[game_id])
+    return jsonify(res.result)
 
 # --------------------------- #
 # Order management and prices #
@@ -320,7 +316,7 @@ def place_order():
     order_ticket = request.json
     game_id = order_ticket["game_id"]
     stop_limit_price = order_ticket.get("stop_limit_price")
-    res = async_place_order.delay(
+    async_place_order.apply(args=[
         user_id,
         game_id,
         order_ticket["symbol"],
@@ -330,10 +326,8 @@ def place_order():
         order_ticket["market_price"],
         order_ticket["amount"],
         order_ticket["time_in_force"],
-        stop_limit_price
+        stop_limit_price]
     )
-    while not res.ready():
-        continue
 
     open_orders_res = async_serialize_open_orders.delay(game_id, user_id)
     balances_res = async_serialize_current_balances.delay(game_id, user_id)

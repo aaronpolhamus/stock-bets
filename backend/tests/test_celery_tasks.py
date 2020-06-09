@@ -327,7 +327,7 @@ class TestGameIntegration(BaseTestCase):
                 None
             ])
 
-            original_amzn_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
+            original_amzn_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             expected_quantity = int(order_quantity / amzn_price)
             expected_cost = expected_quantity * amzn_price
@@ -366,7 +366,7 @@ class TestGameIntegration(BaseTestCase):
                 miguel_order["time_in_force"],
                 None
             ])
-            original_meli_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
+            original_meli_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
             miguel_cash = DEFAULT_VIRTUAL_CASH - order_quantity * meli_price
@@ -406,7 +406,7 @@ class TestGameIntegration(BaseTestCase):
                 toofast_order["time_in_force"],
                 toofast_order["stop_limit_price"]
             ])
-            updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
+            updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
@@ -465,7 +465,7 @@ class TestGameIntegration(BaseTestCase):
                 self.db_session.remove()
 
             async_process_single_order.apply(args=[open_order_id])
-            updated_holding = get_current_stock_holding(self.db_session, user_id, game_id, stock_pick)
+            updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
             self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
@@ -561,7 +561,7 @@ class TestGameIntegration(BaseTestCase):
 
             test_user_id = 1
             test_user_stock = "AMZN"
-            updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
+            updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
             shares_sold = int(250_000 / amzn_clear_price)
@@ -572,7 +572,7 @@ class TestGameIntegration(BaseTestCase):
 
             test_user_id = 4
             test_user_stock = "MELI"
-            updated_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, test_user_stock)
+            updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
             shares_sold = miguel_order["amount"]

@@ -2,6 +2,7 @@
 """
 import os
 
+from backend.database.db import db_session
 from sqlalchemy import create_engine, MetaData
 from config import Config
 
@@ -38,7 +39,7 @@ def orm_rows_to_dict(row):
     return {name: row.value(name) for name in column_names}
 
 
-def table_updater(db_session, table_orm, **kwargs):
+def table_updater(table_orm, **kwargs):
     """Generic wrapper for updating data tables. kwargs are key-value pairings that map to columns in the table
     """
     with db_session.connection() as conn:

@@ -11,6 +11,9 @@ A few important things about this test:
   API server is blocked with with an input() confirmation, allowing you to keep the frontend open and see the impact of
   different user actions.
 """
+import json
+import time
+
 from backend.config import Config
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
@@ -18,6 +21,8 @@ from backend.database.helpers import (
     retrieve_meta_data,
     orm_rows_to_dict
 )
+from backend.logic.friends import get_user_details_from_ids
+from backend.logic.games import get_invite_list_by_status
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
@@ -88,6 +93,10 @@ if __name__ == '__main__':
         assert friend_count == 4
         btc.db_session.remove()
 
+    # make sure that from johnnie's perspective he doesn't have any outstandnig friend invites left
+    res = btc.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites", cookies={"session_token": johnnie_token}, verify=False)
+    assert len(res.json()) == 0
+
     game_settings = {
         "title": "test",
         "mode": "winner_takes_all",
@@ -113,12 +122,41 @@ if __name__ == '__main__':
     games = retrieve_meta_data(btc.db_session.connection()).tables["games"]
     row = btc.db_session.query(games).filter(games.c.id == 1)
     game_entry = orm_rows_to_dict(row)
-    for k, v in game_entry.items():
-        assert game_settings[k] == v
+    for k, v in game_settings.items():
+        if k == "invitees":
+            continue
+        assert game_entry[k] == v
+
+    game_status = retrieve_meta_data(btc.db_session.connection()).tables["game_status"]
+    row = btc.db_session.query(game_status).filter(game_status.c.game_id == 1)
+    game_entry = orm_rows_to_dict(row)
+    user_id_list = json.loads(game_entry["users"])
+    details = get_user_details_from_ids(user_id_list)
+    assert set([x["username"] for x in details]) == {"cheetos", "miguel", "toofast", "jack", "jadis"}
 
     input("""
     Great, we've got the game on the board. jadis, jack, and miguel are going to play, toofast is going to bow out of 
-    this round.
+    this round. Hit any key to continue. 
     """)
+    btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": jadis_token},
+                              json={"game_id": 1, "decision": "joined"}, verify=False)
+    btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": jack_token},
+                              json={"game_id": 1, "decision": "joined"}, verify=False)
+    btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
+                              json={"game_id": 1, "decision": "joined"}, verify=False)
+    btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": toofast_token},
+                              json={"game_id": 1, "decision": "declined"}, verify=False)
+    accepted_invite_user_ids = get_invite_list_by_status(1, "joined")
+    details = get_user_details_from_ids(accepted_invite_user_ids)
+    import ipdb;ipdb.set_trace()
+    assert set([x["username"] for x in details]) == {"cheetos", "miguel", "jack", "jadis"}
 
+    # We'll make sure that, from toofast's perspective, he doesn't have any pending game invites left
+    res = btc.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": 1},
+                                    cookies={"session_token": toofast_token}, verify=False)
+    assert len(res.json()) == 0
+
+    input("""
+    We got a game! Time to put in our first order.
+    """)
     btc.tearDown()

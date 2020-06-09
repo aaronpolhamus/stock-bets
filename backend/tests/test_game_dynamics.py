@@ -54,20 +54,20 @@ class TestGameLogic(BaseTestCase):
             "NVDA": 8
         }
 
-        test_amzn_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "AMZN")
+        test_amzn_holding = get_current_stock_holding(test_user_id, game_id, "AMZN")
         self.assertEqual(test_amzn_holding, expctd["AMZN"])
-        test_tsla_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "TSLA")
+        test_tsla_holding = get_current_stock_holding(test_user_id, game_id, "TSLA")
         self.assertEqual(test_tsla_holding, expctd["TSLA"])
-        test_lyft_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "LYFT")
+        test_lyft_holding = get_current_stock_holding(test_user_id, game_id, "LYFT")
         self.assertEqual(test_lyft_holding, expctd["LYFT"])
-        test_spxu_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "SPXU")
+        test_spxu_holding = get_current_stock_holding(test_user_id, game_id, "SPXU")
         self.assertEqual(test_spxu_holding, expctd["SPXU"])
-        test_nvda_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "NVDA")
+        test_nvda_holding = get_current_stock_holding(test_user_id, game_id, "NVDA")
         self.assertEqual(test_nvda_holding, expctd["NVDA"])
-        test_jpm_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "JPM")
+        test_jpm_holding = get_current_stock_holding(test_user_id, game_id, "JPM")
         self.assertEqual(test_jpm_holding, 0)
 
-        all_test_user_holdings = get_all_current_stock_holdings(self.db_session, test_user_id, game_id)
+        all_test_user_holdings = get_all_current_stock_holdings(test_user_id, game_id)
         self.assertEqual(len(all_test_user_holdings), len(expctd))
         for stock, holding in all_test_user_holdings.items():
             self.assertEqual(expctd[stock], holding)
@@ -75,7 +75,7 @@ class TestGameLogic(BaseTestCase):
         # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
         # all games on the platform
         expected = [9, 10]
-        all_open_orders = get_all_open_orders(self.db_session)
+        all_open_orders = get_all_open_orders()
         self.assertEqual(len(expected), len(all_open_orders))
 
         with self.db_session.connection() as conn:
@@ -91,7 +91,7 @@ class TestGameLogic(BaseTestCase):
         # the ways that an order ticket can be invalid
         test_user_id = 4
         game_id = 3
-        meli_holding = get_current_stock_holding(self.db_session, test_user_id, game_id, "MELI")
+        meli_holding = get_current_stock_holding(test_user_id, game_id, "MELI")
         current_cash_balance = get_current_game_cash_balance(test_user_id, game_id)
 
         self.assertEqual(meli_holding, 107)
@@ -272,10 +272,10 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(active_symbols, expected_symbols)
 
         game_id = 1
-        open_game_ids = get_open_game_invite_ids(self.db_session)
+        open_game_ids = get_open_game_invite_ids()
         self.assertEqual(open_game_ids, [1, 2, 5])
 
-        service_open_game(self.db_session, game_id)
+        service_open_game(game_id)
         game_status = self.meta.tables["game_status"]
         row = self.db_session.query(game_status).filter(
             game_status.c.game_id == game_id, game_status.c.status == "active")
@@ -297,7 +297,7 @@ class TestGameLogic(BaseTestCase):
             self.db_session.remove()
 
         game_id = 2
-        service_open_game(self.db_session, game_id)
+        service_open_game(game_id)
         game_status = self.meta.tables["game_status"]
         row = self.db_session.query(game_status).filter(
             game_status.c.game_id == 2, game_status.c.status == "expired")
@@ -343,9 +343,8 @@ class TestGameLogic(BaseTestCase):
                               "title": "test game"}
 
             current_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
-            place_order(self.db_session,
-                        user_id,
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
                         game_id,
                         mock_buy_order["symbol"],
                         mock_buy_order["buy_or_sell"],
@@ -358,7 +357,7 @@ class TestGameLogic(BaseTestCase):
                         mock_buy_order["time_in_force"])
 
             new_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance - mock_buy_order["market_price"], 2)
             self.assertEqual(current_holding, mock_buy_order["amount"])
 
@@ -385,9 +384,8 @@ class TestGameLogic(BaseTestCase):
                                "title": "test game"}
 
             current_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
-            place_order(self.db_session,
-                        user_id,
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
                         game_id,
                         mock_sell_order["symbol"],
                         mock_sell_order["buy_or_sell"],
@@ -400,6 +398,6 @@ class TestGameLogic(BaseTestCase):
                         mock_sell_order["time_in_force"])
 
             new_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(self.db_session, user_id, game_id, buy_stock)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])

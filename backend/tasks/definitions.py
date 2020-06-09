@@ -10,6 +10,12 @@ from backend.logic.base import (
     get_user_information,
     get_current_game_cash_balance
 )
+from backend.logic.friends import (
+    suggest_friends,
+    get_user_details_from_ids,
+    get_friend_ids,
+    get_friend_invite_ids
+)
 from backend.logic.games import (
     get_user_responses_for_pending_game,
     get_current_stock_holding,
@@ -30,6 +36,9 @@ from backend.logic.games import (
     get_game_info_for_user,
     DEFAULT_INVITE_OPEN_WINDOW
 )
+from backend.logic.payouts import (
+    calculate_and_pack_metrics
+)
 from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price,
@@ -44,15 +53,6 @@ from backend.logic.visuals import (
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
     make_the_field_charts
-)
-from backend.logic.payouts import (
-    calculate_and_pack_metrics
-)
-from backend.logic.friends import (
-    suggest_friends,
-    get_user_details_from_ids,
-    get_friend_ids,
-    get_friend_invite_ids
 )
 from backend.tasks.celery import (
     celery,
@@ -105,7 +105,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
         prices = retrieve_meta_data(db_session.connection()).tables["prices"]
-        table_updater(db_session, prices, symbol=symbol, price=price, timestamp=last_updated)
+        table_updater(prices, symbol=symbol, price=price, timestamp=last_updated)
 
 
 # --------------- #
@@ -125,7 +125,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
 
     metadata = retrieve_meta_data(db_session.connection())
     games = metadata.tables["games"]
-    result = table_updater(db_session, games,
+    result = table_updater(games,
                            creator_id=creator_id,
                            title=title,
                            mode=mode,
@@ -137,11 +137,11 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
                            side_bets_period=side_bets_period,
                            invite_window=invite_window)
     game_id = result.inserted_primary_key[0]
-    invited_ids = translate_usernames_to_ids(db_session, tuple(invitees))
+    invited_ids = translate_usernames_to_ids(tuple(invitees))
     user_ids = invited_ids + [creator_id]
 
-    create_pending_game_status_entry(db_session, game_id, user_ids, opened_at)
-    create_game_invites_entries(db_session, game_id, creator_id, user_ids, opened_at)
+    create_pending_game_status_entry(game_id, user_ids, opened_at)
+    create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 
 
 @celery.task(name="async_respond_to_game_invite", bind=True, base=SqlAlchemyTask)
@@ -150,18 +150,19 @@ def async_respond_to_game_invite(self, game_id, user_id, status):
     response_time = time.time()
     metadata = retrieve_meta_data(db_session.connection())
     game_invites = metadata.tables["game_invites"]
-    table_updater(db_session, game_invites,
+    table_updater(game_invites,
                   game_id=game_id,
                   user_id=user_id,
                   status=status,
                   timestamp=response_time)
+    db_session.commit()
     # Check to see if we everyone has either joined or declined and whether we can start the game early
-    start_game_if_all_invites_responded(db_session, game_id)
+    start_game_if_all_invites_responded(game_id)
 
 
 @celery.task(name="async_service_open_games", bind=True, base=SqlAlchemyTask)
 def async_service_open_games(self):
-    open_game_ids = get_open_game_invite_ids(db_session)
+    open_game_ids = get_open_game_invite_ids()
     status_list = []
     for game_id in open_game_ids:
         status_list.append(async_service_one_open_game.delay(game_id))
@@ -170,7 +171,7 @@ def async_service_open_games(self):
 
 @celery.task(name="async_service_one_open_game", bind=True, base=SqlAlchemyTask)
 def async_service_one_open_game(self, game_id):
-    service_open_game(db_session, game_id)
+    service_open_game(game_id)
 
 
 @celery.task(name="async_get_game_info", bind=True, base=SqlAlchemyTask)
@@ -181,6 +182,7 @@ def async_get_game_info(self, game_id):
 @celery.task(name="async_get_game_info_for_user", bind=True, base=SqlAlchemyTask)
 def async_get_game_info_for_user(self, user_id):
     return get_game_info_for_user(user_id)
+
 
 # ---------------- #
 # Order management #
@@ -226,43 +228,41 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
     """
     # extract relevant data
     cash_balance = get_current_game_cash_balance(user_id, game_id)
-    current_holding = get_current_stock_holding(db_session, user_id, game_id, symbol)
+    current_holding = get_current_stock_holding(user_id, game_id, symbol)
 
-    place_order(db_session, user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding,
-                order_type, quantity_type, market_price,
-                float(amount), time_in_force, stop_limit_price)
+    place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
+                market_price, float(amount), time_in_force, stop_limit_price)
 
 
 @celery.task(name="async_process_single_order", base=SqlAlchemyTask)
 def async_process_single_order(order_id):
     timestamp = time.time()
-    if get_order_expiration_status(db_session, order_id):
+    if get_order_expiration_status(order_id):
         order_status = retrieve_meta_data(db_session.connection()).tables["order_status"]
-        table_updater(db_session, order_status, order_id=order_id, timestamp=timestamp, status="expired",
-                      clear_price=None)
+        table_updater(order_status, order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
-    order_ticket = get_order_ticket(db_session, order_id)
+    order_ticket = get_order_ticket(order_id)
     symbol = order_ticket["symbol"]
     res = async_fetch_price.delay(symbol)
     while not res.ready():
         continue
 
     market_price, _ = res.results
-    process_order(db_session, order_ticket["game_id"], order_ticket["user_id"], symbol, order_id,
-                  order_ticket["buy_or_sell"], order_ticket["order_type"], order_ticket["price"], market_price,
-                  order_ticket["quantity"], timestamp)
+    process_order(order_ticket["game_id"], order_ticket["user_id"], symbol, order_id, order_ticket["buy_or_sell"],
+                  order_ticket["order_type"], order_ticket["price"], market_price, order_ticket["quantity"], timestamp)
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=SqlAlchemyTask)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
-    open_orders = get_all_open_orders(db_session)
+    open_orders = get_all_open_orders()
     status_list = []
     for order_id, expiration in open_orders:
         status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
+
 
 # ------- #
 # Friends #
@@ -276,8 +276,7 @@ def async_invite_friend(self, requester_id, invited_username):
     """
     invited_id = get_user_id(invited_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
-    table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status="invited",
-                  timestamp=time.time())
+    table_updater(friends, requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
 @celery.task(name="async_respond_to_friend_invite", bind=True, base=SqlAlchemyTask)
@@ -287,8 +286,7 @@ def async_respond_to_friend_invite(self, requester_username, invited_id, decisio
     """
     requester_id = get_user_id(requester_username)
     friends = retrieve_meta_data(db_session.connection()).tables["friends"]
-    table_updater(db_session, friends, requester_id=requester_id, invited_id=invited_id, status=decision,
-                  timestamp=time.time())
+    table_updater(friends, requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
 
 @celery.task(name="async_get_friends_details", bind=True, base=SqlAlchemyTask)
@@ -351,11 +349,11 @@ def async_make_the_field_charts(self, game_id):
 
 @celery.task(name="async_update_play_game_visuals", bind=True, base=SqlAlchemyTask)
 def async_update_play_game_visuals(self):
-    open_game_ids = get_active_game_ids(db_session)
+    open_game_ids = get_active_game_ids()
     task_results = []
     for game_id in open_game_ids:
         task_results.append(async_make_the_field_charts.delay(game_id))
-        user_ids = get_all_game_users(db_session, game_id)
+        user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
@@ -375,10 +373,10 @@ def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_da
 def async_update_player_stats(self):
     """This task calculates game-level metrics for all players in all games, caching those metrics to redis
     """
-    open_game_ids = get_active_game_ids(db_session)
+    open_game_ids = get_active_game_ids()
     task_results = []
     for game_id in open_game_ids:
-        user_ids = get_all_game_users(db_session, game_id)
+        user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
     pause_return_until_subtask_completion(task_results, "async_update_player_stats")

@@ -115,7 +115,7 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
 def make_the_field_charts(game_id: int):
     """For each user in a game iterate through and make a chart that breaks out the value of their different positions
     """
-    user_ids = get_all_game_users(db_session, game_id)
+    user_ids = get_all_game_users(game_id)
     portfolio_values = {}
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
@@ -196,7 +196,7 @@ def serialize_and_pack_current_balances(game_id: int, user_id: int):
 # ----- #
 
 def compile_and_pack_player_sidebar_stats(game_id: int):
-    user_ids = get_all_game_users(db_session, game_id)
+    user_ids = get_all_game_users(game_id)
     records = []
     for user_id in user_ids:
         balances = get_active_balances(game_id, user_id)
