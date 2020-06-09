@@ -40,9 +40,22 @@ h1 {
     border-bottom: 2px solid var(--color-primary-darken);
   }
 }
-.btn + .btn {
-  margin-left: 0.5em;
+
+.btn {
+  & + & {
+    margin-left: 0.5em;
+  }
+  &-link {
+    color: inherit;
+    font-size: inherit;
+    padding: 0;
+    &:hover {
+      color: inherit;
+      text-decoration: underline;
+    }
+  }
 }
+
 .modal-footer.centered {
   justify-content: center;
 }

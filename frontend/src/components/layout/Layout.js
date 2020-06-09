@@ -1,9 +1,10 @@
 import React from "react";
 import styled from "styled-components";
+import { Container, Row } from "react-bootstrap";
 
 //Global Layout Component
-const Layout = styled.div`
-  display: ${(props) => props.type || "flex"};
+const StyledContainer = styled(Container)`
+  padding: 0;
 `;
 
 //Sidebar Component
@@ -11,11 +12,14 @@ const SidebarWrapper = styled.div`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   padding: 2rem;
-  width: 320px;
+  max-width: 320px;
+  width: 100%;
   flex-shrink: 0;
   box-sizing: border-box;
   min-height: 100vh;
   border-radius: 0 1rem 0 0;
+  box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
+    2px 2px 3px rgba(61, 50, 106, 0.3);
 `;
 
 const SmallColumnWrapper = styled.div`
@@ -80,6 +84,12 @@ const Sidebar = ({ children }) => (
 
 const SmallColumn = ({ children }) => (
   <SmallColumnWrapper>{children}</SmallColumnWrapper>
+);
+
+const Layout = ({ children }) => (
+  <StyledContainer fluid>
+    <Row noGutters>{children}</Row>
+  </StyledContainer>
 );
 
 //Section Component

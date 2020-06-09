@@ -9,6 +9,7 @@ import {
   Sidebar,
   Content,
   Header,
+  PageSection,
   Breadcrumb,
 } from "components/layout/Layout";
 import { UserMiniCard } from "components/users/UserMiniCard";
@@ -80,13 +81,14 @@ const Home = () => {
         entry.invite_status === inviteStatus &&
         entry.invite_status === "invited"
       ) {
+        console.log(entry);
         return (
           <div key={index}>
             <Invitation to={{ pathname: `join/${entry.game_id}` }}>
               <span>
                 <Icon.UserCheck color="var(--color-terciary)" size={16} />
               </span>
-              <span> [username] invited you to </span>
+              <span> {`${entry.creator_username} invited you to `}</span>
               <strong> {entry.title}</strong>
             </Invitation>
           </div>
@@ -131,17 +133,19 @@ const Home = () => {
         <FriendsList />
       </Sidebar>
       <Content>
-        <Breadcrumb justifyContent="flex-end">
-          <Button variant="link" onClick={Logout}>
-            Logout
-          </Button>
-        </Breadcrumb>
-        <Header>
-          <h1>Games</h1>
-          <Button variant="success" href="/new">
-            Make a new game
-          </Button>
-        </Header>
+        <PageSection>
+          <Breadcrumb justifyContent="flex-end">
+            <Button variant="link" onClick={Logout}>
+              Logout
+            </Button>
+          </Breadcrumb>
+          <Header>
+            <h1>Games</h1>
+            <Button variant="success" href="/new">
+              Make a new game
+            </Button>
+          </Header>
+        </PageSection>
         <GameList>
           {data.game_info && pendingListBuilder(data.game_info, "invited")}
         </GameList>
