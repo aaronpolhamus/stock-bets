@@ -12,9 +12,9 @@ const SidebarWrapper = styled.div`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   padding: 2rem;
-  max-width: 320px;
-  width: 100%;
+  flex-basis: ${(props) => (props.size === "small" ? "170px" : "320px")};
   flex-shrink: 0;
+  flex-grow: 0;
   box-sizing: border-box;
   min-height: 100vh;
   border-radius: 0 1rem 0 0;
@@ -74,8 +74,17 @@ const SidebarSection = styled.div`
   margin-bottom: var(--space-500);
 `;
 
-const Sidebar = ({ children }) => (
-  <SidebarWrapper>
+const FlexContainer = styled.div`
+  display: flex;
+`;
+
+//Section Component
+const PageSection = styled.section`
+  margin-bottom: var(--space-600);
+`;
+
+const Sidebar = ({ children, size }) => (
+  <SidebarWrapper size={size}>
     <Logo href="/">Stockbets</Logo>
 
     {children}
@@ -88,14 +97,9 @@ const SmallColumn = ({ children }) => (
 
 const Layout = ({ children }) => (
   <StyledContainer fluid>
-    <Row noGutters>{children}</Row>
+    <FlexContainer noGutters>{children}</FlexContainer>
   </StyledContainer>
 );
-
-//Section Component
-const PageSection = styled.section`
-  margin-bottom: var(--space-600);
-`;
 
 export {
   Layout,

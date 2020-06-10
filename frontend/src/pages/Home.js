@@ -86,7 +86,11 @@ const Home = () => {
           <div key={index}>
             <Invitation to={{ pathname: `join/${entry.game_id}` }}>
               <span>
-                <Icon.UserCheck color="var(--color-terciary)" size={16} />
+                <Icon.PlusCircle
+                  color="var(--color-terciary)"
+                  size={16}
+                  style={{ marginTop: "-2px" }}
+                />
               </span>
               <span> {`${entry.creator_username} invited you to `}</span>
               <strong> {entry.title}</strong>
@@ -136,7 +140,7 @@ const Home = () => {
         <PageSection>
           <Breadcrumb justifyContent="flex-end">
             <Button variant="link" onClick={Logout}>
-              Logout
+              <Icon.LogOut size={14} style={{ marginTop: "-3px" }} /> Logout
             </Button>
           </Breadcrumb>
           <Header>
