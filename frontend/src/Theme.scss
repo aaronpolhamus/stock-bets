@@ -9,7 +9,7 @@ $color-light-gray: #f0efed;
 $color-text-primary: #1d1b23;
 $color-text-gray: #7f7192;
 $color-text-light-gray: #abaac6;
-$color-success: #6bb77b;
+$color-success: #3fa46d;
 
 :root {
   --color-primary: #{$color-primary};
@@ -52,6 +52,7 @@ $theme-colors: (
   "primary": $color-primary,
   "secondary": $color-secondary,
   "info": #efefef,
+  "success": $color-success,
 );
 
 $h1-font-size: 3rem;
