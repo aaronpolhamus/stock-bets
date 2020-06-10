@@ -79,8 +79,6 @@ const PlayGameStats = ({ gameId }) => {
   useEffect(() => {
     getGameData();
   }, [gameId]);
-
-  console.log(statData);
   return (
     <div>
       <FieldHeader>
