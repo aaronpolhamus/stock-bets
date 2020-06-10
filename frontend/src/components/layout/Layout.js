@@ -1,9 +1,10 @@
 import React from "react";
 import styled from "styled-components";
+import { Container, Row } from "react-bootstrap";
 
 //Global Layout Component
-const Layout = styled.div`
-  display: ${(props) => props.type || "flex"};
+const StyledContainer = styled(Container)`
+  padding: 0;
 `;
 
 //Sidebar Component
@@ -11,11 +12,14 @@ const SidebarWrapper = styled.div`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   padding: 2rem;
-  width: 320px;
+  flex-basis: ${(props) => (props.size === "small" ? "170px" : "320px")};
   flex-shrink: 0;
+  flex-grow: 0;
   box-sizing: border-box;
   min-height: 100vh;
   border-radius: 0 1rem 0 0;
+  box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
+    2px 2px 3px rgba(61, 50, 106, 0.3);
 `;
 
 const SmallColumnWrapper = styled.div`
@@ -33,7 +37,7 @@ const Logo = styled.a`
   font-weight: bold;
   color: var(--color-lightest);
   display: block;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.2rem;
   &:hover {
     color: inherit;
     text-decoration: none;
@@ -70,8 +74,17 @@ const SidebarSection = styled.div`
   margin-bottom: var(--space-500);
 `;
 
-const Sidebar = ({ children }) => (
-  <SidebarWrapper>
+const FlexContainer = styled.div`
+  display: flex;
+`;
+
+//Section Component
+const PageSection = styled.section`
+  margin-bottom: var(--space-600);
+`;
+
+const Sidebar = ({ children, size }) => (
+  <SidebarWrapper size={size}>
     <Logo href="/">Stockbets</Logo>
 
     {children}
@@ -82,10 +95,11 @@ const SmallColumn = ({ children }) => (
   <SmallColumnWrapper>{children}</SmallColumnWrapper>
 );
 
-//Section Component
-const PageSection = styled.section`
-  margin-bottom: 4rem;
-`;
+const Layout = ({ children }) => (
+  <StyledContainer fluid>
+    <FlexContainer noGutters>{children}</FlexContainer>
+  </StyledContainer>
+);
 
 export {
   Layout,

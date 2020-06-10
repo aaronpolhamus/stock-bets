@@ -6,6 +6,7 @@ import {
   Sidebar,
   Content,
   Breadcrumb,
+  PageSection,
   Header,
 } from "components/layout/Layout";
 
@@ -14,12 +15,14 @@ const NewGame = () => {
     <Layout>
       <Sidebar size="small" />
       <Content>
-        <Breadcrumb>
-          <Link to="/">&lt; Dashboard</Link>
-        </Breadcrumb>
-        <Header>
-          <h1>New Game</h1>
-        </Header>
+        <PageSection>
+          <Breadcrumb>
+            <Link to="/">&lt; Dashboard</Link>
+          </Breadcrumb>
+          <Header>
+            <h1>New Game</h1>
+          </Header>
+        </PageSection>
         <MakeGame />
       </Content>
     </Layout>

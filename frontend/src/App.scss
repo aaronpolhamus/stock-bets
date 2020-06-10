@@ -17,6 +17,7 @@ h1 {
   padding-left: 2rem;
 }
 
+//Tabs
 .nav-tabs {
   border: none;
   .nav-link {
@@ -40,13 +41,29 @@ h1 {
     border-bottom: 2px solid var(--color-primary-darken);
   }
 }
-.btn + .btn {
-  margin-left: 0.5em;
+
+//Buttons
+.btn {
+  & + & {
+    margin-left: 0.5em;
+  }
+  &-link {
+    color: inherit;
+    font-size: inherit;
+    padding: 0;
+    &:hover {
+      color: inherit;
+      text-decoration: underline;
+    }
+  }
 }
+
+//Modals
 .modal-footer.centered {
   justify-content: center;
 }
 
+//Table
 .table {
   margin-top: var(--space-400);
   thead th {
@@ -68,6 +85,7 @@ h1 {
   }
 }
 
+// Autosuggest
 .react-autosuggest__container {
   position: relative;
 }
@@ -123,6 +141,15 @@ h1 {
 
 .react-autosuggest__suggestion--highlighted {
   background-color: #ddd;
+}
+
+//Forms
+.form-label {
+  text-transform: uppercase;
+  font-size: var(--font-size-min);
+  letter-spacing: var(--letter-spacing-smallcaps);
+  font-weight: bold;
+  color: var(--color-text-gray);
 }
 
 @media (prefers-reduced-motion: no-preference) {
