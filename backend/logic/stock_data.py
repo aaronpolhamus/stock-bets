@@ -22,6 +22,14 @@ IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
 
+# Exceptions
+# ----------
+class SeleniumDriverError(Exception):
+
+    def __str__(self):
+        return "It looks like the selenium web driver failed to instantiate properly"
+
+
 def during_trading_day():
     posix_time = time.time()
     nyc_time = posix_to_datetime(posix_time)

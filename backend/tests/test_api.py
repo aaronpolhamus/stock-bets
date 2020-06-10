@@ -11,7 +11,11 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.database.helpers import orm_rows_to_dict
+from backend.database.fixtures.mock_data import refresh_table
+from backend.database.helpers import (
+    reset_db,
+    orm_rows_to_dict
+)
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
@@ -564,3 +568,20 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(len(res.json()["game_info"]), 2)
         for game_entry in res.json()["game_info"]:
             self.assertEqual(game_entry["invite_status"], "joined")
+
+    def test_home_first_landing(self):
+        reset_db()
+        rds.flushall()
+        refresh_table("users")
+
+        user_id = 1
+        user_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        username = "cheetos"
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": user_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["email"], Config.TEST_CASE_EMAIL)
+        self.assertEqual(data["game_info"], [])
+        self.assertEqual(data["id"], user_id)
+        self.assertEqual(data["username"], username)
