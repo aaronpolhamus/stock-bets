@@ -1,11 +1,9 @@
-import calendar
 from datetime import datetime as dt, timedelta
 import sys
 import time
 
 import pandas as pd
-import pandas_market_calendars as mcal
-import pytz
+
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -14,28 +12,14 @@ from selenium.webdriver.support import expected_conditions as EC
 
 from backend.tasks.redis import rds
 from backend.config import Config
+from backend.logic.base import (
+    posix_to_datetime,
+    nyse,
+    get_schedule_start_and_end
+)
 
-TIMEZONE = 'America/New_York'
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
-SECONDS_IN_A_TRADING_DAY = 6.5 * 60 * 60
-PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
-
-nyse = mcal.get_calendar('NYSE')
-
-
-def posix_to_datetime(ts, divide_by=1, timezone=TIMEZONE):
-    utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
-    tz = pytz.timezone(timezone)
-    return utc_dt.astimezone(tz)
-
-
-def datetime_to_posix(localized_date):
-    return calendar.timegm(localized_date.utctimetuple())
-
-
-def get_schedule_start_and_end(schedule):
-    return [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
 
 
 def during_trading_day():
@@ -56,16 +40,6 @@ def get_next_trading_day_schedule(current_day: dt):
         current_day += timedelta(days=1)
         schedule = nyse.schedule(current_day, current_day)
     return schedule
-
-
-def get_end_of_last_trading_day():
-    current_day = posix_to_datetime(time.time())
-    schedule = nyse.schedule(current_day, current_day)
-    while schedule.empty:
-        current_day -= timedelta(days=1)
-        schedule = nyse.schedule(current_day, current_day)
-    _, end_day = get_schedule_start_and_end(schedule)
-    return end_day
 
 
 # Selenium web scraper for keeping exchange symbols up to date

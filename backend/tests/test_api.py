@@ -2,6 +2,7 @@ import json
 import time
 
 import jwt
+import pandas as pd
 from backend.api.routes import (
     INVALID_SIGNATURE_ERROR_MSG,
     LOGIN_ERROR_MSG,
@@ -22,7 +23,8 @@ from backend.logic.games import (
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
-    DEFAULT_INVITE_OPEN_WINDOW
+    DEFAULT_INVITE_OPEN_WINDOW,
+    DEFAULT_VIRTUAL_CASH
 )
 from backend.tasks.definitions import (
     async_fetch_price,
@@ -207,13 +209,15 @@ class TestCreateGame(BaseTestCase):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duation = 365
+        game_invitees = ["miguel", "toofast", "murcitdev"]
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
-            "duration": 365,
+            "duration": game_duation,
             "mode": "winner_takes_all",
             "n_rebuys": 3,
-            "invitees": ["miguel", "toofast", "murcitdev"],
+            "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
@@ -267,6 +271,35 @@ class TestCreateGame(BaseTestCase):
             self.db_session.remove()
         lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
+
+        # murcitdev and toofast will accept, miguel will decline
+        miguel_token = self.make_test_token_from_email("mike@example.test")
+        toofast_token = self.make_test_token_from_email("eddie@example.test")
+        murcitdev_token = self.make_test_token_from_email("eli@example.test")
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": murcitdev_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": toofast_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
+                                   json={"game_id": game_id, "decision": "declined"}, verify=False)
+
+        # since all players have responded to the game invite it should have kicked off automatically. Check that: (a)
+        # the three players who are participating have the starting balances that we expect and (b) that we have an
+        # initial game stats entry to render the game card appropriately
+        res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", json={"game_id": game_id},
+                                         cookies={"session_token": session_token})
+        game_stats_entry = res.json()
+        self.assertEqual(game_stats_entry["days_left"], game_duation - 1)
+        self.assertEqual(set([x["username"] for x in game_stats_entry["records"]]), {"murcitdev", "toofast", "cheetos"})
+        sql = """
+            SELECT *
+            FROM game_balances
+            WHERE game_id = %s
+            AND balance_type = 'virtual_cash'
+        """
+        player_cash_balances = pd.read_sql(sql, self.db_session.connection(), params=[game_id])
+        self.assertEqual(player_cash_balances.shape, (3, 8))
+        self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
     def test_pending_game_management(self):
         user_id = 1

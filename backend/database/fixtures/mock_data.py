@@ -5,11 +5,10 @@ from backend.database.db import (
     db_metadata
 )
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import reset_db
 from backend.logic.stock_data import (
     get_schedule_start_and_end,
     nyse,
-    posix_to_datetime,
+    posix_to_datetime
 )
 from backend.tasks.definitions import (
     async_update_play_game_visuals,

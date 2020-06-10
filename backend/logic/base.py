@@ -1,26 +1,67 @@
 """Base business logic that can be shared between multiple modules. This is mainly here to help us avoid circular
 as we build out the logic library.
 """
-
+import calendar
+import json
 import time
+from datetime import datetime as dt, timedelta
+from typing import List
 
 import pandas as pd
-
+import pandas_market_calendars as mcal
+import pytz
 from backend.database.db import db_session, db_metadata
 from backend.database.helpers import orm_rows_to_dict
-from backend.logic.stock_data import (
-    PRICE_CACHING_INTERVAL,
-    get_end_of_last_trading_day,
-    posix_to_datetime,
-    get_schedule_start_and_end,
-    nyse
-)
+from backend.tasks.redis import rds
+
+# -------------------------------- #
+# Managing time and trad schedules #
+# -------------------------------- #
+TIMEZONE = 'America/New_York'
+PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
+nyse = mcal.get_calendar('NYSE')
 
 
-def get_user_information(user_id):
-    users = db_metadata.tables["users"]
-    row = db_session.query(users).filter(users.c.id == user_id)
-    return orm_rows_to_dict(row)
+def datetime_to_posix(localized_date):
+    return calendar.timegm(localized_date.utctimetuple())
+
+
+def get_schedule_start_and_end(schedule):
+    return [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
+
+
+def posix_to_datetime(ts, divide_by=1, timezone=TIMEZONE):
+    utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
+    tz = pytz.timezone(timezone)
+    return utc_dt.astimezone(tz)
+
+
+def get_end_of_last_trading_day():
+    current_day = posix_to_datetime(time.time())
+    schedule = nyse.schedule(current_day, current_day)
+    while schedule.empty:
+        current_day -= timedelta(days=1)
+        schedule = nyse.schedule(current_day, current_day)
+    _, end_day = get_schedule_start_and_end(schedule)
+    return end_day
+
+# ------------ #
+# Game-related #
+# ------------ #
+
+DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+
+
+def get_all_game_users(game_id):
+    with db_session.connection() as conn:
+        result = conn.execute(
+            """
+            SELECT DISTINCT user_id 
+            FROM game_invites WHERE 
+                game_id = %s AND
+                status = 'joined';""", game_id)
+        db_session.remove()
+    return [x[0] for x in result]
 
 
 def get_current_game_cash_balance(user_id, game_id):
@@ -64,6 +105,16 @@ def get_game_end_date(game_id: int):
         db_session.remove()
     return start_time + duration * 24 * 60 * 60
 
+# --------- #
+# User info #
+# --------- #
+
+
+def get_user_information(user_id):
+    users = db_metadata.tables["users"]
+    row = db_session.query(users).filter(users.c.id == user_id)
+    return orm_rows_to_dict(row)
+
 
 def get_user_id(username: str):
     with db_session.connection() as conn:
@@ -90,6 +141,10 @@ def get_profile_pic(user_id: int):
         """, int(user_id)).fetchone()[0]
         db_session.remove()
     return username
+
+# --------------- #
+# Data processing #
+# --------------- #
 
 
 def make_bookend_time():
@@ -128,6 +183,12 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
     balances = add_bookends(balances)
     return balances
+
+
+def make_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
+    balances = get_user_balance_history(game_id, user_id)
+    df = append_price_data_to_balances(balances)
+    return filter_for_trade_time(df)
 
 
 def get_price_histories(symbols):
@@ -229,9 +290,38 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
         df["mask"] = df["mask"] | (df["timestamp"] >= start) & (df["timestamp"] <= end)
     return df[df["mask"]]
 
+# ---------- #
+# Statistics #
+# ---------- #
 
-def make_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
-    balances = get_user_balance_history(game_id, user_id)
-    df = append_price_data_to_balances(balances)
-    return filter_for_trade_time(df)
 
+def make_stat_entry(user_id: int, total_return: float = 1, sharpe_ratio: float = 1, stocks_held: List[str] = None,
+                    cash_balance: float = DEFAULT_VIRTUAL_CASH, portfolio_value: float = DEFAULT_VIRTUAL_CASH):
+    if stocks_held is None:
+        stocks_held = list()
+
+    entry = get_user_information(user_id)
+    entry["total_return"] = total_return
+    entry["sharpe_ratio"] = sharpe_ratio
+    entry["stocks_held"] = stocks_held
+    entry["cash_balance"] = cash_balance
+    entry["portfolio_value"] = portfolio_value
+    return entry
+
+
+def _days_left(game_id: int):
+    seconds_left = get_game_end_date(game_id) - time.time()
+    return int(seconds_left / (24 * 60 * 60))
+
+
+def make_side_bar_output(game_id: int, user_stats: list):
+    return dict(days_left=_days_left(game_id), records=user_stats)
+
+
+def init_sidebar_stats(game_id: int):
+    user_ids = get_all_game_users(game_id)
+    records = []
+    for user_id in user_ids:
+        records.append(make_stat_entry(user_id))
+    output = make_side_bar_output(game_id, records)
+    rds.set(f"sidebar_stats_{game_id}", json.dumps(output))

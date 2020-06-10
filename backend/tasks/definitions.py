@@ -3,9 +3,11 @@ import time
 from backend.database.db import db_session, db_metadata
 from backend.database.helpers import table_updater
 from backend.logic.base import (
+    PRICE_CACHING_INTERVAL,
     get_user_id,
     get_user_information,
-    get_current_game_cash_balance
+    get_current_game_cash_balance,
+    get_all_game_users
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -24,7 +26,6 @@ from backend.logic.games import (
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
-    get_all_game_users,
     service_open_game,
     translate_usernames_to_ids,
     create_pending_game_status_entry,
@@ -40,8 +41,7 @@ from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price,
     during_trading_day,
-    get_all_active_symbols,
-    PRICE_CACHING_INTERVAL
+    get_all_active_symbols
 )
 from backend.logic.visuals import (
     compile_and_pack_player_sidebar_stats,

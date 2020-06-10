@@ -10,10 +10,7 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.stock_data import (
-    fetch_iex_price,
-    PRICE_CACHING_INTERVAL
-)
+from backend.logic.stock_data import fetch_iex_price
 from backend.tasks.definitions import (
     async_update_symbols_table,
     async_fetch_price,
@@ -32,11 +29,11 @@ from backend.tasks.definitions import (
     async_get_friend_invites,
     async_suggest_friends
 )
+from backend.logic.base import PRICE_CACHING_INTERVAL
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
-from backend.tasks.celery import pause_return_until_subtask_completion
 from backend.tests import BaseTestCase
 
 

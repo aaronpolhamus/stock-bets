@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { fetchGameData } from "components/functions/api";
+import { isEmpty, fetchGameData } from "components/functions/api";
 import {
   SimplifiedCurrency,
   AuxiliarText,
@@ -71,21 +71,22 @@ const entryBuilder = (data) => {
 const PlayGameStats = ({ gameId }) => {
   const [statData, setStatData] = useState({});
 
-  useEffect(() => {
-    const getGameData = async () => {
-      const data = await fetchGameData(gameId, "get_sidebar_stats");
-      setStatData(data);
-    };
+  const getGameData = async () => {
+    const data = await fetchGameData(gameId, "get_sidebar_stats");
+    setStatData(data);
+  };
 
+  useEffect(() => {
     getGameData();
   }, [gameId]);
 
+  console.log(statData);
   return (
     <div>
       <FieldHeader>
         <SectionTitle>The Field</SectionTitle>
         <AuxiliarText>
-          {statData.days_left && Math.abs(statData.days_left)} days left
+          {statData.days_left && statData.days_left} days left
         </AuxiliarText>
       </FieldHeader>
       <FieldParticipants>

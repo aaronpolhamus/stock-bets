@@ -2,7 +2,10 @@ import celery
 from celery.schedules import crontab
 
 from backend.database.db import db_session
-from backend.logic.stock_data import TIMEZONE, PRICE_CACHING_INTERVAL
+from backend.logic.base import (
+    TIMEZONE,
+    PRICE_CACHING_INTERVAL
+)
 from backend.config import Config
 
 celery = celery.Celery('tasks',

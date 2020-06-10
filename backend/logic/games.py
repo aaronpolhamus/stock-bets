@@ -24,8 +24,10 @@ from backend.database.models import (
     BuyOrSell,
     TimeInForce)
 from backend.logic.base import (
+    DEFAULT_VIRTUAL_CASH,
     get_current_game_cash_balance,
-    get_username
+    get_username,
+    init_sidebar_stats
 )
 from backend.logic.stock_data import (
     posix_to_datetime,
@@ -46,7 +48,6 @@ DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 24 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
-DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 
 QUANTITY_DEFAULT = "Shares"
@@ -101,18 +102,6 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def get_all_game_users(game_id):
-    with db_session.connection() as conn:
-        result = conn.execute(
-            """
-            SELECT DISTINCT user_id 
-            FROM game_invites WHERE 
-                game_id = %s AND
-                status = 'joined';""", game_id)
-        db_session.remove()
-    return [x[0] for x in result]
-
-
 def get_open_game_invite_ids():
     """This function returns game IDs for the subset of games that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
@@ -238,6 +227,9 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
+
+    # initialize a blank sidebar stats entry
+    init_sidebar_stats(game_id)
 
 
 def close_game(game_id, update_time):

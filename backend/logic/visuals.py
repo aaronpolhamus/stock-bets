@@ -1,23 +1,20 @@
 """Logic for rendering visual asset data and returning to frontend
 """
 import json
-import time
 
 import pandas as pd
 from backend.database.db import db_session
 from backend.logic.base import (
+    posix_to_datetime,
+    get_all_game_users,
     make_balances_and_prices_table,
     get_current_game_cash_balance,
     get_most_recent_prices,
     get_active_balances,
     get_username,
-    get_profile_pic,
     get_portfolio_value,
-    get_game_end_date
-)
-from backend.logic.games import get_all_game_users
-from backend.logic.stock_data import (
-    posix_to_datetime
+    make_stat_entry,
+    make_side_bar_output
 )
 from backend.tasks.redis import rds
 
@@ -182,7 +179,8 @@ def serialize_and_pack_current_balances(game_id: int, user_id: int):
     df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
     df = df.merge(prices, on="symbol", how="left")
     df["timestamp"] = format_posix_times(df["timestamp"])
-    column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price", "price": "Last price", "timestamp": "Updated at"}
+    column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
+                       "price": "Last price", "timestamp": "Updated at"}
     df.rename(columns=column_mappings, inplace=True)
     out_dict = dict(
         data=df.to_dict(orient="records"),
@@ -200,23 +198,12 @@ def compile_and_pack_player_sidebar_stats(game_id: int):
     records = []
     for user_id in user_ids:
         balances = get_active_balances(game_id, user_id)
-        stocks_held = list(balances["symbol"].unique())
-        cash_balance = get_current_game_cash_balance(user_id, game_id)
-        record = dict(
-            user_id=user_id,
-            username=get_username(user_id),
-            profile_pic=get_profile_pic(user_id),
-            total_return=rds.get(f"total_return_{game_id}_{user_id}"),
-            sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"),
-            stocks_held=stocks_held,
-            cash_balance=cash_balance,
-            portfolio_value=get_portfolio_value(game_id, user_id)
-        )
+        record = make_stat_entry(user_id,
+                                 cash_balance=get_current_game_cash_balance(user_id, game_id),
+                                 stocks_held=list(balances["symbol"].unique()),
+                                 total_return=rds.get(f"total_return_{game_id}_{user_id}"),
+                                 sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"),
+                                 portfolio_value=get_portfolio_value(game_id, user_id))
         records.append(record)
-
-    seconds_left = get_game_end_date(game_id) - time.time()
-    output = dict(
-        days_left=int(seconds_left / (24 * 60 * 60)),
-        records=records
-    )
+    output = make_side_bar_output(game_id, records)
     rds.set(f"sidebar_stats_{game_id}", json.dumps(output))

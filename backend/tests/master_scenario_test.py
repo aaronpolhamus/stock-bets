@@ -97,7 +97,7 @@ if __name__ == '__main__':
     assert len(res.json()) == 0
 
     game_settings = {
-        "title": "test",
+        "title": "test game",
         "mode": "winner_takes_all",
         "duration": 90,
         "buy_in": 100,
@@ -132,6 +132,7 @@ if __name__ == '__main__':
     user_id_list = json.loads(game_entry["users"])
     details = get_user_details_from_ids(user_id_list)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "toofast", "jack", "jadis"}
+    btc.db_session.remove()
 
     input("""
     Great, we've got the game on the board. jadis, jack, and miguel are going to play, toofast is going to bow out of 
