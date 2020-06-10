@@ -8,19 +8,22 @@ from backend.logic.base import (
 from backend.logic.stock_data import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
-from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError
+from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
 from sqlalchemy.exc import ResourceClosedError, StatementError
 
 # Sometimes tasks break when they have trouble communicating with an external resource. We'll have those errors and
 # retry the tasks
 DEFAULT_RETRY_DELAY = 3  # (seconds)
+MAX_RETRIES = 10
 RETRY_INVENTORY = (
     PyMySQLOpError,
     SQLAOpError,
     ResourceClosedError,
     StatementError,
     InvalidRequestError,
-    SeleniumDriverError)
+    ProgrammingError,
+    SeleniumDriverError,
+    TypeError)
 
 
 celery = celery.Celery('tasks',
@@ -68,6 +71,7 @@ class BaseTask(celery.Task):
     abstract = True
     autoretry_for = RETRY_INVENTORY
     default_retry_delay = DEFAULT_RETRY_DELAY
+    max_retries = MAX_RETRIES
 
     def on_success(self, retval, task_id, args, kwargs):
         db_session.close()
