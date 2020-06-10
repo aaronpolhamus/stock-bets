@@ -146,7 +146,8 @@ const Home = () => {
           <Header>
             <h1>Games</h1>
             <Button variant="success" href="/new">
-              Make a new game
+              <Icon.PlusCircle size={16} style={{ marginTop: "-3px" }} /> Make a
+              new game
             </Button>
           </Header>
         </PageSection>
