@@ -15,6 +15,7 @@ import { BalancesChart } from "components/charts/BalancesChart";
 import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
 import { GameHeader } from "pages/game/GameHeader";
 import { PlayGameStats } from "components/lists/PlayGameStats";
+import * as Icon from "react-feather";
 
 const PlayGame = (props) => {
   const { gameId } = useParams();
@@ -30,7 +31,11 @@ const PlayGame = (props) => {
       <Content>
         <PageSection>
           <Breadcrumb>
-            <a href="/">&lt; Dashboard</a>
+            <a href="/">
+              {" "}
+              <Icon.ChevronLeft size={14} style={{ marginTop: "-3px" }} />{" "}
+              Dashboard
+            </a>
           </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>

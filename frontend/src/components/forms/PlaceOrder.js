@@ -3,7 +3,7 @@ import api from "services/api";
 import { Row, Col, Button, Form } from "react-bootstrap";
 import Autosuggest from "react-autosuggest";
 import { optionBuilder } from "components/functions/forms";
-import { AuxiliarText } from "components/textComponents/Text";
+import { AuxiliarText, FormFooter } from "components/textComponents/Text";
 
 // request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
@@ -220,10 +220,11 @@ const PlaceOrder = ({ gameId }) => {
             optionBuilder(gameInfo.time_in_force_options)}
         </Form.Control>
       </Form.Group>
-
-      <Button variant="primary" type="submit">
-        Submit {orderTicket.buy_or_sell === "buy" ? "Buy" : "Sell"} Order
-      </Button>
+      <FormFooter>
+        <Button variant="primary" type="submit">
+          Submit {orderTicket.buy_or_sell === "buy" ? "Buy" : "Sell"} Order
+        </Button>
+      </FormFooter>
     </Form>
   );
 };

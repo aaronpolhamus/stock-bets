@@ -41,6 +41,15 @@ const FlexRow = styled.div`
   align-items: ${(props) => props.align || "center"};
 `;
 
+const AlignText = styled.div`
+  text-align: ${(props) => props.align || "left"};
+`;
+
+const FormFooter = styled.div`
+  margin-top: var(--space-400);
+  text-align: ${(props) => props.align || "right"};
+`;
+
 export {
   SimplifiedCurrency,
   AuxiliarText,
@@ -48,4 +57,6 @@ export {
   TextButton,
   FlexRow,
   SmallText,
+  FormFooter,
+  AlignText,
 };
