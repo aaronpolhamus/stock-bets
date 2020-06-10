@@ -345,9 +345,7 @@ class TestPlayGame(BaseTestCase):
         stock_pick = "JETS"
         order_quantity = 25
 
-        res = async_fetch_price.delay(stock_pick)
-        while not res.ready():
-            continue
+        res = async_fetch_price.apply(args=[stock_pick])
         market_price, _ = res.result
 
         order_ticket = {

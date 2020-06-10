@@ -6,17 +6,19 @@ from unittest.mock import patch
 import pandas_market_calendars as mcal
 import pytz
 
+from backend.logic.base import (
+    datetime_to_posix,
+    TIMEZONE
+)
 from backend.tasks.redis import rds
 from backend.logic.stock_data import (
     posix_to_datetime,
-    datetime_to_posix,
     during_trading_day,
     get_symbols_table,
     fetch_iex_price,
     fetch_end_of_day_cache,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE
 )
 
 

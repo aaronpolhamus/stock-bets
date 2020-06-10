@@ -295,7 +295,7 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
 # ---------- #
 
 
-def make_stat_entry(user_id: int, total_return: float = 1, sharpe_ratio: float = 1, stocks_held: List[str] = None,
+def make_stat_entry(user_id: int, total_return: float = 100, sharpe_ratio: float = 1, stocks_held: List[str] = None,
                     cash_balance: float = DEFAULT_VIRTUAL_CASH, portfolio_value: float = DEFAULT_VIRTUAL_CASH):
     if stocks_held is None:
         stocks_held = list()

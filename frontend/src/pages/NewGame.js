@@ -17,7 +17,7 @@ const NewGame = () => {
       <Content>
         <PageSection>
           <Breadcrumb>
-            <Link to="/">&lt; Dashboard</Link>
+            <Link to="/">&lt Dashboard</Link>
           </Breadcrumb>
           <Header>
             <h1>New Game</h1>
