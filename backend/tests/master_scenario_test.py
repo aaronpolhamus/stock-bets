@@ -14,11 +14,11 @@ A few important things about this test:
 import json
 
 from backend.config import Config
-from backend.database.db import retrieve_meta_data
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
-    orm_rows_to_dict
+    orm_rows_to_dict,
+    represent_table
 )
 from backend.logic.friends import get_user_details_from_ids
 from backend.logic.games import get_invite_list_by_status
@@ -29,8 +29,6 @@ from backend.tasks.definitions import (
 )
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
-
-db_metadata = retrieve_meta_data()
 
 
 if __name__ == '__main__':
@@ -125,7 +123,7 @@ if __name__ == '__main__':
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
 
-    games = db_metadata.tables["games"]
+    games = represent_table("games")
     row = btc.db_session.query(games).filter(games.c.id == 1)
     game_entry = orm_rows_to_dict(row)
     for k, v in game_settings.items():
@@ -133,7 +131,7 @@ if __name__ == '__main__':
             continue
         assert game_entry[k] == v
 
-    game_status = db_metadata.tables["game_status"]
+    game_status = represent_table("game_status")
     row = btc.db_session.query(game_status).filter(game_status.c.game_id == 1)
     game_entry = orm_rows_to_dict(row)
     user_id_list = json.loads(game_entry["users"])
@@ -157,6 +155,11 @@ if __name__ == '__main__':
     accepted_invite_user_ids = get_invite_list_by_status(1, "joined")
     details = get_user_details_from_ids(accepted_invite_user_ids)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "jack", "jadis"}
+
+    res = btc.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": user_token},
+                                    json={"game_id": 1}, verify=False)
+    import ipdb;ipdb.set_trace()
+    res.json()
 
     input("""
     When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
