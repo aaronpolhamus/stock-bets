@@ -4,7 +4,7 @@ import { MakeTable } from "components/functions/tables";
 import { fetchGameData } from "components/functions/api";
 
 const BalancesTable = ({ gameId }) => {
-  const [tableData, setTableData] = useState([]);
+  const [tableData, setTableData] = useState({});
   useEffect(() => {
     const getGameData = async () => {
       const data = await fetchGameData(gameId, "get_current_balances_table");
@@ -12,7 +12,7 @@ const BalancesTable = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
-
+  console.log(tableData);
   return <Table hover>{tableData.data && MakeTable(tableData)}</Table>;
 };
 

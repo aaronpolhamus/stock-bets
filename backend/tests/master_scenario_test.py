@@ -158,8 +158,12 @@ if __name__ == '__main__':
 
     res = btc.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": user_token},
                                     json={"game_id": 1}, verify=False)
+    open_orders_table_init = res.json()
+
+    res = btc.requests_session.post(f"{HOST_URL}/get_current_balances_table", cookies={"session_token": user_token},
+                                    json={"game_id": 1}, verify=False)
+    balances_table_init = res.json()
     import ipdb;ipdb.set_trace()
-    res.json()
 
     input("""
     When we invoke functions to update the global game state we shouldn't see any error or change prior to placing

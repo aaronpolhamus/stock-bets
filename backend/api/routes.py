@@ -35,6 +35,13 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
+from backend.logic.visuals import (
+    OPEN_ORDERS_PREFIX,
+    BALANCES_CHART_PREFIX,
+    CURRENT_BALANCES_PREFIX,
+    FIELD_CHART_PREFIX,
+    SIDEBAR_STATS_PREFIX
+)
 from backend.tasks.definitions import (
     async_get_game_info_for_user,
     async_get_user_information,
@@ -425,7 +432,7 @@ def suggest_friend_invites():
 def balances_chart():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/field_chart", methods=["POST"])
@@ -433,7 +440,7 @@ def balances_chart():
 def field_chart():
     game_id = request.json.get("game_id")
     f"field_chart_{game_id}"
-    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
+    return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_open_orders_table", methods=["POST"])
@@ -441,7 +448,14 @@ def field_chart():
 def get_open_orders_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
+
+    from flask import current_app
+    current_app.logger.debug(f"***user_id: {user_id}")
+    current_app.logger.debug(f"***game_id: {game_id}")
+    tag = f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"
+    current_app.logger.debug(f"***tag: {tag}")
+    current_app.logger.debug(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_current_balances_table", methods=["POST"])
@@ -449,7 +463,14 @@ def get_open_orders_table():
 def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+
+    from flask import current_app
+    current_app.logger.debug(f"***user_id: {user_id}")
+    current_app.logger.debug(f"***game_id: {game_id}")
+    tag = f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"
+    current_app.logger.debug(f"***tag: {tag}")
+    current_app.logger.debug(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 # ------ #
 # DevOps #
