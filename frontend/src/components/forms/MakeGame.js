@@ -157,7 +157,7 @@ const MakeGame = () => {
           <Col lg={4}>
             <Form.Group>
               <Form.Label>Add Participant</Form.Label>
-              <Typeahead
+              <StyledTypeahead
                 id="typeahead-particpants"
                 name="invitees"
                 labelKey="name"
