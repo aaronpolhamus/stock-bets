@@ -90,7 +90,6 @@ const Home = () => {
         entry.invite_status === inviteStatus &&
         entry.invite_status === "invited"
       ) {
-        console.log(entry);
         return (
           <div key={index}>
             <Invitation to={{ pathname: `join/${entry.game_id}` }}>

@@ -22,7 +22,7 @@ from backend.tasks.redis import rds
 # Chart settings #
 # -------------- #
 N_PLOT_POINTS = 25
-DATE_LABEL_FORMAT = "%b %-d, %-H:%-M"
+DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -196,6 +196,7 @@ def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
     open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
     open_orders["time_in_force"] = open_orders["time_in_force"].apply(
         lambda x: "Day" if x == "day" else "Until cancelled")
+    open_orders.loc[open_orders["order_type"] == "market", "price"] = " -- "
     column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
                        "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
     open_orders.rename(columns=column_mappings, inplace=True)
@@ -248,7 +249,7 @@ def get_most_recent_prices(symbols):
 
 def serialize_and_pack_current_balances(game_id: int, user_id: int):
     column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
-                       "price": "Last price", "timestamp": "Updated at"}
+                       "price": "Market price", "timestamp": "Updated at"}
     out_dict = dict(data=[], headers=list(column_mappings.values()))
     balances = get_active_balances(game_id, user_id)
     if not balances.empty:

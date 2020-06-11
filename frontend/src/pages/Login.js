@@ -4,7 +4,7 @@ import GoogleLogin from "react-google-login";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import api from "services/api";
 import { Redirect } from "react-router-dom";
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Row } from "react-bootstrap";
 import { Content } from "components/layout/Layout";
 import { ReactComponent as Logo } from "assets/logo.svg";
 import { SmallText } from "components/textComponents/Text";

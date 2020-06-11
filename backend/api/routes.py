@@ -314,18 +314,27 @@ def place_order():
     order_ticket = request.json
     game_id = order_ticket["game_id"]
     stop_limit_price = order_ticket.get("stop_limit_price")
-    async_place_order.apply(args=[
+    if stop_limit_price:
+        stop_limit_price = float(stop_limit_price)
+
+    res = async_place_order.apply(args=[
         user_id,
         game_id,
         order_ticket["symbol"],
         order_ticket["buy_or_sell"],
         order_ticket["order_type"],
-        order_ticket["shares_or_usd"],
-        order_ticket["market_price"],
-        order_ticket["amount"],
+        order_ticket["quantity_type"],
+        float(order_ticket["market_price"]),
+        float(order_ticket["amount"]),
         order_ticket["time_in_force"],
-        stop_limit_price]
-    )
+        stop_limit_price
+    ])
+
+    # TODO: There must be a more elegant way to do this...
+    try:
+        res.get()
+    except Exception as e:
+        return make_response(str(e), 400)
 
     async_serialize_open_orders.delay(game_id, user_id)
     async_serialize_current_balances.delay(game_id, user_id)
@@ -366,7 +375,7 @@ def api_suggest_symbols():
 @authenticate
 def get_sidebar_stats():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"sidebar_stats_{game_id}"))
+    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/send_friend_request", methods=["POST"])
@@ -448,13 +457,6 @@ def field_chart():
 def get_open_orders_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-
-    from flask import current_app
-    current_app.logger.debug(f"***user_id: {user_id}")
-    current_app.logger.debug(f"***game_id: {game_id}")
-    tag = f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"
-    current_app.logger.debug(f"***tag: {tag}")
-    current_app.logger.debug(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
     return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
 
 
@@ -463,13 +465,6 @@ def get_open_orders_table():
 def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-
-    from flask import current_app
-    current_app.logger.debug(f"***user_id: {user_id}")
-    current_app.logger.debug(f"***game_id: {game_id}")
-    tag = f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"
-    current_app.logger.debug(f"***tag: {tag}")
-    current_app.logger.debug(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 # ------ #

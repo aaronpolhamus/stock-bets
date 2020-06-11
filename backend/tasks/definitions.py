@@ -227,7 +227,6 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
     # extract relevant data
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(user_id, game_id, symbol)
-
     place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
                 market_price, float(amount), time_in_force, stop_limit_price)
 

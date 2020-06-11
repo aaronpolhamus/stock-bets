@@ -37,6 +37,7 @@ if __name__ == '__main__':
     reset_db()
     rds.flushall()
     refresh_table("users")
+    refresh_table("symbols")
 
     # setup user tokens
     user_id = 1
@@ -163,7 +164,6 @@ if __name__ == '__main__':
     res = btc.requests_session.post(f"{HOST_URL}/get_current_balances_table", cookies={"session_token": user_token},
                                     json={"game_id": 1}, verify=False)
     balances_table_init = res.json()
-    import ipdb;ipdb.set_trace()
 
     input("""
     When we invoke functions to update the global game state we shouldn't see any error or change prior to placing

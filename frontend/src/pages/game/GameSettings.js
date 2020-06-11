@@ -4,7 +4,6 @@ import { SectionTitle } from "components/textComponents/Text";
 import { UserMiniCard } from "components/users/UserMiniCard";
 
 const GameSettings = ({ gameInfo }) => {
-  console.log(gameInfo);
   return (
     <div>
       <SidebarSection>

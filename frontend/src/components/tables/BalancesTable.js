@@ -12,7 +12,6 @@ const BalancesTable = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
-  console.log(tableData);
   return <Table hover>{tableData.data && MakeTable(tableData)}</Table>;
 };
 

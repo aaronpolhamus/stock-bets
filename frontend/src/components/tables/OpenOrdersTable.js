@@ -4,9 +4,6 @@ import { MakeTable } from "components/functions/tables";
 import { fetchGameData } from "components/functions/api";
 
 const OpenOrdersTable = ({ gameId }) => {
-  console.log(`Open orders table id ${gameId}`);
-  console.log(gameId.gameId);
-
   const [tableData, setTableData] = useState({});
   useEffect(() => {
     const getGameData = async () => {
