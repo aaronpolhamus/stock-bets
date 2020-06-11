@@ -8,7 +8,7 @@ import pandas as pd
 from backend.database.db import db_session
 from backend.logic.base import (
     get_all_game_users,
-    make_balances_and_prices_table,
+    make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
     get_user_information,
     get_game_end_date,
@@ -61,7 +61,9 @@ def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
-    df = make_balances_and_prices_table(game_id, user_id)
+    df = make_historical_balances_and_prices_table(game_id, user_id)
+    if df.empty:  # this should only happen when a game is just getting going and a user doesn't have any balances, yet
+        return df
     return reformat_for_plotting(df)
 
 
@@ -78,34 +80,50 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
     return output_array
 
 
-def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
-    """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis
+def null_chart():
+    """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
+    For now this function is a bit unecessary, but the idea here is to be really explicit about what's happening so
+    that we can add other attributes later if need be.
     """
-    chart_json = []
-    symbols = df["symbol"].unique()
-    for symbol in symbols:
-        entry = dict(id=symbol)
-        subset = df[df["symbol"] == symbol]
-        entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-        chart_json.append(entry)
+    return []
+
+
+def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
+    """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
+    result of calling make_balances_chart_data
+    """
+    chart_json = null_chart()
+    if not df.empty:
+        chart_json = []
+        symbols = df["symbol"].unique()
+        for symbol in symbols:
+            entry = dict(id=symbol)
+            subset = df[df["symbol"] == symbol]
+            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
+            chart_json.append(entry)
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
-    chart_json = []
-    user_ids = df["id"].unique()
-    for user_id in user_ids:
-        username = get_username(user_id)
-        entry = dict(id=username)
-        subset = df[df["id"] == user_id]
-        entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-        chart_json.append(entry)
+    chart_json = null_chart()
+    if not df.empty:
+        chart_json = []
+        user_ids = df["id"].unique()
+        for user_id in user_ids:
+            username = get_username(user_id)
+            entry = dict(id=username)
+            subset = df[df["id"] == user_id]
+            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
+            chart_json.append(entry)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
 def aggregate_portfolio_value(df: pd.DataFrame):
     """Tally aggregated portfolio value for "the field" chart
     """
+    if df.empty:
+        return df
+
     last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["timestamp", "value"]].aggregate(
         {"timestamp": "last", "value": "last"})
     return last_entry_df.groupby("t_index", as_index=False)[["timestamp", "value"]].aggregate(
@@ -113,6 +131,9 @@ def aggregate_portfolio_value(df: pd.DataFrame):
 
 
 def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
+    if all([df.empty for k, df in portfolios_dict.items()]):
+        return list(portfolios_dict.values())[0]
+
     ls = []
     for _id, df in portfolios_dict.items():
         df["id"] = _id
@@ -133,8 +154,8 @@ def make_the_field_charts(game_id: int):
     portfolio_values = {}
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
-        portfolio_values[user_id] = aggregate_portfolio_value(df)
         serialize_and_pack_balances_chart(df, game_id, user_id)
+        portfolio_values[user_id] = aggregate_portfolio_value(df)
     aggregated_df = aggregate_all_portfolios(portfolio_values)
     serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 

@@ -5,14 +5,14 @@ from datetime import datetime as dt
 import numpy as np
 import pandas as pd
 
-from backend.logic.base import make_balances_and_prices_table
+from backend.logic.base import make_historical_balances_and_prices_table
 from backend.tasks.redis import rds
 
 RISK_FREE_RATE_DEFAULT = 0
 
 
 def get_data_and_clip_time(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None) -> pd.DataFrame:
-    df = make_balances_and_prices_table(game_id, user_id)
+    df = make_historical_balances_and_prices_table(game_id, user_id)
     if start_date is None:
         start_date = df["timestamp"].min()
 

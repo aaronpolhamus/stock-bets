@@ -74,13 +74,14 @@ class BaseTask(celery.Task):
     max_retries = MAX_RETRIES
 
     def on_success(self, retval, task_id, args, kwargs):
-        db_session.close()
+        db_session.remove()
 
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
-        db_session.close()
+        db_session.remove()
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
         db_session.rollback()
+        db_session.remove()
 
 
 def pause_return_until_subtask_completion(status_list, task_name, iteration_limit=10_000):

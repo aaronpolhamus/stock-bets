@@ -133,16 +133,9 @@ def get_username(user_id: int):
         db_session.remove()
     return username
 
-
 # --------------- #
 # Data processing #
 # --------------- #
-
-def resample_balances(symbol_subset):
-    # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
-    df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}S").asfreq().ffill()
 
 
 def get_price_histories(symbols):
@@ -153,13 +146,22 @@ def get_price_histories(symbols):
     return pd.read_sql(sql, db_session.connection(), params=symbols)
 
 
-def append_price_data_to_balances(balances_df: pd.DataFrame) -> pd.DataFrame:
+def resample_balances(symbol_subset):
+    # first, take the last balance entry from each timestamp
+    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
+    df.index = [posix_to_datetime(x) for x in df.index]
+    return df.resample(f"{PRICE_CACHING_INTERVAL}S").last().ffill()
+
+
+def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
+    # Resample balances over the desired time interval within each symbol
+    resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
+    resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
+
+    # Now add price data
     symbols = balances_df["symbol"].unique()
     price_df = get_price_histories(symbols)
     price_df["timestamp"] = price_df["timestamp"].apply(lambda x: posix_to_datetime(x))
-
-    resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
-    resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     price_subsets = []
     for symbol in symbols:
         balance_subset = resampled_balances[resampled_balances["symbol"] == symbol]
@@ -167,13 +169,15 @@ def append_price_data_to_balances(balances_df: pd.DataFrame) -> pd.DataFrame:
         del prices_subset["symbol"]
         price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
     df = pd.concat(price_subsets, axis=0)
+
+    # handle Cash and create a column for the value of each position in time
     df.loc[df["symbol"] == "Cash", "price"] = 1
     df["value"] = df["balance"] * df["price"]
     return df
 
 
 def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
-    """Because we just resampled at a fine-grained interval in append_price_data_to_balances we've introduced a
+    """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
     days = df["timestamp"].apply(lambda x: x.replace(hour=12, minute=0)).unique()
@@ -200,12 +204,12 @@ def add_bookends(balances: pd.DataFrame) -> pd.DataFrame:
     """If the final balance entry that we have for a position is not 0, then we'll extend that position out
     until the current date.
     """
-    max_time_val = make_bookend_time()
+    bookend_time = make_bookend_time()
     symbols = balances["symbol"].unique()
     for symbol in symbols:
         row = balances[balances["symbol"] == symbol].tail(1)
-        if row.iloc[0]["balance"] > 0:
-            row["timestamp"] = max_time_val
+        if row.iloc[0]["balance"] > 0 and row.iloc[0]["timestamp"] < bookend_time:
+            row["timestamp"] = bookend_time
             balances = balances.append([row], ignore_index=True)
     return balances
 
@@ -226,10 +230,22 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
     return balances
 
 
-def make_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
+def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
     plotting and calculating winners. It's the reason the 7 functions above exis
     """
-    balances = get_user_balance_history(game_id, user_id)
-    df = append_price_data_to_balances(balances)
+    balance_history = get_user_balance_history(game_id, user_id)
+    # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
+    if (balance_history["symbol"].nunique() == 1) and (balance_history["symbol"].unique() == ["Cash"]):
+        row = balance_history.iloc[0]
+        row["timestamp"] = time.time()
+        balance_history = balance_history.append([row], ignore_index=True)
+        df = resample_balances(balance_history)
+        df = df.reset_index().rename(columns={"index": "timestamp"})
+        df["price"] = 1
+        df["value"] = df["balance"] * df["price"]
+        return filter_for_trade_time(df)
+
+    # ...otherwise we'll append price data for the more detailed breakout
+    df = append_price_data_to_balance_histories(balance_history)
     return filter_for_trade_time(df)

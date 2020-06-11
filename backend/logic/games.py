@@ -37,7 +37,8 @@ from backend.logic.stock_data import (
 from backend.logic.visuals import (
     init_sidebar_stats,
     serialize_and_pack_orders_open_orders,
-    serialize_and_pack_current_balances
+    serialize_and_pack_current_balances,
+    make_the_field_charts
 )
 from funkybob import RandomNameGenerator
 from sqlalchemy import select
@@ -234,6 +235,8 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # initialize a blank sidebar stats entry
     init_sidebar_stats(game_id)
+    # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
+    make_the_field_charts(game_id)
     # initialize current balances and open orders
     for user_id in user_id_list:
         serialize_and_pack_current_balances(game_id, user_id)
