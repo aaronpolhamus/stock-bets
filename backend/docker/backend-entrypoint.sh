@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-until nc -z -v -w30 $MYSQL_HOST $MYSQL_PORT
+until nc -z -v -w30 db 3306
 do
   echo "Waiting a second until the database is receiving connections..."
   sleep 1

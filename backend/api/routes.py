@@ -57,7 +57,6 @@ from backend.tasks.definitions import (
     async_respond_to_game_invite
 )
 from backend.tasks.redis import unpack_redis_json
-from backend.tasks.celery import pause_return_until_subtask_completion
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -188,16 +187,8 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-    res = async_get_user_information.delay(user_id)
-    while not res.ready():
-        continue
-    user_info = res.get()
-
-    res = async_get_game_info_for_user.delay(user_id)
-    while not res.ready():
-        continue
-
-    user_info["game_info"] = res.get()
+    user_info = async_get_user_information.apply(args=[user_id]).result
+    user_info["game_info"] = async_get_game_info_for_user.apply(args=[user_id]).result
     return jsonify(user_info)
 
 # ---------------- #
@@ -327,10 +318,8 @@ def place_order():
         stop_limit_price]
     )
 
-    open_orders_res = async_serialize_open_orders.delay(game_id, user_id)
-    balances_res = async_serialize_current_balances.delay(game_id, user_id)
-    error_msg = f"/api/placer_order for user_id {user_id}, game_id {game_id}"
-    pause_return_until_subtask_completion([open_orders_res, balances_res], error_msg)
+    async_serialize_open_orders.delay(game_id, user_id)
+    async_serialize_current_balances.delay(game_id, user_id)
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)

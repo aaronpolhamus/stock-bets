@@ -5,6 +5,7 @@ from unittest.mock import patch, Mock
 import pandas as pd
 from backend.database.helpers import orm_rows_to_dict
 from backend.logic.games import (
+    get_open_game_invite_ids,
     get_current_stock_holding,
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
@@ -27,7 +28,8 @@ from backend.tasks.definitions import (
     async_calculate_game_metrics,
     async_get_friends_details,
     async_get_friend_invites,
-    async_suggest_friends
+    async_suggest_friends,
+    async_service_one_open_game
 )
 from backend.logic.base import PRICE_CACHING_INTERVAL
 from backend.tasks.redis import (
@@ -173,7 +175,7 @@ class TestGameIntegration(BaseTestCase):
             "invitees": ["miguel", "murcitdev", "toofast"]
         }
 
-        res = async_add_game.delay(
+        async_add_game.apply(args=(
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["mode"],
@@ -183,10 +185,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]
-        )
-        while not res.ready():
-            continue
+            mock_game["invitees"]))
 
         games = self.db_metadata.tables["games"]
         row = self.db_session.query(games).filter(games.c.title == game_title)
@@ -236,15 +235,15 @@ class TestGameIntegration(BaseTestCase):
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        res = async_service_open_games.delay()
-        while not res.ready():
-            continue
+        open_game_ids = get_open_game_invite_ids()
+        for game_id in open_game_ids:
+            async_service_one_open_game.apply(args=[game_id])
 
         with self.db_session.connection() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
+        self.assertEqual(gi_count_post - gi_count_pre, 6)
         with self.db_session.connection() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
@@ -585,13 +584,9 @@ class TestVisualAssetsTasks(BaseTestCase):
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
         # since game #3 is our realistic test case, but could be worth going back and debugging later.
-
-        res = async_service_open_games.delay()
-        while not res.ready():
-            continue
-
         game_id = 3
         user_ids = [1, 3, 4]
+        async_service_one_open_game.apply(args=[game_id])
 
         # this is basically the internals of async_update_play_game_visuals for one game
         task_results = list()

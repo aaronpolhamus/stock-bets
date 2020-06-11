@@ -5,7 +5,7 @@ services:
     image: mysql
     container_name: db
     env_file:
-      - backend/.env
+      - backend/.env.dev
     ports:
       - 3306:3306
 
@@ -13,7 +13,7 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
     env_file:
-      - backend/.env
+      - backend/.env.dev
     ports:
       - 5672:5672
       - 15672:15672
@@ -31,6 +31,7 @@ services:
       - SERVICE=worker
     env_file:
       - backend/.env
+      - backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
@@ -45,6 +46,7 @@ services:
       - SERVICE=scheduler
     env_file:
       - backend/.env
+      - backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
@@ -59,10 +61,12 @@ services:
       - SERVICE=api
     env_file:
       - backend/.env
+      - backend/.env.dev
       - backend/.flaskenv
     depends_on:
       - db
       - backend
+      - worker
       - redis
       - rabbitmq
 
@@ -79,6 +83,7 @@ services:
       dockerfile: "docker/backend.Dockerfile"
     env_file:
       - backend/.env
+      - backend/.env.dev
       - backend/.flaskenv
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ

@@ -54,8 +54,7 @@ from backend.logic.visuals import (
 )
 from backend.tasks.celery import (
     celery,
-    BaseTask,
-    pause_return_until_subtask_completion
+    BaseTask
 )
 from backend.tasks.redis import rds
 
@@ -160,10 +159,8 @@ def async_respond_to_game_invite(self, game_id, user_id, status):
 @celery.task(name="async_service_open_games", bind=True, base=BaseTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_invite_ids()
-    status_list = []
     for game_id in open_game_ids:
-        status_list.append(async_service_one_open_game.delay(game_id))
-    pause_return_until_subtask_completion(status_list, "async_service_open_games")
+        async_service_one_open_game.delay(game_id)
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
@@ -258,7 +255,6 @@ def async_process_all_open_orders(self):
     status_list = []
     for order_id, expiration in open_orders:
         status_list.append(async_process_single_order.delay(order_id))
-    pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
 
 # ------- #
@@ -354,7 +350,6 @@ def async_update_play_game_visuals(self):
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
-    pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
 
 
 # ---------------------- #
@@ -375,7 +370,6 @@ def async_update_player_stats(self):
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
-    pause_return_until_subtask_completion(task_results, "async_update_player_stats")
 
 
 @celery.task(name="async_compile_player_stats", bind=True, base=BaseTask)
