@@ -7,7 +7,7 @@ from backend.logic.base import (
     get_user_id,
     get_user_information,
     get_current_game_cash_balance,
-    get_all_game_users
+    get_all_game_users,
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -47,10 +47,10 @@ from backend.logic.stock_data import (
 from backend.logic.visuals import (
     compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,
-    serialize_and_pack_current_balances,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
-    make_the_field_charts
+    make_the_field_charts,
+    serialize_and_pack_current_balances,
 )
 from backend.tasks.celery import (
     celery,
@@ -357,14 +357,13 @@ def async_update_play_game_visuals(self):
     pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
 
 
+# ---------------------- #
+# Player stat production #
+# ---------------------- #
 @celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
 def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_date=None):
     calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
 
-
-# ---------------------- #
-# Player stat production #
-# ---------------------- #
 
 @celery.task(name="async_update_player_stats", bind=True, base=BaseTask)
 def async_update_player_stats(self):

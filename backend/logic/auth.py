@@ -100,11 +100,10 @@ def make_user_entry_from_facebook(oauth_data):
 
 
 def register_user_if_first_visit(user_entry):
-    metadata = db_metadata
     with db_session.connection() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
         if user is None:
-            users = metadata.tables["users"]
+            users = db_metadata.tables["users"]
             conn.execute(users.insert(), user_entry)
         db_session.commit()
 

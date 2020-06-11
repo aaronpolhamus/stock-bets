@@ -23,6 +23,10 @@ from backend.database.helpers import (
 from backend.logic.friends import get_user_details_from_ids
 from backend.logic.games import get_invite_list_by_status
 from backend.tasks.redis import rds
+from backend.tasks.definitions import (
+    async_update_play_game_visuals,
+    async_update_player_stats
+)
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
 
@@ -150,6 +154,14 @@ if __name__ == '__main__':
     accepted_invite_user_ids = get_invite_list_by_status(1, "joined")
     details = get_user_details_from_ids(accepted_invite_user_ids)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "jack", "jadis"}
+
+    input("""
+    When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
+    orders. Hit any key to continue
+    """)
+    async_update_play_game_visuals()
+    async_update_player_stats()
+
 
     input("""
     We got a game! Time to put in our first order.

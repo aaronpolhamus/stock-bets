@@ -9,6 +9,7 @@ from backend.database.db import (
 )
 from backend.logic.auth import create_jwt
 from backend.database.fixtures.mock_data import make_mock_data
+from tasks.redis import rds
 
 
 class BaseTestCase(unittest.TestCase):
@@ -22,6 +23,7 @@ class BaseTestCase(unittest.TestCase):
         self.db_session = db_session
         self.db_metadata = db_metadata
         self.requests_session = requests.Session()
+        rds.flushall()
         reset_db()
         make_mock_data()
 

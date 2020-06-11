@@ -1,30 +1,47 @@
 """Logic for rendering visual asset data and returning to frontend
 """
 import json
+import time
+from typing import List
 
 import pandas as pd
 from backend.database.db import db_session
 from backend.logic.base import (
-    posix_to_datetime,
     get_all_game_users,
     make_balances_and_prices_table,
     get_current_game_cash_balance,
-    get_most_recent_prices,
-    get_active_balances,
+    get_user_information,
+    get_game_end_date,
     get_username,
-    get_portfolio_value,
-    make_stat_entry,
-    make_side_bar_output
+    posix_to_datetime,
+    DEFAULT_VIRTUAL_CASH
 )
 from backend.tasks.redis import rds
 
+# -------------- #
+# Chart settings #
+# -------------- #
 N_PLOT_POINTS = 25
 DATE_LABEL_FORMAT = "%b %-d, %-H:%-M"
+
+# -------------------------------- #
+# Prefixes for redis caching layer #
+# -------------------------------- #
+CURRENT_BALANCES_PREFIX = "current_balances"
+SIDEBAR_STATS_PREFIX = "sidebar_stats"
+OPEN_ORDERS_PREFIX = "open_orders"
+FIELD_CHART_PREFIX = "field_chart"
+BALANCES_CHART_PREFIX = "balances_chart"
 
 
 # ------------------ #
 # Time series charts #
 # ------------------ #
+
+
+def format_posix_times(sr: pd.Series) -> pd.Series:
+    sr = sr.apply(lambda x: posix_to_datetime(x))
+    return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
 
 
 def _interpolate_values(df):
@@ -71,7 +88,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
         subset = df[df["symbol"] == symbol]
         entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
         chart_json.append(entry)
-    rds.set(f"balances_chart_{game_id}_{user_id}", json.dumps(chart_json))
+    rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
@@ -83,7 +100,7 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
         subset = df[df["id"] == user_id]
         entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
         chart_json.append(entry)
-    rds.set(f"field_chart_{game_id}", json.dumps(chart_json))
+    rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
 def aggregate_portfolio_value(df: pd.DataFrame):
@@ -125,10 +142,6 @@ def make_the_field_charts(game_id: int):
 # -------------------------- #
 # Orders and balances tables #
 # -------------------------- #
-def format_posix_times(sr: pd.Series) -> pd.Series:
-    sr = sr.apply(lambda x: posix_to_datetime(x))
-    return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
-
 
 def get_open_orders(game_id: int, user_id: int):
     # this kinda feels like we'd be better off just handling two pandas tables...
@@ -165,33 +178,112 @@ def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
     column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
                        "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
     open_orders.rename(columns=column_mappings, inplace=True)
-    out_dict = dict(
-        data=open_orders.to_dict(orient="records"),
-        headers=list(column_mappings.values())
-    )
-    rds.set(f"open_orders_{game_id}_{user_id}", json.dumps(out_dict))
+    out_dict = dict(data=open_orders.to_dict(orient="records"), headers=list(column_mappings.values()))
+    rds.set(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+
+
+def get_active_balances(game_id: int, user_id: int):
+    """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
+    """
+    sql = """
+        SELECT symbol, balance, os.timestamp, clear_price
+        FROM order_status os
+        INNER JOIN
+        (
+          SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
+          FROM game_balances gb
+          INNER JOIN
+          (SELECT symbol, user_id, game_id, balance_type, max(id) as max_id
+            FROM game_balances
+            WHERE
+              game_id = %s AND
+              user_id = %s AND
+              balance_type = 'virtual_stock'
+            GROUP BY symbol, game_id, balance_type, user_id) grouped_gb
+          ON
+            gb.id = grouped_gb.max_id
+          WHERE balance > 0
+        ) balances
+        WHERE balances.order_status_id = os.id;
+    """
+    return pd.read_sql(sql, db_session.connection(), params=[game_id, user_id])
+
+
+def get_most_recent_prices(symbols):
+    if len(symbols) == 0:
+        return None
+    sql = f"""
+        SELECT p.symbol, p.price, p.timestamp
+        FROM prices p
+        INNER JOIN (
+        SELECT symbol, max(id) as max_id
+          FROM prices
+          GROUP BY symbol) max_price
+        ON p.id = max_price.max_id
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
+    """
+    return pd.read_sql(sql, db_session.connection(), params=symbols)
 
 
 def serialize_and_pack_current_balances(game_id: int, user_id: int):
-    balances = get_active_balances(game_id, user_id)
-    symbols = balances["symbol"].unique()
-    prices = get_most_recent_prices(symbols)
-    df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
-    df = df.merge(prices, on="symbol", how="left")
-    df["timestamp"] = format_posix_times(df["timestamp"])
     column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
                        "price": "Last price", "timestamp": "Updated at"}
-    df.rename(columns=column_mappings, inplace=True)
-    out_dict = dict(
-        data=df.to_dict(orient="records"),
-        headers=list(column_mappings.values())
-    )
-    rds.set(f"current_balances_{game_id}_{user_id}", json.dumps(out_dict))
+    out_dict = dict(data=[], headers=list(column_mappings.values()))
+    balances = get_active_balances(game_id, user_id)
+    if not balances.empty:
+        symbols = balances["symbol"].unique()
+        prices = get_most_recent_prices(symbols)
+        df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
+        df = df.merge(prices, on="symbol", how="left")
+        df["timestamp"] = format_posix_times(df["timestamp"])
+        df.rename(columns=column_mappings, inplace=True)
+        out_dict["data"] = df.to_dict(orient="records")
+    rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
 
 # ----- #
 # Lists #
 # ----- #
+def make_stat_entry(user_id: int, total_return: float = 100, sharpe_ratio: float = 1, stocks_held: List[str] = None,
+                    cash_balance: float = DEFAULT_VIRTUAL_CASH, portfolio_value: float = DEFAULT_VIRTUAL_CASH):
+    if stocks_held is None:
+        stocks_held = list()
+
+    entry = get_user_information(user_id)
+    entry["total_return"] = total_return
+    entry["sharpe_ratio"] = sharpe_ratio
+    entry["stocks_held"] = stocks_held
+    entry["cash_balance"] = cash_balance
+    entry["portfolio_value"] = portfolio_value
+    return entry
+
+
+def _days_left(game_id: int):
+    seconds_left = get_game_end_date(game_id) - time.time()
+    return int(seconds_left / (24 * 60 * 60))
+
+
+def make_side_bar_output(game_id: int, user_stats: list):
+    return dict(days_left=_days_left(game_id), records=user_stats)
+
+
+def init_sidebar_stats(game_id: int):
+    user_ids = get_all_game_users(game_id)
+    records = []
+    for user_id in user_ids:
+        records.append(make_stat_entry(user_id))
+    output = make_side_bar_output(game_id, records)
+    rds.set(f"sidebar_stats_{game_id}", json.dumps(output))
+
+
+def get_portfolio_value(game_id: int, user_id: int) -> float:
+    balances = get_active_balances(game_id, user_id)
+    symbols = balances["symbol"].unique()
+    prices = get_most_recent_prices(symbols)
+    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
+    df["value"] = df["balance"] * df["price"]
+    return df["value"].sum()
+
 
 def compile_and_pack_player_sidebar_stats(game_id: int):
     user_ids = get_all_game_users(game_id)
@@ -206,4 +298,5 @@ def compile_and_pack_player_sidebar_stats(game_id: int):
                                  portfolio_value=get_portfolio_value(game_id, user_id))
         records.append(record)
     output = make_side_bar_output(game_id, records)
-    rds.set(f"sidebar_stats_{game_id}", json.dumps(output))
+    rds.set(f"{SIDEBAR_STATS_PREFIX}_{game_id}", json.dumps(output))
+

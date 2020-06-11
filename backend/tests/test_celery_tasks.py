@@ -92,7 +92,6 @@ class TestPriceCaching(BaseTestCase):
                 async_cache_price.apply(args=[stock, price, time.time()])
 
         # clear the mocked-in price data and redis cache
-        rds.flushall()
         with self.db_session.connection() as conn:
             conn.execute("TRUNCATE prices;")
             self.db_session.remove()
@@ -586,7 +585,6 @@ class TestVisualAssetsTasks(BaseTestCase):
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
         # since game #3 is our realistic test case, but could be worth going back and debugging later.
-        rds.flushall()
 
         res = async_service_open_games.delay()
         while not res.ready():
@@ -614,7 +612,6 @@ class TestVisualAssetsTasks(BaseTestCase):
 class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
-        rds.flushall()
         game_id = 3
         async_calculate_game_metrics.apply(args=(game_id, 1))
         async_calculate_game_metrics.apply(args=(game_id, 3))

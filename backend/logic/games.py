@@ -26,14 +26,18 @@ from backend.database.models import (
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     get_current_game_cash_balance,
-    get_username,
-    init_sidebar_stats
+    get_username
 )
 from backend.logic.stock_data import (
     posix_to_datetime,
     get_next_trading_day_schedule,
     get_schedule_start_and_end,
     during_trading_day
+)
+from backend.logic.visuals import (
+    init_sidebar_stats,
+    serialize_and_pack_orders_open_orders,
+    serialize_and_pack_current_balances
 )
 from funkybob import RandomNameGenerator
 from sqlalchemy import select
@@ -230,6 +234,10 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # initialize a blank sidebar stats entry
     init_sidebar_stats(game_id)
+    # initialize current balances and open orders
+    for user_id in user_id_list:
+        serialize_and_pack_current_balances(game_id, user_id)
+        serialize_and_pack_orders_open_orders(game_id, user_id)
 
 
 def close_game(game_id, update_time):

@@ -30,12 +30,19 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
+from backend.logic.visuals import (
+    SIDEBAR_STATS_PREFIX,
+    CURRENT_BALANCES_PREFIX,
+    OPEN_ORDERS_PREFIX
+)
 from backend.tasks.definitions import (
     async_fetch_price,
     async_calculate_game_metrics,
     async_compile_player_sidebar_stats
 )
-from backend.tasks.redis import rds
+from backend.tasks.redis import (
+    rds,
+    unpack_redis_json)
 from backend.tests import BaseTestCase
 from config import Config
 from sqlalchemy import select
@@ -287,14 +294,15 @@ class TestCreateGame(BaseTestCase):
         self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
                                    json={"game_id": game_id, "decision": "declined"}, verify=False)
 
-        # since all players have responded to the game invite it should have kicked off automatically. Check that: (a)
-        # the three players who are participating have the starting balances that we expect and (b) that we have an
-        # initial game stats entry to render the game card appropriately
+        # since all players have responded to the game invite it should have kicked off automatically. Check that the
+        # three players who are participating have the starting balances that we expect and that  initializations for
+        # (a) game stats sidebar, (b) current balances, (c) open orders, (d) balances chart, and (e) the field chart all
+        # look good.
+
         res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        game_stats_entry = res.json()
-        self.assertEqual(game_stats_entry["days_left"], game_duation - 1)
-        self.assertEqual(set([x["username"] for x in game_stats_entry["records"]]), {"murcitdev", "toofast", "cheetos"})
+        self.assertEqual(res.json()["days_left"], game_duation - 1)
+        self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
             FROM game_balances
@@ -304,6 +312,23 @@ class TestCreateGame(BaseTestCase):
         player_cash_balances = pd.read_sql(sql, self.db_session.connection(), params=[game_id])
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
+
+        side_bar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
+        self.assertEqual(len(side_bar_stats["records"]), 3)
+        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
+        self.assertEqual(side_bar_stats["days_left"], game_duation - 1)
+
+        current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
+        self.assertEqual(len(current_balances_keys), 3)
+        init_balances_entry = unpack_redis_json(current_balances_keys[0])
+        self.assertEqual(init_balances_entry["data"], [])
+        self.assertEqual(len(init_balances_entry["headers"]), 5)
+
+        open_orders_keys = [x for x in rds.keys() if OPEN_ORDERS_PREFIX in x]
+        self.assertEqual(len(open_orders_keys), 3)
+        init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
+        self.assertEqual(init_open_orders_entry["data"], [])
+        self.assertEqual(len(init_open_orders_entry["headers"]), 7)
 
     def test_pending_game_management(self):
         user_id = 1
@@ -342,7 +367,6 @@ class TestPlayGame(BaseTestCase):
     def test_play_game(self):
         """Use the canonical game #3 to interact with the game play API
         """
-        rds.flushall()
         user_id = 1
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
@@ -401,8 +425,6 @@ class TestPlayGame(BaseTestCase):
 class TestGetGameStats(BaseTestCase):
 
     def test_sidebar_stats(self):
-        rds.flushall()
-
         game_id = 3
         async_calculate_game_metrics.apply(args=(game_id, 1))
         async_calculate_game_metrics.apply(args=(game_id, 3))
@@ -571,7 +593,6 @@ class TestHomePage(BaseTestCase):
 
     def test_home_first_landing(self):
         reset_db()
-        rds.flushall()
         refresh_table("users")
 
         user_id = 1
