@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
-import { fetchGameData } from "components/functions/api";
+import { isEmpty, fetchGameData } from "components/functions/api";
 
 const FieldChart = ({ gameId, height }) => {
   const [chartData, setChartData] = useState([]);
@@ -12,7 +12,9 @@ const FieldChart = ({ gameId, height }) => {
     };
     getGameData();
   }, [gameId]);
-
+  if (isEmpty(chartData)) {
+    return null;
+  }
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <div style={{ width: "100%", height: height || "25vw" }}>

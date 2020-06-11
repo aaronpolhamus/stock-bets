@@ -91,10 +91,7 @@ export default function AlphabetLogin() {
     }
   };
 
-  if (redirect) {
-    return <Redirect to="/" />;
-  }
-
+  if (redirect) return <Redirect to="/" />;
   return (
     <Content height="100vh" alignItems="center" display="flex">
       <Container fluid>

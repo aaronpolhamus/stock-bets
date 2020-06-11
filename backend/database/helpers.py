@@ -1,24 +1,30 @@
 """A collection of helper functions that wraps common database operations using the sqlalchemy ORM
 """
 import os
-
 from sqlalchemy import create_engine, MetaData
-from config import Config
+
+from backend.database.db import db_session
+from backend.config import Config
 
 
-def retrieve_meta_data(engine):
-    """Retrive metadata that can be used to instantiate table references with the sqlalchemy ORM
+def retrieve_meta_data():
+    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+    return MetaData(bind=engine, reflect=True)
+
+
+def represent_table(table_name):
+    """It has been really challenging building a working handler for ORM table representations. A global metadata
+    object, e.g. defined at the database.db level, gets corrupted easily as the database is operated on by the
+    application. After a few days of trying, the best way to do this looks like an on-the-fly reflecting of the
+    metadata in each case where we want to interact with a table
     """
-    metadata = MetaData()
-    metadata.reflect(engine)
-    return metadata
+    meta_data = retrieve_meta_data()
+    return meta_data.tables[table_name]
 
 
 def reset_db():
-    # first we drop the main db and restart it in order to reset all auto-incrementing IDs
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    engine.execute("DROP DATABASE main;")
-    engine.execute("CREATE DATABASE main;")
+    db_metadata = retrieve_meta_data()
+    db_metadata.drop_all()
     os.system("flask db upgrade")
 
 
@@ -38,10 +44,11 @@ def orm_rows_to_dict(row):
     return {name: row.value(name) for name in column_names}
 
 
-def table_updater(db_session, table_orm, **kwargs):
-    """Generic wrapper for updating data tables. kwargs are key-value pairings that map to columns in the table
+def table_updater(table, **kwargs):
+    """Generic wrapper for updating data tables from ORM representations. kwargs are key-value pairings that map to
+    columns in the table
     """
     with db_session.connection() as conn:
-        result = conn.execute(table_orm.insert(), kwargs)
+        result = conn.execute(table.insert(), kwargs)
         db_session.commit()
     return result

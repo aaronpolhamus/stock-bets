@@ -24,10 +24,7 @@ const Welcome = () => {
     }
   };
 
-  if (updated) {
-    return <Redirect to="/" />;
-  }
-
+  if (updated) return <Redirect to="/" />;
   return (
     <Form>
       <Form.Label>

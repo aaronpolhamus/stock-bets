@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { Button, Modal, Accordion, Form } from "react-bootstrap";
 import {
   TextButton,
@@ -6,7 +6,6 @@ import {
   FlexRow,
 } from "components/textComponents/Text";
 import { AsyncTypeahead } from "react-bootstrap-typeahead";
-import styled from "styled-components";
 import * as Icon from "react-feather";
 import { apiPost } from "components/functions/api";
 import { UserMiniCard } from "components/users/UserMiniCard";
@@ -17,13 +16,6 @@ const AddFriends = (props) => {
   const [friendInvitee, setFriendInvitee] = useState("");
 
   const [show, setShow] = useState(false);
-
-  const getFriendSuggestions = async (query) => {
-    const friends = await apiPost("suggest_friend_invites", { text: query });
-    console.log(query);
-    console.log(friends);
-    setFriendSuggestions(friends);
-  };
 
   const handleClose = () => setShow(false);
 
@@ -43,8 +35,9 @@ const AddFriends = (props) => {
     setFriendInvitee(invitee[0].username);
   };
 
-  const handleSuggestions = (query) => {
-    getFriendSuggestions(query);
+  const handleSuggestions = async (query) => {
+    const friends = await apiPost("suggest_friend_invites", { text: query });
+    setFriendSuggestions(friends);
   };
 
   const friendLabel = (label) => {
@@ -72,7 +65,7 @@ const AddFriends = (props) => {
             <AsyncTypeahead
               id="typeahead-particpants"
               name="invitees"
-              labelKey="name"
+              labelKey="username"
               options={friendSuggestions}
               placeholder="Who's playing?"
               onSearch={handleSuggestions}

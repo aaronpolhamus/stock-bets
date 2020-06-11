@@ -1,9 +1,29 @@
 import celery
-from celery.schedules import crontab
-
-from backend.database.db import db_session
-from backend.logic.stock_data import TIMEZONE, PRICE_CACHING_INTERVAL
 from backend.config import Config
+from backend.database.db import db_session
+from backend.logic.base import (
+    TIMEZONE,
+    PRICE_CACHING_INTERVAL
+)
+from backend.logic.stock_data import SeleniumDriverError
+from celery.schedules import crontab
+from pymysql.err import OperationalError as PyMySQLOpError
+from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
+from sqlalchemy.exc import ResourceClosedError, StatementError
+
+# Sometimes tasks break when they have trouble communicating with an external resource. We'll have those errors and
+# retry the tasks
+DEFAULT_RETRY_DELAY = 3  # (seconds)
+MAX_RETRIES = 10
+RETRY_INVENTORY = (
+    PyMySQLOpError,
+    SQLAOpError,
+    ResourceClosedError,
+    StatementError,
+    InvalidRequestError,
+    ProgrammingError,
+    SeleniumDriverError)
+
 
 celery = celery.Celery('tasks',
                        broker=Config.CELERY_BROKER_URL,
@@ -44,16 +64,27 @@ celery.conf.beat_schedule = {
 }
 
 
-class SqlAlchemyTask(celery.Task):
+class BaseTask(celery.Task):
     """An abstract Celery Task that ensures that the connection the the database is closed on task completion. Every
     task that interacts with the DB should use this class as a base"""
     abstract = True
+    autoretry_for = RETRY_INVENTORY
+    default_retry_delay = DEFAULT_RETRY_DELAY
+    max_retries = MAX_RETRIES
+
+    def on_success(self, retval, task_id, args, kwargs):
+        db_session.remove()
 
     def after_return(self, status, retval, task_id, args, kwargs, einfo):
         db_session.remove()
 
+    def on_retry(self, exc, task_id, args, kwargs, einfo):
+        db_session.rollback()
+        db_session.remove()
+
 
 def pause_return_until_subtask_completion(status_list, task_name, iteration_limit=10_000):
+    # TODO: Migrate this logic to chords: https://docs.celeryproject.org/en/latest/userguide/canvas.html#chords
     """This function exists to support the case where a task spawns a bunch of subtasks, and we want to wait for the
     ready() command of the parent task to return True until all those subtasks have finished. It's kinda like a DAG.
     If you know of a more elegant way to do this please kill this function immediately ;)

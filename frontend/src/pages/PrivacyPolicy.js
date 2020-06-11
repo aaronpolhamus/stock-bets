@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Redirect, useHistory } from "react-router-dom";
-import { Button, Card, Row, Container } from "react-bootstrap";
+import { Button, Container } from "react-bootstrap";
 import { ReactComponent as Logo } from "assets/logo.svg";
 import { Content } from "components/layout/Layout";
 import styled from "styled-components";
@@ -15,10 +15,7 @@ const PrivacyPolicy = () => {
   const [redirect, setRedirect] = useState(false);
   const history = useHistory();
 
-  if (redirect) {
-    return <Redirect to="/login" />;
-  }
-
+  if (redirect) return <Redirect to="/login" />;
   return (
     <Content className="text-page" padding="var(--space-lg-200)">
       <Container>

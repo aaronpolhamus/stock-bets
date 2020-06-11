@@ -1,15 +1,12 @@
 import unittest
 
 import requests
-from sqlalchemy import create_engine
 
+from backend.database.helpers import reset_db
+from backend.database.db import db_session
 from backend.logic.auth import create_jwt
 from backend.database.fixtures.mock_data import make_mock_data
-from backend.database.helpers import retrieve_meta_data
-from sqlalchemy.orm import scoped_session
-from sqlalchemy.orm import sessionmaker
-
-from config import Config
+from tasks.redis import rds
 
 
 class BaseTestCase(unittest.TestCase):
@@ -20,17 +17,15 @@ class BaseTestCase(unittest.TestCase):
 
     def setUp(self):
         # Establish data base API and setup mock data
-        self.engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-        self.db_session = scoped_session(sessionmaker(
-            autocommit=False, autoflush=False, bind=self.engine))
+        self.db_session = db_session
         self.requests_session = requests.Session()
-        self.meta = retrieve_meta_data(self.engine)
+        rds.flushall()
+        reset_db()
         make_mock_data()
 
     def tearDown(self):
         self.db_session.remove()
         self.requests_session.close()
-        self.engine.dispose()
 
     def make_test_token_from_email(self, user_email: str):
         with self.db_session.connection() as conn:

@@ -6,11 +6,12 @@ import pandas as pd
 import pytz
 import requests
 
-from backend.logic.stock_data import (
+from backend.logic.base import (
+    TIMEZONE,
     datetime_to_posix,
-    IEX_BASE_PROD_URL,
-    TIMEZONE
 )
+from backend.logic.stock_data import IEX_BASE_PROD_URL
+
 
 DOWNLOAD = False
 IEX_KEY = os.getenv("IEX_API_SECRET_PROD")

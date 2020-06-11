@@ -1,11 +1,12 @@
 from datetime import timedelta
 
+from backend.database.db import db_session
+from backend.database.helpers import represent_table
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import retrieve_meta_data, reset_db
 from backend.logic.stock_data import (
     get_schedule_start_and_end,
     nyse,
-    posix_to_datetime,
+    posix_to_datetime
 )
 from backend.tasks.definitions import (
     async_update_play_game_visuals,
@@ -13,14 +14,8 @@ from backend.tasks.definitions import (
     async_compile_player_sidebar_stats
 )
 from config import Config
-from sqlalchemy import create_engine
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
-
-engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-conn = engine.connect()
-metadata = retrieve_meta_data(engine)
-
 price_records = make_stock_data_records()
 market_order_time = min([record["timestamp"] for record in price_records])
 close_of_simulation_time = max([record["timestamp"] for record in price_records])
@@ -44,6 +39,16 @@ def get_stock_start_price(symbol, records=price_records, order_time=market_order
 def get_stock_finish_price(symbol, records=price_records, order_time=close_of_simulation_time):
     stock_record = [item for item in records if item["symbol"] == symbol and item["timestamp"] == order_time][-1]
     return stock_record["price"]
+
+
+def refresh_table(table_name):
+    mock_entry = MOCK_DATA.get(table_name)
+    if mock_entry:
+        table_meta = represent_table(table_name)
+        with db_session.connection() as conn:
+            conn.execute(table_meta.delete())
+            conn.execute(table_meta.insert(), mock_entry)
+            db_session.commit()
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
@@ -72,9 +77,9 @@ MOCK_DATA = {
         {"name": "jack sparrow", "email": "jack@black.pearl",
          "profile_pic": "https://i2.wp.com/www.californiaherald.com/wp-content/uploads/2020/03/jack-sparrow.jpg",
          "username": "jack", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "johnny walker", "email": "jack@black.pearl",
+        {"name": "johnnie walker", "email": "johnnie@walker.com",
          "profile_pic": "https://www.brandemia.org/sites/default/files/sites/default/files/johnnie_walker_nuevo_logo.png",
-         "username": "johnny", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+         "username": "johnnie", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
         {"name": "jadis", "email": "jadis@rick.lives",
          "profile_pic": "https://vignette.wikia.nocookie.net/villains/images/7/78/Season_eight_jadis.png",
          "username": "jadis", "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
@@ -297,18 +302,9 @@ MOCK_DATA = {
 
 
 def make_mock_data():
-    # reset the database for each test class in order to maintain consistency of auto-incremented IDs
-    reset_db()
     table_names = MOCK_DATA.keys()
     for table in table_names:
-        # first flush all data from all tables
-        table_meta = metadata.tables[table]
-        conn.execute(table_meta.delete())
-
-        # then fill in mock data
-        mock_entry = MOCK_DATA.get(table)
-        if mock_entry:
-            conn.execute(table_meta.insert(), mock_entry)
+        refresh_table(table)
 
 
 def make_redis_mocks():

@@ -6,17 +6,18 @@ from unittest.mock import patch
 import pandas_market_calendars as mcal
 import pytz
 
+from backend.logic.base import (
+    datetime_to_posix,
+    TIMEZONE
+)
 from backend.tasks.redis import rds
 from backend.logic.stock_data import (
     posix_to_datetime,
-    datetime_to_posix,
     during_trading_day,
-    get_symbols_table,
     fetch_iex_price,
     fetch_end_of_day_cache,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE
 )
 
 
@@ -87,14 +88,6 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(start_day, expected_start)
         self.assertEqual(end_day, expected_end)
 
-    def test_get_symbols(self):
-        """For now we pull data from IEX cloud. We also scrape their daily published listing of available symbols to
-        build the selection inventory for the frontend. Although the core data source will change in the future, these
-        operations need to remain intact.
-        """
-        symbols_table = get_symbols_table(3)
-        self.assertEqual(symbols_table.shape, (3, 2))
-        self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
     @patch('backend.logic.stock_data.time')
     def test_price_fetchers(self, current_time_mock):

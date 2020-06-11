@@ -4,19 +4,16 @@ services:
   db:
     image: mysql
     container_name: db
-    environment:
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-      - MYSQL_DATABASE=${DB_NAME}
+    env_file:
+      - backend/.env.dev
     ports:
       - 3306:3306
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    env_file:
+      - backend/.env.dev
     ports:
       - 5672:5672
       - 15672:15672
@@ -34,8 +31,13 @@ services:
       - SERVICE=worker
     env_file:
       - backend/.env
+      - backend/.env.dev
     volumes:
       - ./backend:/home/backend
+    depends_on:
+      - backend
+      - redis
+      - rabbitmq
 
   scheduler:
     image: backend
@@ -44,8 +46,13 @@ services:
       - SERVICE=scheduler
     env_file:
       - backend/.env
+      - backend/.env.dev
     volumes:
       - ./backend:/home/backend
+    depends_on:
+      - backend
+      - redis
+      - rabbitmq
 
   api:
     image: backend
@@ -54,12 +61,15 @@ services:
       - SERVICE=api
     env_file:
       - backend/.env
+      - backend/.env.dev
       - backend/.flaskenv
     depends_on:
       - db
+      - backend
+      - worker
       - redis
       - rabbitmq
-      - worker
+
     ports:
       - 5000:5000
     volumes:
@@ -73,6 +83,7 @@ services:
       dockerfile: "docker/backend.Dockerfile"
     env_file:
       - backend/.env
+      - backend/.env.dev
       - backend/.flaskenv
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
@@ -80,7 +91,7 @@ services:
     container_name: flower
     image: mher/flower
     environment:
-      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@${RABBITMQ_HOST}:5672
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:5672
       - FLOWER_PORT=5555
     ports:
       - 5555:5555
