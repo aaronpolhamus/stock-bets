@@ -9,6 +9,7 @@ import {
   PageSection,
   Header,
 } from "components/layout/Layout";
+import * as Icon from "react-feather";
 
 const NewGame = () => {
   return (
@@ -17,7 +18,11 @@ const NewGame = () => {
       <Content>
         <PageSection>
           <Breadcrumb>
-            <Link to="/">&lt Dashboard</Link>
+            <Link to="/">
+              {" "}
+              <Icon.ChevronLeft size={16} style={{ marginTop: "-3px" }} />{" "}
+              Dashboard
+            </Link>
           </Breadcrumb>
           <Header>
             <h1>New Game</h1>
