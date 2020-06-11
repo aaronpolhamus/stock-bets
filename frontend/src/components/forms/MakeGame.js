@@ -4,6 +4,22 @@ import { Form, Button, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
 
+import styled from "styled-components";
+
+const StyledTypeahead = styled(Typeahead)`
+  .rbt-input-wrapper {
+    display: flex;
+    flex-direction: row-reverse;
+    flex-wrap: wrap-reverse;
+  }
+  .rbt-input-wrapper div {
+    flex: 1 0 100% !important;
+  }
+  .rbt-input-wrapper [option] {
+    margin-top: var(--space-300);
+  }
+`;
+
 const MakeGame = () => {
   const [defaults, setDefaults] = useState({});
   const [sidePotPct, setSidePotPct] = useState(0);
@@ -54,6 +70,7 @@ const MakeGame = () => {
     setFormValues(formValuesCopy);
   };
 
+  console.log(defaults);
   return (
     <Form onSubmit={handleSubmit}>
       {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
@@ -131,7 +148,7 @@ const MakeGame = () => {
         <Col lg={4}>
           <Form.Group>
             <Form.Label>Add Participant</Form.Label>
-            <Typeahead
+            <StyledTypeahead
               id="typeahead-particpants"
               name="invitees"
               labelKey="name"
@@ -142,6 +159,9 @@ const MakeGame = () => {
               }
               placeholder="Who's playing?"
               onChange={handleInviteesChange}
+              renderMenuItemChildren={(option, props) => (
+                <div justify="space-between">{option}</div>
+              )}
             />
           </Form.Group>
         </Col>
