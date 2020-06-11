@@ -14,7 +14,8 @@ from backend.api.routes import (
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
-    orm_rows_to_dict
+    orm_rows_to_dict,
+    represent_table
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
@@ -275,7 +276,7 @@ class TestCreateGame(BaseTestCase):
         time_diff = abs((status_entry[4] - current_time))
         self.assertLess(time_diff, 1)
         invited_users = json.loads(status_entry[3])
-        users = self.db_metadata.tables["users"]
+        users = represent_table("users")
         invitees = tuple(game_settings["invitees"] + [user_name])
         with self.db_session.connection() as conn:
             lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
@@ -453,7 +454,7 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        games = self.db_metadata.tables["games"]
+        games = represent_table("games")
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():

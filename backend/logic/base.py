@@ -8,8 +8,11 @@ from datetime import datetime as dt, timedelta
 import pandas as pd
 import pandas_market_calendars as mcal
 import pytz
-from backend.database.db import db_session, db_metadata
-from backend.database.helpers import orm_rows_to_dict
+from backend.database.db import db_session
+from backend.database.helpers import (
+    orm_rows_to_dict,
+    represent_table
+)
 
 # -------- #
 # Defaults #
@@ -111,7 +114,7 @@ def get_game_end_date(game_id: int):
 
 
 def get_user_information(user_id):
-    users = db_metadata.tables["users"]
+    users = represent_table("users")
     row = db_session.query(users).filter(users.c.id == user_id)
     return orm_rows_to_dict(row)
 

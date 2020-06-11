@@ -250,7 +250,9 @@ def respond_to_game_invite():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     decision = request.json.get("decision")
-    async_respond_to_game_invite.apply(args=[game_id, user_id, decision])
+    res = async_respond_to_game_invite.delay(game_id, user_id, decision)
+    while not res.ready():
+        continue
     return make_response(GAME_RESPONSE_MSG, 200)
 
 

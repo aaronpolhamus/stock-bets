@@ -1,7 +1,10 @@
 import time
 
-from backend.database.db import db_session, db_metadata
-from backend.database.helpers import table_updater
+from backend.database.db import db_session
+from backend.database.helpers import (
+    represent_table,
+    table_updater
+)
 from backend.logic.base import (
     PRICE_CACHING_INTERVAL,
     get_user_id,
@@ -54,7 +57,8 @@ from backend.logic.visuals import (
 )
 from backend.tasks.celery import (
     celery,
-    BaseTask
+    BaseTask,
+    pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
 
@@ -101,7 +105,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
     rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
-        prices = db_metadata.tables["prices"]
+        prices = represent_table("prices")
         table_updater(prices, symbol=symbol, price=price, timestamp=last_updated)
 
 
@@ -120,8 +124,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
 
-    metadata = db_metadata
-    games = metadata.tables["games"]
+    games = represent_table("games")
     result = table_updater(games,
                            creator_id=creator_id,
                            title=title,
@@ -145,8 +148,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
 def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]
     response_time = time.time()
-    metadata = db_metadata
-    game_invites = metadata.tables["game_invites"]
+    game_invites = represent_table("game_invites")
     table_updater(game_invites,
                   game_id=game_id,
                   user_id=user_id,
@@ -159,8 +161,10 @@ def async_respond_to_game_invite(self, game_id, user_id, status):
 @celery.task(name="async_service_open_games", bind=True, base=BaseTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_invite_ids()
+    status_list = []
     for game_id in open_game_ids:
-        async_service_one_open_game.delay(game_id)
+        status_list.append(async_service_one_open_game.delay(game_id))
+    pause_return_until_subtask_completion(status_list, "async_service_open_games")
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
@@ -232,7 +236,7 @@ def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantit
 def async_process_single_order(order_id):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
-        order_status = db_metadata.tables["order_status"]
+        order_status = represent_table("order_status")
         table_updater(order_status, order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
@@ -255,7 +259,7 @@ def async_process_all_open_orders(self):
     status_list = []
     for order_id, expiration in open_orders:
         status_list.append(async_process_single_order.delay(order_id))
-
+    pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
 # ------- #
 # Friends #
@@ -268,7 +272,7 @@ def async_invite_friend(self, requester_id, invited_username):
     information to the frontend for other users, though, so we'll look up their ID based on username
     """
     invited_id = get_user_id(invited_username)
-    friends = db_metadata.tables["friends"]
+    friends = represent_table("friends")
     table_updater(friends, requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
@@ -278,7 +282,7 @@ def async_respond_to_friend_invite(self, requester_username, invited_id, decisio
     information to the frontend for other users, though, so we'll look up the request ID based on the username
     """
     requester_id = get_user_id(requester_username)
-    friends = db_metadata.tables["friends"]
+    friends = represent_table("friends")
     table_updater(friends, requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
 
@@ -343,13 +347,14 @@ def async_make_the_field_charts(self, game_id):
 @celery.task(name="async_update_play_game_visuals", bind=True, base=BaseTask)
 def async_update_play_game_visuals(self):
     open_game_ids = get_active_game_ids()
-    task_results = list()
+    task_results = []
     for game_id in open_game_ids:
         task_results.append(async_make_the_field_charts.delay(game_id))
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+    pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
 
 
 # ---------------------- #
@@ -370,6 +375,7 @@ def async_update_player_stats(self):
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
+    pause_return_until_subtask_completion(task_results, "async_update_player_stats")
 
 
 @celery.task(name="async_compile_player_stats", bind=True, base=BaseTask)

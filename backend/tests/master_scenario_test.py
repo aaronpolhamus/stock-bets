@@ -14,7 +14,7 @@ A few important things about this test:
 import json
 
 from backend.config import Config
-from backend.database.db import db_metadata
+from backend.database.db import retrieve_meta_data
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
@@ -29,6 +29,9 @@ from backend.tasks.definitions import (
 )
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
+
+db_metadata = retrieve_meta_data()
+
 
 if __name__ == '__main__':
     btc = BaseTestCase()

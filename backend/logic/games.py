@@ -8,10 +8,9 @@ from typing import List
 
 import pandas as pd
 import pandas_market_calendars as mcal
-from backend.database.db import (
-    db_session,
-    db_metadata)
+from backend.database.db import db_session
 from backend.database.helpers import (
+    represent_table,
     unpack_enumerated_field_mappings,
     orm_rows_to_dict,
     table_updater
@@ -160,7 +159,7 @@ def get_active_game_ids():
 
 
 def translate_usernames_to_ids(usernames: tuple):
-    users = db_metadata.tables["users"]
+    users = represent_table("users")
     with db_session.connection() as conn:
         invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(usernames))).fetchall()
         db_session.remove()
@@ -168,9 +167,7 @@ def translate_usernames_to_ids(usernames: tuple):
 
 
 def create_pending_game_status_entry(game_id, user_ids, opened_at):
-    metadata = db_metadata
-    game_status = metadata.tables["game_status"]
-
+    game_status = represent_table("game_status")
     with db_session.connection() as conn:
         status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
         conn.execute(game_status.insert(), status_entry)
@@ -178,8 +175,7 @@ def create_pending_game_status_entry(game_id, user_ids, opened_at):
 
 
 def create_game_invites_entries(game_id, creator_id, user_ids, opened_at):
-    # Update game invites table
-    game_invites = db_metadata.tables["game_invites"]
+    game_invites = represent_table("game_invites")
     invite_entries = []
     for user_id in user_ids:
         status = "invited"
@@ -214,14 +210,14 @@ def get_invite_list_by_status(game_id, status="joined"):
 def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     """Mark a game as active and seed users' virtual cash balances
     """
-    game_status = db_metadata.tables["game_status"]
+    game_status = represent_table("game_status")
     row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
     game_status_entry = orm_rows_to_dict(row)
     table_updater(game_status, game_id=game_status_entry["game_id"], status="active", users=user_id_list,
                   timestamp=update_time)
 
+    game_balances = represent_table("game_balances")
     with db_session.connection() as conn:
-        game_balances = db_metadata.tables["game_balances"]
         # Initialize each joining player's virtual trading cash balance in the game
         virtual_cash_entries = []
         for user_id in user_id_list:
@@ -235,16 +231,18 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # initialize a blank sidebar stats entry
     init_sidebar_stats(game_id)
-    # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
-    make_the_field_charts(game_id)
+
     # initialize current balances and open orders
     for user_id in user_id_list:
         serialize_and_pack_current_balances(game_id, user_id)
         serialize_and_pack_orders_open_orders(game_id, user_id)
 
+    # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
+    # make_the_field_charts(game_id)
+
 
 def close_game(game_id, update_time):
-    game_status = db_metadata.tables["game_status"]
+    game_status = represent_table("game_status")
     row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
     game_status_entry = orm_rows_to_dict(row)
     table_updater(game_status, game_id=game_status_entry["game_id"], status="expired",
@@ -277,7 +275,7 @@ def mark_invites_expired(game_id, status_list: List[str], update_time):
         ids_to_close = [x[0] for x in result]
         db_session.remove()
 
-    game_invites = db_metadata.tables["game_invites"]
+    game_invites = represent_table("game_invites")
     for user_id in ids_to_close:
         table_updater(game_invites, game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
 
@@ -520,9 +518,7 @@ def update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, curr
                     order_quantity, symbol):
     """This function books an order and updates a user's cash balance at the same time.
     """
-
-    metadata = db_metadata
-    game_balances = metadata.tables["game_balances"]
+    game_balances = represent_table("game_balances")
     sign = 1 if buy_or_sell == "buy" else -1
     table_updater(game_balances, user_id=user_id, game_id=game_id, timestamp=timestamp, balance_type="virtual_cash",
                   balance=cash_balance - sign * order_quantity * order_price)
@@ -533,9 +529,8 @@ def update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, curr
 def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
                 market_price, amount, time_in_force, stop_limit_price=None):
     timestamp = time.time()
-    metadata = db_metadata
-    order_status = metadata.tables["order_status"]
-    orders = metadata.tables["orders"]
+    order_status = represent_table("order_status")
+    orders = represent_table("orders")
 
     order_price = get_order_price(order_type, market_price, stop_limit_price)
     order_quantity = get_order_quantity(order_price, amount, quantity_type)
@@ -566,7 +561,7 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
 
 
 def get_order_ticket(order_id):
-    orders = db_metadata.tables["orders"]
+    orders = represent_table("orders")
     row = db_session.query(orders).filter(orders.c.id == order_id)
     return orm_rows_to_dict(row)
 
@@ -575,7 +570,7 @@ def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, o
                   quantity, timestamp):
     # Only process active outstanding orders during trading day
     if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
-        order_status = db_metadata.tables["order_status"]
+        order_status = represent_table("order_status")
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding, market_price, quantity,
@@ -638,7 +633,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
 # Functions for serving information about games
 # ---------------------------------------------
 def get_game_info(game_id: int):
-    games = db_metadata.tables["games"]
+    games = represent_table("games")
     row = db_session.query(games).filter(games.c.id == game_id)
     info = orm_rows_to_dict(row)
     info["creator_username"] = get_username(info["creator_id"])

@@ -3,9 +3,10 @@ import time
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from backend.database.helpers import orm_rows_to_dict
+from backend.database.helpers import (
+    orm_rows_to_dict,
+    represent_table)
 from backend.logic.games import (
-    get_open_game_invite_ids,
     get_current_stock_holding,
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
@@ -175,7 +176,7 @@ class TestGameIntegration(BaseTestCase):
             "invitees": ["miguel", "murcitdev", "toofast"]
         }
 
-        async_add_game.apply(args=(
+        res = async_add_game.delay(
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["mode"],
@@ -185,9 +186,12 @@ class TestGameIntegration(BaseTestCase):
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]))
+            mock_game["invitees"]
+        )
+        while not res.ready():
+            continue
 
-        games = self.db_metadata.tables["games"]
+        games = represent_table("games")
         row = self.db_session.query(games).filter(games.c.title == game_title)
         game_entry = orm_rows_to_dict(row)
 
@@ -202,7 +206,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status = self.db_metadata.tables["game_status"]
+        game_status = represent_table("game_status")
         row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
         game_status_entry = orm_rows_to_dict(row)
         self.assertEqual(game_status_entry["id"], 8)
@@ -235,15 +239,15 @@ class TestGameIntegration(BaseTestCase):
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        open_game_ids = get_open_game_invite_ids()
-        for game_id in open_game_ids:
-            async_service_one_open_game.apply(args=[game_id])
+        res = async_service_open_games.delay()
+        while not res.ready():
+            continue
 
         with self.db_session.connection() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        self.assertEqual(gi_count_post - gi_count_pre, 6)
+        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
         with self.db_session.connection() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])

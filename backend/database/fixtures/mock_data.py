@@ -1,9 +1,7 @@
 from datetime import timedelta
 
-from backend.database.db import (
-    db_session,
-    db_metadata
-)
+from backend.database.db import db_session
+from backend.database.helpers import represent_table
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.logic.stock_data import (
     get_schedule_start_and_end,
@@ -46,7 +44,7 @@ def get_stock_finish_price(symbol, records=price_records, order_time=close_of_si
 def refresh_table(table_name):
     mock_entry = MOCK_DATA.get(table_name)
     if mock_entry:
-        table_meta = db_metadata.tables[table_name]
+        table_meta = represent_table(table_name)
         with db_session.connection() as conn:
             conn.execute(table_meta.delete())
             conn.execute(table_meta.insert(), mock_entry)

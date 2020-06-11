@@ -4,7 +4,8 @@ import jwt
 import requests
 import time
 
-from backend.database.db import db_session, db_metadata
+from backend.database.db import db_session
+from backend.database.helpers import represent_table
 from backend.config import Config
 
 WHITE_LIST = [
@@ -103,7 +104,7 @@ def register_user_if_first_visit(user_entry):
     with db_session.connection() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
         if user is None:
-            users = db_metadata.tables["users"]
+            users = represent_table("users")
             conn.execute(users.insert(), user_entry)
         db_session.commit()
 
