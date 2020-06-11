@@ -5,6 +5,22 @@ import { Form, Button, Modal, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
 
+import styled from "styled-components";
+
+const StyledTypeahead = styled(Typeahead)`
+  .rbt-input-wrapper {
+    display: flex;
+    flex-direction: row-reverse;
+    flex-wrap: wrap-reverse;
+  }
+  .rbt-input-wrapper div {
+    flex: 1 0 100% !important;
+  }
+  .rbt-input-wrapper [option] {
+    margin-top: var(--space-300);
+  }
+`;
+
 const MakeGame = () => {
   const [defaults, setDefaults] = useState({});
   const [sidePotPct, setSidePotPct] = useState(0);
