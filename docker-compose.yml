@@ -35,6 +35,8 @@ services:
       - ./backend:/home/backend
     depends_on:
       - backend
+      - redis
+      - rabbitmq
 
   scheduler:
     image: backend
@@ -47,6 +49,8 @@ services:
       - ./backend:/home/backend
     depends_on:
       - backend
+      - redis
+      - rabbitmq
 
   api:
     image: backend
@@ -58,10 +62,10 @@ services:
       - backend/.flaskenv
     depends_on:
       - db
+      - backend
       - redis
       - rabbitmq
-      - worker
-      - backend
+
     ports:
       - 5000:5000
     volumes:
