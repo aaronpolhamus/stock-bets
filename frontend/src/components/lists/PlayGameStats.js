@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { isEmpty, fetchGameData } from "components/functions/api";
+import { fetchGameData } from "components/functions/api";
 import {
   SimplifiedCurrency,
   AuxiliarText,

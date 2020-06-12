@@ -1,6 +1,6 @@
 import React from "react";
 import styled from "styled-components";
-import { Container, Row } from "react-bootstrap";
+import { Container } from "react-bootstrap";
 
 //Global Layout Component
 const StyledContainer = styled(Container)`

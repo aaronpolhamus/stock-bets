@@ -29,7 +29,10 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
     DEFAULT_INVITE_OPEN_WINDOW,
-    DEFAULT_VIRTUAL_CASH
+    DEFAULT_VIRTUAL_CASH,
+    InsufficientHoldings,
+    InsufficientFunds,
+    LimitError
 )
 from backend.logic.visuals import (
     SIDEBAR_STATS_PREFIX,
@@ -383,13 +386,12 @@ class TestPlayGame(BaseTestCase):
             "symbol": stock_pick,
             "order_type": "limit",
             "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
-            "shares_or_usd": "Shares",
+            "quantity_type": "Shares",
             "market_price": market_price,
             "amount": order_quantity,
             "buy_or_sell": "buy",
             "time_in_force": "until_cancelled"
         }
-        rds.delete(f"balances_chart_{game_id}_{user_id}")
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
                                          verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 200)
@@ -415,12 +417,71 @@ class TestPlayGame(BaseTestCase):
         while balances_chart is None:
             balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
 
-        res = self.requests_session.post(f"{HOST_URL}/balances_chart", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
-        returned_current_balances_series = set([x['id'] for x in res.json()])
+        returned_current_balances_series = set([x['id'] for x in res.json()["line_data"]])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
+
+        # place a couple different types of invalid orders to make sure that we're getting what we expect back
+        stock_pick = "AMZN"
+        res = async_fetch_price.apply(args=[stock_pick])
+        market_price, _ = res.result
+
+        # can't buy a billion dollars of Amazon
+        order_ticket = {
+            "user_id": user_id,
+            "game_id": game_id,
+            "symbol": stock_pick,
+            "order_type": "limit",
+            "stop_limit_price": 1_000,  # we want to be 100% sure that that this order doesn't automatically clear
+            "quantity_type": "USD",
+            "market_price": market_price,
+            "amount": 1_000_000_000,
+            "buy_or_sell": "buy",
+            "time_in_force": "until_cancelled"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
+                                         verify=False, json=order_ticket)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.text, str(InsufficientFunds()))
+
+        # also can't sell a million shares that we don't own
+        order_ticket = {
+            "user_id": user_id,
+            "game_id": game_id,
+            "symbol": stock_pick,
+            "order_type": "market",
+            "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
+            "quantity_type": "Shares",
+            "market_price": market_price,
+            "amount": 1_000_000,
+            "buy_or_sell": "sell",
+            "time_in_force": "until_cancelled"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
+                                         verify=False, json=order_ticket)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.text, str(InsufficientHoldings()))
+
+        # Trigger the exception for a limit order that's effectively a market order
+        order_ticket = {
+            "user_id": user_id,
+            "game_id": game_id,
+            "symbol": stock_pick,
+            "order_type": "limit",
+            "stop_limit_price": 5_000,  # we want to be 100% sure that that this order doesn't automatically clear
+            "quantity_type": "Shares",
+            "market_price": market_price,
+            "amount": 1,
+            "buy_or_sell": "buy",
+            "time_in_force": "until_cancelled"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
+                                         verify=False, json=order_ticket)
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.text, str(LimitError()))
 
 
 class TestGetGameStats(BaseTestCase):
@@ -458,10 +519,13 @@ class TestGetGameStats(BaseTestCase):
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark"]:
+            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
+        self.assertEqual(res.json()["user_status"], "joined")
+        self.assertEqual(res.json()["game_status"], "active")
+        self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark"], "RETURN RATIO")
         self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")

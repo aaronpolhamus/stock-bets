@@ -2,11 +2,16 @@
 """
 import json
 import time
+from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
+import seaborn as sns
+
 from backend.database.db import db_session
 from backend.logic.base import (
+    get_schedule_start_and_end,
+    get_next_trading_day_schedule,
     get_all_game_users,
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
@@ -22,7 +27,9 @@ from backend.tasks.redis import rds
 # Chart settings #
 # -------------- #
 N_PLOT_POINTS = 25
-DATE_LABEL_FORMAT = "%b %-d, %-H:%-M"
+DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
+NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
+
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -32,7 +39,6 @@ SIDEBAR_STATS_PREFIX = "sidebar_stats"
 OPEN_ORDERS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
-
 
 # ------------------ #
 # Time series charts #
@@ -80,41 +86,66 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
     return output_array
 
 
-def null_chart():
+def palette_generator(n, palette="hls"):
+    """For n distinct series, generate a unique color palette
+    """
+    rgb_codes = sns.color_palette(palette, n)
+    return [f"rgba({255 * r}, {255 * g}, {255 * b}, 1)" for r, g, b in rgb_codes]
+
+
+def null_chart_series(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
-    For now this function is a bit unecessary, but the idea here is to be really explicit about what's happening so
+    For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
     """
-    return []
+    schedule = get_next_trading_day_schedule(dt.utcnow())
+    start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
+    series = [{"x": t.strftime(DATE_LABEL_FORMAT), "y": DEFAULT_VIRTUAL_CASH} for t in
+              pd.date_range(start, end, N_PLOT_POINTS)]
+    series[0]["y"] = 0
+    return dict(id=null_label, data=series)
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
     result of calling make_balances_chart_data
     """
-    chart_json = null_chart()
+    chart_json = dict(
+        line_data=[null_chart_series("Cash")],
+        colors=[NULL_RGBA]
+    )
     if not df.empty:
-        chart_json = []
+        line_data = []
         symbols = df["symbol"].unique()
-        for symbol in symbols:
+        for i, symbol in enumerate(symbols):
             entry = dict(id=symbol)
             subset = df[df["symbol"] == symbol]
             entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            chart_json.append(entry)
+            line_data.append(entry)
+        chart_json = dict(line_data=line_data, colors=palette_generator(len(symbols)))
+
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
-    chart_json = null_chart()
-    if not df.empty:
-        chart_json = []
-        user_ids = df["id"].unique()
-        for user_id in user_ids:
-            username = get_username(user_id)
+    user_ids = get_all_game_users(game_id)
+    line_data = []
+    colors = []
+    palette = palette_generator(len(user_ids))
+    for i, user_id in enumerate(user_ids):
+        username = get_username(user_id)
+        if df.empty:
+            entry = null_chart_series(username)
+            color = NULL_RGBA
+        else:
             entry = dict(id=username)
             subset = df[df["id"] == user_id]
             entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            chart_json.append(entry)
+            color = palette[i]
+        line_data.append(entry)
+        colors.append(color)
+
+    chart_json = dict(line_data=line_data, colors=colors)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
@@ -196,6 +227,7 @@ def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
     open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
     open_orders["time_in_force"] = open_orders["time_in_force"].apply(
         lambda x: "Day" if x == "day" else "Until cancelled")
+    open_orders.loc[open_orders["order_type"] == "market", "price"] = " -- "
     column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
                        "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
     open_orders.rename(columns=column_mappings, inplace=True)
@@ -248,7 +280,7 @@ def get_most_recent_prices(symbols):
 
 def serialize_and_pack_current_balances(game_id: int, user_id: int):
     column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
-                       "price": "Last price", "timestamp": "Updated at"}
+                       "price": "Market price", "timestamp": "Updated at"}
     out_dict = dict(data=[], headers=list(column_mappings.values()))
     balances = get_active_balances(game_id, user_id)
     if not balances.empty:
@@ -320,4 +352,3 @@ def compile_and_pack_player_sidebar_stats(game_id: int):
         records.append(record)
     output = make_side_bar_output(game_id, records)
     rds.set(f"{SIDEBAR_STATS_PREFIX}_{game_id}", json.dumps(output))
-

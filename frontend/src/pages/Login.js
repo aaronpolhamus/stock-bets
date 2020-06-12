@@ -4,11 +4,13 @@ import GoogleLogin from "react-google-login";
 import FacebookLogin from "react-facebook-login/dist/facebook-login-render-props";
 import api from "services/api";
 import { Redirect } from "react-router-dom";
-import { Container, Row, Col } from "react-bootstrap";
+import { Container, Row } from "react-bootstrap";
 import { Content } from "components/layout/Layout";
 import { ReactComponent as Logo } from "assets/logo.svg";
 import { SmallText } from "components/textComponents/Text";
 import styled from "styled-components";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGoogle, faFacebook } from "@fortawesome/free-brands-svg-icons";
 
 const RightCol = styled.div`
   padding: 8vw;
@@ -57,11 +59,24 @@ const LoginButton = styled.button`
   font-weight: bold;
   border: none;
   padding: var(--space-100);
+  span {
+    position: relative;
+    transition: all 0.2s;
+    left: 0px;
+  }
+  &:hover span {
+    left: var(--space-50);
+  }
 `;
 
 const StyledLogo = styled(Logo)`
   max-width: 460px;
   width: 90%;
+`;
+
+const StyledFaIcon = styled(FontAwesomeIcon)`
+  position: relative;
+  top: 1px;
 `;
 
 function responseError(response) {
@@ -109,7 +124,11 @@ export default function AlphabetLogin() {
                 cookiePolicy={"single_host_origin"}
                 render={(renderProps) => (
                   <LoginButton onClick={renderProps.onClick}>
-                    Login with Google
+                    <StyledFaIcon
+                      icon={faGoogle}
+                      color="var(--color-primary)"
+                    />{" "}
+                    <span>Login with Google</span>
                   </LoginButton>
                 )}
               />
@@ -121,7 +140,11 @@ export default function AlphabetLogin() {
                 callback={handleSubmit}
                 render={(renderProps) => (
                   <LoginButton onClick={renderProps.onClick}>
-                    Login with Facebook
+                    <StyledFaIcon
+                      icon={faFacebook}
+                      color="var(--color-primary)"
+                    />{" "}
+                    <span>Login with Facebook</span>
                   </LoginButton>
                 )}
               />

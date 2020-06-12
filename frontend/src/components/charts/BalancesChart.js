@@ -1,25 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { fetchGameData } from "components/functions/api";
+import { dollarizer } from "components/functions/formats";
 
 const BalancesChart = ({ gameId }) => {
-  const [chartData, setChartData] = useState([]);
+  const [lineData, setLineData] = useState([]);
+  const [colors, setColors] = useState([]);
+
   useEffect(() => {
     const getGameData = async () => {
-      const data = await fetchGameData(gameId, "balances_chart");
-      setChartData(data);
+      const data = await fetchGameData(gameId, "get_balances_chart");
+      setLineData(data.line_data);
+      setColors(data.colors);
     };
     getGameData();
   }, [gameId]);
-
-  // backend generates all info -> point
-  // frontend generates missing info -> time
-
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <div style={{ width: "100%", height: "25vw" }}>
       <ResponsiveLine
-        data={chartData}
+        data={lineData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
         xScale={{ type: "point" }}
         yScale={{
@@ -47,10 +47,11 @@ const BalancesChart = ({ gameId }) => {
           tickRotation: 0,
           legendOffset: -40,
           legendPosition: "middle",
+          format: (v) => `${dollarizer.format(v)}`,
         }}
-        colors={{ scheme: "nivo" }}
         pointSize={0}
         useMesh={false}
+        colors={colors}
         legends={[
           {
             anchor: "bottom-right",
