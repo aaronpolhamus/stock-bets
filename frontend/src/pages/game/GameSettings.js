@@ -1,7 +1,13 @@
 import React from "react";
 import { SidebarSection } from "components/layout/Layout";
-import { SectionTitle } from "components/textComponents/Text";
+import { SectionTitle, Label } from "components/textComponents/Text";
 import { UserMiniCard } from "components/users/UserMiniCard";
+import styled from "styled-components";
+
+const StyledDd = styled.dd`
+  margin-bottom: var(--space-300);
+  margin-top: 0;
+`;
 
 const GameSettings = ({ gameInfo }) => {
   return (
@@ -16,20 +22,32 @@ const GameSettings = ({ gameInfo }) => {
       <SidebarSection>
         <SectionTitle color="var(--color-primary)">Game Settings</SectionTitle>
         <dl>
-          <dt>Game Mode</dt>
-          <dd>{gameInfo.mode}</dd>
-          <dt>Buy In</dt>
-          <dd>{gameInfo.buy_in}</dd>
-          <dt>Game Duration</dt>
-          <dd>{gameInfo.duration} days</dd>
-          <dt>Benchmark</dt>
-          <dd>{gameInfo.benchmark}</dd>
-          <dt>Sidebet</dt>
-          <dd>
+          <dt>
+            <Label>Game Mode</Label>
+          </dt>
+          <StyledDd>{gameInfo.mode}</StyledDd>
+          <dt>
+            <Label>Buy In</Label>
+          </dt>
+          <StyledDd>{gameInfo.buy_in}</StyledDd>
+          <dt>
+            <Label>Game Duration</Label>
+          </dt>
+          <StyledDd>{gameInfo.duration} days</StyledDd>
+          <dt>
+            <Label>Benchmark</Label>
+          </dt>
+          <StyledDd>{gameInfo.benchmark}</StyledDd>
+          <dt>
+            <Label>Sidebet</Label>
+          </dt>
+          <StyledDd>
             {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
-          </dd>
-          <dt>Number of rebuys</dt>
-          <dd>{gameInfo.n_rebuys}</dd>
+          </StyledDd>
+          <dt>
+            <Label>Number of rebuys</Label>
+          </dt>
+          <StyledDd>{gameInfo.n_rebuys}</StyledDd>
         </dl>
       </SidebarSection>
     </div>

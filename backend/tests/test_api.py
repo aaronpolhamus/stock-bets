@@ -519,10 +519,13 @@ class TestGetGameStats(BaseTestCase):
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark"]:
+            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
+        self.assertEqual(res.json()["user_status"], "joined")
+        self.assertEqual(res.json()["game_status"], "active")
+        self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark"], "RETURN RATIO")
         self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")

@@ -278,8 +278,9 @@ def get_pending_game_info():
 @routes.route("/api/game_info", methods=["POST"])
 @authenticate
 def game_info():
+    user_id = decode_token(request)
     game_id = request.json.get("game_id")
-    res = async_get_game_info.delay(game_id)
+    res = async_get_game_info.delay(game_id, user_id)
     while not res.ready():
         continue
     return jsonify(res.get())

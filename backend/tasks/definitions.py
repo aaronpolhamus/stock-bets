@@ -36,6 +36,7 @@ from backend.logic.games import (
     create_game_invites_entries,
     start_game_if_all_invites_responded,
     get_game_info_for_user,
+    get_user_invite_status_for_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.payouts import (
@@ -173,8 +174,10 @@ def async_service_one_open_game(self, game_id):
 
 
 @celery.task(name="async_get_game_info", bind=True, base=BaseTask)
-def async_get_game_info(self, game_id):
-    return get_game_info(game_id)
+def async_get_game_info(self, game_id, user_id):
+    game_info = get_game_info(game_id)
+    game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
+    return game_info
 
 
 @celery.task(name="async_get_game_info_for_user", bind=True, base=BaseTask)
