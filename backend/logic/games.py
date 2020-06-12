@@ -650,6 +650,23 @@ def get_current_game_status(game_id: int):
     return status
 
 
+def get_user_invite_status_for_game(game_id: int, user_id: int):
+    with db_session.connection() as conn:
+        status = conn.execute("""
+            SELECT gi.status
+            FROM game_invites gi
+            INNER JOIN
+            (SELECT game_id, user_id, max(id) as max_id
+              FROM game_invites
+              GROUP BY game_id, user_id) grouped_gi
+            ON
+              gi.id = grouped_gi.max_id
+            WHERE gi.game_id = %s AND gi.user_id = %s;
+        """, game_id, user_id).fetchone()[0]
+        db_session.remove()
+    return status
+
+
 def get_game_info(game_id: int):
     games = represent_table("games")
     row = db_session.query(games).filter(games.c.id == game_id)
