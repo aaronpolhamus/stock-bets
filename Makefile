@@ -13,6 +13,7 @@ db-reset:
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
 db-mock-data:
+	make db-reset
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"
 
 db-logs:
@@ -77,6 +78,7 @@ backend-build:
 	docker-compose build backend
 
 backend-test:
+	make worker-restart
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
 

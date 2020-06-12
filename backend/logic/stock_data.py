@@ -1,4 +1,3 @@
-from datetime import datetime as dt, timedelta
 import sys
 import time
 
@@ -13,10 +12,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from backend.tasks.redis import rds
 from backend.config import Config
 from backend.logic.base import (
-    posix_to_datetime,
-    nyse,
-    get_schedule_start_and_end
+    during_trading_day,
+    posix_to_datetime
 )
+
 
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
@@ -28,26 +27,6 @@ class SeleniumDriverError(Exception):
 
     def __str__(self):
         return "It looks like the selenium web driver failed to instantiate properly"
-
-
-def during_trading_day():
-    posix_time = time.time()
-    nyc_time = posix_to_datetime(posix_time)
-    schedule = nyse.schedule(nyc_time, nyc_time)
-    if schedule.empty:
-        return False
-    start_day, end_day = get_schedule_start_and_end(schedule)
-    return start_day <= posix_time < end_day
-
-
-def get_next_trading_day_schedule(current_day: dt):
-    """For day orders we need to know when the next trading day happens if the order is placed after hours.
-    """
-    schedule = nyse.schedule(current_day, current_day)
-    while schedule.empty:
-        current_day += timedelta(days=1)
-        schedule = nyse.schedule(current_day, current_day)
-    return schedule
 
 
 # Selenium web scraper for keeping exchange symbols up to date

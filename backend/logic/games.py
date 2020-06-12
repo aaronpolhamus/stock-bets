@@ -25,9 +25,7 @@ from backend.database.models import (
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     get_current_game_cash_balance,
-    get_username
-)
-from backend.logic.stock_data import (
+    get_username,
     posix_to_datetime,
     get_next_trading_day_schedule,
     get_schedule_start_and_end,
@@ -238,7 +236,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
         serialize_and_pack_orders_open_orders(game_id, user_id)
 
     # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
-    # make_the_field_charts(game_id)
+    make_the_field_charts(game_id)
 
 
 def close_game(game_id, update_time):

@@ -19,7 +19,6 @@ import * as Icon from "react-feather";
 
 const PlayGame = (props) => {
   const { gameId } = useParams();
-
   return (
     <Layout>
       <Sidebar>

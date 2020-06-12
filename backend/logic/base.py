@@ -26,6 +26,11 @@ TIMEZONE = 'America/New_York'
 PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
 nyse = mcal.get_calendar('NYSE')
 
+# ----------------------------------------------------------------------------------------------------------------- $
+# Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
+# and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
+# ----------------------------------------------------------------------------------------------------------------- #
+
 
 def datetime_to_posix(localized_date):
     return calendar.timegm(localized_date.utctimetuple())
@@ -49,6 +54,26 @@ def get_end_of_last_trading_day():
         schedule = nyse.schedule(current_day, current_day)
     _, end_day = get_schedule_start_and_end(schedule)
     return end_day
+
+
+def during_trading_day():
+    posix_time = time.time()
+    nyc_time = posix_to_datetime(posix_time)
+    schedule = nyse.schedule(nyc_time, nyc_time)
+    if schedule.empty:
+        return False
+    start_day, end_day = get_schedule_start_and_end(schedule)
+    return start_day <= posix_time < end_day
+
+
+def get_next_trading_day_schedule(current_day: dt):
+    """For day orders we need to know when the next trading day happens if the order is placed after hours.
+    """
+    schedule = nyse.schedule(current_day, current_day)
+    while schedule.empty:
+        current_day += timedelta(days=1)
+        schedule = nyse.schedule(current_day, current_day)
+    return schedule
 
 # ------------ #
 # Game-related #

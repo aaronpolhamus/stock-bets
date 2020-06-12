@@ -321,9 +321,9 @@ class TestGameLogic(BaseTestCase):
             self.db_session.remove()
 
         # similar setup for mock buy and sell orders as above, but this time setup to be valid from the get-go
-        with patch("backend.logic.games.time") as game_time_mock, patch(
+        with patch("backend.logic.base.time") as base_time_mock, patch(
                 "backend.logic.stock_data.time") as stock_time_mock:
-            game_time_mock.time.side_effect = [
+            base_time_mock.time.side_effect = [
                 1590516744,
                 1590516744
             ]
@@ -365,12 +365,12 @@ class TestGameLogic(BaseTestCase):
             self.assertEqual(current_holding, mock_buy_order["amount"])
 
         with patch("backend.logic.games.time") as game_time_mock, patch(
-                "backend.logic.stock_data.time") as stock_time_mock:
+                "backend.logic.base.time") as base_time_mock:
             game_time_mock.time.side_effect = [
                 1590516744,
                 1590516744
             ]
-            stock_time_mock.time.side_effect = [
+            base_time_mock.time.side_effect = [
                 1590516744,
                 1590516744
             ]

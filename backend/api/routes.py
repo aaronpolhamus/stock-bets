@@ -35,6 +35,13 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
+from backend.logic.visuals import (
+    OPEN_ORDERS_PREFIX,
+    BALANCES_CHART_PREFIX,
+    CURRENT_BALANCES_PREFIX,
+    FIELD_CHART_PREFIX,
+    SIDEBAR_STATS_PREFIX
+)
 from backend.tasks.definitions import (
     async_get_game_info_for_user,
     async_get_user_information,
@@ -308,18 +315,27 @@ def place_order():
     order_ticket = request.json
     game_id = order_ticket["game_id"]
     stop_limit_price = order_ticket.get("stop_limit_price")
-    async_place_order.apply(args=[
+    if stop_limit_price:
+        stop_limit_price = float(stop_limit_price)
+
+    res = async_place_order.apply(args=[
         user_id,
         game_id,
         order_ticket["symbol"],
         order_ticket["buy_or_sell"],
         order_ticket["order_type"],
-        order_ticket["shares_or_usd"],
-        order_ticket["market_price"],
-        order_ticket["amount"],
+        order_ticket["quantity_type"],
+        float(order_ticket["market_price"]),
+        float(order_ticket["amount"]),
         order_ticket["time_in_force"],
-        stop_limit_price]
-    )
+        stop_limit_price
+    ])
+
+    # TODO: There must be a more elegant way to do this...
+    try:
+        res.get()
+    except Exception as e:
+        return make_response(str(e), 400)
 
     async_serialize_open_orders.delay(game_id, user_id)
     async_serialize_current_balances.delay(game_id, user_id)
@@ -360,7 +376,7 @@ def api_suggest_symbols():
 @authenticate
 def get_sidebar_stats():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"sidebar_stats_{game_id}"))
+    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/send_friend_request", methods=["POST"])
@@ -421,20 +437,20 @@ def suggest_friend_invites():
 # ------- #
 
 
-@routes.route("/api/balances_chart", methods=["POST"])
+@routes.route("/api/get_balances_chart", methods=["POST"])
 @authenticate
 def balances_chart():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"balances_chart_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/field_chart", methods=["POST"])
+@routes.route("/api/get_field_chart", methods=["POST"])
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")
     f"field_chart_{game_id}"
-    return jsonify(unpack_redis_json(f"field_chart_{game_id}"))
+    return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_open_orders_table", methods=["POST"])
@@ -442,7 +458,7 @@ def field_chart():
 def get_open_orders_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"open_orders_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_current_balances_table", methods=["POST"])
@@ -450,7 +466,7 @@ def get_open_orders_table():
 def get_current_balances_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"current_balances_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 # ------ #
 # DevOps #

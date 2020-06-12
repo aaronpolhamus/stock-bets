@@ -1,25 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
-import { isEmpty, fetchGameData } from "components/functions/api";
+import { fetchGameData } from "components/functions/api";
+import { dollarizer } from "components/functions/formats";
 
 const FieldChart = ({ gameId, height }) => {
-  const [chartData, setChartData] = useState([]);
+  const [lineData, setLineData] = useState([]);
+  const [colors, setColors] = useState([]);
 
   useEffect(() => {
     const getGameData = async () => {
-      const data = await fetchGameData(gameId, "field_chart");
-      setChartData(data);
+      const data = await fetchGameData(gameId, "get_field_chart");
+      setLineData(data.line_data);
+      setColors(data.colors);
     };
     getGameData();
   }, [gameId]);
-  if (isEmpty(chartData)) {
-    return null;
-  }
+
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <div style={{ width: "100%", height: height || "25vw" }}>
       <ResponsiveLine
-        data={chartData}
+        data={lineData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
         xScale={{ type: "point" }}
         yScale={{
@@ -34,24 +35,22 @@ const FieldChart = ({ gameId, height }) => {
         axisRight={null}
         axisBottom={{
           orient: "bottom",
-          tickSize: 5,
+          tickSize: 3,
           tickPadding: 5,
           tickRotation: -45,
-          legendOffset: 36,
-          legendPosition: "middle",
-          tickValues: 20,
         }}
         axisLeft={{
           orient: "left",
-          tickSize: 5,
-          tickPadding: 5,
+          tickSize: 2,
+          tickPadding: 1,
           tickRotation: 0,
           legendOffset: -40,
-          legendPosition: "middle",
+          format: (v) => `${dollarizer.format(v)}`,
         }}
-        colors={{ scheme: "nivo" }}
+        colors={colors}
         pointSize={0}
         useMesh={false}
+        lineCol
         legends={[
           {
             anchor: "bottom-right",
