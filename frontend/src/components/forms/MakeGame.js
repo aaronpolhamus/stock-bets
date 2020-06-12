@@ -4,6 +4,7 @@ import api from "services/api";
 import { Form, Button, Modal, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
+import { RadioButtons } from "components/forms/Inputs";
 
 import styled from "styled-components";
 
@@ -104,6 +105,8 @@ const MakeGame = () => {
               >
                 {defaults.game_modes && optionBuilder(defaults.game_modes)}
               </Form.Control>
+
+              <RadioButtons options={defaults.game_modes} />
             </Form.Group>
             <Row>
               <Col xs={6}>
