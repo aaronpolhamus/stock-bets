@@ -41,7 +41,7 @@ class TestStockDataLogic(unittest.TestCase):
 
         # Pre-stage all of the mocked current time values that will be called sequentially in the tests below.
         # ----------------------------------------------------------------------------------------------------
-        with patch('backend.logic.stock_data.time') as current_time_mock:
+        with patch('backend.logic.base.time') as current_time_mock:
             # Check during trading day just one second before and after open/close
             nyse = mcal.get_calendar('NYSE')
             schedule = nyse.schedule(actual_date, actual_date)
@@ -88,9 +88,9 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(start_day, expected_start)
         self.assertEqual(end_day, expected_end)
 
-
     @patch('backend.logic.stock_data.time')
-    def test_price_fetchers(self, current_time_mock):
+    @patch('backend.logic.base.time')
+    def test_price_fetchers(self, base_time, stock_data_time):
         symbol = "AMZN"
         amzn_price, updated_at = fetch_iex_price(symbol)
         self.assertIsNotNone(amzn_price)
@@ -104,13 +104,10 @@ class TestStockDataLogic(unittest.TestCase):
         off_hours_time = 1590192953
         end_of_trade_time = 1590177600
 
-        current_time_mock.time.side_effect = [
+        stock_data_time.time.side_effect = base_time.time.side_effect = [
             off_hours_time,  # Same-day look-up against a valid cache
-            off_hours_time,
             off_hours_time + 5 * 24 * 60 * 60,  # Look-up much later than the last cached entry
-            off_hours_time + 5 * 24 * 60 * 60,
             off_hours_time,  # back to the same-day look-up, but we'll reset the cache to earlier in the day
-            off_hours_time
         ]
 
         rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 30}")

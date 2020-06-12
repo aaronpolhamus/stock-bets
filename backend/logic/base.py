@@ -26,6 +26,11 @@ TIMEZONE = 'America/New_York'
 PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
 nyse = mcal.get_calendar('NYSE')
 
+# ----------------------------------------------------------------------------------------------------------------- $
+# Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
+# and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
+# ----------------------------------------------------------------------------------------------------------------- #
+
 
 def datetime_to_posix(localized_date):
     return calendar.timegm(localized_date.utctimetuple())
@@ -69,7 +74,6 @@ def get_next_trading_day_schedule(current_day: dt):
         current_day += timedelta(days=1)
         schedule = nyse.schedule(current_day, current_day)
     return schedule
-
 
 # ------------ #
 # Game-related #

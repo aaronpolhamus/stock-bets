@@ -417,11 +417,11 @@ class TestPlayGame(BaseTestCase):
         while balances_chart is None:
             balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
 
-        res = self.requests_session.post(f"{HOST_URL}/balances_chart", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
-        returned_current_balances_series = set([x['id'] for x in res.json()])
+        returned_current_balances_series = set([x['id'] for x in res.json()["line_data"]])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # place a couple different types of invalid orders to make sure that we're getting what we expect back

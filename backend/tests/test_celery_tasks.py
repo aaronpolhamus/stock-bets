@@ -85,7 +85,7 @@ class TestStockDataTasks(BaseTestCase):
 
 class TestPriceCaching(BaseTestCase):
 
-    @patch("backend.logic.stock_data.time")
+    @patch("backend.logic.base.time")
     @patch("backend.tasks.definitions.time")
     def test_price_caching(self, task_time_mock, data_time_mock):
 
@@ -290,7 +290,7 @@ class TestGameIntegration(BaseTestCase):
         game_start_time = 1590508896
         # Place two market orders and a buy limit order
         with patch("backend.logic.games.time") as mock_game_time, patch(
-                "backend.logic.stock_data.time") as mock_data_time:
+                "backend.logic.base.time") as mock_data_time:
             time_list = [
                 game_start_time + 300,
                 game_start_time + 300,
@@ -416,7 +416,7 @@ class TestGameIntegration(BaseTestCase):
 
         with patch("backend.tasks.definitions.async_fetch_price") as mock_price_fetch, patch(
                 "backend.tasks.definitions.time") as mock_task_time, patch(
-            "backend.logic.stock_data.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
+            "backend.logic.base.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5
 
