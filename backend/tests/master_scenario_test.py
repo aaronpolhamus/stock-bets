@@ -171,7 +171,7 @@ if __name__ == '__main__':
     """)
     async_update_play_game_visuals()
     async_update_player_stats()
-
+    import ipdb;ipdb.set_trace()
 
     input("""
     We got a game! Time to put in our first order.

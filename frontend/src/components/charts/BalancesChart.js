@@ -6,7 +6,7 @@ const BalancesChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
   useEffect(() => {
     const getGameData = async () => {
-      const data = await fetchGameData(gameId, "balances_chart");
+      const data = await fetchGameData(gameId, "get_balances_chart");
       setChartData(data);
     };
     getGameData();

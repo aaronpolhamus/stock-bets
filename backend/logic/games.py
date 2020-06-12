@@ -238,7 +238,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
         serialize_and_pack_orders_open_orders(game_id, user_id)
 
     # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
-    # make_the_field_charts(game_id)
+    make_the_field_charts(game_id)
 
 
 def close_game(game_id, update_time):

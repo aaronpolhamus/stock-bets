@@ -436,7 +436,7 @@ def suggest_friend_invites():
 # ------- #
 
 
-@routes.route("/api/balances_chart", methods=["POST"])
+@routes.route("/api/get_balances_chart", methods=["POST"])
 @authenticate
 def balances_chart():
     game_id = request.json.get("game_id")
@@ -444,7 +444,7 @@ def balances_chart():
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/field_chart", methods=["POST"])
+@routes.route("/api/get_field_chart", methods=["POST"])
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")

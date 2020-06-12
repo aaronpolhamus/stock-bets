@@ -80,19 +80,21 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
     return output_array
 
 
-def null_chart():
+def null_chart(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
     """
-    return []
+    series = [{"x": _, "y": DEFAULT_VIRTUAL_CASH} for _ in range(N_PLOT_POINTS)]
+    series[0]["y"] = 0
+    return dict(id=null_label, data=series)
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
     result of calling make_balances_chart_data
     """
-    chart_json = null_chart()
+    chart_json = null_chart("Cash")
     if not df.empty:
         chart_json = []
         symbols = df["symbol"].unique()
@@ -105,16 +107,17 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
-    chart_json = null_chart()
-    if not df.empty:
-        chart_json = []
-        user_ids = df["id"].unique()
-        for user_id in user_ids:
-            username = get_username(user_id)
+    user_ids = get_all_game_users(game_id)
+    chart_json = []
+    for user_id in user_ids:
+        username = get_username(user_id)
+        if df.empty:
+            entry = null_chart(username)
+        else:
             entry = dict(id=username)
             subset = df[df["id"] == user_id]
             entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            chart_json.append(entry)
+        chart_json.append(entry)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
