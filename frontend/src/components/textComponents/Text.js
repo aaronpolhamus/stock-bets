@@ -50,13 +50,22 @@ const FormFooter = styled.div`
   text-align: ${(props) => props.align || "right"};
 `;
 
+const Label = styled.p`
+  font-size: var(--font-size-min);
+  text-transform: uppercase;
+  color: var(--color-text-gray);
+  margin: 0 0 var(--space-50) 0;
+  letter-spacing: var(--letter-spacing-smallcaps);
+`;
+
 export {
-  SimplifiedCurrency,
+  AlignText,
   AuxiliarText,
+  FlexRow,
+  FormFooter,
+  Label,
+  SimplifiedCurrency,
   SectionTitle,
   TextButton,
-  FlexRow,
   SmallText,
-  FormFooter,
-  AlignText,
 };
