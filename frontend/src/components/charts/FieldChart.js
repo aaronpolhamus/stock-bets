@@ -4,20 +4,23 @@ import { fetchGameData } from "components/functions/api";
 import { dollarizer } from "components/functions/formats";
 
 const FieldChart = ({ gameId, height }) => {
-  const [chartData, setChartData] = useState([]);
+  const [lineData, setLineData] = useState([]);
+  const [colors, setColors] = useState([]);
 
   useEffect(() => {
     const getGameData = async () => {
       const data = await fetchGameData(gameId, "get_field_chart");
-      setChartData(data);
+      setLineData(data.line_data);
+      setColors(data.colors);
     };
     getGameData();
   }, [gameId]);
+
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <div style={{ width: "100%", height: height || "25vw" }}>
       <ResponsiveLine
-        data={chartData}
+        data={lineData}
         margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
         xScale={{ type: "point" }}
         yScale={{
@@ -44,12 +47,7 @@ const FieldChart = ({ gameId, height }) => {
           legendOffset: -40,
           format: (v) => `${dollarizer.format(v)}`,
         }}
-        colors={[
-          "rgba(0, 0, 0, 0)",
-          "rgba(0, 0, 0, 0)",
-          "rgba(0, 0, 0, 0)",
-          "rgba(0, 0, 0, 0)",
-        ]}
+        colors={colors}
         pointSize={0}
         useMesh={false}
         lineCol

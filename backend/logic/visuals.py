@@ -6,9 +6,10 @@ from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
+import seaborn as sns
+
 from backend.database.db import db_session
 from backend.logic.base import (
-    during_trading_day,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     get_all_game_users,
@@ -27,6 +28,8 @@ from backend.tasks.redis import rds
 # -------------- #
 N_PLOT_POINTS = 25
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
+NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
+
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -83,7 +86,14 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
     return output_array
 
 
-def null_chart(null_label: str):
+def palette_generator(n, palette="hls"):
+    """For n distinct series, generate a unique color palette
+    """
+    rgb_codes = sns.color_palette(palette, n)
+    return [f"rgba({255 * r}, {255 * g}, {255 * b}, 1)" for r, g, b in rgb_codes]
+
+
+def null_chart_series(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
@@ -100,30 +110,42 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
     result of calling make_balances_chart_data
     """
-    chart_json = [null_chart("Cash")]
+    chart_json = dict(
+        line_data=[null_chart_series("Cash")],
+        colors=[NULL_RGBA]
+    )
     if not df.empty:
-        chart_json = []
+        line_data = []
         symbols = df["symbol"].unique()
-        for symbol in symbols:
+        for i, symbol in enumerate(symbols):
             entry = dict(id=symbol)
             subset = df[df["symbol"] == symbol]
             entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            chart_json.append(entry)
+            line_data.append(entry)
+        chart_json = dict(line_data=line_data, colors=palette_generator(len(symbols)))
+
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     user_ids = get_all_game_users(game_id)
-    chart_json = []
-    for user_id in user_ids:
+    line_data = []
+    colors = []
+    palette = palette_generator(len(user_ids))
+    for i, user_id in enumerate(user_ids):
         username = get_username(user_id)
         if df.empty:
-            entry = null_chart(username)
+            entry = null_chart_series(username)
+            color = NULL_RGBA
         else:
             entry = dict(id=username)
             subset = df[df["id"] == user_id]
             entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-        chart_json.append(entry)
+            color = palette[i]
+        line_data.append(entry)
+        colors.append(color)
+
+    chart_json = dict(line_data=line_data, colors=colors)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
