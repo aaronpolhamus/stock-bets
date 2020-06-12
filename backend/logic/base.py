@@ -272,7 +272,9 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
         df = df.reset_index().rename(columns={"index": "timestamp"})
         df["price"] = 1
         df["value"] = df["balance"] * df["price"]
-        return filter_for_trade_time(df)
+        df = filter_for_trade_time(df)
+        df["symbol"] = "Cash"
+        return df
 
     # ...otherwise we'll append price data for the more detailed breakout
     df = append_price_data_to_balance_histories(balance_history)

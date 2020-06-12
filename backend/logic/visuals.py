@@ -179,7 +179,8 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
 
 
 def make_the_field_charts(game_id: int):
-    """For each user in a game iterate through and make a chart that breaks out the value of their different positions
+    """This function wraps a loop that produces the balances chart for each user and the field chart for the game. This
+    will run every time a user places and order, and periodically as prices are collected
     """
     user_ids = get_all_game_users(game_id)
     portfolio_values = {}
@@ -187,6 +188,17 @@ def make_the_field_charts(game_id: int):
         df = make_balances_chart_data(game_id, user_id)
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio_values[user_id] = aggregate_portfolio_value(df)
+
+    # when a game has just started during trading day no one will have placed an order. We'll do one more pass here to
+    # see if this is the case, and if it is we'll make null chart assignments so that we can have an empty grid
+    # until someone orders
+    init_state = all([balances.shape[0] == 1 for _, balances in portfolio_values.items()])
+    if init_state:
+        blank_df = pd.DataFrame(columns=df.columns)
+        for user_id in user_ids:
+            serialize_and_pack_balances_chart(blank_df, game_id, user_id)
+            portfolio_values[user_id] = aggregate_portfolio_value(blank_df)
+
     aggregated_df = aggregate_all_portfolios(portfolio_values)
     serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 
