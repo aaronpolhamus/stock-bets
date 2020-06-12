@@ -51,7 +51,7 @@ from backend.tasks.definitions import (
     async_suggest_symbols,
     async_place_order,
     async_add_game,
-    async_get_user_responses_for_pending_game,
+    async_get_user_invite_statuses_for_pending_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
     async_get_game_info,
@@ -267,7 +267,7 @@ def respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-    res = async_get_user_responses_for_pending_game.apply(args=[game_id])
+    res = async_get_user_invite_statuses_for_pending_game.apply(args=[game_id])
     return jsonify(res.result)
 
 # --------------------------- #

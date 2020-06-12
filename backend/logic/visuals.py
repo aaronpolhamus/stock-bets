@@ -68,7 +68,7 @@ def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
 
 def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
     df = make_historical_balances_and_prices_table(game_id, user_id)
-    if df.empty:  # this should only happen when a game is just getting going and a user doesn't have any balances, yet
+    if df.empty:  # this should only happen outside of trading hours
         return df
     return reformat_for_plotting(df)
 

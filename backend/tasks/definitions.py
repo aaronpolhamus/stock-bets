@@ -20,7 +20,7 @@ from backend.logic.friends import (
     get_friend_invite_ids
 )
 from backend.logic.games import (
-    get_user_responses_for_pending_game,
+    get_user_invite_statuses_for_pending_game,
     get_current_stock_holding,
     get_all_open_orders,
     place_order,
@@ -30,6 +30,7 @@ from backend.logic.games import (
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
+    respond_to_invite,
     service_open_game,
     translate_usernames_to_ids,
     create_pending_game_status_entry,
@@ -114,9 +115,9 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
 # Game management #
 # --------------- #
 
-@celery.task(name="async_get_user_responses_for_pending_game", bind=True, base=BaseTask)
-def async_get_user_responses_for_pending_game(self, game_id):
-    return get_user_responses_for_pending_game(game_id)
+@celery.task(name="async_get_user_invite_statuses_for_pending_game", bind=True, base=BaseTask)
+def async_get_user_invite_statuses_for_pending_game(self, game_id):
+    return get_user_invite_statuses_for_pending_game(game_id)
 
 
 @celery.task(name="async_add_game", bind=True, base=BaseTask)
@@ -149,12 +150,7 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
 def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]
     response_time = time.time()
-    game_invites = represent_table("game_invites")
-    table_updater(game_invites,
-                  game_id=game_id,
-                  user_id=user_id,
-                  status=status,
-                  timestamp=response_time)
+    respond_to_invite(game_id, user_id, status, response_time)
     # Check to see if we everyone has either joined or declined and whether we can start the game early
     start_game_if_all_invites_responded(game_id)
 

@@ -9,6 +9,10 @@ db-stop:
 db-mysql:
 	docker-compose exec db mysql -uroot -p
 
+db-restart:
+	make db-stop
+	make db-up
+
 db-reset:
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
@@ -127,6 +131,11 @@ destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you
 
 	# prune all volumes
 	docker volume prune -f
+
+# e2e testing
+# -----------
+make e2e-test:
+	docker-compose exec api python -m tests.master_scenario_test
 
 # deployment
 # ----------

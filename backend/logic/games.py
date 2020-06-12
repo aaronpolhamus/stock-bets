@@ -340,7 +340,16 @@ def get_game_info_for_user(user_id):
     return df
 
 
-def get_user_responses_for_pending_game(game_id):
+def respond_to_invite(game_id, user_id, status, response_time):
+    game_invites = represent_table("game_invites")
+    table_updater(game_invites,
+                  game_id=game_id,
+                  user_id=user_id,
+                  status=status,
+                  timestamp=response_time)
+
+
+def get_user_invite_statuses_for_pending_game(game_id):
     sql = f"""
             SELECT creator_id, users.username, gi_status.status
             FROM game_status gs
