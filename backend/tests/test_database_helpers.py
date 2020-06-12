@@ -58,6 +58,14 @@ class TestDBHelpers(BaseTestCase):
                                benchmark="return_ratio",
                                side_bets_perc=0,
                                invite_window=time.time() + 1_000_000_000_000)
+
+        game_status = represent_table("game_status")
+        table_updater(game_status,
+                      game_id=result.inserted_primary_key,
+                      status="pending",
+                      users=[1, 1],
+                      timestamp=time.time())
+
         new_entry = get_game_info(result.inserted_primary_key)
         self.assertEqual(new_entry["title"], "db test")
 

@@ -629,9 +629,27 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
 
     return False
 
-
 # Functions for serving information about games
 # ---------------------------------------------
+
+
+def get_current_game_status(game_id: int):
+    with db_session.connection() as conn:
+        status = conn.execute("""
+            SELECT gs.status
+            FROM game_status gs
+            INNER JOIN
+            (SELECT game_id, max(id) as max_id
+              FROM game_status
+              GROUP BY game_id) grouped_gs
+            ON
+              gs.id = grouped_gs.max_id
+            WHERE gs.game_id = %s;
+        """, game_id).fetchone()[0]
+        db_session.remove()
+    return status
+
+
 def get_game_info(game_id: int):
     games = represent_table("games")
     row = db_session.query(games).filter(games.c.id == game_id)
@@ -639,4 +657,5 @@ def get_game_info(game_id: int):
     info["creator_username"] = get_username(info["creator_id"])
     info["mode"] = info["mode"].upper().replace("_", " ")
     info["benchmark"] = info["benchmark"].upper().replace("_", " ")
+    info["game_status"] = get_current_game_status(game_id)
     return info
