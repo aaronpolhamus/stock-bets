@@ -8,6 +8,18 @@ const StyledBadge = styled(Badge)`
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
+
+const setPillVariant = (status) => {
+  switch (status) {
+    case "joined":
+      return "success";
+    case "invited":
+      return "info";
+    case "declined":
+      return "danger";
+  }
+};
+
 const PendingGameParticipants = ({ participants }) => {
   const participantsBuilder = (participants) => {
     return participants.map((participant, index) => {
@@ -21,10 +33,7 @@ const PendingGameParticipants = ({ participants }) => {
             />
           </td>
           <td>
-            <StyledBadge
-              pill
-              variant={participant.status === "joined" ? "success" : "info"}
-            >
+            <StyledBadge pill variant={setPillVariant(participant.status)}>
               {participant.status}
             </StyledBadge>
           </td>
