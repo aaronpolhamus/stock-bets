@@ -2,11 +2,15 @@
 """
 import json
 import time
+from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
 from backend.database.db import db_session
 from backend.logic.base import (
+    during_trading_day,
+    get_schedule_start_and_end,
+    get_next_trading_day_schedule,
     get_all_game_users,
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
@@ -32,7 +36,6 @@ SIDEBAR_STATS_PREFIX = "sidebar_stats"
 OPEN_ORDERS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
-
 
 # ------------------ #
 # Time series charts #
@@ -82,10 +85,13 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
 
 def null_chart(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
-    For now this function is a bit unecessary, but the idea here is to be really explicit about what's happening so
+    For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
     """
-    series = [{"x": _, "y": DEFAULT_VIRTUAL_CASH} for _ in range(N_PLOT_POINTS)]
+    schedule = get_next_trading_day_schedule(dt.utcnow())
+    start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
+    series = [{"x": t.strftime(DATE_LABEL_FORMAT), "y": DEFAULT_VIRTUAL_CASH} for t in
+              pd.date_range(start, end, N_PLOT_POINTS)]
     series[0]["y"] = 0
     return dict(id=null_label, data=series)
 
@@ -94,7 +100,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
     result of calling make_balances_chart_data
     """
-    chart_json = null_chart("Cash")
+    chart_json = [null_chart("Cash")]
     if not df.empty:
         chart_json = []
         symbols = df["symbol"].unique()
@@ -324,4 +330,3 @@ def compile_and_pack_player_sidebar_stats(game_id: int):
         records.append(record)
     output = make_side_bar_output(game_id, records)
     rds.set(f"{SIDEBAR_STATS_PREFIX}_{game_id}", json.dumps(output))
-

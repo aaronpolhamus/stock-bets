@@ -7,6 +7,7 @@ from backend.database.helpers import (
 )
 from backend.logic.base import (
     PRICE_CACHING_INTERVAL,
+    during_trading_day,
     get_user_id,
     get_user_information,
     get_current_game_cash_balance,
@@ -43,7 +44,6 @@ from backend.logic.payouts import (
 from backend.logic.stock_data import (
     get_symbols_table,
     fetch_iex_price,
-    during_trading_day,
     get_all_active_symbols,
     SeleniumDriverError
 )

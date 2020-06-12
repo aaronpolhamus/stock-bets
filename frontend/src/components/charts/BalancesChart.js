@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { fetchGameData } from "components/functions/api";
+import { dollarizer } from "components/functions/formats";
 
 const BalancesChart = ({ gameId }) => {
   const [chartData, setChartData] = useState([]);
@@ -47,10 +48,12 @@ const BalancesChart = ({ gameId }) => {
           tickRotation: 0,
           legendOffset: -40,
           legendPosition: "middle",
+          format: (v) => `${dollarizer.format(v)}`,
         }}
         colors={{ scheme: "nivo" }}
         pointSize={0}
         useMesh={false}
+        colors={["rgba(0, 0, 0, 0)"]}
         legends={[
           {
             anchor: "bottom-right",

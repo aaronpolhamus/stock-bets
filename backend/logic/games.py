@@ -25,9 +25,7 @@ from backend.database.models import (
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     get_current_game_cash_balance,
-    get_username
-)
-from backend.logic.stock_data import (
+    get_username,
     posix_to_datetime,
     get_next_trading_day_schedule,
     get_schedule_start_and_end,

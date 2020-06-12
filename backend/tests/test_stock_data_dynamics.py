@@ -7,17 +7,17 @@ import pandas_market_calendars as mcal
 import pytz
 
 from backend.logic.base import (
+    during_trading_day,
     datetime_to_posix,
+    get_schedule_start_and_end,
+    get_next_trading_day_schedule,
     TIMEZONE
 )
 from backend.tasks.redis import rds
 from backend.logic.stock_data import (
     posix_to_datetime,
-    during_trading_day,
     fetch_iex_price,
     fetch_end_of_day_cache,
-    get_schedule_start_and_end,
-    get_next_trading_day_schedule,
 )
 
 

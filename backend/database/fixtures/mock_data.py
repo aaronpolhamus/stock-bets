@@ -3,7 +3,7 @@ from datetime import timedelta
 from backend.database.db import db_session
 from backend.database.helpers import represent_table
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.logic.stock_data import (
+from backend.logic.base import (
     get_schedule_start_and_end,
     nyse,
     posix_to_datetime

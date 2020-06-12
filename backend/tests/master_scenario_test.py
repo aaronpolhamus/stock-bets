@@ -181,12 +181,10 @@ if __name__ == '__main__':
         "side_bets_period": "weekly",
         "invitees": ["cheetos", "jack"],
     }
-    import ipdb;ipdb.set_trace()
     res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jadis_token}, verify=False,
                                     json=game_settings)
-    import ipdb;ipdb.set_trace()
     btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": jack_token},
-                              json={"game_id": 1, "decision": "declined"}, verify=False)
+                              json={"game_id": 2, "decision": "declined"}, verify=False)
 
     input("""
     When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
