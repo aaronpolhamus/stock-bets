@@ -35,6 +35,7 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 ### Production notes
 `.env.dev` versions credential information for your local environment so that you don't have to keep track of everything. Here's an inventory of all the variables that need to be defined for deploying to production:
 * `ENV` (should be equal to `prod`) 
+* `SERVICE`
 * `SECRET_KEY`
 * `CHECK_WHITE_LIST`
 * `MYSQL_HOST`
