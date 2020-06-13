@@ -257,6 +257,7 @@ class TestGameLogic(BaseTestCase):
                 mock_sell_order["amount"],
                 meli_holding)
 
+
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
         """

@@ -135,7 +135,7 @@ destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you
 # e2e testing
 # -----------
 make e2e-test:
-	docker-compose exec api python -m tests.master_scenario_test
+	docker-compose exec api python -m tests.e2e_scenario_test
 
 # deployment
 # ----------

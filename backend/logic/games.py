@@ -32,9 +32,9 @@ from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.visuals import (
-    init_sidebar_stats,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
+    compile_and_pack_player_sidebar_stats,
     make_the_field_charts
 )
 from funkybob import RandomNameGenerator
@@ -228,7 +228,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     mark_invites_expired(game_id, ["invited"], update_time)
 
     # initialize a blank sidebar stats entry
-    init_sidebar_stats(game_id)
+    compile_and_pack_player_sidebar_stats(game_id)
 
     # initialize current balances and open orders
     for user_id in user_id_list:
@@ -521,16 +521,16 @@ def get_all_open_orders():
     return {order_id: ts for order_id, ts in result}
 
 
-def update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
-                    order_quantity, symbol):
+def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                    order_price, order_quantity, symbol):
     """This function books an order and updates a user's cash balance at the same time.
     """
     game_balances = represent_table("game_balances")
     sign = 1 if buy_or_sell == "buy" else -1
-    table_updater(game_balances, user_id=user_id, game_id=game_id, timestamp=timestamp, balance_type="virtual_cash",
-                  balance=cash_balance - sign * order_quantity * order_price)
-    table_updater(game_balances, user_id=user_id, game_id=game_id, timestamp=timestamp, balance_type="virtual_stock",
-                  balance=current_holding + sign * order_quantity, symbol=symbol)
+    table_updater(game_balances, user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
+                  balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price)
+    table_updater(game_balances, user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
+                  balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
 
 
 def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
@@ -558,8 +558,8 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     status = "pending"
     clear_price = None
     if order_type == "market" and during_trading_day():
-        update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
-                        order_quantity, symbol)
+        update_balances(user_id, game_id, result.inserted_primary_key[0], timestamp, buy_or_sell, cash_balance,
+                        current_holding, order_price, order_quantity, symbol)
         status = "fulfilled"
         clear_price = order_price
 
@@ -580,10 +580,10 @@ def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, o
         order_status = represent_table("order_status")
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        update_balances(user_id, game_id, timestamp, buy_or_sell, cash_balance, current_holding, market_price, quantity,
-                        symbol)
-        table_updater(order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
-                      clear_price=market_price)
+        result = table_updater(order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
+                               clear_price=market_price)
+        update_balances(user_id, game_id, result.inserted_primary_key[0], timestamp, buy_or_sell, cash_balance,
+                        current_holding, market_price, quantity, symbol)
 
 
 def get_order_expiration_status(order_id):
@@ -635,6 +635,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
             return True
 
     return False
+
 
 # Functions for serving information about games
 # ---------------------------------------------

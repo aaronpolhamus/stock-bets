@@ -7,7 +7,6 @@ from typing import List
 
 import pandas as pd
 import seaborn as sns
-
 from backend.database.db import db_session
 from backend.logic.base import (
     get_schedule_start_and_end,
@@ -30,7 +29,6 @@ N_PLOT_POINTS = 25
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
 
-
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -39,6 +37,7 @@ SIDEBAR_STATS_PREFIX = "sidebar_stats"
 OPEN_ORDERS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
+
 
 # ------------------ #
 # Time series charts #
@@ -305,22 +304,9 @@ def serialize_and_pack_current_balances(game_id: int, user_id: int):
         out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
-
 # ----- #
 # Lists #
 # ----- #
-def make_stat_entry(user_id: int, total_return: float = 100, sharpe_ratio: float = 1, stocks_held: List[str] = None,
-                    cash_balance: float = DEFAULT_VIRTUAL_CASH, portfolio_value: float = DEFAULT_VIRTUAL_CASH):
-    if stocks_held is None:
-        stocks_held = list()
-
-    entry = get_user_information(user_id)
-    entry["total_return"] = total_return
-    entry["sharpe_ratio"] = sharpe_ratio
-    entry["stocks_held"] = stocks_held
-    entry["cash_balance"] = cash_balance
-    entry["portfolio_value"] = portfolio_value
-    return entry
 
 
 def _days_left(game_id: int):
@@ -332,35 +318,42 @@ def make_side_bar_output(game_id: int, user_stats: list):
     return dict(days_left=_days_left(game_id), records=user_stats)
 
 
-def init_sidebar_stats(game_id: int):
-    user_ids = get_all_game_users(game_id)
-    records = []
-    for user_id in user_ids:
-        records.append(make_stat_entry(user_id))
-    output = make_side_bar_output(game_id, records)
-    rds.set(f"sidebar_stats_{game_id}", json.dumps(output))
-
-
 def get_portfolio_value(game_id: int, user_id: int) -> float:
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
     balances = get_active_balances(game_id, user_id)
     symbols = balances["symbol"].unique()
+    if len(symbols) == 0:
+        return cash_balance
     prices = get_most_recent_prices(symbols)
     df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
     df["value"] = df["balance"] * df["price"]
-    return df["value"].sum()
+    return df["value"].sum() + cash_balance
+
+
+def make_stat_entry(user_id: int, cash_balance: float, portfolio_value: float, stocks_held: List[str],
+                    total_return: float = None, sharpe_ratio: float = None):
+    entry = get_user_information(user_id)
+    entry["total_return"] = total_return
+    entry["sharpe_ratio"] = sharpe_ratio
+    entry["stocks_held"] = stocks_held
+    entry["cash_balance"] = cash_balance
+    entry["portfolio_value"] = portfolio_value
+    return entry
 
 
 def compile_and_pack_player_sidebar_stats(game_id: int):
     user_ids = get_all_game_users(game_id)
     records = []
     for user_id in user_ids:
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
-        record = make_stat_entry(user_id,
-                                 cash_balance=get_current_game_cash_balance(user_id, game_id),
-                                 stocks_held=list(balances["symbol"].unique()),
+        stocks_held = list(balances["symbol"].unique())
+        record = make_stat_entry(user_id=user_id,
+                                 cash_balance=cash_balance,
+                                 portfolio_value=get_portfolio_value(game_id, user_id),
+                                 stocks_held=stocks_held,
                                  total_return=rds.get(f"total_return_{game_id}_{user_id}"),
-                                 sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"),
-                                 portfolio_value=get_portfolio_value(game_id, user_id))
+                                 sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
         records.append(record)
     output = make_side_bar_output(game_id, records)
     rds.set(f"{SIDEBAR_STATS_PREFIX}_{game_id}", json.dumps(output))
