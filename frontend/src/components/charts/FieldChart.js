@@ -2,6 +2,12 @@ import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { fetchGameData } from "components/functions/api";
 import { dollarizer } from "components/functions/formats";
+import styled from "styled-components";
+
+const ChartWrapper = styled.div`
+  width: 100%;
+  height: ${(props) => props.height || "25vw"};
+`;
 
 const FieldChart = ({ gameId, height }) => {
   const [lineData, setLineData] = useState([]);
@@ -18,10 +24,10 @@ const FieldChart = ({ gameId, height }) => {
 
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <div style={{ width: "100%", height: height || "25vw" }}>
+    <ChartWrapper height={height}>
       <ResponsiveLine
         data={lineData}
-        margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
+        margin={{ top: 50, right: 110, bottom: 65, left: 65 }}
         xScale={{ type: "point" }}
         yScale={{
           type: "linear",
@@ -78,7 +84,7 @@ const FieldChart = ({ gameId, height }) => {
           },
         ]}
       />
-    </div>
+    </ChartWrapper>
   );
 };
 

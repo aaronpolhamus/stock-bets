@@ -61,4 +61,6 @@ const RadioButtons = ({ options, name, onChange, defaultValue }) => {
   return <div>{options && buildRadios()}</div>;
 };
 
+const TabbedRadioButtons = ({}) => {};
+
 export { RadioButtons };
