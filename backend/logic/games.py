@@ -342,7 +342,7 @@ def get_game_info_for_user(user_id):
 
 def get_user_responses_for_pending_game(game_id):
     sql = f"""
-            SELECT creator_id, users.username, gi_status.status
+            SELECT creator_id, users.username, gi_status.status, users.profile_pic
             FROM game_status gs
             INNER JOIN
               (SELECT game_id, max(id) as max_id
