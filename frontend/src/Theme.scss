@@ -1,5 +1,6 @@
 $color-primary: #ffaf74;
 $color-primary-darken: #f46f10;
+$color-primary-darkest: #8e4818;
 $color-secondary: #2d263b;
 $color-secondary-muted: #473231;
 $color-terciary: #ff4a4b;
@@ -14,6 +15,7 @@ $color-success: #3fa46d;
 :root {
   --color-primary: #{$color-primary};
   --color-primary-darken: #{$color-primary-darken};
+  --color-primary-darkest: #{$color-primary-darkest};
   --color-secondary: #{$color-secondary};
   --color-secondary-muted: #{$color-secondary-muted};
   --color-terciary: #{$color-terciary};
@@ -53,6 +55,7 @@ $theme-colors: (
   "secondary": $color-secondary,
   "info": #efefef,
   "success": $color-success,
+  "light": $color-light-gray,
 );
 
 $h1-font-size: 3rem;

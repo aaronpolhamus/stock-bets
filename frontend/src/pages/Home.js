@@ -153,9 +153,13 @@ const Home = () => {
           </Breadcrumb>
           <Header>
             <h1>Games</h1>
-            <Button variant="success" href="/new">
-              <Icon.PlusCircle size={16} style={{ marginTop: "-3px" }} /> Make a
-              new game
+            <Button variant="primary" href="/new">
+              <Icon.PlusCircle
+                size={16}
+                color="var(--color-primary-darkest)"
+                style={{ marginTop: "-3px" }}
+              />{" "}
+              Make a new game
             </Button>
           </Header>
         </PageSection>
