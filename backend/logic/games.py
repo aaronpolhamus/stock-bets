@@ -351,7 +351,7 @@ def respond_to_invite(game_id, user_id, status, response_time):
 
 def get_user_invite_statuses_for_pending_game(game_id):
     sql = f"""
-            SELECT creator_id, users.username, gi_status.status
+            SELECT creator_id, users.username, gi_status.status, users.profile_pic
             FROM game_status gs
             INNER JOIN
               (SELECT game_id, max(id) as max_id

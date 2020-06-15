@@ -56,7 +56,7 @@ const Content = styled.div`
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: ${(props) => props.alignItems || "center"};
 `;
 
 const Breadcrumb = styled.div`

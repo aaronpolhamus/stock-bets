@@ -67,7 +67,7 @@ const AddFriends = (props) => {
               name="invitees"
               labelKey="username"
               options={friendSuggestions}
-              placeholder="Who's playing?"
+              placeholder="Type your friend's username"
               onSearch={handleSuggestions}
               onChange={handleChange}
               renderMenuItemChildren={(option, props) => (
@@ -83,7 +83,7 @@ const AddFriends = (props) => {
             />
           </Form.Group>
           <Accordion.Toggle as={Button} size="sm" variant="outline-primary">
-            Close
+            Cancel
           </Accordion.Toggle>
           <Button type="submit" size="sm">
             Add friend

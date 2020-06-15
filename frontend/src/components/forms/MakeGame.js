@@ -4,6 +4,7 @@ import api from "services/api";
 import { Form, Button, Modal, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
+import { RadioButtons } from "components/forms/Inputs";
 
 import styled from "styled-components";
 
@@ -45,9 +46,7 @@ const MakeGame = () => {
     await api
       .post("/api/create_game", formValues)
       .then()
-      .catch((e) => {
-        console.log(e);
-      });
+      .catch((e) => {});
     setShowModal(true);
   };
 
@@ -59,6 +58,12 @@ const MakeGame = () => {
   const handleChange = (e) => {
     let formValuesCopy = { ...formValues };
     formValuesCopy[e.target.name] = e.target.value;
+    setFormValues(formValuesCopy);
+  };
+
+  const handleRadio = (e) => {
+    let formValuesCopy = { ...formValues };
+    // formValuesCopy['mode'] =
     setFormValues(formValuesCopy);
   };
 
@@ -96,14 +101,12 @@ const MakeGame = () => {
             </Form.Group>
             <Form.Group>
               <Form.Label>Game mode</Form.Label>
-              <Form.Control
+              <RadioButtons
+                options={defaults.game_modes}
                 name="mode"
-                as="select"
-                defaultValue={defaults.mode}
                 onChange={handleChange}
-              >
-                {defaults.game_modes && optionBuilder(defaults.game_modes)}
-              </Form.Control>
+                defaultValue={formValues.mode}
+              />
             </Form.Group>
             <Row>
               <Col xs={6}>
@@ -144,14 +147,13 @@ const MakeGame = () => {
             </Row>
             <Form.Group>
               <Form.Label>Benchmark</Form.Label>
-              <Form.Control
+
+              <RadioButtons
+                options={defaults.benchmarks}
                 name="benchmark"
-                as="select"
-                defaultValue={defaults.benchmark}
                 onChange={handleChange}
-              >
-                {defaults.benchmarks && optionBuilder(defaults.benchmarks)}
-              </Form.Control>
+                defaultValue={formValues.benchmark}
+              />
             </Form.Group>
           </Col>
           <Col lg={4}>

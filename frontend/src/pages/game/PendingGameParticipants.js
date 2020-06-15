@@ -17,6 +17,8 @@ const setPillVariant = (status) => {
       return "info";
     case "declined":
       return "danger";
+    default:
+      return "info";
   }
 };
 

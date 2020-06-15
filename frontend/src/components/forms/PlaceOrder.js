@@ -5,6 +5,7 @@ import Autosuggest from "react-autosuggest";
 import { optionBuilder } from "components/functions/forms";
 import { AuxiliarText, FormFooter } from "components/textComponents/Text";
 import { fetchGameData } from "components/functions/api";
+import { RadioButtons, TabbedRadioButtons } from "components/forms/Inputs";
 
 // request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
@@ -21,11 +22,12 @@ const PlaceOrder = ({ gameId }) => {
   useEffect(() => {
     const getFormInfo = async () => {
       const data = await fetchGameData(gameId, "order_form_defaults");
-      setGameInfo(data);
       setOrderTicket(data);
+      setGameInfo(data);
     };
     getFormInfo();
   }, [gameId]);
+
   const handleChange = (e) => {
     const orderTicketCopy = { ...orderTicket };
     orderTicketCopy[e.target.name] = e.target.value;
@@ -117,20 +119,20 @@ const PlaceOrder = ({ gameId }) => {
   const handleClose = () => {
     setSubmitted(false);
   };
+
   return (
     <>
       <Form onSubmit={handleSubmit}>
         <Form.Group>
-          <Form.Label>Buy or Sell</Form.Label>
-          <Form.Control
+          <TabbedRadioButtons
+            mode="tabbed"
             name="buy_or_sell"
-            as="select"
-            defaultValue={gameInfo.default_buy_sell}
+            defaultValue={orderTicket.buy_or_sell}
             onChange={handleChange}
-          >
-            {gameInfo.buy_sell_options &&
-              optionBuilder(gameInfo.buy_sell_options)}
-          </Form.Control>
+            options={gameInfo.buy_sell_options}
+            color="var(--color-text-light-gray)"
+            colorChecked="var(--color-lightest)"
+          />
         </Form.Group>
         <Form.Group>
           <Form.Label>Symbol</Form.Label>
@@ -196,17 +198,18 @@ const PlaceOrder = ({ gameId }) => {
           <Col>
             <Form.Group>
               <Form.Label>Order type</Form.Label>
-              <Form.Control
+              <RadioButtons
                 name="order_type"
-                as="select"
-                value={orderTicket.order_type}
+                defaultValue={orderTicket.order_type}
                 onChange={handleChange}
-              >
-                {gameInfo.order_type_options &&
-                  optionBuilder(gameInfo.order_type_options)}
-              </Form.Control>
+                options={gameInfo.order_type_options}
+                color="var(--color-text-light-gray)"
+                colorChecked="var(--color-lightest)"
+              />
             </Form.Group>
           </Col>
+        </Row>
+        <Row>
           <Col>
             {["stop", "limit"].includes(orderTicket.order_type) &&
               stopLimitElement()}
