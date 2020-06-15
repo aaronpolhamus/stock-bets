@@ -44,21 +44,24 @@ const StyledRadio = styled(Form.Check)`
   }
 `;
 
-const RadioButtons = ({ options, name, onChange, defaultValue }) => {
-  const buildRadios = () => {
-    return Object.keys(options).map((key, index) => (
-      <StyledRadio
-        type="radio"
-        label={options[key]}
-        name={name}
-        value={key}
-        onChange={onChange}
-        id={`${name}${index}`}
-        checked={defaultValue === key ? true : false}
-      />
-    ));
-  };
-  return <div>{options && buildRadios()}</div>;
+const buildRadios = (props, type) => {
+  if (props.options === undefined) return null;
+  return Object.keys(props.options).map((key, index) => (
+    <StyledRadio
+      type="radio"
+      label={props.options[key]}
+      name={props.name}
+      value={key}
+      onChange={props.onChange}
+      id={`${props.name}${index}`}
+      checked={props.defaultValue === key ? true : false}
+    />
+  ));
+};
+
+const RadioButtons = (props) => {
+  console.log(props);
+  return <div>{props && buildRadios(props)}</div>;
 };
 
 const TabbedRadioButtons = ({}) => {};
