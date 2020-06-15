@@ -47,7 +47,6 @@ const JoinGame = (props) => {
     getGameData();
   };
 
-  console.log(gameParticipants);
   const renderButtons = (status) => {
     switch (status) {
       case "invited":

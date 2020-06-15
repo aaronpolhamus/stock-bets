@@ -22,6 +22,7 @@ const GameCardWrapper = styled.div`
   display: flex;
   border-radius: 10px;
   overrflow: hidden;
+  margin-bottom: var(--space-400);
   box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15),
     0px 1px 4px rgba(31, 47, 102, 0.15);
 `;

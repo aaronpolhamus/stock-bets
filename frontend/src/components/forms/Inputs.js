@@ -60,7 +60,6 @@ const buildRadios = (props, type) => {
 };
 
 const RadioButtons = (props) => {
-  console.log(props);
   return <div>{props && buildRadios(props)}</div>;
 };
 
