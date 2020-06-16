@@ -1,16 +1,14 @@
 """add winners table
-
-Revision ID: 656925ba7545
+Revision ID: fb2f1cfb3026
 Revises: d58e9f252421
-Create Date: 2020-06-16 04:53:32.103346
-
+Create Date: 2020-06-15 00:29:53.814853
 """
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '656925ba7545'
+revision = 'fb2f1cfb3026'
 down_revision = 'd58e9f252421'
 branch_labels = None
 depends_on = None
