@@ -20,7 +20,7 @@ if [ $SERVICE == "api" ]; then
 fi
 
 if [ $SERVICE == "worker" ]; then
-    celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info
+    celery -A tasks.celery.celery worker --loglevel=info
 fi
 
 if [ $SERVICE == "scheduler" ]; then

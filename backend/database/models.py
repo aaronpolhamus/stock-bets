@@ -195,3 +195,20 @@ class Friends(db.Model):
     invited_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     status = db.Column(db.Enum(FriendStatuses))
     timestamp = db.Column(db.Float(precision=32))
+
+
+class PayoutType(Enum):
+    sidebet = "Sidebet"
+    overall = "Overall"
+
+
+class Winners(db.Model):
+    __tablename__ = "winners"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    winner_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    score = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))
+    payout = db.Column(db.Float(precision=32))
+    type = db.Column(db.Enum(PayoutType))
