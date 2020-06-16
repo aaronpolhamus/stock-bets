@@ -26,7 +26,6 @@ from backend.logic.games import (
     place_order,
     get_order_ticket,
     process_order,
-    get_game_info,
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
@@ -43,7 +42,7 @@ from backend.logic.games import (
 from backend.logic.payouts import (
     calculate_and_pack_metrics
 )
-from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols
+from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols, get_game_info
 from backend.logic.visuals import (
     compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,

@@ -25,6 +25,8 @@ from backend.tasks.redis import rds
 # -------------- #
 # Chart settings #
 # -------------- #
+from logic.base import get_open_orders
+
 N_PLOT_POINTS = 25
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
@@ -205,32 +207,6 @@ def make_the_field_charts(game_id: int):
 # -------------------------- #
 # Orders and balances tables #
 # -------------------------- #
-
-def get_open_orders(game_id: int, user_id: int):
-    # this kinda feels like we'd be better off just handling two pandas tables...
-    query = """
-        SELECT symbol, buy_or_sell, quantity, price, order_type, time_in_force, open_orders.timestamp
-        FROM orders o
-        INNER JOIN (
-          SELECT os_start.timestamp, os_start.order_id
-          FROM order_status os_start
-          INNER JOIN (
-            SELECT id, os.order_id, os.timestamp
-            FROM order_status os
-                   INNER JOIN
-                 (SELECT order_id, max(id) as max_id
-                  FROM order_status
-                  GROUP BY order_id) grouped_os
-                 ON
-                   os.id = grouped_os.max_id
-            WHERE os.status = 'pending'
-          ) os_pending
-          ON os_pending.id = os_start.id
-        ) open_orders
-        ON open_orders.order_id = o.id
-        WHERE game_id = %s and user_id = %s;
-    """
-    return pd.read_sql(query, db_session.connection(), params=[game_id, user_id])
 
 
 def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):

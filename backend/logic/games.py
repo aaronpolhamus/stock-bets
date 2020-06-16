@@ -25,7 +25,6 @@ from backend.database.models import (
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     get_current_game_cash_balance,
-    get_username,
     posix_to_datetime,
     get_next_trading_day_schedule,
     get_schedule_start_and_end,
@@ -641,23 +640,6 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
 # ---------------------------------------------
 
 
-def get_current_game_status(game_id: int):
-    with db_session.connection() as conn:
-        status = conn.execute("""
-            SELECT gs.status
-            FROM game_status gs
-            INNER JOIN
-            (SELECT game_id, max(id) as max_id
-              FROM game_status
-              GROUP BY game_id) grouped_gs
-            ON
-              gs.id = grouped_gs.max_id
-            WHERE gs.game_id = %s;
-        """, game_id).fetchone()[0]
-        db_session.remove()
-    return status
-
-
 def get_user_invite_status_for_game(game_id: int, user_id: int):
     with db_session.connection() as conn:
         status = conn.execute("""
@@ -675,12 +657,3 @@ def get_user_invite_status_for_game(game_id: int, user_id: int):
     return status
 
 
-def get_game_info(game_id: int):
-    games = represent_table("games")
-    row = db_session.query(games).filter(games.c.id == game_id)
-    info = orm_rows_to_dict(row)
-    info["creator_username"] = get_username(info["creator_id"])
-    info["mode"] = info["mode"].upper().replace("_", " ")
-    info["benchmark"] = info["benchmark"].upper().replace("_", " ")
-    info["game_status"] = get_current_game_status(game_id)
-    return info
