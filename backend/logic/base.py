@@ -2,12 +2,23 @@
 as we build out the logic library.
 """
 import calendar
+import sys
 import time
 from datetime import datetime as dt, timedelta
 
+from database.db import db_session
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
 import pandas as pd
+from pandas.tseries.offsets import DateOffset
 import pandas_market_calendars as mcal
 import pytz
+import requests
+from backend.config import Config
+from backend.tasks.redis import rds
 from backend.database.db import db_session
 from backend.database.helpers import (
     orm_rows_to_dict,
@@ -17,7 +28,11 @@ from backend.database.helpers import (
 # -------- #
 # Defaults #
 # -------- #
+
+
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
+IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
 # -------------------------------- #
 # Managing time and trad schedules #
@@ -75,9 +90,75 @@ def get_next_trading_day_schedule(current_day: dt):
         schedule = nyse.schedule(current_day, current_day)
     return schedule
 
+
+def make_date_offset(side_bets_period):
+    """date offset calculator for when working with sidebets
+    """
+    assert side_bets_period in ["weekly", "monthly"]
+    offset = DateOffset(days=7)
+    if side_bets_period == "monthly":
+        offset = DateOffset(months=1)
+    return offset
+
+
+def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
+    game_start = posix_to_datetime(game_start)
+    game_end = posix_to_datetime(game_end)
+    count = 0
+    t = game_start + offset
+    while t <= game_end:
+        count += 1
+        t += offset
+    return count
+
 # ------------ #
 # Game-related #
 # ------------ #
+
+
+def get_current_game_status(game_id: int):
+    with db_session.connection() as conn:
+        status = conn.execute("""
+            SELECT gs.status
+            FROM game_status gs
+            INNER JOIN
+            (SELECT game_id, max(id) as max_id
+              FROM game_status
+              GROUP BY game_id) grouped_gs
+            ON
+              gs.id = grouped_gs.max_id
+            WHERE gs.game_id = %s;
+        """, game_id).fetchone()[0]
+        db_session.remove()
+    return status
+
+
+def get_game_start_time(game_id: int):
+    with db_session.connection() as conn:
+        start = conn.execute("""
+            SELECT timestamp FROM game_status
+            WHERE game_id = %s AND status = 'active'
+        """, game_id).fetchone()
+        db_session.remove()
+    if start:
+        return start[0]
+    return None
+
+
+def get_game_info(game_id: int):
+    games = represent_table("games")
+    row = db_session.query(games).filter(games.c.id == game_id)
+    info = orm_rows_to_dict(row)
+    info["creator_username"] = get_username(info["creator_id"])
+    info["mode"] = info["mode"].upper().replace("_", " ")
+    info["benchmark"] = info["benchmark"].upper().replace("_", " ")
+    info["game_status"] = get_current_game_status(game_id)
+    start_time = get_game_start_time(game_id)
+    info["start_time"] = start_time
+    info["end_time"] = None
+    if start_time:
+        info["end_time"] = start_time + info["duration"] * 60 * 60 * 24
+    return info
 
 
 def get_all_game_users(game_id):
@@ -115,6 +196,50 @@ def get_current_game_cash_balance(user_id, game_id):
         result = conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
         db_session.remove()
     return result
+
+
+def get_open_orders(game_id: int, user_id: int):
+    # this kinda feels like we'd be better off just handling two pandas tables...
+    query = """
+        SELECT symbol, buy_or_sell, quantity, price, order_type, time_in_force, open_orders.timestamp
+        FROM orders o
+        INNER JOIN (
+          SELECT os_start.timestamp, os_start.order_id
+          FROM order_status os_start
+          INNER JOIN (
+            SELECT id, os.order_id, os.timestamp
+            FROM order_status os
+                   INNER JOIN
+                 (SELECT order_id, max(id) as max_id
+                  FROM order_status
+                  GROUP BY order_id) grouped_os
+                 ON
+                   os.id = grouped_os.max_id
+            WHERE os.status = 'pending'
+          ) os_pending
+          ON os_pending.id = os_start.id
+        ) open_orders
+        ON open_orders.order_id = o.id
+        WHERE game_id = %s and user_id = %s;
+    """
+    return pd.read_sql(query, db_session.connection(), params=[game_id, user_id])
+
+
+def get_pending_buy_order_value(user_id, game_id):
+    open_value = 0
+    df = get_open_orders(game_id, user_id)
+    tab = df[(df["order_type"].isin(["limit", "stop"])) & (df["buy_or_sell"] == "buy")]
+    if not tab.empty:
+        tab["value"] = tab["price"] * tab["quantity"]
+        open_value += tab["value"].sum()
+
+    tab = df[(df["order_type"] == "market") & (df["buy_or_sell"] == "buy")]
+    if not tab.empty:
+        for _, row in tab.iterrows():
+            price, _ = fetch_iex_price(row["symbol"])
+            open_value += price * row["quantity"]
+
+    return open_value
 
 
 def get_game_end_date(game_id: int):
@@ -279,3 +404,96 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     # ...otherwise we'll append price data for the more detailed breakout
     df = append_price_data_to_balance_histories(balance_history)
     return filter_for_trade_time(df)
+
+
+# Price and stock data harvesting tools
+# -------------------------------------
+
+class SeleniumDriverError(Exception):
+
+    def __str__(self):
+        return "It looks like the selenium web driver failed to instantiate properly"
+
+
+def get_web_table_object(timeout=20):
+    print("starting selenium web driver...")
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(chrome_options=options)
+    driver.get(Config.SYMBOLS_TABLE_URL)
+    return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
+
+
+def extract_row_data(row):
+    list_entry = dict()
+    split_entry = row.text.split(" ")
+    list_entry["symbol"] = split_entry[0]
+    list_entry["name"] = " ".join(split_entry[2:])
+    return list_entry
+
+
+def get_symbols_table(n_rows=None):
+    table = get_web_table_object()
+    rows = table.find_elements_by_tag_name("tr")
+    row_list = list()
+    n = len(rows)
+    print(f"extracting available {n} rows of symbols data...")
+    for i, row in enumerate(rows):
+        list_entry = extract_row_data(row)
+        if list_entry["symbol"] == "Symbol":
+            continue
+        row_list.append(list_entry)
+        sys.stdout.write(f"\r{i} / {n} rows")
+        sys.stdout.flush()
+        if n_rows and len(row_list) == n_rows:
+            # just here for low-cost testing
+            break
+
+    return pd.DataFrame(row_list)
+
+
+def fetch_iex_price(symbol):
+    secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
+    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
+    res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
+    if res.status_code == 200:
+        quote = res.json()
+        timestamp = quote["latestUpdate"] / 1000
+        price = quote["latestPrice"]
+        return price, timestamp
+
+
+def get_all_active_symbols():
+    with db_session.connection() as conn:
+        result = conn.execute("""
+        SELECT DISTINCT gb.symbol FROM
+        game_balances gb
+        INNER JOIN
+          (SELECT DISTINCT game_id
+          FROM game_status
+          WHERE status = 'active') active_ids
+        ON gb.game_id = active_ids.game_id
+        WHERE gb.balance_type = 'virtual_stock';
+        """)
+        db_session.remove()
+
+    return [x[0] for x in result]
+
+
+def fetch_price_cache(symbol):
+    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
+    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
+    None and use that a trigger to pull data
+    """
+    posix_time = time.time()
+    if not during_trading_day():
+        if rds.exists(symbol):
+            price, update_time = rds.get(symbol).split("_")
+            update_time = float(update_time)
+            seconds_delta = posix_time - update_time
+            ny_update_time = posix_to_datetime(update_time)
+            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
+                return float(price), update_time
+    return None, None

@@ -34,7 +34,7 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
-from backend.logic.stock_data import fetch_end_of_day_cache, posix_to_datetime
+from logic.base import fetch_price_cache, posix_to_datetime
 from backend.logic.visuals import (
     OPEN_ORDERS_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -348,7 +348,7 @@ def place_order():
 @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
-    price, timestamp = fetch_end_of_day_cache(symbol)
+    price, timestamp = fetch_price_cache(symbol)
     if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
         return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})

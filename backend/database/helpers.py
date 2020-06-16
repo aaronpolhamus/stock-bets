@@ -9,7 +9,9 @@ from backend.config import Config
 
 def retrieve_meta_data():
     engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    return MetaData(bind=engine, reflect=True)
+    meta = MetaData(bind=engine)
+    meta.reflect()
+    return meta
 
 
 def represent_table(table_name):

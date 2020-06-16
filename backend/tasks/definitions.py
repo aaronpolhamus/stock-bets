@@ -26,7 +26,6 @@ from backend.logic.games import (
     place_order,
     get_order_ticket,
     process_order,
-    get_game_info,
     get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
@@ -43,12 +42,7 @@ from backend.logic.games import (
 from backend.logic.payouts import (
     calculate_and_pack_metrics
 )
-from backend.logic.stock_data import (
-    get_symbols_table,
-    fetch_iex_price,
-    get_all_active_symbols,
-    SeleniumDriverError
-)
+from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols, get_game_info
 from backend.logic.visuals import (
     compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,
@@ -76,7 +70,7 @@ def async_get_user_information(self, user_id):
 
 @celery.task(name="async_fetch_active_symbol_prices", bind=True, base=BaseTask)
 def async_fetch_active_symbol_prices(self):
-    active_symbols = get_all_active_symbols(db_session)
+    active_symbols = get_all_active_symbols()
     for symbol in active_symbols:
         async_fetch_price.delay(symbol)
 
@@ -240,11 +234,7 @@ def async_process_single_order(order_id):
 
     order_ticket = get_order_ticket(order_id)
     symbol = order_ticket["symbol"]
-    res = async_fetch_price.delay(symbol)
-    while not res.ready():
-        continue
-
-    market_price, _ = res.results
+    market_price, _ = async_fetch_price.apply(args=[symbol]).get()
     process_order(order_ticket["game_id"], order_ticket["user_id"], symbol, order_id, order_ticket["buy_or_sell"],
                   order_ticket["order_type"], order_ticket["price"], market_price, order_ticket["quantity"], timestamp)
 

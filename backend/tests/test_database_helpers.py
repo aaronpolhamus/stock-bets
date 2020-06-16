@@ -2,7 +2,7 @@ import time
 
 from tests import BaseTestCase
 
-from backend.logic.games import get_game_info
+from logic.base import get_game_info
 from backend.logic.base import get_user_information
 from backend.database.helpers import (
     table_updater,

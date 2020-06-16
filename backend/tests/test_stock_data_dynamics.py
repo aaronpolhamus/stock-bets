@@ -7,6 +7,7 @@ import pandas_market_calendars as mcal
 import pytz
 
 from backend.logic.base import (
+    posix_to_datetime,
     during_trading_day,
     datetime_to_posix,
     get_schedule_start_and_end,
@@ -14,11 +15,7 @@ from backend.logic.base import (
     TIMEZONE
 )
 from backend.tasks.redis import rds
-from backend.logic.stock_data import (
-    posix_to_datetime,
-    fetch_iex_price,
-    fetch_end_of_day_cache,
-)
+from backend.logic.base import fetch_iex_price, fetch_price_cache
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -88,9 +85,7 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertEqual(start_day, expected_start)
         self.assertEqual(end_day, expected_end)
 
-    @patch('backend.logic.stock_data.time')
-    @patch('backend.logic.base.time')
-    def test_price_fetchers(self, base_time, stock_data_time):
+    def test_price_fetchers(self):
         symbol = "AMZN"
         amzn_price, updated_at = fetch_iex_price(symbol)
         self.assertIsNotNone(amzn_price)
@@ -98,28 +93,32 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
 
         # As above, mock in the current time values that we want to test for. Here each test value need to be
-        # duplicated since time.time() gets called inside during_trading_day and then again in fetch_end_of_day_cache
+        # duplicated since time.time() gets called inside during_trading_day and then again in fetch_price_cache
         # -----------------------------------------------------------------------------------------------------------
         amzn_test_price = 2000
         off_hours_time = 1590192953
         end_of_trade_time = 1590177600
 
-        stock_data_time.time.side_effect = base_time.time.side_effect = [
-            off_hours_time,  # Same-day look-up against a valid cache
-            off_hours_time + 5 * 24 * 60 * 60,  # Look-up much later than the last cached entry
-            off_hours_time,  # back to the same-day look-up, but we'll reset the cache to earlier in the day
-        ]
+        with patch('backend.logic.base.time') as current_time_mock:
+            current_time_mock.time.side_effect = [
+                off_hours_time,  # Same-day look-up against a valid cache
+                off_hours_time,
+                off_hours_time + 5 * 24 * 60 * 60,  # Look-up much later than the last cached entry
+                off_hours_time + 5 * 24 * 60 * 60,
+                off_hours_time,  # back to the same-day look-up, but we'll reset the cache to earlier in the day
+                off_hours_time
+            ]
 
-        rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 30}")
-        cache_price, cache_time = fetch_end_of_day_cache(symbol)
-        self.assertEqual(amzn_test_price, cache_price)
-        self.assertEqual(end_of_trade_time - 30, cache_time)
+            rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 30}")
+            cache_price, cache_time = fetch_price_cache(symbol)
+            self.assertEqual(amzn_test_price, cache_price)
+            self.assertEqual(end_of_trade_time - 30, cache_time)
 
-        # time cache is inspected is a long way ahead of when the cache was last updated...
-        null_result, _ = fetch_end_of_day_cache(symbol)
-        self.assertIsNone(null_result)
+            # time cache is inspected is a long way ahead of when the cache was last updated...
+            null_result, _ = fetch_price_cache(symbol)
+            self.assertIsNone(null_result)
 
-        # cache isn't current as of the last minute of trading day
-        rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 61}")
-        null_result, _ = fetch_end_of_day_cache(symbol)
-        self.assertIsNone(null_result)
+            # cache isn't current as of the last minute of trading day
+            rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 61}")
+            null_result, _ = fetch_price_cache(symbol)
+            self.assertIsNone(null_result)

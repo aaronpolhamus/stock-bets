@@ -27,7 +27,7 @@ from backend.logic.games import (
     LimitError,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.stock_data import get_all_active_symbols
+from logic.base import get_all_active_symbols
 from backend.tests import BaseTestCase
 from sqlalchemy import select
 
@@ -262,7 +262,7 @@ class TestGameLogic(BaseTestCase):
         """Tests of functions associated with starting, joining, and updating games
         """
         # Quick active symbols test
-        active_symbols = set(get_all_active_symbols(self.db_session))
+        active_symbols = set(get_all_active_symbols())
         expected_symbols = {
             "AMZN",
             "LYFT",
@@ -322,13 +322,10 @@ class TestGameLogic(BaseTestCase):
             self.db_session.remove()
 
         # similar setup for mock buy and sell orders as above, but this time setup to be valid from the get-go
-        with patch("backend.logic.base.time") as base_time_mock, patch(
-                "backend.logic.stock_data.time") as stock_time_mock:
+        with patch("backend.logic.base.time") as base_time_mock:
             base_time_mock.time.side_effect = [
                 1590516744,
-                1590516744
-            ]
-            stock_time_mock.time.side_effect = [
+                1590516744,
                 1590516744,
                 1590516744
             ]

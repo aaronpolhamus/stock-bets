@@ -267,8 +267,8 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(user_id, games_entry[1])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (games_entry[10] - current_time)
-        self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 0)
+        window = (current_time - games_entry[10])
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 10)
 
         # game_status table tests
         for field in games_entry:  # make sure that we're test-writing all fields
@@ -519,7 +519,7 @@ class TestGetGameStats(BaseTestCase):
         row = self.db_session.query(games).filter(games.c.id == game_id)
         db_dict = orm_rows_to_dict(row)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status"]:
+            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
