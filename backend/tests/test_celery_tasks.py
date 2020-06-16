@@ -7,6 +7,8 @@ from backend.database.helpers import (
     orm_rows_to_dict,
     represent_table)
 from backend.logic.games import (
+    place_order,
+    get_all_open_orders,
     get_current_stock_holding,
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
@@ -14,6 +16,7 @@ from backend.logic.games import (
 )
 from logic.base import fetch_iex_price
 from backend.tasks.definitions import (
+    async_process_all_open_orders,
     async_update_symbols_table,
     async_fetch_price,
     async_cache_price,
@@ -32,7 +35,10 @@ from backend.tasks.definitions import (
     async_suggest_friends,
     async_service_one_open_game
 )
-from backend.logic.base import PRICE_CACHING_INTERVAL
+from backend.logic.base import (
+    PRICE_CACHING_INTERVAL,
+    during_trading_day
+)
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
@@ -405,7 +411,8 @@ class TestGameIntegration(BaseTestCase):
                 def __init__(self, price):
                     self.price = price
 
-                def get(self):
+                @property
+                def result(self):
                     return self.price, None
 
                 @staticmethod
@@ -567,6 +574,77 @@ class TestGameIntegration(BaseTestCase):
 
 
 class TestVisualAssetsTasks(BaseTestCase):
+
+    def test_async_process_all_open_orders(self):
+        # TODO: this task can only run during trading hours, but since it's so critical to the app we allow it to be
+        # here, in spite of being time-dependent
+        if during_trading_day():
+
+            user_id = 1
+            game_id = 3
+
+            # Place a guaranteed-to-clear order
+            buy_stock = "MSFT"
+            mock_buy_order = {"amount": 1,
+                              "buy_or_sell": "buy",
+                              "game_id": 3,
+                              "order_type": "stop",
+                              "stop_limit_price": 1,
+                              "market_price": 0.5,
+                              "quantity_type": "Shares",
+                              "symbol": buy_stock,
+                              "time_in_force": "until_cancelled"
+                              }
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
+                        game_id,
+                        mock_buy_order["symbol"],
+                        mock_buy_order["buy_or_sell"],
+                        current_cash_balance,
+                        current_holding,
+                        mock_buy_order["order_type"],
+                        mock_buy_order["quantity_type"],
+                        mock_buy_order["market_price"],
+                        mock_buy_order["amount"],
+                        mock_buy_order["time_in_force"],
+                        mock_buy_order["stop_limit_price"])
+
+            # Place a guaranteed-to-clear order
+            buy_stock = "AAPL"
+            mock_buy_order = {"amount": 1,
+                              "buy_or_sell": "buy",
+                              "game_id": 3,
+                              "order_type": "stop",
+                              "stop_limit_price": 1,
+                              "market_price": 0.5,
+                              "quantity_type": "Shares",
+                              "symbol": buy_stock,
+                              "time_in_force": "until_cancelled"
+                              }
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
+                        game_id,
+                        mock_buy_order["symbol"],
+                        mock_buy_order["buy_or_sell"],
+                        current_cash_balance,
+                        current_holding,
+                        mock_buy_order["order_type"],
+                        mock_buy_order["quantity_type"],
+                        mock_buy_order["market_price"],
+                        mock_buy_order["amount"],
+                        mock_buy_order["time_in_force"],
+                        mock_buy_order["stop_limit_price"])
+
+            open_orders = get_all_open_orders()
+            starting_open_orders = len(open_orders)
+            self.assertEqual(starting_open_orders, 4)
+            res = async_process_all_open_orders.delay()
+            while not res.ready():
+                continue
+            new_open_orders = get_all_open_orders()
+            self.assertLessEqual(starting_open_orders - len(new_open_orders), 2)
 
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,

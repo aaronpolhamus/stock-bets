@@ -625,6 +625,9 @@ def get_order_expiration_status(order_id):
 def execute_order(buy_or_sell, order_type, market_price, order_price):
     """Function to flag an order for execution based on order type, price, and market price
     """
+    if order_type == "market":
+        return True
+
     if (buy_or_sell == "buy" and order_type == "stop") or (buy_or_sell == "sell" and order_type == "limit"):
         if market_price >= order_price:
             return True

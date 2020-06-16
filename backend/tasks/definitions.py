@@ -234,7 +234,7 @@ def async_process_single_order(order_id):
 
     order_ticket = get_order_ticket(order_id)
     symbol = order_ticket["symbol"]
-    market_price, _ = async_fetch_price.apply(args=[symbol]).get()
+    market_price, _ = async_fetch_price.apply(args=[symbol]).result
     process_order(order_ticket["game_id"], order_ticket["user_id"], symbol, order_id, order_ticket["buy_or_sell"],
                   order_ticket["order_type"], order_ticket["price"], market_price, order_ticket["quantity"], timestamp)
 
@@ -245,7 +245,7 @@ def async_process_all_open_orders(self):
     """
     open_orders = get_all_open_orders()
     status_list = []
-    for order_id, expiration in open_orders:
+    for order_id, _ in open_orders.items():
         status_list.append(async_process_single_order.delay(order_id))
     pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
 
