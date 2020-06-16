@@ -8,7 +8,7 @@ from typing import List
 
 import pandas as pd
 import pandas_market_calendars as mcal
-from backend.database.db import db_session
+from backend.database.db import db_session, engine
 from backend.database.helpers import (
     represent_table,
     unpack_enumerated_field_mappings,
@@ -395,9 +395,8 @@ def get_current_stock_holding(user_id, game_id, symbol):
         ON
           gb.id = grouped_gb.max_id;    
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         results = conn.execute(sql_query, (user_id, game_id, symbol)).fetchall()
-        db_session.remove()
 
     assert len(results) in [0, 1]
     if len(results) == 1:

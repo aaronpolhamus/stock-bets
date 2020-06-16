@@ -18,7 +18,7 @@ import pytz
 import requests
 from backend.config import Config
 from backend.tasks.redis import rds
-from backend.database.db import db_session
+from backend.database.db import db_session, engine
 from backend.database.helpers import (
     orm_rows_to_dict,
     represent_table
@@ -191,9 +191,8 @@ def get_current_game_cash_balance(user_id, game_id):
         ON
           gb.id = grouped_gb.max_id;    
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
-        db_session.remove()
     return result
 
 
