@@ -1,7 +1,6 @@
 """This is a "master" integration test designed to test a full user story from first login, to adding friends,
 creating a game, and placing and fulfilling orders. It's designed to be expanded upon as we add additional functionality
 to the platform.
-
 A few important things about this test:
 1) In order to test real-time order fulfillment this should be run with the IEX_API_PRODUCTION env var set to True and
   during trading hours.
@@ -165,9 +164,11 @@ if __name__ == '__main__':
                                     json={"game_id": 1}, verify=False)
     balances_table_init = res.json()
 
-    input("""
-    Just to get an invited user's perspective, jadice will make a game with test user and jack. We'll leave the test 
-    user's invite pending. Hit any key to continue
+    value = input("""
+    Just to get an invited user's perspective, jadice will make a game with test user and jack. Jack will decline. 
+    We'll leave the test user's invite pending.  We'll have jack invite you  to a different game, too. Hit "c" to accept 
+    jadice's invite automatically and have it on your landing  page, or any other to leave the game as pending so that 
+    you can interact with the invite page..
     """)
 
     game_settings = {
@@ -185,16 +186,33 @@ if __name__ == '__main__':
                                     json=game_settings)
     btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": jack_token},
                               json={"game_id": 2, "decision": "declined"}, verify=False)
+    if value == "c":
+        btc.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": user_token},
+                                  json={"game_id": 2, "decision": "joined"}, verify=False)
 
-    input("""
-    When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
-    orders. Hit any key to continue
-    """)
-    async_update_play_game_visuals()
-    async_update_player_stats()
-    import ipdb;
+    game_settings = {
+        "title": "jack's game",
+        "mode": "return_weighted",
+        "duration": 365,
+        "buy_in": 20,
+        "n_rebuys": 0,
+        "benchmark": "return_ratio",
+        "side_bets_perc": 0,
+        "side_bets_period": "weekly",
+        "invitees": ["cheetos", "miguel", "johnnie"],
+    }
+    btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jack_token}, verify=False,
+                              json=game_settings)
 
-    ipdb.set_trace()
+    # input("""
+    # When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
+    # orders. Hit any key to continue
+    # """)
+    # async_update_play_game_visuals()
+    # async_update_player_stats()
+    # import ipdb;
+    #
+    # ipdb.set_trace()
 
     input("""
     We got a game! Time to put in our first order.

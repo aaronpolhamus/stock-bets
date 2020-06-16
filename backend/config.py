@@ -19,7 +19,7 @@ class Config:
 
     # Game settings:
     # --------------
-    GAME_STATUS_UPDATE_RATE = 1  # The n-minute interval on which to refresh all active game statuses
+    GAME_STATUS_UPDATE_RATE = 3  # The n-minute interval on which to refresh all active game statuses
     OPEN_ORDER_PROCESS_RATE = 5  # The n-minute interval on which to process all open orders (careful, this costs $$$)
 
     # Security

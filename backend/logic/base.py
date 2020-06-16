@@ -6,7 +6,6 @@ import sys
 import time
 from datetime import datetime as dt, timedelta
 
-from database.db import db_session
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
