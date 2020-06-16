@@ -182,10 +182,7 @@ def set_username():
 @authenticate
 def get_user_info():
     user_id = decode_token(request)
-    res = async_get_user_information.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_user_information.apply(args=[user_id]).get())
 
 
 @routes.route("/api/home", methods=["POST"])
@@ -194,8 +191,8 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-    user_info = async_get_user_information.apply(args=[user_id]).result
-    user_info["game_info"] = async_get_game_info_for_user.apply(args=[user_id]).result
+    user_info = async_get_user_information.apply(args=[user_id]).get()
+    user_info["game_info"] = async_get_game_info_for_user.apply(args=[user_id]).get()
     return jsonify(user_info)
 
 # ---------------- #
@@ -211,9 +208,7 @@ def game_defaults():
     """
     user_id = decode_token(request)
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    res = async_get_friends_details.delay(user_id)
-    while not res.ready():
-        continue
+    res = async_get_friends_details.apply(args=[user_id])
     available_invitees = [x["username"] for x in res.get()]
     resp = dict(
         title=default_title,
@@ -257,9 +252,7 @@ def respond_to_game_invite():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     decision = request.json.get("decision")
-    res = async_respond_to_game_invite.delay(game_id, user_id, decision)
-    while not res.ready():
-        continue
+    async_respond_to_game_invite.apply(args=[game_id, user_id, decision])
     return make_response(GAME_RESPONSE_MSG, 200)
 
 
@@ -280,10 +273,7 @@ def get_pending_game_info():
 def game_info():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
-    res = async_get_game_info.delay(game_id, user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_game_info.apply(args=[game_id, user_id]).get())
 
 
 @routes.route("/api/order_form_defaults", methods=["POST"])
@@ -352,11 +342,7 @@ def fetch_price():
     if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
         return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
-
-    res = async_fetch_price.delay(symbol)
-    while not res.ready():
-        continue
-    price, timestamp = res.get()
+    price, timestamp = async_fetch_price.apply(args=[symbol]).get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
@@ -384,9 +370,7 @@ def get_sidebar_stats():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    res = async_invite_friend.delay(user_id, invited_username)
-    while not res.ready():
-        continue
+    async_invite_friend.apply(args=[user_id, invited_username])
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
 
 
@@ -399,9 +383,7 @@ def respond_to_friend_request():
     user_id = decode_token(request)
     requester_username = request.json.get("requester_username")
     decision = request.json.get("decision")
-    res = async_respond_to_friend_invite.delay(requester_username, user_id, decision)
-    while not res.ready():
-        continue
+    async_respond_to_friend_invite.apply(args=[requester_username, user_id, decision])
     return make_response(FRIEND_INVITE_RESPONSE_MSG, 200)
 
 
@@ -409,20 +391,14 @@ def respond_to_friend_request():
 @authenticate
 def get_list_of_friends():
     user_id = decode_token(request)
-    res = async_get_friends_details.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_friends_details.apply(args=[user_id]).get())
 
 
 @routes.route("/api/get_list_of_friend_invites", methods=["POST"])
 @authenticate
 def get_list_of_friend_invites():
     user_id = decode_token(request)
-    res = async_get_friend_invites.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_friend_invites.apply(args=[user_id]).get())
 
 
 @routes.route("/api/suggest_friend_invites", methods=["POST"])
@@ -430,7 +406,7 @@ def get_list_of_friend_invites():
 def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
-    return jsonify(async_suggest_friends.apply(args=[user_id, text]).result)
+    return jsonify(async_suggest_friends.apply(args=[user_id, text]).get())
 
 # ------- #
 # Visuals #
