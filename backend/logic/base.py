@@ -2,12 +2,23 @@
 as we build out the logic library.
 """
 import calendar
+import sys
 import time
 from datetime import datetime as dt, timedelta
+
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+
 
 import pandas as pd
 import pandas_market_calendars as mcal
 import pytz
+import requests
+from backend.config import Config
+from backend.tasks.redis import rds
 from backend.database.db import db_session
 from backend.database.helpers import (
     orm_rows_to_dict,
@@ -17,7 +28,10 @@ from backend.database.helpers import (
 # -------- #
 # Defaults #
 # -------- #
+
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
+IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
 # -------------------------------- #
 # Managing time and trad schedules #
@@ -30,6 +44,12 @@ nyse = mcal.get_calendar('NYSE')
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
 # ----------------------------------------------------------------------------------------------------------------- #
+
+
+class SeleniumDriverError(Exception):
+
+    def __str__(self):
+        return "It looks like the selenium web driver failed to instantiate properly"
 
 
 def datetime_to_posix(localized_date):
@@ -279,3 +299,87 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     # ...otherwise we'll append price data for the more detailed breakout
     df = append_price_data_to_balance_histories(balance_history)
     return filter_for_trade_time(df)
+
+
+def get_web_table_object(timeout=20):
+    print("starting selenium web driver...")
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = webdriver.Chrome(chrome_options=options)
+    driver.get(Config.SYMBOLS_TABLE_URL)
+    return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
+
+
+def extract_row_data(row):
+    list_entry = dict()
+    split_entry = row.text.split(" ")
+    list_entry["symbol"] = split_entry[0]
+    list_entry["name"] = " ".join(split_entry[2:])
+    return list_entry
+
+
+def get_symbols_table(n_rows=None):
+    table = get_web_table_object()
+    rows = table.find_elements_by_tag_name("tr")
+    row_list = list()
+    n = len(rows)
+    print(f"extracting available {n} rows of symbols data...")
+    for i, row in enumerate(rows):
+        list_entry = extract_row_data(row)
+        if list_entry["symbol"] == "Symbol":
+            continue
+        row_list.append(list_entry)
+        sys.stdout.write(f"\r{i} / {n} rows")
+        sys.stdout.flush()
+        if n_rows and len(row_list) == n_rows:
+            # just here for low-cost testing
+            break
+
+    return pd.DataFrame(row_list)
+
+
+def fetch_iex_price(symbol):
+    secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
+    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
+    res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
+    if res.status_code == 200:
+        quote = res.json()
+        timestamp = quote["latestUpdate"] / 1000
+        price = quote["latestPrice"]
+        return price, timestamp
+
+
+def get_all_active_symbols():
+    with db_session.connection() as conn:
+        result = conn.execute("""
+        SELECT DISTINCT gb.symbol FROM
+        game_balances gb
+        INNER JOIN
+          (SELECT DISTINCT game_id
+          FROM game_status
+          WHERE status = 'active') active_ids
+        ON gb.game_id = active_ids.game_id
+        WHERE gb.balance_type = 'virtual_stock';
+        """)
+        db_session.remove()
+
+    return [x[0] for x in result]
+
+
+def fetch_price_cache(symbol):
+    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
+    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
+    None and use that a trigger to pull data
+    """
+    posix_time = time.time()
+    if not during_trading_day():
+        if rds.exists(symbol):
+            price, update_time = rds.get(symbol).split("_")
+            update_time = float(update_time)
+            seconds_delta = posix_time - update_time
+            ny_update_time = posix_to_datetime(update_time)
+            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
+                return float(price), update_time
+    return None, None

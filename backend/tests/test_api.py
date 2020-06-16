@@ -267,8 +267,8 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(user_id, games_entry[1])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (games_entry[10] - current_time)
-        self.assertAlmostEqual(window, DEFAULT_INVITE_OPEN_WINDOW, 0)
+        window = (current_time - games_entry[10])
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 10)
 
         # game_status table tests
         for field in games_entry:  # make sure that we're test-writing all fields

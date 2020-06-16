@@ -5,7 +5,7 @@ from backend.logic.base import (
     TIMEZONE,
     PRICE_CACHING_INTERVAL
 )
-from backend.logic.stock_data import SeleniumDriverError
+from logic.base import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
 from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError

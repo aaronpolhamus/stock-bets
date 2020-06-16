@@ -10,8 +10,7 @@ from backend.logic.base import (
     TIMEZONE,
     datetime_to_posix,
 )
-from backend.logic.stock_data import IEX_BASE_PROD_URL
-
+from logic.base import IEX_BASE_PROD_URL
 
 DOWNLOAD = False
 IEX_KEY = os.getenv("IEX_API_SECRET_PROD")

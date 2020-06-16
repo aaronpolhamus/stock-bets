@@ -12,7 +12,7 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.stock_data import fetch_iex_price
+from logic.base import fetch_iex_price
 from backend.tasks.definitions import (
     async_update_symbols_table,
     async_fetch_price,
@@ -50,19 +50,14 @@ class TestStockDataTasks(BaseTestCase):
         """
 
         symbol = "AMZN"
-        res = async_fetch_price.delay(symbol)
-        while not res.ready():
-            continue
-
-        price, _ = res.result
+        res = async_fetch_price.apply(args=[symbol])
+        price, _ = res.get()
         self.assertIsNotNone(price)
         self.assertTrue(price > 0)
 
         update_time = time.time()
         symbol = "ACME"
-        res = async_cache_price.delay(symbol, 99, update_time)
-        while not res.ready():
-            continue
+        async_cache_price.apply(args=[symbol, 99, update_time])
 
         cache_price, cache_time = rds.get(symbol).split("_")
         self.assertEqual(float(cache_price), 99)
@@ -70,10 +65,7 @@ class TestStockDataTasks(BaseTestCase):
 
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
-        res = async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
-        while not res.ready():
-            continue
-
+        async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
         with self.db_session.connection() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
             self.db_session.remove()
@@ -176,7 +168,7 @@ class TestGameIntegration(BaseTestCase):
             "invitees": ["miguel", "murcitdev", "toofast"]
         }
 
-        res = async_add_game.delay(
+        async_add_game.apply(args=[
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["mode"],
@@ -186,10 +178,8 @@ class TestGameIntegration(BaseTestCase):
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]
+            mock_game["invitees"]]
         )
-        while not res.ready():
-            continue
 
         games = represent_table("games")
         row = self.db_session.query(games).filter(games.c.title == game_title)
@@ -239,9 +229,7 @@ class TestGameIntegration(BaseTestCase):
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
             self.db_session.remove()
 
-        res = async_service_open_games.delay()
-        while not res.ready():
-            continue
+        async_service_open_games.apply()
 
         with self.db_session.connection() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
@@ -302,10 +290,8 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 500_000
-            res = async_fetch_price.delay(stock_pick)
-            while not res.ready():
-                continue
-            amzn_price, _ = res.result
+            res = async_fetch_price.apply(args=[stock_pick])
+            amzn_price, _ = res.get()
             test_user_order = {
                 "user_id": user_id,
                 "game_id": game_id,
@@ -341,10 +327,7 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "MELI"
             user_id = 4
             order_quantity = 600
-            res = async_fetch_price.delay(stock_pick)
-            while not res.ready():
-                continue
-            meli_price, _ = res.result
+            meli_price = 600
             miguel_order = {
                 "user_id": user_id,
                 "game_id": game_id,
@@ -379,10 +362,7 @@ class TestGameIntegration(BaseTestCase):
             user_id = 3
             order_quantity = 1420
             nvda_limit_ratio = 0.95
-            res = async_fetch_price.delay(stock_pick)
-            while not res.ready():
-                continue
-            nvda_price, _ = res.result
+            nvda_price = 350
             stop_limit_price = nvda_price * nvda_limit_ratio
             toofast_order = {
                 "user_id": user_id,
@@ -423,7 +403,10 @@ class TestGameIntegration(BaseTestCase):
             class ResultMock(object):
 
                 def __init__(self, price):
-                    self.results = [price, None]
+                    self.price = price
+
+                def get(self):
+                    return self.price, None
 
                 @staticmethod
                 def ready():
@@ -431,7 +414,7 @@ class TestGameIntegration(BaseTestCase):
 
             amzn_stop_ratio = 0.9
             meli_limit_ratio = 1.1
-            mock_price_fetch.delay.side_effect = [
+            mock_price_fetch.apply.side_effect = [
                 ResultMock(order_clear_price),
                 ResultMock(amzn_stop_ratio * amzn_price - 1),
                 ResultMock(meli_limit_ratio * meli_price + 1),
@@ -636,16 +619,12 @@ class TestFriendManagement(BaseTestCase):
     def test_friend_management(self):
         user_id = 1
         # check out who the tests user's friends are currently:
-        res = async_get_friends_details.delay(user_id)
-        while not res.ready():
-            continue
+        res = async_get_friends_details.apply(args=[user_id])
         expected_friends = {"toofast", "miguel"}
         self.assertEqual(set([x["username"] for x in res.get()]), expected_friends)
 
         # what friend invites does the test user have pending?
-        res = async_get_friend_invites.delay(user_id)
-        while not res.ready():
-            continue
+        res = async_get_friend_invites.apply(args=[user_id])
         self.assertEqual(res.get(), ["murcitdev"])
 
         # if the test user wants to invite some friends, who's available? We shouldn't see the invite from murcitdev,
@@ -666,7 +645,6 @@ class TestDataAccess(BaseTestCase):
         res = async_update_symbols_table.delay(n_rows)
         while not res.ready():
             continue
-
         symbols_table = pd.read_sql("SELECT * FROM symbols", self.db_session.connection())
         self.assertEqual(symbols_table.shape, (n_rows, 3))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
