@@ -1,33 +1,22 @@
 """A collection of helper functions that wraps common database operations using the sqlalchemy ORM
 """
+import json
 import os
+import pandas as pd
+from typing import List
 from sqlalchemy import create_engine, MetaData
 
-from backend.database.db import db_session
 from backend.config import Config
-
-
-def retrieve_meta_data():
-    engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    meta = MetaData(bind=engine)
-    meta.reflect()
-    return meta
-
-
-def represent_table(table_name):
-    """It has been really challenging building a working handler for ORM table representations. A global metadata
-    object, e.g. defined at the database.db level, gets corrupted easily as the database is operated on by the
-    application. After a few days of trying, the best way to do this looks like an on-the-fly reflecting of the
-    metadata in each case where we want to interact with a table
-    """
-    meta_data = retrieve_meta_data()
-    return meta_data.tables[table_name]
+from backend.database.db import engine
 
 
 def reset_db():
-    db_metadata = retrieve_meta_data()
+    reset_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+    db_metadata = MetaData(bind=engine)
+    db_metadata.reflect()
     db_metadata.drop_all()
     os.system("flask db upgrade")
+    reset_engine.dispose()
 
 
 def unpack_enumerated_field_mappings(enum_class):
@@ -38,19 +27,34 @@ def unpack_enumerated_field_mappings(enum_class):
     return {x.name: x.value for x in enum_class}
 
 
-def orm_rows_to_dict(row):
-    """This takes a row selected from using the SQLAlchemy ORM and maps it into a dictionary. This is, surprisingly, not
-    something that's supported out of the box in an intuitive way as far as I can tell
-    """
-    column_names = [column["name"] for column in row.column_descriptions]
-    return {name: row.value(name) for name in column_names}
+def jsonify_inputs(values: List):
+    """If an array or dictionary is being passed as a value, assume that this is for a json field and convert it"""
+    for i, value in enumerate(values):
+        if type(value) in [dict, list]:
+            values[i] = json.dumps(value)
+    return values
 
 
-def table_updater(table, **kwargs):
-    """Generic wrapper for updating data tables from ORM representations. kwargs are key-value pairings that map to
-    columns in the table
+def add_row(table_name, **kwargs):
+    """Convenience wrapper for DB inserts
     """
-    with db_session.connection() as conn:
-        result = conn.execute(table.insert(), kwargs)
-        db_session.commit()
-    return result
+    columns = list(kwargs.keys())
+    values = jsonify_inputs(list(kwargs.values()))
+    sql = f"""
+        INSERT INTO {table_name} ({','.join(columns)})
+        VALUES ({','.join(['%s'] * len(values))});
+    """
+    with engine.connect() as conn:
+        result = conn.execute(sql, values)
+    return result.lastrowid
+
+
+def query_to_dict(sql_query, *args):
+    """Takes a sql query and returns a single dictionary in the case of a single return value, or an array of dict
+    values if there is more than one result. This wraps python, and you can pass in a series of args if needed
+    """
+    with engine.connect() as conn:
+        results = pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
+    if len(results) > 1:
+        return results
+    return results[0]

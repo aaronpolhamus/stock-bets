@@ -6,7 +6,6 @@ import sys
 import time
 from datetime import datetime as dt, timedelta
 
-from database.db import db_session
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -19,11 +18,9 @@ import pytz
 import requests
 from backend.config import Config
 from backend.tasks.redis import rds
-from backend.database.db import db_session
-from backend.database.helpers import (
-    orm_rows_to_dict,
-    represent_table
-)
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
+
 
 # -------- #
 # Defaults #
@@ -117,7 +114,7 @@ def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
 
 
 def get_current_game_status(game_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         status = conn.execute("""
             SELECT gs.status
             FROM game_status gs
@@ -129,26 +126,23 @@ def get_current_game_status(game_id: int):
               gs.id = grouped_gs.max_id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()[0]
-        db_session.remove()
     return status
 
 
 def get_game_start_time(game_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         start = conn.execute("""
             SELECT timestamp FROM game_status
             WHERE game_id = %s AND status = 'active'
         """, game_id).fetchone()
-        db_session.remove()
     if start:
         return start[0]
     return None
 
 
 def get_game_info(game_id: int):
-    games = represent_table("games")
-    row = db_session.query(games).filter(games.c.id == game_id)
-    info = orm_rows_to_dict(row)
+    sql_query = "SELECT * FROM games WHERE id = %s;"
+    info = query_to_dict(sql_query, game_id)
     info["creator_username"] = get_username(info["creator_id"])
     info["mode"] = info["mode"].upper().replace("_", " ")
     info["benchmark"] = info["benchmark"].upper().replace("_", " ")
@@ -162,14 +156,13 @@ def get_game_info(game_id: int):
 
 
 def get_all_game_users(game_id):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(
             """
             SELECT DISTINCT user_id 
             FROM game_invites WHERE 
                 game_id = %s AND
                 status = 'joined';""", game_id)
-        db_session.remove()
     return [x[0] for x in result]
 
 
@@ -192,9 +185,8 @@ def get_current_game_cash_balance(user_id, game_id):
         ON
           gb.id = grouped_gb.max_id;    
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(sql_query, (user_id, game_id)).fetchone()[0]
-        db_session.remove()
     return result
 
 
@@ -222,7 +214,8 @@ def get_open_orders(game_id: int, user_id: int):
         ON open_orders.order_id = o.id
         WHERE game_id = %s and user_id = %s;
     """
-    return pd.read_sql(query, db_session.connection(), params=[game_id, user_id])
+    with engine.connect() as conn:
+        return pd.read_sql(query, conn, params=[game_id, user_id])
 
 
 def get_pending_buy_order_value(user_id, game_id):
@@ -243,7 +236,7 @@ def get_pending_buy_order_value(user_id, game_id):
 
 
 def get_game_end_date(game_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         start_time, duration = conn.execute("""
             SELECT timestamp as start_time, duration
             FROM games g
@@ -255,7 +248,6 @@ def get_game_end_date(game_id: int):
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
-        db_session.remove()
     return start_time + duration * 24 * 60 * 60
 
 # --------- #
@@ -264,26 +256,22 @@ def get_game_end_date(game_id: int):
 
 
 def get_user_information(user_id):
-    users = represent_table("users")
-    row = db_session.query(users).filter(users.c.id == user_id)
-    return orm_rows_to_dict(row)
+    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)
 
 
 def get_user_id(username: str):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         user_id = conn.execute("""
         SELECT id FROM users WHERE username = %s
         """, username).fetchone()[0]
-        db_session.remove()
     return user_id
 
 
 def get_username(user_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         username = conn.execute("""
         SELECT username FROM users WHERE id = %s
         """, int(user_id)).fetchone()[0]
-        db_session.remove()
     return username
 
 # --------------- #
@@ -296,7 +284,8 @@ def get_price_histories(symbols):
         SELECT timestamp, price, symbol FROM prices
         WHERE symbol IN ({','.join(['%s'] * len(symbols))})
     """
-    return pd.read_sql(sql, db_session.connection(), params=symbols)
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=symbols)
 
 
 def resample_balances(symbol_subset):
@@ -377,7 +366,8 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
               user_id = %s
             ORDER BY id;            
         """
-    balances = pd.read_sql(sql, db_session.connection(), params=[game_id, user_id])
+    with engine.connect() as conn:
+        balances = pd.read_sql(sql, conn, params=[game_id, user_id])
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
     balances = add_bookends(balances)
     return balances
@@ -466,7 +456,7 @@ def fetch_iex_price(symbol):
 
 
 def get_all_active_symbols():
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute("""
         SELECT DISTINCT gb.symbol FROM
         game_balances gb
@@ -477,7 +467,6 @@ def get_all_active_symbols():
         ON gb.game_id = active_ids.game_id
         WHERE gb.balance_type = 'virtual_stock';
         """)
-        db_session.remove()
 
     return [x[0] for x in result]
 

@@ -3,10 +3,11 @@ import time
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from backend.database.helpers import (
-    orm_rows_to_dict,
-    represent_table)
+from backend.database.helpers import query_to_dict
 from backend.logic.games import (
+    add_game,
+    place_order,
+    get_all_open_orders,
     get_current_stock_holding,
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
@@ -14,14 +15,13 @@ from backend.logic.games import (
 )
 from logic.base import fetch_iex_price
 from backend.tasks.definitions import (
+    async_process_all_open_orders,
     async_update_symbols_table,
     async_fetch_price,
     async_cache_price,
     async_suggest_symbols,
-    async_add_game,
     async_respond_to_game_invite,
     async_service_open_games,
-    async_place_order,
     async_process_single_order,
     async_make_the_field_charts,
     async_serialize_current_balances,
@@ -32,7 +32,10 @@ from backend.tasks.definitions import (
     async_suggest_friends,
     async_service_one_open_game
 )
-from backend.logic.base import PRICE_CACHING_INTERVAL
+from backend.logic.base import (
+    PRICE_CACHING_INTERVAL,
+    during_trading_day
+)
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
@@ -66,9 +69,8 @@ class TestStockDataTasks(BaseTestCase):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
         async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
-            self.db_session.remove()
 
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
@@ -87,9 +89,8 @@ class TestPriceCaching(BaseTestCase):
                 async_cache_price.apply(args=[stock, price, time.time()])
 
         # clear the mocked-in price data and redis cache
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             conn.execute("TRUNCATE prices;")
-            self.db_session.remove()
 
         # setup mocks
         start_time = 1590511775
@@ -111,29 +112,25 @@ class TestPriceCaching(BaseTestCase):
             start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + [after_hours] * n_stocks
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             first_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count, len(stocks_to_monitor))
 
         # We shouldn't see anymore data after immediately doing another check, provided that we are inside
         # the caching window
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             second_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count, second_count)
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             third_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count + len(stocks_to_monitor), third_count)
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(third_count, fourth_count)
 
 
@@ -168,7 +165,7 @@ class TestGameIntegration(BaseTestCase):
             "invitees": ["miguel", "murcitdev", "toofast"]
         }
 
-        async_add_game.apply(args=[
+        add_game(
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["mode"],
@@ -178,12 +175,10 @@ class TestGameIntegration(BaseTestCase):
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]]
+            mock_game["invitees"]
         )
 
-        games = represent_table("games")
-        row = self.db_session.query(games).filter(games.c.title == game_title)
-        game_entry = orm_rows_to_dict(row)
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
@@ -196,9 +191,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status = represent_table("game_status")
-        row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
-        game_status_entry = orm_rows_to_dict(row)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
         self.assertEqual(game_status_entry["id"], 8)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
@@ -207,9 +200,8 @@ class TestGameIntegration(BaseTestCase):
 
         # and that the game invites table is working as well
         # --------------------------------------------------
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             game_invites_df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=[game_id])
-            self.db_session.remove()
 
         self.assertEqual(game_invites_df.shape, (4, 5))
         for _, row in game_invites_df.iterrows():
@@ -225,22 +217,19 @@ class TestGameIntegration(BaseTestCase):
         # we'll mock in a time value for the current game in a moment, but first check that async_service_open_games is
         # working as expected
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
-            self.db_session.remove()
 
         async_service_open_games.apply()
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
-            self.db_session.remove()
 
         self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
             self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined", "expired"])
-            self.db_session.remove()
 
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
@@ -256,7 +245,7 @@ class TestGameIntegration(BaseTestCase):
             mock_time.time.return_value = game_start_time
             async_service_open_games.apply()  # Execute locally wth apply in order to use time mock
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 # Verify game updated to active status and active players
                 game_status = conn.execute(
                     "SELECT status, users FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1",
@@ -271,7 +260,6 @@ class TestGameIntegration(BaseTestCase):
                 balances = [x[0] for x in res]
                 self.assertIs(len(balances), 3)
                 self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in balances]))
-                self.db_session.remove()
 
         # For now I've tried to keep things simple and divorce the ordering part of the integration test from game
         # startup. May need to close the loop on this later when expanding the test to cover payouts
@@ -292,29 +280,22 @@ class TestGameIntegration(BaseTestCase):
             order_quantity = 500_000
             res = async_fetch_price.apply(args=[stock_pick])
             amzn_price, _ = res.get()
-            test_user_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "market",
-                "quantity_type": "USD",
-                "market_price": amzn_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "day"
-            }
-            async_place_order.apply(args=[
-                user_id,
-                test_user_order["game_id"],
-                test_user_order["symbol"],
-                test_user_order["buy_or_sell"],
-                test_user_order["order_type"],
-                test_user_order["quantity_type"],
-                test_user_order["market_price"],
-                test_user_order["amount"],
-                test_user_order["time_in_force"],
-                None
-            ])
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="market",
+                quantity_type="USD",
+                market_price=amzn_price,
+                amount=order_quantity,
+                time_in_force="day"
+            )
 
             original_amzn_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
@@ -328,30 +309,23 @@ class TestGameIntegration(BaseTestCase):
             user_id = 4
             order_quantity = 600
             meli_price = 600
-            miguel_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "market",
-                "quantity_type": "Shares",
-                "market_price": meli_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "day"
 
-            }
-            async_place_order.apply(args=[
-                user_id,
-                miguel_order["game_id"],
-                miguel_order["symbol"],
-                miguel_order["buy_or_sell"],
-                miguel_order["order_type"],
-                miguel_order["quantity_type"],
-                miguel_order["market_price"],
-                miguel_order["amount"],
-                miguel_order["time_in_force"],
-                None
-            ])
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="market",
+                quantity_type="Shares",
+                market_price=meli_price,
+                amount=order_quantity,
+                time_in_force="day"
+            )
+
             original_meli_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
@@ -364,31 +338,24 @@ class TestGameIntegration(BaseTestCase):
             nvda_limit_ratio = 0.95
             nvda_price = 350
             stop_limit_price = nvda_price * nvda_limit_ratio
-            toofast_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "limit",
-                "stop_limit_price": stop_limit_price,
-                "quantity_type": "Shares",
-                "market_price": nvda_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "until_cancelled"
 
-            }
-            async_place_order.apply(args=[
-                user_id,
-                toofast_order["game_id"],
-                toofast_order["symbol"],
-                toofast_order["buy_or_sell"],
-                toofast_order["order_type"],
-                toofast_order["quantity_type"],
-                toofast_order["market_price"],
-                toofast_order["amount"],
-                toofast_order["time_in_force"],
-                toofast_order["stop_limit_price"]
-            ])
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="limit",
+                quantity_type="Shares",
+                market_price=nvda_price,
+                amount=order_quantity,
+                time_in_force="until_cancelled",
+                stop_limit_price=stop_limit_price
+            )
+
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
@@ -405,7 +372,8 @@ class TestGameIntegration(BaseTestCase):
                 def __init__(self, price):
                     self.price = price
 
-                def get(self):
+                @property
+                def result(self):
                     return self.price, None
 
                 @staticmethod
@@ -414,6 +382,7 @@ class TestGameIntegration(BaseTestCase):
 
             amzn_stop_ratio = 0.9
             meli_limit_ratio = 1.1
+            # this is async_fetch_price in for async_process_single order
             mock_price_fetch.apply.side_effect = [
                 ResultMock(order_clear_price),
                 ResultMock(amzn_stop_ratio * amzn_price - 1),
@@ -442,13 +411,12 @@ class TestGameIntegration(BaseTestCase):
             ]
 
             # First let's go ahead and clear that last transaction that we had above
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 open_order_id = conn.execute("""
                                              SELECT id 
                                              FROM orders 
                                              WHERE user_id = %s AND game_id = %s AND symbol = %s;""",
                                              user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             async_process_single_order.apply(args=[open_order_id])
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
@@ -460,77 +428,66 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 250_000
-            test_user_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "stop",
-                "quantity_type": "USD",
-                "stop_limit_price": amzn_stop_ratio * amzn_price,
-                "amount": order_quantity,
-                "buy_or_sell": "sell",
-                "time_in_force": "day"
-            }
-            async_place_order.apply(args=[
-                user_id,
-                test_user_order["game_id"],
-                test_user_order["symbol"],
-                test_user_order["buy_or_sell"],
-                test_user_order["order_type"],
-                test_user_order["quantity_type"],
-                test_user_order["stop_limit_price"] + 10,
-                test_user_order["amount"],
-                test_user_order["time_in_force"],
-                test_user_order["stop_limit_price"]
-            ])
-            with self.db_session.connection() as conn:
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            stop_limit_price = amzn_stop_ratio * amzn_price
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="sell",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="stop",
+                quantity_type="USD",
+                market_price=stop_limit_price + 10,
+                amount=order_quantity,
+                time_in_force="day",
+                stop_limit_price=stop_limit_price
+            )
+
+            with self.engine.connect() as conn:
                 amzn_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             stock_pick = "MELI"
             user_id = 4
-            order_quantity = 300
-            miguel_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "limit",
-                "quantity_type": "Shares",
-                "stop_limit_price": meli_limit_ratio * meli_price,
-                "amount": order_quantity,
-                "buy_or_sell": "sell",
-                "time_in_force": "until_cancelled",
-            }
-            async_place_order.apply(args=[
-                user_id,
-                miguel_order["game_id"],
-                miguel_order["symbol"],
-                miguel_order["buy_or_sell"],
-                miguel_order["order_type"],
-                miguel_order["quantity_type"],
-                miguel_order["stop_limit_price"] - 10,
-                miguel_order["amount"],
-                miguel_order["time_in_force"],
-                miguel_order["stop_limit_price"]
-            ])
-            with self.db_session.connection() as conn:
+            miguel_order_quantity = 300
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="sell",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="limit",
+                quantity_type="Shares",
+                market_price=meli_limit_ratio * meli_price - 10,
+                amount=miguel_order_quantity,
+                time_in_force="until_cancelled",
+                stop_limit_price=meli_limit_ratio * meli_price
+            )
+
+            with self.engine.connect() as conn:
                 meli_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             async_process_single_order.apply(args=[amzn_open_order_id])
             async_process_single_order.apply(args=[meli_open_order_id])
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 query = """
                     SELECT o.user_id, o.id, o.symbol, os.clear_price
                     FROM orders o
@@ -543,7 +500,6 @@ class TestGameIntegration(BaseTestCase):
                       game_id = %s;
                 """
                 df = pd.read_sql(query, conn, params=[game_id])
-                self.db_session.remove()
 
             test_user_id = 1
             test_user_stock = "AMZN"
@@ -561,12 +517,83 @@ class TestGameIntegration(BaseTestCase):
             updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
-            shares_sold = miguel_order["amount"]
+            shares_sold = miguel_order_quantity
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
 
 
 class TestVisualAssetsTasks(BaseTestCase):
+
+    def test_async_process_all_open_orders(self):
+        # TODO: this task can only run during trading hours, but since it's so critical to the app we allow it to be
+        # here, in spite of being time-dependent
+        if during_trading_day():
+
+            user_id = 1
+            game_id = 3
+
+            # Place a guaranteed-to-clear order
+            buy_stock = "MSFT"
+            mock_buy_order = {"amount": 1,
+                              "buy_or_sell": "buy",
+                              "game_id": 3,
+                              "order_type": "stop",
+                              "stop_limit_price": 1,
+                              "market_price": 0.5,
+                              "quantity_type": "Shares",
+                              "symbol": buy_stock,
+                              "time_in_force": "until_cancelled"
+                              }
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
+                        game_id,
+                        mock_buy_order["symbol"],
+                        mock_buy_order["buy_or_sell"],
+                        current_cash_balance,
+                        current_holding,
+                        mock_buy_order["order_type"],
+                        mock_buy_order["quantity_type"],
+                        mock_buy_order["market_price"],
+                        mock_buy_order["amount"],
+                        mock_buy_order["time_in_force"],
+                        mock_buy_order["stop_limit_price"])
+
+            # Place a guaranteed-to-clear order
+            buy_stock = "AAPL"
+            mock_buy_order = {"amount": 1,
+                              "buy_or_sell": "buy",
+                              "game_id": 3,
+                              "order_type": "stop",
+                              "stop_limit_price": 1,
+                              "market_price": 0.5,
+                              "quantity_type": "Shares",
+                              "symbol": buy_stock,
+                              "time_in_force": "until_cancelled"
+                              }
+            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+            place_order(user_id,
+                        game_id,
+                        mock_buy_order["symbol"],
+                        mock_buy_order["buy_or_sell"],
+                        current_cash_balance,
+                        current_holding,
+                        mock_buy_order["order_type"],
+                        mock_buy_order["quantity_type"],
+                        mock_buy_order["market_price"],
+                        mock_buy_order["amount"],
+                        mock_buy_order["time_in_force"],
+                        mock_buy_order["stop_limit_price"])
+
+            open_orders = get_all_open_orders()
+            starting_open_orders = len(open_orders)
+            self.assertEqual(starting_open_orders, 4)
+            res = async_process_all_open_orders.delay()
+            while not res.ready():
+                continue
+            new_open_orders = get_all_open_orders()
+            self.assertLessEqual(starting_open_orders - len(new_open_orders), 2)
 
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
@@ -645,6 +672,7 @@ class TestDataAccess(BaseTestCase):
         res = async_update_symbols_table.delay(n_rows)
         while not res.ready():
             continue
-        symbols_table = pd.read_sql("SELECT * FROM symbols", self.db_session.connection())
+        with self.engine.connect() as conn:
+            symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')

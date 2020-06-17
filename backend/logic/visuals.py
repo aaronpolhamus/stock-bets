@@ -7,7 +7,7 @@ from typing import List
 
 import pandas as pd
 import seaborn as sns
-from backend.database.db import db_session
+from backend.database.db import engine
 from backend.logic.base import (
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -246,7 +246,8 @@ def get_active_balances(game_id: int, user_id: int):
         ) balances
         WHERE balances.order_status_id = os.id;
     """
-    return pd.read_sql(sql, db_session.connection(), params=[game_id, user_id])
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=[game_id, user_id])
 
 
 def get_most_recent_prices(symbols):
@@ -262,7 +263,8 @@ def get_most_recent_prices(symbols):
         ON p.id = max_price.max_id
         WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
     """
-    return pd.read_sql(sql, db_session.connection(), params=symbols)
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=symbols)
 
 
 def serialize_and_pack_current_balances(game_id: int, user_id: int):

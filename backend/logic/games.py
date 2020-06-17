@@ -8,12 +8,11 @@ from typing import List
 
 import pandas as pd
 import pandas_market_calendars as mcal
-from backend.database.db import db_session
+from backend.database.db import engine
 from backend.database.helpers import (
-    represent_table,
+    query_to_dict,
+    add_row,
     unpack_enumerated_field_mappings,
-    orm_rows_to_dict,
-    table_updater
 )
 from backend.database.models import (
     GameModes,
@@ -37,7 +36,6 @@ from backend.logic.visuals import (
     make_the_field_charts
 )
 from funkybob import RandomNameGenerator
-from sqlalchemy import select
 
 # Default make game settings
 # --------------------------
@@ -103,12 +101,34 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
+def add_game(creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc, side_bets_period,
+             invitees):
+    opened_at = time.time()
+    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
+    game_id = add_row("games",
+                      creator_id=creator_id,
+                      title=title,
+                      mode=mode,
+                      duration=duration,
+                      buy_in=buy_in,
+                      n_rebuys=n_rebuys,
+                      benchmark=benchmark,
+                      side_bets_perc=side_bets_perc,
+                      side_bets_period=side_bets_period,
+                      invite_window=invite_window)
+    invited_ids = translate_usernames_to_ids(tuple(invitees))
+    user_ids = invited_ids + [creator_id]
+
+    create_pending_game_status_entry(game_id, user_ids, opened_at)
+    create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
+
+
 def get_open_game_invite_ids():
     """This function returns game IDs for the subset of games that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
     participating
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute("""
         SELECT g.id
         FROM games g
@@ -128,12 +148,11 @@ def get_open_game_invite_ids():
           g.id = pending_game_ids.game_id
         WHERE invite_window < %s;
         """, time.time()).fetchall()  # yep, I know about UNIX_TIMESTAMP() -- this is necessary for test mocking
-        db_session.remove()
     return [x[0] for x in result]
 
 
 def get_active_game_ids():
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute("""
         SELECT g.id
         FROM games g
@@ -151,43 +170,31 @@ def get_active_game_ids():
         ) pending_game_ids
         ON
           g.id = pending_game_ids.game_id;""").fetchall()
-        db_session.remove()
     return [x[0] for x in result]
 
 
 def translate_usernames_to_ids(usernames: tuple):
-    users = represent_table("users")
-    with db_session.connection() as conn:
-        invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(usernames))).fetchall()
-        db_session.remove()
-    return [x[0] for x in invitee_ids]
+    with engine.connect() as conn:
+        res = conn.execute(f"""
+            SELECT id FROM users WHERE username in ({",".join(['%s'] * len(usernames))});
+        """, usernames).fetchall()
+    return [x[0] for x in res]
 
 
 def create_pending_game_status_entry(game_id, user_ids, opened_at):
-    game_status = represent_table("game_status")
-    with db_session.connection() as conn:
-        status_entry = {"game_id": game_id, "status": "pending", "timestamp": opened_at, "users": user_ids}
-        conn.execute(game_status.insert(), status_entry)
-        db_session.commit()
+    add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
 
 
 def create_game_invites_entries(game_id, creator_id, user_ids, opened_at):
-    game_invites = represent_table("game_invites")
-    invite_entries = []
     for user_id in user_ids:
         status = "invited"
         if user_id == creator_id:
             status = "joined"
-        invite_entries.append(
-            {"game_id": game_id, "user_id": user_id, "status": status, "timestamp": opened_at})
-
-    with db_session.connection() as conn:
-        conn.execute(game_invites.insert(), invite_entries)
-        db_session.commit()
+        add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
 
 
 def get_invite_list_by_status(game_id, status="joined"):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute("""
             SELECT gi.user_id 
             FROM game_invites gi
@@ -200,28 +207,18 @@ def get_invite_list_by_status(game_id, status="joined"):
             WHERE 
               gi.game_id = %s AND 
               status = %s;""", game_id, status).fetchall()
-        db_session.remove()
     return [x[0] for x in result]
 
 
 def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     """Mark a game as active and seed users' virtual cash balances
     """
-    game_status = represent_table("game_status")
-    row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
-    game_status_entry = orm_rows_to_dict(row)
-    table_updater(game_status, game_id=game_status_entry["game_id"], status="active", users=user_id_list,
-                  timestamp=update_time)
-
-    game_balances = represent_table("game_balances")
-    with db_session.connection() as conn:
-        # Initialize each joining player's virtual trading cash balance in the game
-        virtual_cash_entries = []
-        for user_id in user_id_list:
-            virtual_cash_entries.append(dict(user_id=user_id, game_id=game_id, timestamp=update_time,
-                                             balance_type="virtual_cash", balance=DEFAULT_VIRTUAL_CASH))
-        conn.execute(game_balances.insert(), virtual_cash_entries)
-        db_session.commit()
+    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
+    add_row("game_status", game_id=game_status_entry["game_id"], status="active", users=user_id_list,
+            timestamp=update_time)
+    for user_id in user_id_list:
+        add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
+                balance=DEFAULT_VIRTUAL_CASH)
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
@@ -239,11 +236,9 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
 
 def close_game(game_id, update_time):
-    game_status = represent_table("game_status")
-    row = db_session.query(game_status).filter(game_status.c.game_id == game_id)
-    game_status_entry = orm_rows_to_dict(row)
-    table_updater(game_status, game_id=game_status_entry["game_id"], status="expired",
-                  users=json.loads(game_status_entry["users"]), timestamp=update_time)
+    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
+    add_row("game_status", game_id=game_status_entry["game_id"], status="expired",
+            users=json.loads(game_status_entry["users"]), timestamp=update_time)
     mark_invites_expired(game_id, ["invited", "joined"], update_time)
 
 
@@ -255,7 +250,7 @@ def mark_invites_expired(game_id, status_list: List[str], update_time):
     if not status_list:
         return
 
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(f"""
             SELECT gi.user_id
             FROM game_invites gi
@@ -270,11 +265,9 @@ def mark_invites_expired(game_id, status_list: List[str], update_time):
               status IN ({','.join(['%s'] * len(status_list))});
               """, game_id, *status_list)
         ids_to_close = [x[0] for x in result]
-        db_session.remove()
 
-    game_invites = represent_table("game_invites")
     for user_id in ids_to_close:
-        table_updater(game_invites, game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
+        add_row("game_invites", game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
 
 
 def service_open_game(game_id):
@@ -334,18 +327,12 @@ def get_game_info_for_user(user_id):
           users creator_info ON creator_info.id = g.creator_id
         WHERE gs.status IN ('active', 'pending');
     """
-    df = pd.read_sql(sql, db_session.connection(), params=[str(user_id)]).to_dict(orient="records")
-    db_session.remove()
-    return df
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=[str(user_id)]).to_dict(orient="records")
 
 
 def respond_to_invite(game_id, user_id, status, response_time):
-    game_invites = represent_table("game_invites")
-    table_updater(game_invites,
-                  game_id=game_id,
-                  user_id=user_id,
-                  status=status,
-                  timestamp=response_time)
+    add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=response_time)
 
 
 def get_user_invite_statuses_for_pending_game(game_id):
@@ -370,7 +357,8 @@ def get_user_invite_statuses_for_pending_game(game_id):
             INNER JOIN games g ON g.id = gs.game_id
             WHERE gs.game_id = %s;
     """
-    return pd.read_sql(sql, db_session.connection(), params=[game_id]).to_dict(orient="records")
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
 
 
 # Functions for handling placing and execution of orders
@@ -395,9 +383,8 @@ def get_current_stock_holding(user_id, game_id, symbol):
         ON
           gb.id = grouped_gb.max_id;    
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         results = conn.execute(sql_query, (user_id, game_id, symbol)).fetchall()
-        db_session.remove()
 
     assert len(results) in [0, 1]
     if len(results) == 1:
@@ -423,9 +410,8 @@ def get_all_current_stock_holdings(user_id, game_id):
         ON
           gb.id = grouped_gb.max_id;    
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(sql_query, (user_id, game_id)).fetchall()
-        db_session.remove()
     return {stock: holding for stock, holding in result}
 
 
@@ -514,9 +500,8 @@ def get_all_open_orders():
           os.id = grouped_os.max_id
         WHERE os.status = 'pending';
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         result = conn.execute(sql_query).fetchall()
-        db_session.remove()
     return {order_id: ts for order_id, ts in result}
 
 
@@ -524,20 +509,16 @@ def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, c
                     order_price, order_quantity, symbol):
     """This function books an order and updates a user's cash balance at the same time.
     """
-    game_balances = represent_table("game_balances")
     sign = 1 if buy_or_sell == "buy" else -1
-    table_updater(game_balances, user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-                  balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price)
-    table_updater(game_balances, user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-                  balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
+    add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
+            balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price)
+    add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
+            balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
 
 
 def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
                 market_price, amount, time_in_force, stop_limit_price=None):
     timestamp = time.time()
-    order_status = represent_table("order_status")
-    orders = represent_table("orders")
-
     order_price = get_order_price(order_type, market_price, stop_limit_price)
     order_quantity = get_order_quantity(order_price, amount, quantity_type)
 
@@ -549,60 +530,53 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
         raise Exception(f"Invalid buy or sell option {buy_or_sell}")
 
     # having validated the order, now we'll go ahead and book it
-    result = table_updater(orders, user_id=user_id, game_id=game_id, symbol=symbol, buy_or_sell=buy_or_sell,
-                           quantity=order_quantity, price=order_price, order_type=order_type,
-                           time_in_force=time_in_force)
+    order_id = add_row("orders", user_id=user_id, game_id=game_id, symbol=symbol, buy_or_sell=buy_or_sell,
+                       quantity=order_quantity, price=order_price, order_type=order_type, time_in_force=time_in_force)
 
     # If this is a market order and we're inside a trading day we'll execute this order at the current price
     status = "pending"
     clear_price = None
     if order_type == "market" and during_trading_day():
-        update_balances(user_id, game_id, result.inserted_primary_key[0], timestamp, buy_or_sell, cash_balance,
-                        current_holding, order_price, order_quantity, symbol)
+        update_balances(user_id, game_id, order_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
+                        order_quantity, symbol)
         status = "fulfilled"
         clear_price = order_price
 
-    table_updater(order_status, order_id=result.inserted_primary_key[0], timestamp=timestamp, status=status,
-                  clear_price=clear_price)
+    add_row("order_status", order_id=order_id, timestamp=timestamp, status=status, clear_price=clear_price)
 
 
 def get_order_ticket(order_id):
-    orders = represent_table("orders")
-    row = db_session.query(orders).filter(orders.c.id == order_id)
-    return orm_rows_to_dict(row)
+    return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
 
 
 def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, order_price, market_price,
                   quantity, timestamp):
     # Only process active outstanding orders during trading day
     if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
-        order_status = represent_table("order_status")
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        result = table_updater(order_status, order_id=order_id, timestamp=timestamp, status="fulfilled",
-                               clear_price=market_price)
-        update_balances(user_id, game_id, result.inserted_primary_key[0], timestamp, buy_or_sell, cash_balance,
-                        current_holding, market_price, quantity, symbol)
+        order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
+                                  clear_price=market_price)
+        update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                        market_price, quantity, symbol)
 
 
 def get_order_expiration_status(order_id):
     """Before processing an order, we'll use logic to determine whether that order is still active. This function
     return True if an order is expired, or false otherwise.
     """
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         time_in_force = conn.execute("SELECT time_in_force FROM orders WHERE id = %s;", order_id).fetchone()[0]
-        db_session.remove()
         if time_in_force == "until_cancelled":
             return False
 
     # posix_to_datetime
     current_time = time.time()
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         time_placed = conn.execute("""SELECT timestamp 
                                       FROM order_status 
                                       WHERE order_id = %s 
                                       ORDER BY id LIMIT 0, 1;""", order_id).fetchone()[0]
-        db_session.remove()
 
     time_placed_nyc = posix_to_datetime(time_placed)
 
@@ -625,6 +599,9 @@ def get_order_expiration_status(order_id):
 def execute_order(buy_or_sell, order_type, market_price, order_price):
     """Function to flag an order for execution based on order type, price, and market price
     """
+    if order_type == "market":
+        return True
+
     if (buy_or_sell == "buy" and order_type == "stop") or (buy_or_sell == "sell" and order_type == "limit"):
         if market_price >= order_price:
             return True
@@ -641,7 +618,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price):
 
 
 def get_user_invite_status_for_game(game_id: int, user_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         status = conn.execute("""
             SELECT gi.status
             FROM game_invites gi
@@ -653,7 +630,4 @@ def get_user_invite_status_for_game(game_id: int, user_id: int):
               gi.id = grouped_gi.max_id
             WHERE gi.game_id = %s AND gi.user_id = %s;
         """, game_id, user_id).fetchone()[0]
-        db_session.remove()
     return status
-
-

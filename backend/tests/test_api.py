@@ -14,13 +14,12 @@ from backend.api.routes import (
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
-    orm_rows_to_dict,
-    represent_table
+    unpack_enumerated_field_mappings,
+    query_to_dict,
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
-    unpack_enumerated_field_mappings,
     DEFAULT_GAME_MODE,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
@@ -49,7 +48,6 @@ from backend.tasks.redis import (
     unpack_redis_json)
 from backend.tests import BaseTestCase
 from config import Config
-from sqlalchemy import select
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -70,10 +68,10 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(res.text, INVALID_OAUTH_PROVIDER_MSG)
 
         # token creation and landing
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             user_id, name, email, pic, username, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
-            self.db_session.remove()
+
         session_token = create_jwt(email, user_id, username)
         decoded_token = jwt.decode(session_token, Config.SECRET_KEY, algorithms=Config.JWT_ENCODE_ALGORITHM)
         self.assertEqual(decoded_token["email"], email)
@@ -124,10 +122,10 @@ class TestUserManagement(BaseTestCase):
 
     def test_set_username(self):
         # set username endpoint test
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             user_id, name, email, pic, username, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
-            self.db_session.remove()
+
         self.assertIsNone(username)
         session_token = create_jwt(email, user_id, username)
         new_username = "peaches"
@@ -135,9 +133,8 @@ class TestUserManagement(BaseTestCase):
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # least-code way that I could find to persist DB changes to sqlalchemy API, but feels janky...
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             updated_username = conn.execute("SELECT username FROM users WHERE name = 'dummy';").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(new_username, updated_username)
         # check the cookie to be sure that it has been updated with the new proper username as well
         decoded_token = jwt.decode(res.cookies.get("session_token"), Config.SECRET_KEY,
@@ -146,10 +143,9 @@ class TestUserManagement(BaseTestCase):
         self.assertEqual(decoded_token["email"], email)
 
         # take username fails with 400 error
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
-            self.db_session.remove()
         session_token = create_jwt(email, user_id, user_name)
         res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                          cookies={"session_token": session_token}, verify=False)
@@ -186,9 +182,8 @@ class TestCreateGame(BaseTestCase):
 
         # For ease of use, make sure that the JSON object being passed back and forth with the  database has the same
         # column names, and that we are being explicit about declaring games fields that are handled server-side
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
-            self.db_session.remove()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
         for column in column_names:
@@ -243,15 +238,13 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             games_entry = conn.execute(
                 "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
             game_id = games_entry[0]
-            self.db_session.remove()
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
-            self.db_session.remove()
 
         # games table tests
         for field in games_entry:  # make sure that we're test-writing all fields
@@ -279,12 +272,12 @@ class TestCreateGame(BaseTestCase):
         time_diff = abs((status_entry[4] - current_time))
         self.assertLess(time_diff, 1)
         invited_users = json.loads(status_entry[3])
-        users = represent_table("users")
         invitees = tuple(game_settings["invitees"] + [user_name])
-        with self.db_session.connection() as conn:
-            lookup_invitee_ids = conn.execute(select([users.c.id], users.c.username.in_(invitees))).fetchall()
-            self.db_session.remove()
-        lookup_invitee_ids = [entry[0] for entry in lookup_invitee_ids]
+        with self.engine.connect() as conn:
+            res = conn.execute(f"""
+                SELECT id FROM users WHERE username IN ({",".join(['%s'] * len(invitees))});
+            """, invitees)
+        lookup_invitee_ids = [x[0] for x in res]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
 
         # murcitdev and toofast will accept, miguel will decline
@@ -313,7 +306,8 @@ class TestCreateGame(BaseTestCase):
             WHERE game_id = %s
             AND balance_type = 'virtual_cash'
         """
-        player_cash_balances = pd.read_sql(sql, self.db_session.connection(), params=[game_id])
+        with self.engine.connect() as conn:
+            player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
@@ -399,13 +393,11 @@ class TestPlayGame(BaseTestCase):
         while res is None:
             res = rds.get(f"open_orders_{game_id}_{user_id}")
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             last_order = conn.execute("""
                 SELECT symbol FROM orders
                 ORDER BY id DESC LIMIT 0, 1;
-                """
-                                      ).fetchone()[0]
-            self.db_session.remove()
+                """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
         res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -515,9 +507,7 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        games = represent_table("games")
-        row = self.db_session.query(games).filter(games.c.id == game_id)
-        db_dict = orm_rows_to_dict(row)
+        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
             if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time"]:
                 continue

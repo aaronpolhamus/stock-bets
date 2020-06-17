@@ -1,6 +1,6 @@
 import celery
 from backend.config import Config
-from backend.database.db import db_session
+from backend.database.db import engine
 from backend.logic.base import (
     TIMEZONE,
     PRICE_CACHING_INTERVAL
@@ -39,7 +39,7 @@ celery.conf.beat_schedule = {
     },
     "process_all_open_orders": {
         "task": "async_process_all_open_orders",
-        "schedule": crontab(minute=f"*/{Config.OPEN_ORDER_PROCESS_RATE}")
+        "schedule": crontab(minute=f"*/{Config.OPEN_ORDER_PROCESS_RATE}", hour="9-16", day_of_week="1-5")
     },
     "service_open_games": {
         "task": "async_service_open_games",
@@ -51,15 +51,15 @@ celery.conf.beat_schedule = {
     },
     "update_play_game_visuals": {
         "task": "async_update_play_game_visuals",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
     },
     "update_player_stats": {
         "task": "async_update_player_stats",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
     },
     "compile_player_sidebar_data": {
         "task": "async_compile_player_sidebar_stats",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
     }
 }
 
@@ -71,16 +71,6 @@ class BaseTask(celery.Task):
     autoretry_for = RETRY_INVENTORY
     default_retry_delay = DEFAULT_RETRY_DELAY
     max_retries = MAX_RETRIES
-
-    def on_success(self, retval, task_id, args, kwargs):
-        db_session.remove()
-
-    def after_return(self, status, retval, task_id, args, kwargs, einfo):
-        db_session.remove()
-
-    def on_retry(self, exc, task_id, args, kwargs, einfo):
-        db_session.rollback()
-        db_session.remove()
 
 
 def pause_return_until_subtask_completion(status_list, task_name, iteration_limit=10_000):

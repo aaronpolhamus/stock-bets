@@ -14,6 +14,11 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    add_game,
+    get_game_info_for_user,
+    place_order,
+    get_current_game_cash_balance,
+    get_current_stock_holding,
     make_random_game_title,
     DEFAULT_GAME_MODE,
     GAME_MODES,
@@ -34,7 +39,11 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
-from logic.base import fetch_price_cache, posix_to_datetime
+from logic.base import (
+    fetch_price_cache,
+    posix_to_datetime,
+    get_user_information
+)
 from backend.logic.visuals import (
     OPEN_ORDERS_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -43,14 +52,10 @@ from backend.logic.visuals import (
     SIDEBAR_STATS_PREFIX
 )
 from backend.tasks.definitions import (
-    async_get_game_info_for_user,
-    async_get_user_information,
     async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
-    async_place_order,
-    async_add_game,
     async_get_user_invite_statuses_for_pending_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
@@ -182,10 +187,7 @@ def set_username():
 @authenticate
 def get_user_info():
     user_id = decode_token(request)
-    res = async_get_user_information.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(get_user_information(user_id))
 
 
 @routes.route("/api/home", methods=["POST"])
@@ -194,8 +196,8 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-    user_info = async_get_user_information.apply(args=[user_id]).result
-    user_info["game_info"] = async_get_game_info_for_user.apply(args=[user_id]).result
+    user_info = get_user_information(user_id)
+    user_info["game_info"] = get_game_info_for_user(user_id)
     return jsonify(user_info)
 
 # ---------------- #
@@ -211,9 +213,7 @@ def game_defaults():
     """
     user_id = decode_token(request)
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    res = async_get_friends_details.delay(user_id)
-    while not res.ready():
-        continue
+    res = async_get_friends_details.apply(args=[user_id])
     available_invitees = [x["username"] for x in res.get()]
     resp = dict(
         title=default_title,
@@ -237,7 +237,7 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    async_add_game.apply(args=(
+    add_game(
         user_id,
         game_settings["title"],
         game_settings["mode"],
@@ -247,7 +247,7 @@ def create_game():
         game_settings["benchmark"],
         game_settings["side_bets_perc"],
         game_settings["side_bets_period"],
-        game_settings["invitees"]))
+        game_settings["invitees"])
     return make_response(GAME_CREATED_MSG, 200)
 
 
@@ -257,9 +257,7 @@ def respond_to_game_invite():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     decision = request.json.get("decision")
-    res = async_respond_to_game_invite.delay(game_id, user_id, decision)
-    while not res.ready():
-        continue
+    async_respond_to_game_invite.apply(args=[game_id, user_id, decision])
     return make_response(GAME_RESPONSE_MSG, 200)
 
 
@@ -280,10 +278,7 @@ def get_pending_game_info():
 def game_info():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
-    res = async_get_game_info.delay(game_id, user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_game_info.apply(args=[game_id, user_id]).get())
 
 
 @routes.route("/api/order_form_defaults", methods=["POST"])
@@ -310,7 +305,7 @@ def order_form_defaults():
 
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
-def place_order():
+def api_place_order():
     user_id = decode_token(request)
     order_ticket = request.json
     game_id = order_ticket["game_id"]
@@ -318,22 +313,29 @@ def place_order():
     if stop_limit_price:
         stop_limit_price = float(stop_limit_price)
 
-    res = async_place_order.apply(args=[
-        user_id,
-        game_id,
-        order_ticket["symbol"],
-        order_ticket["buy_or_sell"],
-        order_ticket["order_type"],
-        order_ticket["quantity_type"],
-        float(order_ticket["market_price"]),
-        float(order_ticket["amount"]),
-        order_ticket["time_in_force"],
-        stop_limit_price
-    ])
-
-    # TODO: There must be a more elegant way to do this...
+    """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
+    market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
+    valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
+    checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
+    an ongoing basis by the celery schedule and book as their requirements are satisfies
+    """
     try:
-        res.get()
+        symbol = order_ticket["symbol"]
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, symbol)
+        place_order(
+            user_id,
+            game_id,
+            symbol,
+            order_ticket["buy_or_sell"],
+            cash_balance,
+            current_holding,
+            order_ticket["order_type"],
+            order_ticket["quantity_type"],
+            float(order_ticket["market_price"]),
+            float(order_ticket["amount"]),
+            order_ticket["time_in_force"],
+            stop_limit_price)
     except Exception as e:
         return make_response(str(e), 400)
 
@@ -352,11 +354,7 @@ def fetch_price():
     if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
         return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
-
-    res = async_fetch_price.delay(symbol)
-    while not res.ready():
-        continue
-    price, timestamp = res.get()
+    price, timestamp = async_fetch_price.apply(args=[symbol]).get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
 
@@ -384,9 +382,7 @@ def get_sidebar_stats():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    res = async_invite_friend.delay(user_id, invited_username)
-    while not res.ready():
-        continue
+    async_invite_friend.apply(args=[user_id, invited_username])
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
 
 
@@ -399,9 +395,7 @@ def respond_to_friend_request():
     user_id = decode_token(request)
     requester_username = request.json.get("requester_username")
     decision = request.json.get("decision")
-    res = async_respond_to_friend_invite.delay(requester_username, user_id, decision)
-    while not res.ready():
-        continue
+    async_respond_to_friend_invite.apply(args=[requester_username, user_id, decision])
     return make_response(FRIEND_INVITE_RESPONSE_MSG, 200)
 
 
@@ -409,20 +403,14 @@ def respond_to_friend_request():
 @authenticate
 def get_list_of_friends():
     user_id = decode_token(request)
-    res = async_get_friends_details.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_friends_details.apply(args=[user_id]).get())
 
 
 @routes.route("/api/get_list_of_friend_invites", methods=["POST"])
 @authenticate
 def get_list_of_friend_invites():
     user_id = decode_token(request)
-    res = async_get_friend_invites.delay(user_id)
-    while not res.ready():
-        continue
-    return jsonify(res.get())
+    return jsonify(async_get_friend_invites.apply(args=[user_id]).get())
 
 
 @routes.route("/api/suggest_friend_invites", methods=["POST"])
@@ -430,7 +418,7 @@ def get_list_of_friend_invites():
 def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
-    return jsonify(async_suggest_friends.apply(args=[user_id, text]).result)
+    return jsonify(async_suggest_friends.apply(args=[user_id, text]).get())
 
 # ------- #
 # Visuals #

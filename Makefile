@@ -139,6 +139,9 @@ make e2e-test:
 
 # deployment
 # ----------
+ecr-login:
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 781982251500.dkr.ecr.us-east-1.amazonaws.com
+
 ecr-push:
 	make backend-build
 	docker tag backend:latest 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/backend:latest

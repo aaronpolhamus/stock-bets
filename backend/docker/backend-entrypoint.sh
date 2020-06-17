@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-until nc -z -v -w30 db 3306
+until nc -z -v -w30 $MYSQL_HOST $MYSQL_PORT
 do
-  echo "Waiting a second until the database is receiving connections..."
+  echo "Waiting a second until" $MYSQL_HOST "is receiving connections on port" $MYSQL_PORT
   sleep 1
 done
 
@@ -20,7 +20,7 @@ if [ $SERVICE == "api" ]; then
 fi
 
 if [ $SERVICE == "worker" ]; then
-    celery -A tasks.celery.celery worker --concurrency=20 --loglevel=info
+    celery -A tasks.celery.celery worker --loglevel=info --uid=nobody
 fi
 
 if [ $SERVICE == "scheduler" ]; then
