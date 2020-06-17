@@ -2,11 +2,12 @@
 """
 import json
 from unittest.mock import patch
+import unittest
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
-
 from backend.logic.games import (
+    execute_order,
     make_random_game_title,
     get_current_game_cash_balance,
     get_current_stock_holding,
@@ -25,9 +26,8 @@ from backend.logic.games import (
     LimitError,
     DEFAULT_VIRTUAL_CASH
 )
-from logic.base import get_all_active_symbols
 from backend.tests import BaseTestCase
-from sqlalchemy import select
+from logic.base import get_all_active_symbols
 
 
 class TestGameLogic(BaseTestCase):
@@ -81,179 +81,11 @@ class TestGameLogic(BaseTestCase):
 
         with self.engine.connect() as conn:
             res = conn.execute(f"""
-                SELECT symbol FROM orders WHERE id IN ({",".join(['%s']*len(expected))})
+                SELECT symbol FROM orders WHERE id IN ({",".join(['%s'] * len(expected))})
             """, expected)
 
         stocks = [x[0] for x in res]
         self.assertEqual(stocks, ["MELI", "SPXU"])
-
-    def test_order_form_logic(self):
-        # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
-        # the ways that an order ticket can be invalid
-        test_user_id = 4
-        game_id = 3
-        meli_holding = get_current_stock_holding(test_user_id, game_id, "MELI")
-        current_cash_balance = get_current_game_cash_balance(test_user_id, game_id)
-
-        self.assertEqual(meli_holding, 107)
-        self.assertAlmostEqual(current_cash_balance, 8130.8312, 3)
-
-        mock_buy_order = {"amount": 70,
-                          "buy_or_sell": "buy",
-                          "game_id": 3,
-                          "order_type": "limit",
-                          "market_price": 823.35,
-                          "quantity_type": "Shares",
-                          "stop_limit_price": 800,
-                          "symbol": "MELI",
-                          "time_in_force": "until_cancelled",
-                          "title": "test game"}
-
-        order_price = get_order_price(mock_buy_order["order_type"], mock_buy_order["market_price"],
-                                      mock_buy_order["stop_limit_price"])
-        self.assertEqual(order_price, 800)
-        order_quantity = get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
-        self.assertEqual(order_quantity, 70)
-        with self.assertRaises(InsufficientFunds):
-            qc_buy_order(
-                mock_buy_order["order_type"],
-                mock_buy_order["quantity_type"],
-                mock_buy_order["stop_limit_price"],
-                mock_buy_order["market_price"],
-                mock_buy_order["amount"],
-                current_cash_balance)
-
-        fake_price = 790
-        mock_buy_order["market_price"] = fake_price
-        with self.assertRaises(LimitError):
-            stop_limit_qc(
-                mock_buy_order["buy_or_sell"],
-                mock_buy_order["order_type"],
-                mock_buy_order["stop_limit_price"],
-                fake_price)
-
-        mock_buy_order["amount"] = 10
-        with self.assertRaises(LimitError):
-            qc_buy_order(
-                mock_buy_order["order_type"],
-                mock_buy_order["quantity_type"],
-                mock_buy_order["stop_limit_price"],
-                fake_price,
-                mock_buy_order["amount"],
-                current_cash_balance)
-
-        # construct a valid ticket with different inputs
-        mock_buy_order["market_price"] = 823.35
-        mock_buy_order["quantity_type"] = "USD"
-        mock_buy_order["amount"] = 4_000
-        mock_buy_order["order_type"] = "market"
-        order_price = get_order_price(mock_buy_order["order_type"], mock_buy_order["market_price"],
-                                      mock_buy_order["stop_limit_price"])
-        self.assertEqual(order_price, 823.35)
-        order_quantity = get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
-        self.assertEqual(order_quantity, 4)
-
-        self.assertTrue(qc_buy_order(
-            mock_buy_order["order_type"],
-            mock_buy_order["quantity_type"],
-            mock_buy_order["stop_limit_price"],
-            mock_buy_order["market_price"],
-            mock_buy_order["amount"],
-            current_cash_balance))
-
-        # Now raise an insufficient funds error related to cash
-        mock_buy_order["amount"] = 100_000
-        with self.assertRaises(InsufficientFunds):
-            qc_buy_order(
-                mock_buy_order["order_type"],
-                mock_buy_order["quantity_type"],
-                mock_buy_order["stop_limit_price"],
-                mock_buy_order["market_price"],
-                mock_buy_order["amount"],
-                current_cash_balance)
-
-        mock_buy_order["order_type"] = "bad_option"
-        with self.assertRaises(Exception):
-            get_order_price(mock_buy_order)
-
-        mock_buy_order["quantity_type"] = "bad_option"
-        with self.assertRaises(Exception):
-            get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
-
-        # Follow a similar permutation to above, but starting with a sell-stop order
-        mock_sell_order = {"amount": 170,
-                           "buy_or_sell": "sell",
-                           "game_id": 3,
-                           "order_type": "stop",
-                           "market_price": 823.35,
-                           "quantity_type": "Shares",
-                           "stop_limit_price": 800,
-                           "symbol": "MELI",
-                           "time_in_force": "until_cancelled",
-                           "title": "test game"}
-
-        order_price = get_order_price(mock_sell_order["order_type"], mock_sell_order["market_price"],
-                                      mock_sell_order["stop_limit_price"])
-        self.assertEqual(order_price, 800)
-        order_quantity = get_order_quantity(order_price, mock_sell_order["amount"], mock_sell_order["quantity_type"])
-        self.assertEqual(order_quantity, 170)
-        with self.assertRaises(InsufficientHoldings):
-            qc_sell_order(
-                mock_sell_order["order_type"],
-                mock_sell_order["quantity_type"],
-                mock_sell_order["stop_limit_price"],
-                mock_sell_order["market_price"],
-                mock_sell_order["amount"],
-                meli_holding)
-
-        fake_price = 790
-        mock_sell_order["market_price"] = fake_price
-        with self.assertRaises(LimitError):
-            stop_limit_qc(
-                mock_sell_order["buy_or_sell"],
-                mock_sell_order["order_type"],
-                mock_sell_order["stop_limit_price"],
-                fake_price)
-
-        mock_sell_order["amount"] = 10
-        with self.assertRaises(LimitError):
-            qc_sell_order(
-                mock_sell_order["order_type"],
-                mock_sell_order["quantity_type"],
-                mock_sell_order["stop_limit_price"],
-                fake_price,
-                mock_sell_order["amount"],
-                meli_holding)
-
-        # construct a valid ticket with different inputs
-        mock_sell_order["market_price"] = 823.35
-        mock_sell_order["quantity_type"] = "USD"
-        mock_sell_order["amount"] = 40_000
-        mock_sell_order["order_type"] = "market"
-        order_price = get_order_price(mock_sell_order["order_type"], mock_sell_order["market_price"],
-                                      mock_sell_order["stop_limit_price"])
-        self.assertEqual(order_price, 823.35)
-        order_quantity = get_order_quantity(order_price, mock_sell_order["amount"], mock_sell_order["quantity_type"])
-        self.assertEqual(order_quantity, 48)
-
-        self.assertTrue(qc_sell_order(
-            mock_sell_order["order_type"],
-            mock_sell_order["quantity_type"],
-            mock_sell_order["stop_limit_price"],
-            mock_sell_order["market_price"],
-            mock_sell_order["amount"],
-            meli_holding))
-
-        # Now raise an insufficient funds error related to cash
-        mock_sell_order["amount"] = 100_000
-        with self.assertRaises(InsufficientHoldings):
-            qc_sell_order(
-                mock_sell_order["order_type"],
-                mock_sell_order["quantity_type"],
-                mock_sell_order["stop_limit_price"],
-                mock_sell_order["market_price"],
-                mock_sell_order["amount"],
-                meli_holding)
 
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
@@ -390,3 +222,351 @@ class TestGameLogic(BaseTestCase):
             current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
+
+    def test_order_form_logic(self):
+        # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
+        # the ways that an order ticket can be invalid
+        test_user_id = 4
+        game_id = 3
+        meli_holding = get_current_stock_holding(test_user_id, game_id, "MELI")
+        current_cash_balance = get_current_game_cash_balance(test_user_id, game_id)
+
+        self.assertEqual(meli_holding, 107)
+        self.assertAlmostEqual(current_cash_balance, 8130.8312, 3)
+
+        mock_buy_order = {"amount": 70,
+                          "buy_or_sell": "buy",
+                          "game_id": 3,
+                          "order_type": "limit",
+                          "market_price": 823.35,
+                          "quantity_type": "Shares",
+                          "stop_limit_price": 800,
+                          "symbol": "MELI",
+                          "time_in_force": "until_cancelled",
+                          "title": "test game"}
+
+        order_price = get_order_price(mock_buy_order["order_type"], mock_buy_order["market_price"],
+                                      mock_buy_order["stop_limit_price"])
+        self.assertEqual(order_price, 800)
+        order_quantity = get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
+        self.assertEqual(order_quantity, 70)
+        with self.assertRaises(InsufficientFunds):
+            qc_buy_order(
+                mock_buy_order["order_type"],
+                mock_buy_order["quantity_type"],
+                mock_buy_order["stop_limit_price"],
+                mock_buy_order["market_price"],
+                mock_buy_order["amount"],
+                current_cash_balance)
+
+        fake_price = 790
+        mock_buy_order["market_price"] = fake_price
+        with self.assertRaises(LimitError):
+            stop_limit_qc(
+                mock_buy_order["buy_or_sell"],
+                mock_buy_order["order_type"],
+                mock_buy_order["stop_limit_price"],
+                fake_price)
+
+        mock_buy_order["amount"] = 10
+        with self.assertRaises(LimitError):
+            qc_buy_order(
+                mock_buy_order["order_type"],
+                mock_buy_order["quantity_type"],
+                mock_buy_order["stop_limit_price"],
+                fake_price,
+                mock_buy_order["amount"],
+                current_cash_balance)
+
+        # construct a valid ticket with different inputs
+        mock_buy_order["market_price"] = 823.35
+        mock_buy_order["quantity_type"] = "USD"
+        mock_buy_order["amount"] = 4_000
+        mock_buy_order["order_type"] = "market"
+        order_price = get_order_price(mock_buy_order["order_type"], mock_buy_order["market_price"],
+                                      mock_buy_order["stop_limit_price"])
+        self.assertEqual(order_price, 823.35)
+        order_quantity = get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
+        self.assertEqual(order_quantity, 4)
+
+        self.assertTrue(qc_buy_order(
+            mock_buy_order["order_type"],
+            mock_buy_order["quantity_type"],
+            mock_buy_order["stop_limit_price"],
+            mock_buy_order["market_price"],
+            mock_buy_order["amount"],
+            current_cash_balance))
+
+        # Now raise an insufficient funds error related to cash
+        mock_buy_order["amount"] = 100_000
+        with self.assertRaises(InsufficientFunds):
+            qc_buy_order(
+                mock_buy_order["order_type"],
+                mock_buy_order["quantity_type"],
+                mock_buy_order["stop_limit_price"],
+                mock_buy_order["market_price"],
+                mock_buy_order["amount"],
+                current_cash_balance)
+
+        with self.assertRaises(Exception):
+            get_order_price("bad_option", mock_buy_order["market_price"], mock_buy_order["stop_limit_price"])
+
+        mock_buy_order["quantity_type"] = "bad_option"
+        with self.assertRaises(Exception):
+            get_order_quantity(order_price, mock_buy_order["amount"], mock_buy_order["quantity_type"])
+
+        # Follow a similar permutation to above, but starting with a sell-stop order
+        mock_sell_order = {"amount": 170,
+                           "buy_or_sell": "sell",
+                           "game_id": 3,
+                           "order_type": "stop",
+                           "market_price": 823.35,
+                           "quantity_type": "Shares",
+                           "stop_limit_price": 800,
+                           "symbol": "MELI",
+                           "time_in_force": "until_cancelled",
+                           "title": "test game"}
+
+        order_price = get_order_price(mock_sell_order["order_type"], mock_sell_order["market_price"],
+                                      mock_sell_order["stop_limit_price"])
+        self.assertEqual(order_price, 800)
+        order_quantity = get_order_quantity(order_price, mock_sell_order["amount"], mock_sell_order["quantity_type"])
+        self.assertEqual(order_quantity, 170)
+        with self.assertRaises(InsufficientHoldings):
+            qc_sell_order(
+                mock_sell_order["order_type"],
+                mock_sell_order["quantity_type"],
+                mock_sell_order["stop_limit_price"],
+                mock_sell_order["market_price"],
+                mock_sell_order["amount"],
+                meli_holding)
+
+        fake_price = 790
+        mock_sell_order["market_price"] = fake_price
+        with self.assertRaises(LimitError):
+            stop_limit_qc(
+                mock_sell_order["buy_or_sell"],
+                mock_sell_order["order_type"],
+                mock_sell_order["stop_limit_price"],
+                fake_price)
+
+        mock_sell_order["amount"] = 10
+        with self.assertRaises(LimitError):
+            qc_sell_order(
+                mock_sell_order["order_type"],
+                mock_sell_order["quantity_type"],
+                mock_sell_order["stop_limit_price"],
+                fake_price,
+                mock_sell_order["amount"],
+                meli_holding)
+
+        # construct a valid ticket with different inputs
+        mock_sell_order["market_price"] = 823.35
+        mock_sell_order["quantity_type"] = "USD"
+        mock_sell_order["amount"] = 40_000
+        mock_sell_order["order_type"] = "market"
+        order_price = get_order_price(mock_sell_order["order_type"], mock_sell_order["market_price"],
+                                      mock_sell_order["stop_limit_price"])
+        self.assertEqual(order_price, 823.35)
+        order_quantity = get_order_quantity(order_price, mock_sell_order["amount"], mock_sell_order["quantity_type"])
+        self.assertEqual(order_quantity, 48)
+
+        self.assertTrue(qc_sell_order(
+            mock_sell_order["order_type"],
+            mock_sell_order["quantity_type"],
+            mock_sell_order["stop_limit_price"],
+            mock_sell_order["market_price"],
+            mock_sell_order["amount"],
+            meli_holding))
+
+        # Now raise an insufficient funds error related to cash
+        mock_sell_order["amount"] = 100_000
+        with self.assertRaises(InsufficientHoldings):
+            qc_sell_order(
+                mock_sell_order["order_type"],
+                mock_sell_order["quantity_type"],
+                mock_sell_order["stop_limit_price"],
+                mock_sell_order["market_price"],
+                mock_sell_order["amount"],
+                meli_holding)
+
+
+class TestOrderLogic(unittest.TestCase):
+
+    def test_order_execution_logic(self):
+        """After an order has been placed, there's a really important function, execute_order, that determines whether
+        that order is subsequently fulfilled. We'll test different permutations of that here.
+        """
+
+        # ------------- #
+        # market orders #
+        # ------------- #
+
+        # market order to buy, enough cash
+        self.assertTrue(execute_order(buy_or_sell="buy",
+                        order_type="market",
+                        market_price=100,
+                        order_price=100,
+                        cash_balance=200,
+                        current_holding=0,
+                        quantity=1))
+
+        # market order to buy, not enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                         order_type="market",
+                         market_price=100,
+                         order_price=100,
+                         cash_balance=50,
+                         current_holding=0,
+                         quantity=1))
+
+        # ----------------------------------------- #
+        # market price clears stop and limit orders #
+        # ----------------------------------------- #
+
+        # limit order to buy, enough cash
+        self.assertTrue(execute_order(buy_or_sell="buy",
+                        order_type="limit",
+                        market_price=50,
+                        order_price=100,
+                        cash_balance=200,
+                        current_holding=0,
+                        quantity=1))
+
+        # limit order to buy, not enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                         order_type="limit",
+                         market_price=50,
+                         order_price=100,
+                         cash_balance=25,
+                         current_holding=0,
+                         quantity=1))
+
+        # stop order to buy, enough cash
+        self.assertTrue(execute_order(buy_or_sell="buy",
+                        order_type="stop",
+                        market_price=150,
+                        order_price=100,
+                        cash_balance=200,
+                        current_holding=0,
+                        quantity=1))
+
+        # stop order to buy, not enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                         order_type="stop",
+                         market_price=150,
+                         order_price=100,
+                         cash_balance=100,
+                         current_holding=0,
+                         quantity=1))
+
+        # limit order to sell, sufficient holding
+        self.assertTrue(execute_order(buy_or_sell="sell",
+                        order_type="limit",
+                        market_price=150,
+                        order_price=100,
+                        cash_balance=200,
+                        current_holding=2,
+                        quantity=1))
+
+        # limit order to sell, insufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                         order_type="limit",
+                         market_price=150,
+                         order_price=100,
+                         cash_balance=200,
+                         current_holding=0,
+                         quantity=1))
+
+        # stop order to sell, sufficient holding
+        self.assertTrue(execute_order(buy_or_sell="sell",
+                        order_type="stop",
+                        market_price=75,
+                        order_price=100,
+                        cash_balance=200,
+                        current_holding=2,
+                        quantity=1))
+
+        # stop order to sell, insufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                         order_type="stop",
+                         market_price=75,
+                         order_price=100,
+                         cash_balance=200,
+                         current_holding=0,
+                         quantity=1))
+
+        # market price doesn't clear order
+        # -------------------------------
+
+        # limit order to buy, enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                                       order_type="limit",
+                                       market_price=150,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))
+
+        # limit order to buy, not enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                                       order_type="limit",
+                                       market_price=150,
+                                       order_price=100,
+                                       cash_balance=25,
+                                       current_holding=0,
+                                       quantity=1))
+
+        # stop order to buy, enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                                       order_type="stop",
+                                       market_price=50,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))
+
+        # stop order to buy, not enough cash
+        self.assertFalse(execute_order(buy_or_sell="buy",
+                                       order_type="stop",
+                                       market_price=50,
+                                       order_price=100,
+                                       cash_balance=100,
+                                       current_holding=0,
+                                       quantity=1))
+
+        # limit order to sell, sufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                                       order_type="limit",
+                                       market_price=50,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=2,
+                                       quantity=1))
+
+        # limit order to sell, insufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                                       order_type="limit",
+                                       market_price=50,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))
+
+        # stop order to sell, sufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                                       order_type="stop",
+                                       market_price=175,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=2,
+                                       quantity=1))
+
+        # stop order to sell, insufficient holding
+        self.assertFalse(execute_order(buy_or_sell="sell",
+                                       order_type="stop",
+                                       market_price=175,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))

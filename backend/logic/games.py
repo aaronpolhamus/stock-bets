@@ -533,16 +533,14 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     order_id = add_row("orders", user_id=user_id, game_id=game_id, symbol=symbol, buy_or_sell=buy_or_sell,
                        quantity=order_quantity, price=order_price, order_type=order_type, time_in_force=time_in_force)
 
-    # If this is a market order and we're inside a trading day we'll execute this order at the current price
-    status = "pending"
-    clear_price = None
-    if order_type == "market" and during_trading_day():
-        update_balances(user_id, game_id, order_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
-                        order_quantity, symbol)
-        status = "fulfilled"
-        clear_price = order_price
+    add_row("order_status", order_id=order_id, timestamp=timestamp, status="pending", clear_price=None)
 
-    add_row("order_status", order_id=order_id, timestamp=timestamp, status=status, clear_price=clear_price)
+    # If this is a market order and we're inside a trading day we'll execute this order at the current price
+    if order_type == "market" and during_trading_day():
+        os_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
+                        clear_price=order_price)
+        update_balances(user_id, game_id, os_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
+                        order_quantity, symbol)
 
 
 def get_order_ticket(order_id):
@@ -552,9 +550,10 @@ def get_order_ticket(order_id):
 def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, order_price, market_price,
                   quantity, timestamp):
     # Only process active outstanding orders during trading day
-    if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
-        cash_balance = get_current_game_cash_balance(user_id, game_id)
-        current_holding = get_current_stock_holding(user_id, game_id, symbol)
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
+    current_holding = get_current_stock_holding(user_id, game_id, symbol)
+    if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price, cash_balance,
+                                              current_holding, quantity):
         order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
                                   clear_price=market_price)
         update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
@@ -596,22 +595,42 @@ def get_order_expiration_status(order_id):
     return False
 
 
-def execute_order(buy_or_sell, order_type, market_price, order_price):
+def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balance, current_holding, quantity):
     """Function to flag an order for execution based on order type, price, and market price
     """
-    if order_type == "market":
-        return True
+    assert order_type in ["stop", "limit", "market"]
+    assert buy_or_sell in ["buy", "sell"]
 
-    if (buy_or_sell == "buy" and order_type == "stop") or (buy_or_sell == "sell" and order_type == "limit"):
-        if market_price >= order_price:
+    if buy_or_sell == "sell":
+        if quantity > current_holding:
+            return False
+
+        if order_type == "market":
             return True
 
-    if (buy_or_sell == "sell" and order_type == "stop") or (buy_or_sell == "buy" and order_type == "limit"):
+        if order_type == "limit":
+            if market_price >= order_price:
+                return True
+            return False
+
         if market_price <= order_price:
             return True
 
-    return False
+        return False
 
+    if cash_balance > quantity * market_price:
+        if order_type == "market":
+            return True
+
+        if order_type == "limit":
+            if market_price <= order_price:
+                return True
+            return False
+
+        if market_price >= order_price:
+            return True
+
+    return False
 
 # Functions for serving information about games
 # ---------------------------------------------

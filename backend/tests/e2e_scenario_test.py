@@ -14,10 +14,8 @@ import json
 
 from backend.config import Config
 from backend.database.fixtures.mock_data import refresh_table
-from backend.database.helpers import (
-    reset_db,
-    query_to_dict,
-)
+from backend.database.helpers import query_to_dict, reset_db
+
 from backend.logic.friends import get_user_details_from_ids
 from backend.logic.games import get_invite_list_by_status
 from backend.tasks.definitions import (
@@ -31,8 +29,8 @@ from backend.tests.test_api import HOST_URL
 if __name__ == '__main__':
     btc = BaseTestCase()
     btc.setUp()
-    reset_db()
     rds.flushall()
+    reset_db()
     refresh_table("users")
     refresh_table("symbols")
 

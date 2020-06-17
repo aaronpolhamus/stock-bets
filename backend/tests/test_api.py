@@ -647,8 +647,16 @@ class TestHomePage(BaseTestCase):
             self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
+        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the creategame
+        test. Rhis functionality is already tested. Want to do a bit testing of the order placing functionality via the
+        API and how that impacts the database.
+        """
+        #
+        rds.flushall()
         reset_db()
         refresh_table("users")
+        refresh_table("symbols")
+        refresh_table("friends")
 
         user_id = 1
         user_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -661,3 +669,54 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(data["game_info"], [])
         self.assertEqual(data["id"], user_id)
         self.assertEqual(data["username"], username)
+
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duation = 365
+        game_invitees = ["miguel", "toofast", "murcitdev"]
+        game_settings = {
+            "benchmark": "sharpe_ratio",
+            "buy_in": 1000,
+            "duration": game_duation,
+            "mode": "winner_takes_all",
+            "n_rebuys": 3,
+            "invitees": game_invitees,
+            "side_bets_perc": 50,
+            "side_bets_period": "weekly",
+            "title": "stupified northcutt",
+        }
+        self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
+                                   json=game_settings)
+
+        miguel_token = self.make_test_token_from_email("mike@example.test")
+        toofast_token = self.make_test_token_from_email("eddie@example.test")
+        murcitdev_token = self.make_test_token_from_email("eli@example.test")
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": murcitdev_token},
+                                   json={"game_id": 1, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": toofast_token},
+                                   json={"game_id": 1, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
+                                   json={"game_id": 1, "decision": "declined"}, verify=False)
+
+        # confirm that a blank-slate buy order makes it in without any hiccups
+        order_ticket = {
+            "user_id": 1,
+            "game_id": 1,
+            "symbol": "TSLA",
+            "order_type": "market",
+            "quantity_type": "Shares",
+            "market_price": 1_000,
+            "amount": 1,
+            "buy_or_sell": "buy",
+            "time_in_force": "day"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
+                                         verify=False, json=order_ticket)
+        self.assertEqual(res.status_code, 200)
+
+        with self.engine.connect() as conn:
+            orders = pd.read_sql("SELECT * FROM main.orders", conn)
+            order_status = pd.read_sql("SELECT * FROM main.order_status", conn)
+
+        self.assertEqual(orders.shape, (1, 9))
+        self.assertGreaterEqual(order_status.shape[0], 1)
+        self.assertEqual(order_status.iloc[0]["status"], "pending")
