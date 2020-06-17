@@ -20,6 +20,7 @@ from backend.config import Config
 from backend.tasks.redis import rds
 from backend.database.db import db_session, engine
 from backend.database.helpers import (
+    query_to_dict,
     orm_rows_to_dict,
     represent_table
 )
@@ -116,7 +117,7 @@ def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
 
 
 def get_current_game_status(game_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         status = conn.execute("""
             SELECT gs.status
             FROM game_status gs
@@ -128,26 +129,23 @@ def get_current_game_status(game_id: int):
               gs.id = grouped_gs.max_id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()[0]
-        db_session.remove()
     return status
 
 
 def get_game_start_time(game_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         start = conn.execute("""
             SELECT timestamp FROM game_status
             WHERE game_id = %s AND status = 'active'
         """, game_id).fetchone()
-        db_session.remove()
     if start:
         return start[0]
     return None
 
 
 def get_game_info(game_id: int):
-    games = represent_table("games")
-    row = db_session.query(games).filter(games.c.id == game_id)
-    info = orm_rows_to_dict(row)
+    sql_query = "SELECT * FROM games WHERE id = %s;"
+    info = query_to_dict(sql_query, game_id)
     info["creator_username"] = get_username(info["creator_id"])
     info["mode"] = info["mode"].upper().replace("_", " ")
     info["benchmark"] = info["benchmark"].upper().replace("_", " ")
@@ -277,11 +275,10 @@ def get_user_id(username: str):
 
 
 def get_username(user_id: int):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         username = conn.execute("""
         SELECT username FROM users WHERE id = %s
         """, int(user_id)).fetchone()[0]
-        db_session.remove()
     return username
 
 # --------------- #

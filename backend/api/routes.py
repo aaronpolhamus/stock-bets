@@ -14,6 +14,9 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    place_order,
+    get_current_game_cash_balance,
+    get_current_stock_holding,
     make_random_game_title,
     DEFAULT_GAME_MODE,
     GAME_MODES,
@@ -49,7 +52,6 @@ from backend.tasks.definitions import (
     async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
-    async_place_order,
     async_add_game,
     async_get_user_invite_statuses_for_pending_game,
     async_serialize_open_orders,
@@ -300,7 +302,7 @@ def order_form_defaults():
 
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
-def place_order():
+def api_place_order():
     user_id = decode_token(request)
     order_ticket = request.json
     game_id = order_ticket["game_id"]
@@ -308,22 +310,29 @@ def place_order():
     if stop_limit_price:
         stop_limit_price = float(stop_limit_price)
 
-    res = async_place_order.apply(args=[
-        user_id,
-        game_id,
-        order_ticket["symbol"],
-        order_ticket["buy_or_sell"],
-        order_ticket["order_type"],
-        order_ticket["quantity_type"],
-        float(order_ticket["market_price"]),
-        float(order_ticket["amount"]),
-        order_ticket["time_in_force"],
-        stop_limit_price
-    ])
-
-    # TODO: There must be a more elegant way to do this...
+    """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
+    market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
+    valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
+    checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
+    an ongoing basis by the celery schedule and book as their requirements are satisfies
+    """
     try:
-        res.get()
+        symbol = order_ticket["symbol"]
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, symbol)
+        place_order(
+            user_id,
+            game_id,
+            symbol,
+            order_ticket["buy_or_sell"],
+            cash_balance,
+            current_holding,
+            order_ticket["order_type"],
+            order_ticket["quantity_type"],
+            float(order_ticket["market_price"]),
+            float(order_ticket["amount"]),
+            order_ticket["time_in_force"],
+            stop_limit_price)
     except Exception as e:
         return make_response(str(e), 400)
 

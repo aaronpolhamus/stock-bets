@@ -208,22 +208,6 @@ def async_update_symbols_table(self, n_rows=None):
         db_session.commit()
 
 
-@celery.task(name="async_place_order", base=BaseTask)
-def async_place_order(user_id, game_id, symbol, buy_or_sell, order_type, quantity_type, market_price, amount,
-                      time_in_force, stop_limit_price=None):
-    """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
-    market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
-    valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
-    checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
-    an ongoing basis by the celery schedule and book as their requirements are satisfies
-    """
-    # extract relevant data
-    cash_balance = get_current_game_cash_balance(user_id, game_id)
-    current_holding = get_current_stock_holding(user_id, game_id, symbol)
-    place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
-                market_price, amount, time_in_force, stop_limit_price)
-
-
 @celery.task(name="async_process_single_order", base=BaseTask)
 def async_process_single_order(order_id):
     timestamp = time.time()

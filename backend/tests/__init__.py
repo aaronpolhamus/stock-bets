@@ -3,7 +3,7 @@ import unittest
 import requests
 
 from backend.database.helpers import reset_db
-from backend.database.db import db_session
+from backend.database.db import db_session, engine
 from backend.logic.auth import create_jwt
 from backend.database.fixtures.mock_data import make_mock_data
 from tasks.redis import rds
@@ -17,6 +17,7 @@ class BaseTestCase(unittest.TestCase):
 
     def setUp(self):
         # Establish data base API and setup mock data
+        self.engine = engine
         self.db_session = db_session
         self.requests_session = requests.Session()
         rds.flushall()

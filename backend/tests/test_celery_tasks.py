@@ -24,7 +24,6 @@ from backend.tasks.definitions import (
     async_add_game,
     async_respond_to_game_invite,
     async_service_open_games,
-    async_place_order,
     async_process_single_order,
     async_make_the_field_charts,
     async_serialize_current_balances,
@@ -298,29 +297,22 @@ class TestGameIntegration(BaseTestCase):
             order_quantity = 500_000
             res = async_fetch_price.apply(args=[stock_pick])
             amzn_price, _ = res.get()
-            test_user_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "market",
-                "quantity_type": "USD",
-                "market_price": amzn_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "day"
-            }
-            async_place_order.apply(args=[
-                user_id,
-                test_user_order["game_id"],
-                test_user_order["symbol"],
-                test_user_order["buy_or_sell"],
-                test_user_order["order_type"],
-                test_user_order["quantity_type"],
-                test_user_order["market_price"],
-                test_user_order["amount"],
-                test_user_order["time_in_force"],
-                None
-            ])
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="market",
+                quantity_type="USD",
+                market_price=amzn_price,
+                amount=order_quantity,
+                time_in_force="day"
+            )
 
             original_amzn_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
@@ -334,30 +326,23 @@ class TestGameIntegration(BaseTestCase):
             user_id = 4
             order_quantity = 600
             meli_price = 600
-            miguel_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "market",
-                "quantity_type": "Shares",
-                "market_price": meli_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "day"
 
-            }
-            async_place_order.apply(args=[
-                user_id,
-                miguel_order["game_id"],
-                miguel_order["symbol"],
-                miguel_order["buy_or_sell"],
-                miguel_order["order_type"],
-                miguel_order["quantity_type"],
-                miguel_order["market_price"],
-                miguel_order["amount"],
-                miguel_order["time_in_force"],
-                None
-            ])
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="market",
+                quantity_type="Shares",
+                market_price=meli_price,
+                amount=order_quantity,
+                time_in_force="day"
+            )
+
             original_meli_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
@@ -370,31 +355,24 @@ class TestGameIntegration(BaseTestCase):
             nvda_limit_ratio = 0.95
             nvda_price = 350
             stop_limit_price = nvda_price * nvda_limit_ratio
-            toofast_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "limit",
-                "stop_limit_price": stop_limit_price,
-                "quantity_type": "Shares",
-                "market_price": nvda_price,
-                "amount": order_quantity,
-                "buy_or_sell": "buy",
-                "time_in_force": "until_cancelled"
 
-            }
-            async_place_order.apply(args=[
-                user_id,
-                toofast_order["game_id"],
-                toofast_order["symbol"],
-                toofast_order["buy_or_sell"],
-                toofast_order["order_type"],
-                toofast_order["quantity_type"],
-                toofast_order["market_price"],
-                toofast_order["amount"],
-                toofast_order["time_in_force"],
-                toofast_order["stop_limit_price"]
-            ])
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="buy",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="limit",
+                quantity_type="Shares",
+                market_price=nvda_price,
+                amount=order_quantity,
+                time_in_force="until_cancelled",
+                stop_limit_price=stop_limit_price
+            )
+
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
@@ -421,6 +399,7 @@ class TestGameIntegration(BaseTestCase):
 
             amzn_stop_ratio = 0.9
             meli_limit_ratio = 1.1
+            # this is async_fetch_price in for async_process_single order
             mock_price_fetch.apply.side_effect = [
                 ResultMock(order_clear_price),
                 ResultMock(amzn_stop_ratio * amzn_price - 1),
@@ -467,29 +446,25 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 250_000
-            test_user_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "stop",
-                "quantity_type": "USD",
-                "stop_limit_price": amzn_stop_ratio * amzn_price,
-                "amount": order_quantity,
-                "buy_or_sell": "sell",
-                "time_in_force": "day"
-            }
-            async_place_order.apply(args=[
-                user_id,
-                test_user_order["game_id"],
-                test_user_order["symbol"],
-                test_user_order["buy_or_sell"],
-                test_user_order["order_type"],
-                test_user_order["quantity_type"],
-                test_user_order["stop_limit_price"] + 10,
-                test_user_order["amount"],
-                test_user_order["time_in_force"],
-                test_user_order["stop_limit_price"]
-            ])
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            stop_limit_price = amzn_stop_ratio * amzn_price
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="sell",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="stop",
+                quantity_type="USD",
+                market_price=stop_limit_price + 10,
+                amount=order_quantity,
+                time_in_force="day",
+                stop_limit_price=stop_limit_price
+            )
+
             with self.db_session.connection() as conn:
                 amzn_open_order_id = conn.execute("""
                                                   SELECT id 
@@ -501,30 +476,25 @@ class TestGameIntegration(BaseTestCase):
 
             stock_pick = "MELI"
             user_id = 4
-            order_quantity = 300
-            miguel_order = {
-                "user_id": user_id,
-                "game_id": game_id,
-                "symbol": stock_pick,
-                "order_type": "limit",
-                "quantity_type": "Shares",
-                "stop_limit_price": meli_limit_ratio * meli_price,
-                "amount": order_quantity,
-                "buy_or_sell": "sell",
-                "time_in_force": "until_cancelled",
-            }
-            async_place_order.apply(args=[
-                user_id,
-                miguel_order["game_id"],
-                miguel_order["symbol"],
-                miguel_order["buy_or_sell"],
-                miguel_order["order_type"],
-                miguel_order["quantity_type"],
-                miguel_order["stop_limit_price"] - 10,
-                miguel_order["amount"],
-                miguel_order["time_in_force"],
-                miguel_order["stop_limit_price"]
-            ])
+            miguel_order_quantity = 300
+
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+            place_order(
+                user_id=user_id,
+                game_id=game_id,
+                symbol=stock_pick,
+                buy_or_sell="sell",
+                cash_balance=cash_balance,
+                current_holding=current_holding,
+                order_type="limit",
+                quantity_type="Shares",
+                market_price=meli_limit_ratio * meli_price - 10,
+                amount=miguel_order_quantity,
+                time_in_force="until_cancelled",
+                stop_limit_price=meli_limit_ratio * meli_price
+            )
+
             with self.db_session.connection() as conn:
                 meli_open_order_id = conn.execute("""
                                                   SELECT id 
@@ -568,7 +538,7 @@ class TestGameIntegration(BaseTestCase):
             updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             meli_clear_price = df[df["id"] == meli_open_order_id].iloc[0]["clear_price"]
-            shares_sold = miguel_order["amount"]
+            shares_sold = miguel_order_quantity
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
 
