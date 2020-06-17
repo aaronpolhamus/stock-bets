@@ -82,7 +82,7 @@ class TestGameLogic(BaseTestCase):
         with self.engine.connect() as conn:
             res = conn.execute(f"""
                 SELECT symbol FROM orders WHERE id IN ({",".join(['%s']*len(expected))})
-            """)
+            """, expected)
 
         stocks = [x[0] for x in res]
         self.assertEqual(stocks, ["MELI", "SPXU"])
@@ -255,7 +255,6 @@ class TestGameLogic(BaseTestCase):
                 mock_sell_order["amount"],
                 meli_holding)
 
-
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
         """
@@ -296,9 +295,9 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 2
         service_open_game(game_id)
-        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'")
+        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'", game_id)
 
-        self.assertEqual(json.loads(game_status_entry["users"]), [1, 3])
+        self.assertEqual(json.loads(gs_entry["users"]), [1, 3])
 
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=str(game_id))

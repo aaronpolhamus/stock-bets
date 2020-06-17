@@ -12,7 +12,7 @@ from backend.database.db import engine
 
 def reset_db():
     reset_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-    db_metadata = MetaData(bind=engine, reflect=True)
+    db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     db_metadata.drop_all()
     os.system("flask db upgrade")
