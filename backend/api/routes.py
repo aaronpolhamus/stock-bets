@@ -14,6 +14,7 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    get_game_info_for_user,
     place_order,
     get_current_game_cash_balance,
     get_current_stock_holding,
@@ -37,7 +38,11 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
-from logic.base import fetch_price_cache, posix_to_datetime
+from logic.base import (
+    fetch_price_cache,
+    posix_to_datetime,
+    get_user_information
+)
 from backend.logic.visuals import (
     OPEN_ORDERS_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -46,8 +51,6 @@ from backend.logic.visuals import (
     SIDEBAR_STATS_PREFIX
 )
 from backend.tasks.definitions import (
-    async_get_game_info_for_user,
-    async_get_user_information,
     async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
@@ -184,7 +187,7 @@ def set_username():
 @authenticate
 def get_user_info():
     user_id = decode_token(request)
-    return jsonify(async_get_user_information.apply(args=[user_id]).get())
+    return jsonify(get_user_information(user_id))
 
 
 @routes.route("/api/home", methods=["POST"])
@@ -193,8 +196,8 @@ def home():
     """Return some basic information about the user's profile, games, and bets in order to
     populate the landing page"""
     user_id = decode_token(request)
-    user_info = async_get_user_information.apply(args=[user_id]).get()
-    user_info["game_info"] = async_get_game_info_for_user.apply(args=[user_id]).get()
+    user_info = get_user_information(user_id)
+    user_info["game_info"] = get_game_info_for_user(user_id)
     return jsonify(user_info)
 
 # ---------------- #

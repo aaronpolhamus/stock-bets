@@ -4,10 +4,8 @@ import json
 from unittest.mock import patch
 
 import pandas as pd
-from backend.database.helpers import (
-    orm_rows_to_dict,
-    represent_table
-)
+from backend.database.helpers import query_to_dict
+
 from backend.logic.games import (
     make_random_game_title,
     get_current_game_cash_balance,
@@ -81,13 +79,13 @@ class TestGameLogic(BaseTestCase):
         all_open_orders = get_all_open_orders()
         self.assertEqual(len(expected), len(all_open_orders))
 
-        with self.db_session.connection() as conn:
-            orders = represent_table("orders")
-            res = conn.execute(select([orders.c.symbol], orders.c.id.in_(expected))).fetchall()
-            stocks = [x[0] for x in res]
-            self.assertEqual(stocks, ["MELI", "SPXU"])
+        with self.engine.connect() as conn:
+            res = conn.execute(f"""
+                SELECT symbol FROM orders WHERE id IN ({",".join(['%s']*len(expected))})
+            """)
 
-            self.db_session.remove()
+        stocks = [x[0] for x in res]
+        self.assertEqual(stocks, ["MELI", "SPXU"])
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
@@ -280,14 +278,11 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(open_game_ids, [1, 2, 5])
 
         service_open_game(game_id)
-        game_status = represent_table("game_status")
-        row = self.db_session.query(game_status).filter(
-            game_status.c.game_id == game_id, game_status.c.status == "active")
-        game_status_entry = orm_rows_to_dict(row)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s AND status = 'active'", game_id)
 
         self.assertEqual(json.loads(game_status_entry["users"]), [4, 3])
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             result = conn.execute("SELECT status FROM game_invites WHERE user_id = 5 AND game_id = 1;").fetchall()
             status_entries = [x[0] for x in result]
             self.assertEqual(status_entries, ["invited", "expired"])
@@ -298,19 +293,14 @@ class TestGameLogic(BaseTestCase):
             self.assertEqual(df.shape, (2, 8))
             self.assertEqual(df["user_id"].to_list(), [4, 3])
             self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
-            self.db_session.remove()
 
         game_id = 2
         service_open_game(game_id)
-        game_status = represent_table("game_status")
-        row = self.db_session.query(game_status).filter(
-            game_status.c.game_id == 2, game_status.c.status == "expired")
-        game_status_entry = orm_rows_to_dict(row)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'")
 
         self.assertEqual(json.loads(game_status_entry["users"]), [1, 3])
-        self.db_session.remove()
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=str(game_id))
             self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined", "expired"])
             self.assertEqual(df[df["user_id"] == 1]["status"].to_list(), ["invited", "declined"])
@@ -319,7 +309,6 @@ class TestGameLogic(BaseTestCase):
                 "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
                 params=str(game_id))
             self.assertTrue(df.empty)
-            self.db_session.remove()
 
         # similar setup for mock buy and sell orders as above, but this time setup to be valid from the get-go
         with patch("backend.logic.base.time") as base_time_mock:

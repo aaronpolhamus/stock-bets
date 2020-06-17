@@ -5,10 +5,6 @@ from tests import BaseTestCase
 from logic.base import get_game_info
 from backend.logic.base import get_user_information
 from backend.database.helpers import (
-    table_updater,
-    orm_rows_to_dict,
-    retrieve_meta_data,
-    represent_table,
     add_row,
     query_to_dict
 )
@@ -20,8 +16,7 @@ class TestDBHelpers(BaseTestCase):
         dummy_symbol = "ACME"
         dummy_name = "ACME CORP"
         symbol_id = add_row("symbols", symbol=dummy_symbol, name=dummy_name)
-        # There's nothing special about primary key #27. If we update the mocks this will need to
-        # update, too. This just shows that table_updater worked
+        # There's nothing special about primary key #27. If we update the mocks this will need to update, too.
         self.assertEqual(symbol_id, 27)
         acme_entry = query_to_dict("SELECT * FROM symbols WHERE symbol = %s", dummy_symbol)
         self.assertEqual(acme_entry["symbol"], dummy_symbol)

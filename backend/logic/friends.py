@@ -2,7 +2,7 @@ from typing import List
 
 import pandas as pd
 
-from backend.database.db import db_session
+from backend.database.db import engine
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -18,7 +18,8 @@ def get_user_details_from_ids(user_id_list: List[int], label: str = None):
         FROM users
         WHERE id IN ({','.join(['%s'] * len(user_id_list))})
     """
-    df = pd.read_sql(sql, db_session.connection(), params=user_id_list)
+    with engine.connect() as conn:
+        df = pd.read_sql(sql, conn, params=user_id_list)
     if label is not None:
         df["label"] = label
     return df.to_dict(orient="records")
@@ -26,7 +27,7 @@ def get_user_details_from_ids(user_id_list: List[int], label: str = None):
 
 def get_friend_ids(user_id):
     """Given a user ID, get the IDs of each of this user's friends"""
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         invited_friends = conn.execute("""
             SELECT requester_id
             FROM friends 
@@ -41,13 +42,12 @@ def get_friend_ids(user_id):
             AND status = 'accepted';
         """, user_id).fetchall()
 
-        db_session.remove()
     return [x[0] for x in invited_friends + requested_friends]
 
 
 def get_friend_invite_ids(user_id):
     """Given a user's id, get the list of people who've sent her friend invites"""
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         invited_friends = conn.execute("""
             SELECT f.requester_id, status
             FROM friends f
@@ -61,13 +61,12 @@ def get_friend_invite_ids(user_id):
               f.invited_id = %s AND
               status = 'invited';
         """, user_id).fetchall()
-        db_session.remove()
     return [x[0] for x in invited_friends]
 
 
 def get_invited_friend_ids(user_id):
     """Given a user's id, get the list of people to whom he's sent friend invites"""
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         invited_friends = conn.execute("""
             SELECT f.invited_id, status
             FROM friends f
@@ -81,7 +80,6 @@ def get_invited_friend_ids(user_id):
               f.requester_id = %s AND
               status = 'invited';
         """, user_id).fetchall()
-        db_session.remove()
     return [x[0] for x in invited_friends]
 
 
@@ -90,19 +88,18 @@ def get_suggested_friend_ids(text: str, excluded_ids: List[int]):
     user's own ID should be a part of that list
     """
     to_match = f"{text}%"
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         suggest_query = """
             SELECT id FROM users
             WHERE username LIKE %s
             LIMIT 10;
         """
         result = conn.execute(suggest_query, to_match).fetchall()
-        db_session.remove()
     return [x[0] for x in result if x[0] not in excluded_ids]
 
 
 def get_friend_rejections(user_id):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         sql = """
             SELECT DISTINCT invited_id
             FROM friends WHERE
@@ -110,7 +107,6 @@ def get_friend_rejections(user_id):
             status = 'declined'
         """
         result = conn.execute(sql, user_id).fetchall()
-        db_session.remove()
     return [x[0] for x in result]
 
 

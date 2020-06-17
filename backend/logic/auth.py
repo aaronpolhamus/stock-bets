@@ -1,12 +1,11 @@
+import time
 from datetime import datetime as dt, timedelta
 
 import jwt
 import requests
-import time
-
-from backend.database.db import db_session
-from backend.database.helpers import represent_table
 from backend.config import Config
+from backend.database.db import engine
+from backend.database.helpers import add_row
 
 WHITE_LIST = [
     "aaron@stockbets.io",
@@ -111,37 +110,32 @@ def make_user_entry_from_facebook(oauth_data):
             created_at=time.time(),
             provider="facebook",
             resource_uuid=resource_uuid
-            )
+        )
         return user_entry, resource_uuid, 200
     return None, None, response.status_code
 
 
 def register_user_if_first_visit(user_entry):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
-        if user is None:
-            users = represent_table("users")
-            conn.execute(users.insert(), user_entry)
-        db_session.commit()
+    if user is None:
+        add_row("users", **user_entry)
 
 
 def make_session_token_from_uuid(resource_uuid):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         user_id, email, username = conn.execute("SELECT id, email, username FROM users WHERE resource_uuid = %s",
                                                 resource_uuid).fetchone()
-        db_session.remove()
     return create_jwt(email, user_id, username)
 
 
 def register_username_with_token(user_id, user_email, candidate_username):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         matches = conn.execute("SELECT id FROM users WHERE username = %s", candidate_username).fetchone()
-        db_session.remove()
 
     if matches is None:
-        with db_session.connection() as conn:
+        with engine.connect() as conn:
             conn.execute("UPDATE users SET username = %s WHERE id = %s;", (candidate_username, user_id))
-            db_session.commit()
         return create_jwt(user_email, user_id, candidate_username)
 
     return None

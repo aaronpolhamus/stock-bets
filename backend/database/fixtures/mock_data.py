@@ -1,7 +1,6 @@
 from datetime import timedelta
 
-from backend.database.db import db_session
-from backend.database.helpers import represent_table
+from backend.database.helpers import add_row
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.logic.base import (
     get_schedule_start_and_end,
@@ -43,12 +42,8 @@ def get_stock_finish_price(symbol, records=price_records, order_time=close_of_si
 
 def refresh_table(table_name):
     mock_entry = MOCK_DATA.get(table_name)
-    if mock_entry:
-        table_meta = represent_table(table_name)
-        with db_session.connection() as conn:
-            conn.execute(table_meta.delete())
-            conn.execute(table_meta.insert(), mock_entry)
-            db_session.commit()
+    for entry in mock_entry:
+        add_row(table_name, **entry)
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints

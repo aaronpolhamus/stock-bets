@@ -3,9 +3,7 @@ import time
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from backend.database.helpers import (
-    orm_rows_to_dict,
-    represent_table)
+from backend.database.helpers import query_to_dict
 from backend.logic.games import (
     place_order,
     get_all_open_orders,
@@ -71,9 +69,8 @@ class TestStockDataTasks(BaseTestCase):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
         async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
-            self.db_session.remove()
 
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
@@ -92,9 +89,8 @@ class TestPriceCaching(BaseTestCase):
                 async_cache_price.apply(args=[stock, price, time.time()])
 
         # clear the mocked-in price data and redis cache
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             conn.execute("TRUNCATE prices;")
-            self.db_session.remove()
 
         # setup mocks
         start_time = 1590511775
@@ -116,29 +112,25 @@ class TestPriceCaching(BaseTestCase):
             start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + [after_hours] * n_stocks
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             first_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count, len(stocks_to_monitor))
 
         # We shouldn't see anymore data after immediately doing another check, provided that we are inside
         # the caching window
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             second_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count, second_count)
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             third_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(first_count + len(stocks_to_monitor), third_count)
 
         _check_stocks()
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-            self.db_session.remove()
         self.assertEqual(third_count, fourth_count)
 
 
@@ -186,9 +178,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["invitees"]]
         )
 
-        games = represent_table("games")
-        row = self.db_session.query(games).filter(games.c.title == game_title)
-        game_entry = orm_rows_to_dict(row)
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
@@ -201,9 +191,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status = represent_table("game_status")
-        row = self.db_session.query(game_status).filter(game_status.c.game_id == game_id)
-        game_status_entry = orm_rows_to_dict(row)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
         self.assertEqual(game_status_entry["id"], 8)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
@@ -212,9 +200,8 @@ class TestGameIntegration(BaseTestCase):
 
         # and that the game invites table is working as well
         # --------------------------------------------------
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             game_invites_df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=[game_id])
-            self.db_session.remove()
 
         self.assertEqual(game_invites_df.shape, (4, 5))
         for _, row in game_invites_df.iterrows():
@@ -230,22 +217,19 @@ class TestGameIntegration(BaseTestCase):
         # we'll mock in a time value for the current game in a moment, but first check that async_service_open_games is
         # working as expected
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
-            self.db_session.remove()
 
         async_service_open_games.apply()
 
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
-            self.db_session.remove()
 
         self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
             self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined", "expired"])
-            self.db_session.remove()
 
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
@@ -261,7 +245,7 @@ class TestGameIntegration(BaseTestCase):
             mock_time.time.return_value = game_start_time
             async_service_open_games.apply()  # Execute locally wth apply in order to use time mock
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 # Verify game updated to active status and active players
                 game_status = conn.execute(
                     "SELECT status, users FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1",
@@ -276,7 +260,6 @@ class TestGameIntegration(BaseTestCase):
                 balances = [x[0] for x in res]
                 self.assertIs(len(balances), 3)
                 self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in balances]))
-                self.db_session.remove()
 
         # For now I've tried to keep things simple and divorce the ordering part of the integration test from game
         # startup. May need to close the loop on this later when expanding the test to cover payouts
@@ -428,13 +411,12 @@ class TestGameIntegration(BaseTestCase):
             ]
 
             # First let's go ahead and clear that last transaction that we had above
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 open_order_id = conn.execute("""
                                              SELECT id 
                                              FROM orders 
                                              WHERE user_id = %s AND game_id = %s AND symbol = %s;""",
                                              user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             async_process_single_order.apply(args=[open_order_id])
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
@@ -465,14 +447,13 @@ class TestGameIntegration(BaseTestCase):
                 stop_limit_price=stop_limit_price
             )
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 amzn_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             stock_pick = "MELI"
             user_id = 4
@@ -495,19 +476,18 @@ class TestGameIntegration(BaseTestCase):
                 stop_limit_price=meli_limit_ratio * meli_price
             )
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 meli_open_order_id = conn.execute("""
                                                   SELECT id 
                                                   FROM orders 
                                                   WHERE user_id = %s AND game_id = %s AND symbol = %s
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
-                self.db_session.remove()
 
             async_process_single_order.apply(args=[amzn_open_order_id])
             async_process_single_order.apply(args=[meli_open_order_id])
 
-            with self.db_session.connection() as conn:
+            with self.engine.connect() as conn:
                 query = """
                     SELECT o.user_id, o.id, o.symbol, os.clear_price
                     FROM orders o
@@ -520,7 +500,6 @@ class TestGameIntegration(BaseTestCase):
                       game_id = %s;
                 """
                 df = pd.read_sql(query, conn, params=[game_id])
-                self.db_session.remove()
 
             test_user_id = 1
             test_user_stock = "AMZN"
@@ -693,6 +672,7 @@ class TestDataAccess(BaseTestCase):
         res = async_update_symbols_table.delay(n_rows)
         while not res.ready():
             continue
-        symbols_table = pd.read_sql("SELECT * FROM symbols", self.db_session.connection())
+        with self.engine.connect() as conn:
+            symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')

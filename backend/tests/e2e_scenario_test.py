@@ -16,8 +16,7 @@ from backend.config import Config
 from backend.database.fixtures.mock_data import refresh_table
 from backend.database.helpers import (
     reset_db,
-    orm_rows_to_dict,
-    represent_table
+    query_to_dict,
 )
 from backend.logic.friends import get_user_details_from_ids
 from backend.logic.games import get_invite_list_by_status
@@ -64,10 +63,9 @@ if __name__ == '__main__':
         btc.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": "jadis"},
                                   cookies={"session_token": user_token}, verify=False)
 
-    with btc.db_session.connection() as conn:
+    with btc.engine.connect() as conn:
         friend_entries_count = conn.execute("SELECT COUNT(*) FROM friends;").fetchone()[0]
         assert friend_entries_count == 5
-        btc.db_session.remove()
 
     input("""
     If you try to re-add the same people, you should see "invite sent" next to each of their names. Go ahead and hit any
@@ -90,12 +88,10 @@ if __name__ == '__main__':
                               json={"requester_username": username, "decision": "accepted"},
                               cookies={"session_token": jack_token}, verify=False)
 
-    with btc.db_session.connection() as conn:
+    with btc.engine.connect() as conn:
         friend_count = conn.execute("SELECT COUNT(*) FROM friends WHERE requester_id = %s AND status = 'accepted';",
                                     user_id).fetchone()[0]
         assert friend_count == 4
-        btc.db_session.remove()
-
     # make sure that from johnnie's perspective he doesn't have any outstandnig friend invites left
     res = btc.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites", cookies={"session_token": johnnie_token},
                                     verify=False)
@@ -123,21 +119,16 @@ if __name__ == '__main__':
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
 
-    games = represent_table("games")
-    row = btc.db_session.query(games).filter(games.c.id == 1)
-    game_entry = orm_rows_to_dict(row)
+    game_entry = query_to_dict("SELECT * FROM games WHERE id = 1")
     for k, v in game_settings.items():
         if k == "invitees":
             continue
         assert game_entry[k] == v
 
-    game_status = represent_table("game_status")
-    row = btc.db_session.query(game_status).filter(game_status.c.game_id == 1)
-    game_entry = orm_rows_to_dict(row)
+    game_entry = query_to_dict("SELECT * FROM main.game_status WHERE game_id = 1")
     user_id_list = json.loads(game_entry["users"])
     details = get_user_details_from_ids(user_id_list)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "toofast", "jack", "jadis"}
-    btc.db_session.remove()
 
     input("""
     Great, we've got the game on the board. jadis, jack, and miguel are going to play, toofast is going to bow out of 

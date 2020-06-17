@@ -55,6 +55,7 @@ def query_to_dict(sql_query, *args):
     """
     with engine.connect() as conn:
         results = pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
+    engine.dispose()
     if len(results) > 1:
         return results
     return results[0]

@@ -1,9 +1,8 @@
 import time
 
-from backend.database.db import db_session
+from backend.database.db import engine
 from backend.database.helpers import (
-    represent_table,
-    table_updater
+    add_row
 )
 from backend.logic.base import (
     PRICE_CACHING_INTERVAL,
@@ -35,7 +34,6 @@ from backend.logic.games import (
     create_pending_game_status_entry,
     create_game_invites_entries,
     start_game_if_all_invites_responded,
-    get_game_info_for_user,
     get_user_invite_status_for_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
@@ -57,11 +55,6 @@ from backend.tasks.celery import (
     pause_return_until_subtask_completion
 )
 from backend.tasks.redis import rds
-
-
-@celery.task(name="async_get_user_information", bind=True, base=BaseTask)
-def async_get_user_information(self, user_id):
-    return get_user_information(user_id)
 
 
 # -------------------------- #
@@ -101,8 +94,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
     rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
-        prices = represent_table("prices")
-        table_updater(prices, symbol=symbol, price=price, timestamp=last_updated)
+        add_row("prices", symbol=symbol, price=price, timestamp=last_updated)
 
 
 # --------------- #
@@ -120,18 +112,17 @@ def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, be
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
 
-    games = represent_table("games")
-    result = table_updater(games,
-                           creator_id=creator_id,
-                           title=title,
-                           mode=mode,
-                           duration=duration,
-                           buy_in=buy_in,
-                           n_rebuys=n_rebuys,
-                           benchmark=benchmark,
-                           side_bets_perc=side_bets_perc,
-                           side_bets_period=side_bets_period,
-                           invite_window=invite_window)
+    result = add_row("games",
+                      creator_id=creator_id,
+                      title=title,
+                      mode=mode,
+                      duration=duration,
+                      buy_in=buy_in,
+                      n_rebuys=n_rebuys,
+                      benchmark=benchmark,
+                      side_bets_perc=side_bets_perc,
+                      side_bets_period=side_bets_period,
+                      invite_window=invite_window)
     game_id = result.inserted_primary_key[0]
     invited_ids = translate_usernames_to_ids(tuple(invitees))
     user_ids = invited_ids + [creator_id]
@@ -170,11 +161,6 @@ def async_get_game_info(self, game_id, user_id):
     return game_info
 
 
-@celery.task(name="async_get_game_info_for_user", bind=True, base=BaseTask)
-def async_get_game_info_for_user(self, user_id):
-    return get_game_info_for_user(user_id)
-
-
 # ---------------- #
 # Order management #
 # ---------------- #
@@ -182,12 +168,11 @@ def async_get_game_info_for_user(self, user_id):
 
 @celery.task(name="async_suggest_symbols", base=BaseTask)
 def async_suggest_symbols(text):
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         to_match = f"{text.upper()}%"
         symbol_suggestions = conn.execute("""
             SELECT * FROM symbols
             WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", (to_match, to_match))
-        db_session.remove()
 
     return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
 
@@ -199,21 +184,18 @@ def async_update_symbols_table(self, n_rows=None):
         raise SeleniumDriverError
 
     print("writing to db...")
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         conn.execute("TRUNCATE TABLE symbols;")
-        db_session.remove()
 
-    with db_session.connection() as conn:
+    with engine.connect() as conn:
         symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
-        db_session.commit()
 
 
 @celery.task(name="async_process_single_order", base=BaseTask)
 def async_process_single_order(order_id):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
-        order_status = represent_table("order_status")
-        table_updater(order_status, order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
+        add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
     order_ticket = get_order_ticket(order_id)
@@ -244,8 +226,7 @@ def async_invite_friend(self, requester_id, invited_username):
     information to the frontend for other users, though, so we'll look up their ID based on username
     """
     invited_id = get_user_id(invited_username)
-    friends = represent_table("friends")
-    table_updater(friends, requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
+    add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
 @celery.task(name="async_respond_to_friend_invite", bind=True, base=BaseTask)
@@ -254,8 +235,7 @@ def async_respond_to_friend_invite(self, requester_username, invited_id, decisio
     information to the frontend for other users, though, so we'll look up the request ID based on the username
     """
     requester_id = get_user_id(requester_username)
-    friends = represent_table("friends")
-    table_updater(friends, requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
+    add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
 
 @celery.task(name="async_get_friends_details", bind=True, base=BaseTask)

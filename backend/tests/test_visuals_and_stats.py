@@ -46,9 +46,8 @@ class TestGameKickoff(BaseTestCase):
         pending_user_ids = [get_user_id(x) for x in pending_user_usernames]
 
         # get all user IDs for the game. For this test case everyone is going ot accept
-        with self.db_session.connection() as conn:
+        with self.engine.connect() as conn:
             result = conn.execute("SELECT DISTINCT user_id FROM game_invites WHERE game_id = %s", game_id).fetchall()
-            self.db_session.remove()
         all_ids = [x[0] for x in result]
         self.user_id = all_ids[0]
 
@@ -58,7 +57,8 @@ class TestGameKickoff(BaseTestCase):
 
         # check that we have the balances that we expect
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
-        df = pd.read_sql(sql, self.db_session.connection(), params=[game_id])
+        with self.engine.connect() as conn:
+            df = pd.read_sql(sql, conn, params=[game_id])
         self.assertTrue(df.shape, (0, 2))
 
         # this sequence simulates that happens inside async_respond_to_game_invite
@@ -71,7 +71,8 @@ class TestGameKickoff(BaseTestCase):
             start_game_if_all_invites_responded(game_id)
 
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
-        df = pd.read_sql(sql, self.db_session.connection(), params=[game_id])
+        with self.engine.connect() as conn:
+            df = pd.read_sql(sql, conn, params=[game_id])
         self.assertTrue(df.shape, (4, 2))
 
         # a couple things should have just happened here. We expect to have the following assets available to us
