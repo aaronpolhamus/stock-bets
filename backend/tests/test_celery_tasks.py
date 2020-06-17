@@ -5,6 +5,7 @@ from unittest.mock import patch, Mock
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.games import (
+    add_game,
     place_order,
     get_all_open_orders,
     get_current_stock_holding,
@@ -19,7 +20,6 @@ from backend.tasks.definitions import (
     async_fetch_price,
     async_cache_price,
     async_suggest_symbols,
-    async_add_game,
     async_respond_to_game_invite,
     async_service_open_games,
     async_process_single_order,
@@ -165,7 +165,7 @@ class TestGameIntegration(BaseTestCase):
             "invitees": ["miguel", "murcitdev", "toofast"]
         }
 
-        async_add_game.apply(args=[
+        add_game(
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["mode"],
@@ -175,7 +175,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]]
+            mock_game["invitees"]
         )
 
         game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)

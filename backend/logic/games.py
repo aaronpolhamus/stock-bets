@@ -36,7 +36,6 @@ from backend.logic.visuals import (
     make_the_field_charts
 )
 from funkybob import RandomNameGenerator
-from sqlalchemy import select
 
 # Default make game settings
 # --------------------------
@@ -102,6 +101,28 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
+def add_game(creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc, side_bets_period,
+             invitees):
+    opened_at = time.time()
+    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
+    game_id = add_row("games",
+                      creator_id=creator_id,
+                      title=title,
+                      mode=mode,
+                      duration=duration,
+                      buy_in=buy_in,
+                      n_rebuys=n_rebuys,
+                      benchmark=benchmark,
+                      side_bets_perc=side_bets_perc,
+                      side_bets_period=side_bets_period,
+                      invite_window=invite_window)
+    invited_ids = translate_usernames_to_ids(tuple(invitees))
+    user_ids = invited_ids + [creator_id]
+
+    create_pending_game_status_entry(game_id, user_ids, opened_at)
+    create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
+
+
 def get_open_game_invite_ids():
     """This function returns game IDs for the subset of games that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
@@ -534,10 +555,10 @@ def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, o
     if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price):
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        result = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
-                         clear_price=market_price)
-        update_balances(user_id, game_id, result.inserted_primary_key[0], timestamp, buy_or_sell, cash_balance,
-                        current_holding, market_price, quantity, symbol)
+        order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
+                                  clear_price=market_price)
+        update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                        market_price, quantity, symbol)
 
 
 def get_order_expiration_status(order_id):

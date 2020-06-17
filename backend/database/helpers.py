@@ -4,19 +4,19 @@ import json
 import os
 import pandas as pd
 from typing import List
+from sqlalchemy import create_engine, MetaData
 
+from backend.config import Config
 from backend.database.db import engine
 
 
 def reset_db():
-    with engine.connect() as conn:
-        conn.execute("SET FOREIGN_KEY_CHECKS = 0;")
-        res = conn.execute("SHOW TABLES;")
-        tables = [x[0] for x in res]
-        for table in tables:
-            conn.execute(f"DROP TABLE IF EXISTS {table};")
-        conn.execute("SET FOREIGN_KEY_CHECKS = 1;")
+    reset_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+    db_metadata = MetaData(bind=engine, reflect=True)
+    db_metadata.reflect()
+    db_metadata.drop_all()
     os.system("flask db upgrade")
+    reset_engine.dispose()
 
 
 def unpack_enumerated_field_mappings(enum_class):
@@ -55,7 +55,6 @@ def query_to_dict(sql_query, *args):
     """
     with engine.connect() as conn:
         results = pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
-    engine.dispose()
     if len(results) > 1:
         return results
     return results[0]

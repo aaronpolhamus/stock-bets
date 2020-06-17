@@ -106,31 +106,6 @@ def async_get_user_invite_statuses_for_pending_game(self, game_id):
     return get_user_invite_statuses_for_pending_game(game_id)
 
 
-@celery.task(name="async_add_game", bind=True, base=BaseTask)
-def async_add_game(self, creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc,
-                   side_bets_period, invitees):
-    opened_at = time.time()
-    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
-
-    result = add_row("games",
-                      creator_id=creator_id,
-                      title=title,
-                      mode=mode,
-                      duration=duration,
-                      buy_in=buy_in,
-                      n_rebuys=n_rebuys,
-                      benchmark=benchmark,
-                      side_bets_perc=side_bets_perc,
-                      side_bets_period=side_bets_period,
-                      invite_window=invite_window)
-    game_id = result.inserted_primary_key[0]
-    invited_ids = translate_usernames_to_ids(tuple(invitees))
-    user_ids = invited_ids + [creator_id]
-
-    create_pending_game_status_entry(game_id, user_ids, opened_at)
-    create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
-
-
 @celery.task(name="async_respond_to_game_invite", bind=True, base=BaseTask)
 def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]

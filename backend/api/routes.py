@@ -14,6 +14,7 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    add_game,
     get_game_info_for_user,
     place_order,
     get_current_game_cash_balance,
@@ -55,7 +56,6 @@ from backend.tasks.definitions import (
     async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
-    async_add_game,
     async_get_user_invite_statuses_for_pending_game,
     async_serialize_open_orders,
     async_serialize_current_balances,
@@ -237,7 +237,7 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    async_add_game.apply(args=(
+    add_game(
         user_id,
         game_settings["title"],
         game_settings["mode"],
@@ -247,7 +247,7 @@ def create_game():
         game_settings["benchmark"],
         game_settings["side_bets_perc"],
         game_settings["side_bets_period"],
-        game_settings["invitees"]))
+        game_settings["invitees"])
     return make_response(GAME_CREATED_MSG, 200)
 
 

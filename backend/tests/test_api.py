@@ -276,7 +276,7 @@ class TestCreateGame(BaseTestCase):
         with self.engine.connect() as conn:
             res = conn.execute(f"""
                 SELECT id FROM users WHERE username IN ({",".join(['%s'] * len(invitees))});
-            """)
+            """, invitees)
         lookup_invitee_ids = [x[0] for x in res]
         self.assertEqual(set(lookup_invitee_ids), set(invited_users))
 
