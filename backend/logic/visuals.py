@@ -56,7 +56,6 @@ def format_time_for_response(timestamp: dt) -> str:
     return_time = posix_to_datetime(timestamp).replace(tzinfo=None)
     return f"{return_time.strftime(format=RETURN_TIME_FORMAT)}"
 
-
 # ------------------ #
 # Time series charts #
 # ------------------ #

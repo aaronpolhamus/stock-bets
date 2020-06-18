@@ -46,6 +46,7 @@ from logic.base import (
     get_user_information
 )
 from backend.logic.visuals import (
+    format_time_for_response,
     OPEN_ORDERS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -359,7 +360,7 @@ def fetch_price():
         return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
     price, timestamp = async_fetch_price.apply(args=[symbol]).get()
     async_cache_price.delay(symbol, price, timestamp)
-    return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
+    return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
 
 
 @routes.route("/api/suggest_symbols", methods=["POST"])
