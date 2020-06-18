@@ -35,7 +35,51 @@ N_PLOT_POINTS = 25
 USD_FORMAT = "${:,.2f}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
+
+# ------ #
+# Colors #
+# ------ #
+"""Colors are organized sequentially with three different grouping. We'll assign user colors in order, starting with the
+first one, and working our way through the list
+"""
+HEX_COLOR_PALETTE = [
+    "#453B85",  # group 1
+    "#FFAF75",
+    "#FF4B4B",
+    "#287B95",
+    "#FF778F",
+    "#7F7192",
+    "#473232",
+    "#8C80A1",  # group 2
+    "#FCC698",
+    "#FC8A7E",
+    "#7BA7AB",
+    "#FCA4A7",
+    "#AFA1A9",
+    "#8D7B6F",
+    "#4B495B",  # group 3
+    "#AA6E68",
+    "#AA324F",
+    "#02837B",
+    "#A05E7C",
+    "#903E88",
+    "#3C2340"]
+
 NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
+
+
+def hex_to_rgb(h):
+    h = h.lstrip('#')
+    hlen = len(h)
+    return tuple(int(h[i:(i + hlen // 3)], 16) for i in range(0, hlen, hlen // 3))
+
+
+def palette_generator(n):
+    """For n distinct series, generate a unique color palette"""
+    hex_codes = HEX_COLOR_PALETTE[:n]
+    rgb_codes = [hex_to_rgb(x) for x in hex_codes]
+    return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
+
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -94,13 +138,6 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
             entry[k] = row[v]
         output_array.append(entry)
     return output_array
-
-
-def palette_generator(n, palette="hls"):
-    """For n distinct series, generate a unique color palette
-    """
-    rgb_codes = sns.color_palette(palette, n)
-    return [f"rgba({255 * r}, {255 * g}, {255 * b}, 1)" for r, g, b in rgb_codes]
 
 
 def null_chart_series(null_label: str):
@@ -391,6 +428,12 @@ def get_portfolio_value(game_id: int, user_id: int) -> float:
 
 def make_stat_entry(user_id: int, cash_balance: float, portfolio_value: float, stocks_held: List[str],
                     total_return: float = None, sharpe_ratio: float = None):
+    if total_return is None:
+        total_return = 100
+
+    if sharpe_ratio is None:
+        sharpe_ratio = 1
+
     entry = get_user_information(user_id)
     entry["total_return"] = total_return
     entry["sharpe_ratio"] = sharpe_ratio

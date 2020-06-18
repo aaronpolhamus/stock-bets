@@ -644,7 +644,6 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
 
     return False
 
-
 # Functions for serving information about games
 # ---------------------------------------------
 

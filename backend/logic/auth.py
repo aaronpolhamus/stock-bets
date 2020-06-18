@@ -11,6 +11,7 @@ WHITE_LIST = [
     "aaron@stockbets.io",
     "adamdominik24@gmail.com",
     "adrian@captec.io",
+    "alexanderclapp@gmail.com",
     "apolhamu@gmail.com",
     "benp2007@gmail.com",
     "benspener@gmail.com",
@@ -24,7 +25,8 @@ WHITE_LIST = [
     "gretchen.guo@gmail.com",
     "guillermomrelliug@gmail.com",
     "gustavo@captec.io",
-    "ian.hrovatin@gmail.com"
+    "ian.hrovatin@gmail.com",
+    "ianhrovatin@gmail.com"
     "jafet@captec.io",
     "jaime@rodas.mx",
     "jafetgonz@gmail.com",
