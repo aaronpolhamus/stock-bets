@@ -1,11 +1,19 @@
 """There's a lot of overlap between these tests and a few other tests files, but what defines this group of tests is
 that they are logic-level tests of how what the users do impacts what the users see
 """
-
 from unittest.mock import patch
 
 import pandas as pd
-from backend.logic.base import get_user_id
+from pandas.tseries.offsets import DateOffset
+from backend.logic.base import (
+    posix_to_datetime,
+    datetime_to_posix,
+    n_sidebets_in_game,
+    make_date_offset,
+    get_all_game_users,
+    get_game_info,
+    get_user_id,
+)
 from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding,
@@ -16,6 +24,7 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.logic.visuals import (
+    serialize_and_pack_winners_table,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
     serialize_and_pack_balances_chart,
@@ -26,13 +35,21 @@ from backend.logic.visuals import (
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
+    PAYOUTS_PREFIX,
     NULL_RGBA
+)
+from backend.logic.payouts import (
+    get_winner,
+    get_last_sidebet_payout,
+    portfolio_value_by_day,
+    log_winners,
 )
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
+from backend.database.helpers import query_to_dict
 
 
 class TestGameKickoff(BaseTestCase):
@@ -204,3 +221,84 @@ class TestGameKickoff(BaseTestCase):
 
         # The number of cached transactions that we expect an order to refresh
         self.assertEqual(len(rds.keys()), 4)
+
+
+class TestWinnerPayouts(BaseTestCase):
+
+    def test_winnner_payouts(self):
+        """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
+        have a week of test data, we'll effectively recycle the same information via mocks
+        """
+        # simulation_start_time
+        game_id = 3
+        user_ids = get_all_game_users(game_id)
+        self.assertEqual(user_ids, [1, 3, 4])
+        game_info = get_game_info(game_id)
+
+        n_players = len(user_ids)
+        pot_size = n_players * game_info["buy_in"]
+        self.assertEqual(pot_size, 300)
+
+        last_payout_date = get_last_sidebet_payout(game_id)
+        self.assertIsNone(last_payout_date)
+
+        offset = make_date_offset(game_info["side_bets_period"])
+        self.assertEqual(offset, DateOffset(days=7))
+
+        start_time = game_info["start_time"]
+        end_time = start_time + game_info["duration"] * 60 * 60 * 24
+        n_sidebets = n_sidebets_in_game(start_time, end_time, offset)
+        self.assertEqual(n_sidebets, 2)
+
+        # since we haven't calculated any winners, yet, our init winners table should be blank
+        # TODO: test winners table serialize and pack for game start here
+
+        # we'll mock in daily portfolio values to speed up the time this test takes
+        start_dt = posix_to_datetime(start_time)
+        end_dt = posix_to_datetime(end_time)
+        user_1_portfolio = portfolio_value_by_day(game_id, 1, start_dt, end_dt)
+        user_3_portfolio = portfolio_value_by_day(game_id, 3, start_dt, end_dt)
+        user_4_portfolio = portfolio_value_by_day(game_id, 4, start_dt, end_dt)
+
+        with patch("backend.logic.payouts.time") as payout_time_mock, patch(
+                "backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+            time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
+            time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
+            payout_time_mock.time.side_effect = [time_1, time_2]
+            portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
+
+            # TODO: there's time-related randomness in who the winner is right now based on how the test data is built.
+            # clean this up later
+            winner_id, score = get_winner(game_id, start_time, end_time, user_ids, game_info["benchmark"])
+            log_winners(game_id)
+            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")
+            self.assertEqual(sidebet_entry["winner_id"], winner_id)
+            self.assertAlmostEqual(sidebet_entry["score"], score, 4)
+            side_pot = pot_size * (game_info["side_bets_perc"]/100) / n_sidebets
+            self.assertEqual(sidebet_entry["payout"], side_pot)
+            self.assertEqual(sidebet_entry["type"], "sidebet")
+
+            log_winners(game_id)
+            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 2;")
+            self.assertEqual(sidebet_entry["winner_id"], winner_id)
+            self.assertAlmostEqual(sidebet_entry["score"], score, 4)
+            self.assertEqual(sidebet_entry["payout"], side_pot)
+            self.assertEqual(sidebet_entry["type"], "sidebet")
+
+            overall_entry = query_to_dict("SELECT * FROM winners WHERE id = 3;")
+            final_payout = pot_size * (1 - game_info["side_bets_perc"] / 100)
+            self.assertEqual(overall_entry["payout"], final_payout)
+            with self.engine.connect() as conn:
+                df = pd.read_sql("SELECT * FROM winners", conn)
+            self.assertEqual(df.shape, (3, 7))
+
+        serialize_and_pack_winners_table(game_id)
+        payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        self.assertEqual(len(payouts_table["data"]), 3)
+        self.assertTrue(sum([x["Type"] == "Sidebet" for x in payouts_table["data"]]), 2)
+        self.assertTrue(sum([x["Type"] == "Overall" for x in payouts_table["data"]]), 1)
+        for entry in payouts_table["data"]:
+            if entry["Type"] == "Sidebet":
+                self.assertEqual(entry["Payout"], side_pot)
+            else:
+                self.assertEqual(entry["Payout"], final_payout)

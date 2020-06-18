@@ -40,6 +40,7 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from logic.base import (
+    get_pending_buy_order_value,
     fetch_price_cache,
     posix_to_datetime,
     get_user_information
@@ -49,7 +50,8 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
-    SIDEBAR_STATS_PREFIX
+    SIDEBAR_STATS_PREFIX,
+    PAYOUTS_PREFIX
 )
 from backend.tasks.definitions import (
     async_fetch_price,
@@ -306,6 +308,13 @@ def order_form_defaults():
 @routes.route("/api/place_order", methods=["POST"])
 @authenticate
 def api_place_order():
+    """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
+    market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
+    valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
+    checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
+    an ongoing basis by the celery schedule and book as their requirements are satisfies
+    """
+
     user_id = decode_token(request)
     order_ticket = request.json
     game_id = order_ticket["game_id"]
@@ -313,12 +322,6 @@ def api_place_order():
     if stop_limit_price:
         stop_limit_price = float(stop_limit_price)
 
-    """Placing an order involves several layers of conditional logic: is this is a buy or sell order? Stop, limit, or
-    market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
-    valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
-    checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
-    an ongoing basis by the celery schedule and book as their requirements are satisfies
-    """
     try:
         symbol = order_ticket["symbol"]
         cash_balance = get_current_game_cash_balance(user_id, game_id)
@@ -368,13 +371,6 @@ def api_suggest_symbols():
 # ------- #
 # Friends #
 # ------- #
-
-
-@routes.route("/api/get_sidebar_stats", methods=["POST"])
-@authenticate
-def get_sidebar_stats():
-    game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/send_friend_request", methods=["POST"])
@@ -441,6 +437,14 @@ def field_chart():
     return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 
+@routes.route("/api/get_current_balances_table", methods=["POST"])
+@authenticate
+def get_current_balances_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+
+
 @routes.route("/api/get_open_orders_table", methods=["POST"])
 @authenticate
 def get_open_orders_table():
@@ -449,12 +453,33 @@ def get_open_orders_table():
     return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/get_current_balances_table", methods=["POST"])
+@routes.route("/api/get_payouts_table", methods=["POST"])
 @authenticate
-def get_current_balances_table():
+def get_payouts_table():
+    game_id = request.json.get("game_id")
+    return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
+
+# ----- #
+# Stats #
+# ----- #
+
+
+@routes.route("/api/get_sidebar_stats", methods=["POST"])
+@authenticate
+def get_sidebar_stats():
+    game_id = request.json.get("game_id")
+    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
+
+
+@routes.route("/api/get_cash_balances", methods=["POST"])
+@authenticate
+def get_cash_balances():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
+    outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
+    buying_power = cash_balance - outstanding_buy_order_value
+    return jsonify({"cash_balance": cash_balance, "buying_power": buying_power})
 
 # ------ #
 # DevOps #

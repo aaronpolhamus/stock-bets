@@ -1,6 +1,5 @@
 import celery
 from backend.config import Config
-from backend.database.db import engine
 from backend.logic.base import (
     TIMEZONE,
     PRICE_CACHING_INTERVAL

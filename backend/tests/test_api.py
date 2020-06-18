@@ -18,6 +18,7 @@ from backend.database.helpers import (
     query_to_dict,
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
+from backend.logic.base import during_trading_day
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
     DEFAULT_GAME_MODE,
@@ -34,9 +35,11 @@ from backend.logic.games import (
     LimitError
 )
 from backend.logic.visuals import (
+    serialize_and_pack_winners_table,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
-    OPEN_ORDERS_PREFIX
+    OPEN_ORDERS_PREFIX,
+    PAYOUTS_PREFIX
 )
 from backend.tasks.definitions import (
     async_fetch_price,
@@ -221,9 +224,10 @@ class TestCreateGame(BaseTestCase):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_duation = 365
         game_invitees = ["miguel", "toofast", "murcitdev"]
+        buy_in = 1000
         game_settings = {
             "benchmark": "sharpe_ratio",
-            "buy_in": 1000,
+            "buy_in": buy_in,
             "duration": game_duation,
             "mode": "winner_takes_all",
             "n_rebuys": 3,
@@ -327,6 +331,14 @@ class TestCreateGame(BaseTestCase):
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
         self.assertEqual(len(init_open_orders_entry["headers"]), 7)
+
+        serialize_and_pack_winners_table(game_id)
+        payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
+        self.assertEqual(len(side_bet_payouts), int(game_duation/7))
+        # len(invitees) - 1 because one of the players declines the game
+        # TODO: Cleanup rounding issues in payout handling to make this more precise
+        self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
 
     def test_pending_game_management(self):
         user_id = 1
@@ -720,3 +732,26 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(orders.shape, (1, 9))
         self.assertGreaterEqual(order_status.shape[0], 1)
         self.assertEqual(order_status.iloc[0]["status"], "pending")
+
+
+class TestPriceFetching(BaseTestCase):
+
+    def test_api_price_fetching(self):
+        reset_db()
+        refresh_table("users")
+
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        if Config.IEX_API_PRODUCTION:
+            res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},
+                                             json={"symbol": "TSLA"}, verify=False)
+            self.assertEqual(res.status_code, 200)
+
+            if during_trading_day():
+                # if during trading hours...
+                pass
+            else:
+                # expect to see no GMT TZ in the timestamp
+                self.assertNotIn("GMT", res.json()["last_updated"])
+
+                # expect to see a new price entry persisted to the cache, but not to the DB
+                self.assertIn("TSLA", rds.keys())

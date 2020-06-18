@@ -1,14 +1,30 @@
 """Logic for calculating and dispering payouts between invitees
 """
+import time
 from datetime import datetime as dt
+from typing import List
 
 import numpy as np
 import pandas as pd
-
-from backend.logic.base import make_historical_balances_and_prices_table
+from backend.database.db import engine
+from backend.database.helpers import add_row
+from backend.logic.base import (
+    n_sidebets_in_game,
+    make_date_offset,
+    get_all_game_users,
+    posix_to_datetime,
+    datetime_to_posix,
+    get_game_info,
+    make_historical_balances_and_prices_table
+)
 from backend.tasks.redis import rds
 
 RISK_FREE_RATE_DEFAULT = 0
+
+
+# ------------------------------------ #
+# Base methods for calculating metrics #
+# ------------------------------------ #
 
 
 def get_data_and_clip_time(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None) -> pd.DataFrame:
@@ -62,3 +78,80 @@ def calculate_and_pack_metrics(game_id, user_id, start_date=None, end_date=None)
         sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}"
     rds.set(total_return_label, total_return)
     rds.set(sharpe_ratio_label, sharpe_ratio)
+
+
+# ------------------- #
+# Winners and payouts #
+# ------------------- #
+
+
+def get_last_sidebet_payout(game_id: int):
+    # when was the last time that a payout was made/that the game was started?
+    with engine.connect() as conn:
+        last_payout_date = conn.execute("""
+            SELECT timestamp FROM winners
+            WHERE game_id = %s AND type = 'sidebet'
+            ORDER BY timestamp DESC LIMIT 0, 1
+        """, game_id).fetchone()
+    if last_payout_date:
+        return last_payout_date[0]
+    return None
+
+
+def get_winner(game_id: int, start_time: float, end_time: float, user_ids: List[int], benchmark: str):
+    assert benchmark in ["RETURN RATIO", "SHARPE RATIO"]
+    start_date = posix_to_datetime(start_time)
+    end_date = posix_to_datetime(end_time)
+    ids_and_scores = []
+    for user_id in user_ids:
+        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
+        metric = return_ratio
+        if benchmark == "SHARPE RATIO":
+            metric = sharpe_ratio
+        ids_and_scores.append((user_id, metric))
+
+    max_score = max([x[1] for x in ids_and_scores])
+    return [x for x in ids_and_scores if x[1] == max_score][0]  # TODO: handle ties (mathematically unlikely)
+
+
+def get_payouts_to_date(game_id: int):
+    with engine.connect() as conn:
+        total_payouts = conn.execute("SELECT SUM(payout) FROM winners WHERE game_id = %s", game_id).fetchone()[0]
+    return total_payouts
+
+
+def log_winners(game_id: int):
+    current_time = time.time()
+    game_info = get_game_info(game_id)
+    game_start_time = game_info["start_time"]
+    game_end_time = game_info["end_time"]
+    benchmark = game_info["benchmark"]
+    side_bets_perc = game_info.get("side_bets_perc")
+    if side_bets_perc is None:
+        side_bets_perc = 0
+    side_bets_period = game_info.get("side_bets_period")
+    player_ids = get_all_game_users(game_id)
+    n_players = len(player_ids)
+    pot_size = n_players * game_info["buy_in"]
+
+    # If we have sidebets to monitor, see if we have a winner
+    if side_bets_perc:
+        last_interval_end = get_last_sidebet_payout(game_id)
+        if not last_interval_end:
+            last_interval_end = game_start_time
+        offset = make_date_offset(side_bets_period)
+        payout_time = datetime_to_posix(posix_to_datetime(last_interval_end) + offset)
+        if current_time >= payout_time:
+            winner_id, score = get_winner(game_id, last_interval_end, current_time, player_ids, game_info["benchmark"])
+            score = float(score)
+            n_sidebets = n_sidebets_in_game(game_start_time, game_end_time, offset)
+            payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
+            add_row("winners", game_id=game_id, winner_id=winner_id, score=score, timestamp=current_time, payout=payout,
+                    type="sidebet")
+
+    # if we've reached the end of our game, pay out the winner and mark the game as completed
+    if current_time >= game_end_time:
+        payout = pot_size * (1 - side_bets_perc / 100)
+        winner_id, score = get_winner(game_id, game_start_time, game_end_time, player_ids, benchmark)
+        add_row("winners", game_id=game_id, winner_id=winner_id, score=float(score), timestamp=current_time,
+                payout=payout, type="overall")

@@ -30,6 +30,7 @@ from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.visuals import (
+    serialize_and_pack_winners_table,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
     compile_and_pack_player_sidebar_stats,
@@ -225,6 +226,9 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # initialize a blank sidebar stats entry
     compile_and_pack_player_sidebar_stats(game_id)
+
+    # initialize a blank payouts table
+    serialize_and_pack_winners_table(game_id)
 
     # initialize current balances and open orders
     for user_id in user_id_list:
