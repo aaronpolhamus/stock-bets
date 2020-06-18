@@ -66,15 +66,9 @@ def format_posix_times(sr: pd.Series) -> pd.Series:
     return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
 
 
-def _interpolate_values(df):
-    df["value"] = df["value"].interpolate(method="akima")
-    return df.reset_index(drop=True)
-
-
 def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
     """
-    df = df.groupby("symbol", as_index=False).apply(lambda subset: _interpolate_values(subset)).reset_index(drop=True)
     df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
     df["t_index"] = df["t_index"].rank(method="dense")
     df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})

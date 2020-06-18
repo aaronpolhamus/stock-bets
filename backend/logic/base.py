@@ -1,6 +1,7 @@
 """Base business logic that can be shared between multiple modules. This is mainly here to help us avoid circular
 as we build out the logic library.
 """
+from typing import List
 import calendar
 import sys
 import time
@@ -279,13 +280,17 @@ def get_username(user_id: int):
 # --------------- #
 
 
-def get_price_histories(symbols):
+def get_price_histories(symbols: List[str], min_time: float, max_time: float):
     sql = f"""
         SELECT timestamp, price, symbol FROM prices
-        WHERE symbol IN ({','.join(['%s'] * len(symbols))})
+        WHERE 
+          symbol IN ({','.join(['%s'] * len(symbols))}) AND 
+          timestamp >= %s AND timestamp <= %s;
     """
+    params_list = list(symbols) + [min_time, max_time]
     with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
+        df = pd.read_sql(sql, conn, params=params_list)
+    return df.sort_values("timestamp")
 
 
 def resample_balances(symbol_subset):
@@ -299,21 +304,25 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
     # Resample balances over the desired time interval within each symbol
     resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
+    min_time = datetime_to_posix(resampled_balances["timestamp"].min())
+    max_time = datetime_to_posix(resampled_balances["timestamp"].max())
 
     # Now add price data
     symbols = balances_df["symbol"].unique()
-    price_df = get_price_histories(symbols)
+    price_df = get_price_histories(symbols, min_time, max_time)
     price_df["timestamp"] = price_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     price_subsets = []
     for symbol in symbols:
         balance_subset = resampled_balances[resampled_balances["symbol"] == symbol]
         prices_subset = price_df[price_df["symbol"] == symbol]
+        if prices_subset.empty and symbol == "Cash":
+            # Special handling for cash
+            balance_subset["price"] = 1
+            price_subsets.append(balance_subset)
+            continue
         del prices_subset["symbol"]
         price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
     df = pd.concat(price_subsets, axis=0)
-
-    # handle Cash and create a column for the value of each position in time
-    df.loc[df["symbol"] == "Cash", "price"] = 1
     df["value"] = df["balance"] * df["price"]
     return df
 

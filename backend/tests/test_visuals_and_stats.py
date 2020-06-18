@@ -50,6 +50,7 @@ from backend.tasks.redis import (
 )
 from backend.tests import BaseTestCase
 from backend.database.helpers import query_to_dict
+from backend.database.fixtures.mock_data import simulation_start_time
 
 
 class TestGameKickoff(BaseTestCase):
@@ -185,8 +186,12 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(rds.keys()), 4)
 
     def test_visuals_during_trading(self):
+        # TODO: Add a canonical test with fully populated data
+        """When a user first places an order, we don't necessarily expect that security to have generated any data, yet.
+        There should be a blank chart until data is available
+        """
         game_id = 5
-        start_time = 1591978045
+        start_time = simulation_start_time
         self._start_game_runner(start_time, game_id)
 
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,

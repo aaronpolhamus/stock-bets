@@ -68,6 +68,7 @@ class TestGameLogic(BaseTestCase):
         test_nvda_holding = get_current_stock_holding(test_user_id, game_id, "NVDA")
         self.assertEqual(test_nvda_holding, expctd["NVDA"])
         test_jpm_holding = get_current_stock_holding(test_user_id, game_id, "JPM")
+        test_jpm_holding = get_current_stock_holding(test_user_id, game_id, "JPM")
         self.assertEqual(test_jpm_holding, 0)
 
         all_test_user_holdings = get_all_current_stock_holdings(test_user_id, game_id)
@@ -279,7 +280,7 @@ class TestGameLogic(BaseTestCase):
             meli_order_price = conn.execute("""
             SELECT price FROM orders WHERE symbol = %s ORDER BY id DESC LIMIT 0, 1;""", "MELI").fetchone()[0]
 
-        self.assertEqual(buy_order_value, meli_order_price * 2 + 10 * market_price)
+        self.assertAlmostEqual(buy_order_value, meli_order_price * 2 + 10 * market_price, 1)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
