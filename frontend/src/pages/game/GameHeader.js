@@ -9,7 +9,7 @@ const GameDetails = styled.small`
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
   color: var(--color-text-gray);
-  margin-top: var(--space-200);
+  margin-top: var(--space-100);
 `;
 
 const TextDivider = styled.span`
