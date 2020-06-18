@@ -6,6 +6,7 @@ import unittest
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
+from backend.logic.base import get_pending_buy_order_value
 from backend.logic.games import (
     execute_order,
     make_random_game_title,
@@ -222,6 +223,49 @@ class TestGameLogic(BaseTestCase):
             current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
+
+
+    def test_cash_balance_and_buying_power(self):
+
+        user_id = 1
+        game_id = 3
+        buy_stock = "NVDA"
+        market_price = 1_000
+        mock_buy_order = {"amount": 10,
+                          "buy_or_sell": "buy",
+                          "game_id": 3,
+                          "order_type": "market",
+                          "market_price": market_price,
+                          "quantity_type": "Shares",
+                          "symbol": buy_stock,
+                          "time_in_force": "until_cancelled",
+                          "title": "test game"}
+
+        current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        with patch("backend.logic.games.time") as game_time_mock:
+            game_time_mock.time.side_effect = [1592202332, 1592202332]
+            place_order(user_id,
+                        game_id,
+                        mock_buy_order["symbol"],
+                        mock_buy_order["buy_or_sell"],
+                        current_cash_balance,
+                        current_holding,
+                        mock_buy_order["order_type"],
+                        mock_buy_order["quantity_type"],
+                        mock_buy_order["market_price"],
+                        mock_buy_order["amount"],
+                        mock_buy_order["time_in_force"])
+
+        with patch("backend.logic.base.fetch_iex_price") as fetch_price_mock:
+            fetch_price_mock.return_value = (market_price, 1592202332)
+            buy_order_value = get_pending_buy_order_value(user_id, game_id)
+
+        with self.engine.connect() as conn:
+            meli_order_price = conn.execute("""
+            SELECT price FROM orders WHERE symbol = %s ORDER BY id DESC LIMIT 0, 1;""", "MELI").fetchone()[0]
+
+        self.assertEqual(buy_order_value, meli_order_price * 2 + 10 * market_price)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all

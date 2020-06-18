@@ -9,6 +9,10 @@ import pandas as pd
 import seaborn as sns
 from backend.database.db import engine
 from backend.logic.base import (
+    make_date_offset,
+    n_sidebets_in_game,
+    get_game_info,
+    get_open_orders,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     get_all_game_users,
@@ -18,6 +22,7 @@ from backend.logic.base import (
     get_game_end_date,
     get_username,
     posix_to_datetime,
+    datetime_to_posix,
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tasks.redis import rds
@@ -25,10 +30,11 @@ from backend.tasks.redis import rds
 # -------------- #
 # Chart settings #
 # -------------- #
-from logic.base import get_open_orders
 
 N_PLOT_POINTS = 25
+USD_FORMAT = "${:,.2f}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
+RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
 
 # -------------------------------- #
@@ -39,6 +45,16 @@ SIDEBAR_STATS_PREFIX = "sidebar_stats"
 OPEN_ORDERS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
+PAYOUTS_PREFIX = "payouts"
+
+# --------------- #
+# Dynamic display #
+# --------------- #
+
+
+def format_time_for_response(timestamp: dt) -> str:
+    return_time = posix_to_datetime(timestamp).replace(tzinfo=None)
+    return f"{return_time.strftime(format=RETURN_TIME_FORMAT)}"
 
 
 # ------------------ #
@@ -203,10 +219,14 @@ def make_the_field_charts(game_id: int):
     aggregated_df = aggregate_all_portfolios(portfolio_values)
     serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 
+# ------ #
+# Tables #
+# ------ #
 
-# -------------------------- #
-# Orders and balances tables #
-# -------------------------- #
+
+def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
+    df[columns_to_format] = df[columns_to_format].applymap(lambda x: USD_FORMAT.format(x))
+    return df
 
 
 def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
@@ -214,6 +234,7 @@ def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
     open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
     open_orders["time_in_force"] = open_orders["time_in_force"].apply(
         lambda x: "Day" if x == "day" else "Until cancelled")
+    open_orders = number_columns_to_currency(open_orders, ["price"])
     open_orders.loc[open_orders["order_type"] == "market", "price"] = " -- "
     column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
                        "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
@@ -278,9 +299,76 @@ def serialize_and_pack_current_balances(game_id: int, user_id: int):
         df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
         df = df.merge(prices, on="symbol", how="left")
         df["timestamp"] = format_posix_times(df["timestamp"])
+        df = number_columns_to_currency(df, ["price", "clear_price"])
         df.rename(columns=column_mappings, inplace=True)
         out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+
+
+def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
+    expected_sidebet_dates = []
+    if side_bets_perc:
+        payout_time = start_time + offset
+        while payout_time <= end_time:
+            expected_sidebet_dates.append(payout_time)
+            payout_time += offset
+    return expected_sidebet_dates
+
+
+def serialize_and_pack_winners_table(game_id: int):
+    # TODO: a lot of this can be consolidated with log_winners.
+    game_info = get_game_info(game_id)
+    player_ids = get_all_game_users(game_id)
+    n_players = len(player_ids)
+    pot_size = n_players * game_info["buy_in"]
+    side_bets_perc = game_info.get("side_bets_perc")
+    start_time = posix_to_datetime(game_info["start_time"])
+    end_time = posix_to_datetime(game_info["end_time"])
+    side_bets_period = game_info.get("side_bets_period")
+    if side_bets_perc is None:
+        side_bets_perc = 0
+
+    # pull winners data from DB
+    with engine.connect() as conn:
+        winners_df = pd.read_sql("SELECT * FROM winners WHERE game_id = %s", conn, params=[game_id])
+    game_finished = False
+    if winners_df.empty:
+        last_observed_win = start_time
+    else:
+        last_observed_win = posix_to_datetime(winners_df["timestamp"].max())
+        if "overall" in winners_df["type"].to_list():
+            game_finished = True
+
+    data = []
+    if side_bets_perc:
+        offset = make_date_offset(side_bets_period)
+        n_sidebets = n_sidebets_in_game(datetime_to_posix(start_time), datetime_to_posix(end_time), offset)
+        payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
+        expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
+        for _, row in winners_df.iterrows():
+            if row["type"] == "sidebet":
+                date = posix_to_datetime(row["timestamp"]).strftime(DATE_LABEL_FORMAT)
+                winner = get_username(row["winner_id"])
+                data.append({"Date": date, "Winner": winner, "Payout": payout, "Type": "Sidebet"})
+
+        dates_to_fill_in = [x for x in expected_sidebet_dates if x > last_observed_win]
+        for payout_date in dates_to_fill_in:
+            data.append(
+                {"Date": payout_date.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout, "Type": "Sidebet"})
+
+    payout = pot_size * (1 - side_bets_perc / 100)
+    if not game_finished:
+        final_entry = {"Date": end_time.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout,
+                       "Type": "Overall"}
+    else:
+        date = posix_to_datetime(winners_df["timestamp"].max()).strftime(DATE_LABEL_FORMAT)
+        winner_id = winners_df.loc[winners_df["type"] == "overall", "winner_id"].iloc[0]
+        winner = get_username(winner_id)
+        final_entry = {"Date": date, "Winner": winner, "Payout": payout, "Type": "Overall"}
+
+    data.append(final_entry)
+    out_dict = dict(data=data, headers=list(data[0].keys()))
+    rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict))
 
 # ----- #
 # Lists #

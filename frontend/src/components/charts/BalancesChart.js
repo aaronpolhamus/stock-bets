@@ -2,8 +2,14 @@ import React, { useEffect, useState } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { fetchGameData } from "components/functions/api";
 import { dollarizer } from "components/functions/formats";
+import styled from "styled-components";
 
-const BalancesChart = ({ gameId }) => {
+const ChartWrapper = styled.div`
+  width: 100%;
+  height: ${(props) => props.height || "25vw"};
+`;
+
+const BalancesChart = ({ gameId, height }) => {
   const [lineData, setLineData] = useState([]);
   const [colors, setColors] = useState([]);
 
@@ -15,12 +21,13 @@ const BalancesChart = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
+
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
-    <div style={{ width: "100%", height: "25vw" }}>
+    <ChartWrapper height={height}>
       <ResponsiveLine
         data={lineData}
-        margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
+        margin={{ top: 50, right: 110, bottom: 65, left: 65 }}
         xScale={{ type: "point" }}
         yScale={{
           type: "linear",
@@ -34,24 +41,22 @@ const BalancesChart = ({ gameId }) => {
         axisRight={null}
         axisBottom={{
           orient: "bottom",
-          tickSize: 5,
+          tickSize: 3,
           tickPadding: 5,
           tickRotation: -45,
-          legendOffset: 36,
-          legendPosition: "middle",
         }}
         axisLeft={{
           orient: "left",
-          tickSize: 5,
-          tickPadding: 5,
+          tickSize: 2,
+          tickPadding: 1,
           tickRotation: 0,
           legendOffset: -40,
-          legendPosition: "middle",
           format: (v) => `${dollarizer.format(v)}`,
         }}
+        colors={colors}
         pointSize={0}
         useMesh={false}
-        colors={colors}
+        lineCol
         legends={[
           {
             anchor: "bottom-right",
@@ -79,7 +84,7 @@ const BalancesChart = ({ gameId }) => {
           },
         ]}
       />
-    </div>
+    </ChartWrapper>
   );
 };
 

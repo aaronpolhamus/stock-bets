@@ -8,8 +8,6 @@ from backend.logic.base import (
     PRICE_CACHING_INTERVAL,
     during_trading_day,
     get_user_id,
-    get_user_information,
-    get_current_game_cash_balance,
     get_all_game_users,
 )
 from backend.logic.friends import (
@@ -20,9 +18,7 @@ from backend.logic.friends import (
 )
 from backend.logic.games import (
     get_user_invite_statuses_for_pending_game,
-    get_current_stock_holding,
     get_all_open_orders,
-    place_order,
     get_order_ticket,
     process_order,
     get_order_expiration_status,
@@ -30,18 +26,15 @@ from backend.logic.games import (
     get_active_game_ids,
     respond_to_invite,
     service_open_game,
-    translate_usernames_to_ids,
-    create_pending_game_status_entry,
-    create_game_invites_entries,
     start_game_if_all_invites_responded,
-    get_user_invite_status_for_game,
-    DEFAULT_INVITE_OPEN_WINDOW
+    get_user_invite_status_for_game
 )
 from backend.logic.payouts import (
     calculate_and_pack_metrics
 )
 from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols, get_game_info
 from backend.logic.visuals import (
+    serialize_and_pack_winners_table,
     compile_and_pack_player_sidebar_stats,
     serialize_and_pack_orders_open_orders,
     make_balances_chart_data,
@@ -87,7 +80,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     # If we have a cached value within the range of our price caching interval, don't story anything. This will help
     # avoid redundant entries in the DB
     if cache_value is not None:
-        price, update_time = [float(x) for x in cache_value.split("_")]
+        _, update_time = [float(x) for x in cache_value.split("_")]
         if current_time - update_time <= PRICE_CACHING_INTERVAL:
             return
 
@@ -277,6 +270,7 @@ def async_update_play_game_visuals(self):
     task_results = []
     for game_id in open_game_ids:
         task_results.append(async_make_the_field_charts.delay(game_id))
+        task_results.append(async_serialize_and_pack_winners_table.delay(game_id))
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))
@@ -292,24 +286,23 @@ def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_da
     calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
 
 
-@celery.task(name="async_update_player_stats", bind=True, base=BaseTask)
-def async_update_player_stats(self):
-    """This task calculates game-level metrics for all players in all games, caching those metrics to redis
-    """
-    open_game_ids = get_active_game_ids()
-    task_results = []
-    for game_id in open_game_ids:
-        user_ids = get_all_game_users(game_id)
-        for user_id in user_ids:
-            task_results.append(async_calculate_game_metrics.delay(game_id, user_id))
-    pause_return_until_subtask_completion(task_results, "async_update_player_stats")
-
-
-@celery.task(name="async_compile_player_stats", bind=True, base=BaseTask)
+@celery.task(name="async_compile_player_sidebar_stats", bind=True, base=BaseTask)
 def async_compile_player_sidebar_stats(self, game_id):
     compile_and_pack_player_sidebar_stats(game_id)
 
 
-@celery.task(name="async_get_player_cash_balance", bind=True, base=BaseTask)
-def async_get_player_cash_balance(self, game_id, user_id):
-    return get_current_game_cash_balance(user_id, game_id)
+@celery.task(name="async_update_player_stats", bind=True, base=BaseTask)
+def async_update_player_stats(self):
+    """This task calculates game-level metrics for all players in all games, caching those metrics to redis
+    """
+    active_game_ids = get_active_game_ids()
+    for game_id in active_game_ids:
+        async_compile_player_sidebar_stats.delay(game_id)
+        user_ids = get_all_game_users(game_id)
+        for user_id in user_ids:
+            async_calculate_game_metrics.delay(game_id, user_id)
+
+
+@celery.task(name="async_serialize_and_pack_winners_table", bind=True, base=BaseTask)
+def async_serialize_and_pack_winners_table(self, game_id):
+    serialize_and_pack_winners_table(game_id)

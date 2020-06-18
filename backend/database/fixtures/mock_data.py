@@ -16,7 +16,7 @@ from config import Config
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
 price_records = make_stock_data_records()
-market_order_time = min([record["timestamp"] for record in price_records])
+simulation_start_time = min([record["timestamp"] for record in price_records])
 close_of_simulation_time = max([record["timestamp"] for record in price_records])
 
 
@@ -30,7 +30,7 @@ def get_beginning_of_next_trading_day(ref_time):
     return start_day
 
 
-def get_stock_start_price(symbol, records=price_records, order_time=market_order_time):
+def get_stock_start_price(symbol, records=price_records, order_time=simulation_start_time):
     stock_record = [item for item in records if item["symbol"] == symbol and item["timestamp"] == order_time][0]
     return stock_record["price"]
 
@@ -100,8 +100,8 @@ MOCK_DATA = {
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
         {"game_id": 2, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3]},
-        {"game_id": 3, "status": "pending", "timestamp": 1589281860.0, "users": [1, 3, 4]},
-        {"game_id": 3, "status": "active", "timestamp": 1589368260.0, "users": [1, 3, 4]},
+        {"game_id": 3, "status": "pending", "timestamp": simulation_start_time, "users": [1, 3, 4]},
+        {"game_id": 3, "status": "active", "timestamp": simulation_start_time, "users": [1, 3, 4]},
         {"game_id": 4, "status": "pending", "timestamp": 1589281860.0, "users": [3, 4, 5]},
         {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]},
         {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]}
@@ -113,11 +113,11 @@ MOCK_DATA = {
         {"game_id": 1, "user_id": 5, "status": "invited", "timestamp": 1589195580.0},
         {"game_id": 2, "user_id": 3, "status": "joined", "timestamp": 1589368260.0},
         {"game_id": 2, "user_id": 1, "status": "invited", "timestamp": 1589368260.0},
-        {"game_id": 3, "user_id": 1, "status": "joined", "timestamp": 1589281860.0},
-        {"game_id": 3, "user_id": 3, "status": "invited", "timestamp": 1589281860.0},
-        {"game_id": 3, "user_id": 4, "status": "invited", "timestamp": 1589281860.0},
-        {"game_id": 3, "user_id": 3, "status": "joined", "timestamp": 1589368260.0},
-        {"game_id": 3, "user_id": 4, "status": "joined", "timestamp": 1589368260.0},
+        {"game_id": 3, "user_id": 1, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 3, "user_id": 3, "status": "invited", "timestamp": simulation_start_time},
+        {"game_id": 3, "user_id": 4, "status": "invited", "timestamp": simulation_start_time},
+        {"game_id": 3, "user_id": 3, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 3, "user_id": 4, "status": "joined", "timestamp": simulation_start_time},
         {"game_id": 4, "user_id": 5, "status": "joined", "timestamp": 1589281860.0},
         {"game_id": 4, "user_id": 3, "status": "invited", "timestamp": 1589281860.0},
         {"game_id": 4, "user_id": 4, "status": "invited", "timestamp": 1589281860.0},
@@ -194,22 +194,22 @@ MOCK_DATA = {
          "price": 201.72, "order_type": "market", "time_in_force": "day"},
     ],
     "order_status": [
-        {"order_id": 1, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 1, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("AMZN")},
-        {"order_id": 2, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 2, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("TSLA")},
-        {"order_id": 3, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 3, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("LYFT")},
-        {"order_id": 4, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 4, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("SPXU")},
-        {"order_id": 5, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 5, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("NVDA")},
-        {"order_id": 6, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 6, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("NKE")},
-        {"order_id": 7, "timestamp": market_order_time, "status": "fulfilled",
+        {"order_id": 7, "timestamp": simulation_start_time, "status": "fulfilled",
          "clear_price": get_stock_start_price("MELI")},
-        {"order_id": 8, "timestamp": market_order_time, "status": "pending", "clear_price": None},
-        {"order_id": 8, "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
+        {"order_id": 8, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},
+        {"order_id": 8, "timestamp": get_beginning_of_next_trading_day(simulation_start_time + SECONDS_IN_A_DAY),
          "status": "fulfilled",
          "clear_price": get_stock_start_price("NVDA") * 1.05},
         {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
@@ -221,58 +221,58 @@ MOCK_DATA = {
     ],
     "game_balances": [
         # Game 3, user id #1
-        {"user_id": 1, "game_id": 3, "order_status_id": None, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": None, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 1, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 1, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 75489.31133, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 1, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 1, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 10, "symbol": "AMZN"},
-        {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 46482.067084999995, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 35, "symbol": "TSLA"},
-        {"user_id": 1, "game_id": 3, "order_status_id": 3, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 3, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 23562.491384999994, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 3, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 3, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 700, "symbol": "LYFT"},
-        {"user_id": 1, "game_id": 3, "order_status_id": 4, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 4, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 7460.725784999993, "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 4, "timestamp": market_order_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 4, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 1200, "symbol": "SPXU"},
 
         # Game 3, user id #3
-        {"user_id": 3, "game_id": 3, "order_status_id": None, "timestamp": market_order_time,
+        {"user_id": 3, "game_id": 3, "order_status_id": None, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
-        {"user_id": 3, "game_id": 3, "order_status_id": 5, "timestamp": market_order_time,
+        {"user_id": 3, "game_id": 3, "order_status_id": 5, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 52679.10716, "symbol": None},
-        {"user_id": 3, "game_id": 3, "order_status_id": 5, "timestamp": market_order_time,
+        {"user_id": 3, "game_id": 3, "order_status_id": 5, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 130, "symbol": "NVDA"},
-        {"user_id": 3, "game_id": 3, "order_status_id": 6, "timestamp": market_order_time,
+        {"user_id": 3, "game_id": 3, "order_status_id": 6, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 14130.324760000003, "symbol": None},
-        {"user_id": 3, "game_id": 3, "order_status_id": 6, "timestamp": market_order_time,
+        {"user_id": 3, "game_id": 3, "order_status_id": 6, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 400, "symbol": "NKE"},
 
         # Game 3, user id #4
-        {"user_id": 4, "game_id": 3, "order_status_id": None, "timestamp": market_order_time,
+        {"user_id": 4, "game_id": 3, "order_status_id": None, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
-        {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": market_order_time,
+        {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 8130.831265999994, "symbol": None},
-        {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": market_order_time,
+        {"user_id": 4, "game_id": 3, "order_status_id": 7, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 107, "symbol": "MELI"},
 
         # Game 3, user id #1, subsequent plays
         {"user_id": 1, "game_id": 3, "order_status_id": 9,
-         "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
+         "timestamp": get_beginning_of_next_trading_day(simulation_start_time + SECONDS_IN_A_DAY),
          "balance_type": "virtual_cash", "balance": 4403.068093799993, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 9,
-         "timestamp": get_beginning_of_next_trading_day(market_order_time + SECONDS_IN_A_DAY),
+         "timestamp": get_beginning_of_next_trading_day(simulation_start_time + SECONDS_IN_A_DAY),
          "balance_type": "virtual_stock", "balance": 8, "symbol": "NVDA"},
 
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_cash", "balance": 14037.019021799993, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_stock", "balance": 6, "symbol": "AMZN"},
-        {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": market_order_time,
+        {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_cash", "balance": 99798.28, "symbol": None},
