@@ -25,6 +25,7 @@ from backend.logic.games import (
     InsufficientFunds,
     InsufficientHoldings,
     LimitError,
+    NoNegativeOrders,
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tests import BaseTestCase
@@ -224,6 +225,19 @@ class TestGameLogic(BaseTestCase):
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
 
+            # no negative orders tests
+            with self.assertRaises(NoNegativeOrders):
+                place_order(user_id,
+                            game_id,
+                            mock_sell_order["symbol"],
+                            mock_sell_order["buy_or_sell"],
+                            current_cash_balance,
+                            current_holding,
+                            mock_sell_order["order_type"],
+                            mock_sell_order["quantity_type"],
+                            mock_sell_order["market_price"],
+                            -10,
+                            mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
 

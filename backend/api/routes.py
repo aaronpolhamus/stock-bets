@@ -52,7 +52,8 @@ from backend.logic.visuals import (
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
     SIDEBAR_STATS_PREFIX,
-    PAYOUTS_PREFIX
+    PAYOUTS_PREFIX,
+    USD_FORMAT
 )
 from backend.tasks.definitions import (
     async_fetch_price,
@@ -480,7 +481,7 @@ def get_cash_balances():
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
-    return jsonify({"cash_balance": cash_balance, "buying_power": buying_power})
+    return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
 # ------ #
 # DevOps #

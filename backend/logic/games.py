@@ -95,6 +95,12 @@ class LimitError(Exception):
         return "You've set your limit order below the current market price: this would effectively be a market order"
 
 
+class NoNegativeOrders(Exception):
+
+    def __str__(self):
+        return "You can't transact a zero or negative quantity -- did you mean to change the buy/sell option? Support for short orders coming soon."
+
+
 def make_random_game_title():
     title_iterator = iter(RandomNameGenerator())
     return next(title_iterator).replace("_", " ")
@@ -525,6 +531,8 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     timestamp = time.time()
     order_price = get_order_price(order_type, market_price, stop_limit_price)
     order_quantity = get_order_quantity(order_price, amount, quantity_type)
+    if order_quantity <= 0:
+        raise NoNegativeOrders
 
     if buy_or_sell == "buy":
         qc_buy_order(order_type, quantity_type, order_price, market_price, amount, cash_balance)
@@ -635,6 +643,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
             return True
 
     return False
+
 
 # Functions for serving information about games
 # ---------------------------------------------
