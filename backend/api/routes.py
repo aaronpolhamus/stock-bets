@@ -42,7 +42,6 @@ from backend.logic.games import (
 from logic.base import (
     get_pending_buy_order_value,
     fetch_price_cache,
-    posix_to_datetime,
     get_user_information
 )
 from backend.logic.visuals import (
@@ -358,7 +357,7 @@ def fetch_price():
     price, timestamp = fetch_price_cache(symbol)
     if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
+        return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
     price, timestamp = async_fetch_price.apply(args=[symbol]).get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})

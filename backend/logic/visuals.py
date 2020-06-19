@@ -6,7 +6,6 @@ from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
-import seaborn as sns
 from backend.database.db import engine
 from backend.logic.base import (
     make_date_offset,
@@ -27,11 +26,22 @@ from backend.logic.base import (
 )
 from backend.tasks.redis import rds
 
+# -------------------------------- #
+# Prefixes for redis caching layer #
+# -------------------------------- #
+CURRENT_BALANCES_PREFIX = "current_balances"
+SIDEBAR_STATS_PREFIX = "sidebar_stats"
+OPEN_ORDERS_PREFIX = "open_orders"
+FIELD_CHART_PREFIX = "field_chart"
+BALANCES_CHART_PREFIX = "balances_chart"
+PAYOUTS_PREFIX = "payouts"
+
+
 # -------------- #
 # Chart settings #
 # -------------- #
 
-N_PLOT_POINTS = 25
+N_PLOT_POINTS = 30
 USD_FORMAT = "${:,.2f}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
@@ -80,17 +90,6 @@ def palette_generator(n):
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
-
-# -------------------------------- #
-# Prefixes for redis caching layer #
-# -------------------------------- #
-CURRENT_BALANCES_PREFIX = "current_balances"
-SIDEBAR_STATS_PREFIX = "sidebar_stats"
-OPEN_ORDERS_PREFIX = "open_orders"
-FIELD_CHART_PREFIX = "field_chart"
-BALANCES_CHART_PREFIX = "balances_chart"
-PAYOUTS_PREFIX = "payouts"
-
 # --------------- #
 # Dynamic display #
 # --------------- #
@@ -113,7 +112,7 @@ def format_posix_times(sr: pd.Series) -> pd.Series:
 def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
     """
-    df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
+    df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS, right=True, labels=False)
     df["t_index"] = df["t_index"].rank(method="dense")
     df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
     df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
@@ -217,7 +216,7 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
         df["id"] = _id
         ls.append(df)
     df = pd.concat(ls)
-    df["bin"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
+    df["bin"] = pd.cut(df["timestamp"], N_PLOT_POINTS, right=True, labels=False)
     df["bin"] = df["bin"].rank(method="dense")
     labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
     labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
