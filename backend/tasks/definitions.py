@@ -271,6 +271,7 @@ def async_update_play_game_visuals(self):
     for game_id in open_game_ids:
         task_results.append(async_make_the_field_charts.delay(game_id))
         task_results.append(async_serialize_and_pack_winners_table.delay(game_id))
+        task_results.append(async_compile_player_sidebar_stats.delay(game_id))
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             task_results.append(async_serialize_open_orders.delay(game_id, user_id))

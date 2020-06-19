@@ -42,7 +42,6 @@ from backend.logic.games import (
 from logic.base import (
     get_pending_buy_order_value,
     fetch_price_cache,
-    posix_to_datetime,
     get_user_information
 )
 from backend.logic.visuals import (
@@ -52,7 +51,8 @@ from backend.logic.visuals import (
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
     SIDEBAR_STATS_PREFIX,
-    PAYOUTS_PREFIX
+    PAYOUTS_PREFIX,
+    USD_FORMAT
 )
 from backend.tasks.definitions import (
     async_fetch_price,
@@ -357,7 +357,7 @@ def fetch_price():
     price, timestamp = fetch_price_cache(symbol)
     if price is not None:
         # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": price, "last_updated": posix_to_datetime(timestamp)})
+        return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
     price, timestamp = async_fetch_price.apply(args=[symbol]).get()
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
@@ -480,7 +480,7 @@ def get_cash_balances():
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
-    return jsonify({"cash_balance": cash_balance, "buying_power": buying_power})
+    return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
 # ------ #
 # DevOps #

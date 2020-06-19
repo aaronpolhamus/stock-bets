@@ -25,6 +25,7 @@ from backend.logic.games import (
     InsufficientFunds,
     InsufficientHoldings,
     LimitError,
+    NoNegativeOrders,
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tests import BaseTestCase
@@ -66,6 +67,7 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(test_spxu_holding, expctd["SPXU"])
         test_nvda_holding = get_current_stock_holding(test_user_id, game_id, "NVDA")
         self.assertEqual(test_nvda_holding, expctd["NVDA"])
+        test_jpm_holding = get_current_stock_holding(test_user_id, game_id, "JPM")
         test_jpm_holding = get_current_stock_holding(test_user_id, game_id, "JPM")
         self.assertEqual(test_jpm_holding, 0)
 
@@ -224,6 +226,19 @@ class TestGameLogic(BaseTestCase):
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
 
+            # no negative orders tests
+            with self.assertRaises(NoNegativeOrders):
+                place_order(user_id,
+                            game_id,
+                            mock_sell_order["symbol"],
+                            mock_sell_order["buy_or_sell"],
+                            current_cash_balance,
+                            current_holding,
+                            mock_sell_order["order_type"],
+                            mock_sell_order["quantity_type"],
+                            mock_sell_order["market_price"],
+                            -10,
+                            mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
 
@@ -265,7 +280,7 @@ class TestGameLogic(BaseTestCase):
             meli_order_price = conn.execute("""
             SELECT price FROM orders WHERE symbol = %s ORDER BY id DESC LIMIT 0, 1;""", "MELI").fetchone()[0]
 
-        self.assertEqual(buy_order_value, meli_order_price * 2 + 10 * market_price)
+        self.assertAlmostEqual(buy_order_value, meli_order_price * 2 + 10 * market_price, 1)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
