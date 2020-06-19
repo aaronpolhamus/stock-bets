@@ -299,7 +299,7 @@ class TestGameIntegration(BaseTestCase):
 
             original_amzn_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
-            expected_quantity = int(order_quantity / amzn_price)
+            expected_quantity = order_quantity // amzn_price
             expected_cost = expected_quantity * amzn_price
             self.assertEqual(original_amzn_holding, expected_quantity)
             test_user_original_cash = DEFAULT_VIRTUAL_CASH - expected_cost
@@ -506,7 +506,7 @@ class TestGameIntegration(BaseTestCase):
             updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
             amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
-            shares_sold = int(250_000 / amzn_clear_price)
+            shares_sold = 250_000 // amzn_clear_price
             # This test is a little bit awkward because of how we are handling floating point for prices and
             # doing integer round here. This may need to become more precise in the future
             self.assertTrue((updated_holding - (original_amzn_holding - shares_sold) <= 1))

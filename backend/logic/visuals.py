@@ -406,7 +406,7 @@ def serialize_and_pack_winners_table(game_id: int):
 
 def _days_left(game_id: int):
     seconds_left = get_game_end_date(game_id) - time.time()
-    return int(seconds_left / (24 * 60 * 60))
+    return seconds_left // (24 * 60 * 60)
 
 
 def make_side_bar_output(game_id: int, user_stats: list):

@@ -489,7 +489,7 @@ def get_order_price(order_type, market_price, stop_limit_price):
 
 def get_order_quantity(order_price, amount, quantity_type):
     if quantity_type == "USD":
-        return int(amount / order_price)
+        return amount // order_price
     elif quantity_type == "Shares":
         return amount
     raise Exception("Invalid quantity type for this ticket")
