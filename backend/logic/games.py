@@ -23,6 +23,7 @@ from backend.database.models import (
     TimeInForce)
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
+    fetch_iex_price,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -47,7 +48,7 @@ DEFAULT_REBUYS = 0  # How many rebuys are allowed
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
-DEFAULT_INVITE_OPEN_WINDOW = 24 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
+DEFAULT_INVITE_OPEN_WINDOW = 48 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 
 QUANTITY_DEFAULT = "Shares"
@@ -508,7 +509,8 @@ def get_all_open_orders():
           GROUP BY order_id) grouped_os
         ON
           os.id = grouped_os.max_id
-        WHERE os.status = 'pending';
+        WHERE os.status = 'pending'
+        ORDER BY os.order_id;
     """
     with engine.connect() as conn:
         result = conn.execute(sql_query).fetchall()
@@ -559,13 +561,26 @@ def get_order_ticket(order_id):
     return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
 
 
-def process_order(game_id, user_id, symbol, order_id, buy_or_sell, order_type, order_price, market_price,
-                  quantity, timestamp):
+def process_order(order_id):
+    timestamp = time.time()
+    if get_order_expiration_status(order_id):
+        add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
+        return
+
+    order_ticket = get_order_ticket(order_id)
+    symbol = order_ticket["symbol"]
+    game_id = order_ticket["game_id"]
+    user_id = order_ticket["user_id"]
+    buy_or_sell = order_ticket["buy_or_sell"]
+    quantity = order_ticket["quantity"]
+
+    market_price, _ = fetch_iex_price(symbol)
+
     # Only process active outstanding orders during trading day
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(user_id, game_id, symbol)
-    if during_trading_day() and execute_order(buy_or_sell, order_type, market_price, order_price, cash_balance,
-                                              current_holding, quantity):
+    if during_trading_day() and execute_order(buy_or_sell, order_ticket["order_type"], market_price,
+                                              order_ticket["price"], cash_balance, current_holding, quantity):
         order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
                                   clear_price=market_price)
         update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
@@ -643,6 +658,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
             return True
 
     return False
+
 
 # Functions for serving information about games
 # ---------------------------------------------

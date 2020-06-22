@@ -14,8 +14,7 @@ from backend.logic.base import (
     get_next_trading_day_schedule,
     TIMEZONE
 )
-from backend.tasks.redis import rds
-from backend.logic.base import fetch_iex_price, fetch_price_cache
+from backend.logic.base import fetch_iex_price
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -91,34 +90,3 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
-
-        # As above, mock in the current time values that we want to test for. Here each test value need to be
-        # duplicated since time.time() gets called inside during_trading_day and then again in fetch_price_cache
-        # -----------------------------------------------------------------------------------------------------------
-        amzn_test_price = 2000
-        off_hours_time = 1590192953
-        end_of_trade_time = 1590177600
-
-        with patch('backend.logic.base.time') as current_time_mock:
-            current_time_mock.time.side_effect = [
-                off_hours_time,  # Same-day look-up against a valid cache
-                off_hours_time,
-                off_hours_time + 5 * 24 * 60 * 60,  # Look-up much later than the last cached entry
-                off_hours_time + 5 * 24 * 60 * 60,
-                off_hours_time,  # back to the same-day look-up, but we'll reset the cache to earlier in the day
-                off_hours_time
-            ]
-
-            rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 30}")
-            cache_price, cache_time = fetch_price_cache(symbol)
-            self.assertEqual(amzn_test_price, cache_price)
-            self.assertEqual(end_of_trade_time - 30, cache_time)
-
-            # time cache is inspected is a long way ahead of when the cache was last updated...
-            null_result, _ = fetch_price_cache(symbol)
-            self.assertIsNone(null_result)
-
-            # cache isn't current as of the last minute of trading day
-            rds.set(symbol, f"{amzn_test_price}_{end_of_trade_time - 61}")
-            null_result, _ = fetch_price_cache(symbol)
-            self.assertIsNone(null_result)

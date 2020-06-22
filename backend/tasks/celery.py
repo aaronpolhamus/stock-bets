@@ -50,7 +50,7 @@ celery.conf.beat_schedule = {
     },
     "update_play_game_visuals": {
         "task": "async_update_play_game_visuals",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", day_of_week="1-5")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     },
     "update_player_stats": {
         "task": "async_update_player_stats",

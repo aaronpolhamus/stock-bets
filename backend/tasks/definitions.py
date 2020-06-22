@@ -5,7 +5,6 @@ from backend.database.helpers import (
     add_row
 )
 from backend.logic.base import (
-    PRICE_CACHING_INTERVAL,
     during_trading_day,
     get_user_id,
     get_all_game_users,
@@ -19,9 +18,7 @@ from backend.logic.friends import (
 from backend.logic.games import (
     get_user_invite_statuses_for_pending_game,
     get_all_open_orders,
-    get_order_ticket,
     process_order,
-    get_order_expiration_status,
     get_open_game_invite_ids,
     get_active_game_ids,
     respond_to_invite,
@@ -47,27 +44,10 @@ from backend.tasks.celery import (
     BaseTask,
     pause_return_until_subtask_completion
 )
-from backend.tasks.redis import rds
-
 
 # -------------------------- #
 # Price fetching and caching #
 # -------------------------- #
-
-@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=BaseTask)
-def async_fetch_active_symbol_prices(self):
-    active_symbols = get_all_active_symbols()
-    for symbol in active_symbols:
-        async_fetch_price.delay(symbol)
-
-
-@celery.task(name="async_fetch_price", bind=True, base=BaseTask)
-def async_fetch_price(self, symbol):
-    """Whatever method is used to get a price, the return should always be a (price, timestamp) tuple.
-    """
-    price, timestamp = fetch_iex_price(symbol)
-    async_cache_price.delay(symbol, price, timestamp)
-    return price, timestamp
 
 
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
@@ -75,19 +55,21 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
-    current_time = time.time()
-    cache_value = rds.get(symbol)
-    # If we have a cached value within the range of our price caching interval, don't story anything. This will help
-    # avoid redundant entries in the DB
-    if cache_value is not None:
-        _, update_time = [float(x) for x in cache_value.split("_")]
-        if current_time - update_time <= PRICE_CACHING_INTERVAL:
-            return
-
-    # Leave the cache alone if outside trade day. Use the final trade-day redis value for after-hours lookups
-    rds.set(symbol, f"{price}_{last_updated}")
     if during_trading_day():
         add_row("prices", symbol=symbol, price=price, timestamp=last_updated)
+
+
+@celery.task(name="async_fetch_and_cache_prices", bind=True, base=BaseTask)
+def async_fetch_and_cache_prices(self, symbol):
+    price, timestamp = fetch_iex_price(symbol)
+    async_cache_price.delay(symbol, price, timestamp)
+
+
+@celery.task(name="async_fetch_active_symbol_prices", bind=True, base=BaseTask)
+def async_fetch_active_symbol_prices(self):
+    active_symbols = get_all_active_symbols()
+    for symbol in active_symbols:
+        async_fetch_and_cache_prices.delay(symbol)
 
 
 # --------------- #
@@ -128,7 +110,6 @@ def async_get_game_info(self, game_id, user_id):
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
     return game_info
 
-
 # ---------------- #
 # Order management #
 # ---------------- #
@@ -159,29 +140,13 @@ def async_update_symbols_table(self, n_rows=None):
         symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
-@celery.task(name="async_process_single_order", base=BaseTask)
-def async_process_single_order(order_id):
-    timestamp = time.time()
-    if get_order_expiration_status(order_id):
-        add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
-        return
-
-    order_ticket = get_order_ticket(order_id)
-    symbol = order_ticket["symbol"]
-    market_price, _ = async_fetch_price.apply(args=[symbol]).result
-    process_order(order_ticket["game_id"], order_ticket["user_id"], symbol, order_id, order_ticket["buy_or_sell"],
-                  order_ticket["order_type"], order_ticket["price"], market_price, order_ticket["quantity"], timestamp)
-
-
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
     open_orders = get_all_open_orders()
-    status_list = []
     for order_id, _ in open_orders.items():
-        status_list.append(async_process_single_order.delay(order_id))
-    pause_return_until_subtask_completion(status_list, "async_process_all_open_orders")
+        process_order(order_id)
 
 # ------- #
 # Friends #

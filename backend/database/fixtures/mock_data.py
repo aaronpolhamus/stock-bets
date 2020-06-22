@@ -102,8 +102,8 @@ MOCK_DATA = {
         {"game_id": 2, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3]},
         {"game_id": 3, "status": "pending", "timestamp": simulation_start_time, "users": [1, 3, 4]},
         {"game_id": 3, "status": "active", "timestamp": simulation_start_time, "users": [1, 3, 4]},
-        {"game_id": 4, "status": "pending", "timestamp": 1589281860.0, "users": [3, 4, 5]},
-        {"game_id": 4, "status": "active", "timestamp": 1589368260.0, "users": [3, 4, 5]},
+        {"game_id": 4, "status": "pending", "timestamp": simulation_start_time, "users": [3, 4, 5]},
+        {"game_id": 4, "status": "active", "timestamp": simulation_start_time, "users": [3, 4, 5]},
         {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]}
     ],
     "game_invites": [
@@ -190,8 +190,15 @@ MOCK_DATA = {
          "price": get_stock_finish_price("SPXU") * 0.75, "order_type": "stop", "time_in_force": "until_cancelled"},
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "sell", "quantity": 4,
          "price": get_stock_finish_price("AMZN"), "order_type": "market", "time_in_force": "day"},
+
+        # game 4, user id #5
         {"user_id": 5, "game_id": 4, "symbol": "BABA", "buy_or_sell": "buy", "quantity": 3,
          "price": 201.72, "order_type": "market", "time_in_force": "day"},
+        # game 4, user id #4
+        {"user_id": 4, "game_id": 4, "symbol": "SQQQ", "buy_or_sell": "buy", "quantity": 3_128,
+         "price": 7.99, "order_type": "market", "time_in_force": "day"},
+        {"user_id": 4, "game_id": 4, "symbol": "SPXU", "buy_or_sell": "buy", "quantity": 2_131,
+         "price": 11.73, "order_type": "market", "time_in_force": "day"},
     ],
     "order_status": [
         {"order_id": 1, "timestamp": simulation_start_time, "status": "fulfilled",
@@ -216,8 +223,10 @@ MOCK_DATA = {
         {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},
         {"order_id": 11, "timestamp": close_of_simulation_time, "status": "fulfilled",
          "clear_price": get_stock_finish_price("AMZN")},
-        {"order_id": 12, "timestamp": close_of_simulation_time, "status": "fulfilled",
-         "clear_price": 201.72}
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "pending"},
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled"},
+        {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending"},
+        {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending"}
     ],
     "game_balances": [
         # Game 3, user id #1
@@ -272,12 +281,20 @@ MOCK_DATA = {
          "balance_type": "virtual_cash", "balance": 14037.019021799993, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 12, "timestamp": close_of_simulation_time,
          "balance_type": "virtual_stock", "balance": 6, "symbol": "AMZN"},
+
+        # Game 4, setup
         {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
-        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": close_of_simulation_time,
+        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 99798.28, "symbol": None},
-        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": close_of_simulation_time,
+        {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 1, "symbol": "BABA"},
+        {"user_id": 3, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
+        {"user_id": 4, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
+        {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
     ],
     "friends": [
         {"requester_id": 1, "invited_id": 3, "status": "invited", "timestamp": 1589758324},

@@ -480,20 +480,3 @@ def get_all_active_symbols():
         """)
 
     return [x[0] for x in result]
-
-
-def fetch_price_cache(symbol):
-    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
-    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
-    None and use that a trigger to pull data
-    """
-    posix_time = time.time()
-    if not during_trading_day():
-        if rds.exists(symbol):
-            price, update_time = rds.get(symbol).split("_")
-            update_time = float(update_time)
-            seconds_delta = posix_time - update_time
-            ny_update_time = posix_to_datetime(update_time)
-            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
-                return float(price), update_time
-    return None, None

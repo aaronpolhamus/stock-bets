@@ -41,7 +41,7 @@ from backend.logic.games import (
 )
 from logic.base import (
     get_pending_buy_order_value,
-    fetch_price_cache,
+    fetch_iex_price,
     get_user_information
 )
 from backend.logic.visuals import (
@@ -55,7 +55,6 @@ from backend.logic.visuals import (
     USD_FORMAT
 )
 from backend.tasks.definitions import (
-    async_fetch_price,
     async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
@@ -343,8 +342,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_open_orders.delay(game_id, user_id)
-    async_serialize_current_balances.delay(game_id, user_id)
+    async_serialize_open_orders.apply(args=[game_id, user_id])
+    async_serialize_current_balances.apply(args=[game_id, user_id])
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
@@ -354,11 +353,7 @@ def api_place_order():
 @authenticate
 def fetch_price():
     symbol = request.json.get("symbol")
-    price, timestamp = fetch_price_cache(symbol)
-    if price is not None:
-        # If we have a valid end-of-trading day cache value, we'll use that here
-        return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
-    price, timestamp = async_fetch_price.apply(args=[symbol]).get()
+    price, timestamp = fetch_iex_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
 
