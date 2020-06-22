@@ -5,11 +5,13 @@ import { Redirect } from "react-router-dom";
 
 const Admin = () => {
   const [redirect, setRedirect] = useState(false);
+  const [validated, setValidated] = useState(false);
   const [stock, setStock] = useState(null);
   useEffect(() => {
     const validateAdmin = async () => {
       try {
-        api.post("/api/verify_admin");
+        await api.post("/api/verify_admin");
+        setValidated(true);
       } catch (e) {
         console.log(e);
         alert("Admins only");
@@ -36,6 +38,7 @@ const Admin = () => {
     setStock(e.target.value);
   };
   if (redirect) return <Redirect to="/" />;
+  if (!validated) return <></>;
   return (
     <>
       <Form onSubmit={handleSubmit}>
@@ -60,7 +63,7 @@ const Admin = () => {
       </Row>
       <br />
       <Row>
-        <Button onClick={async () => api.post("/api/update_player_stats")}>
+        <Button onClick={async () => api.post("/api/refresh_visuals")}>
           Refresh visuals
         </Button>
       </Row>
