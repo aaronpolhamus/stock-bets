@@ -242,46 +242,39 @@ class TestGameLogic(BaseTestCase):
                             mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
-
+        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. Since buying power
+        is current cash balance - pendin
+        """
         user_id = 1
         game_id = 3
         buy_stock = "NVDA"
         market_price = 1_000
-        mock_buy_order = {"amount": 10,
-                          "buy_or_sell": "buy",
-                          "game_id": 3,
-                          "order_type": "market",
-                          "market_price": market_price,
-                          "quantity_type": "Shares",
-                          "symbol": buy_stock,
-                          "time_in_force": "until_cancelled",
-                          "title": "test game"}
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
-        with patch("backend.logic.games.time") as game_time_mock:
-            game_time_mock.time.side_effect = [1592202332, 1592202332]
+        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
+            game_time_mock.time.return_value = base_time_mock.time.return_value = 1592202332
             place_order(user_id,
                         game_id,
-                        mock_buy_order["symbol"],
-                        mock_buy_order["buy_or_sell"],
-                        current_cash_balance,
-                        current_holding,
-                        mock_buy_order["order_type"],
-                        mock_buy_order["quantity_type"],
-                        mock_buy_order["market_price"],
-                        mock_buy_order["amount"],
-                        mock_buy_order["time_in_force"])
+                        symbol=buy_stock,
+                        buy_or_sell="buy",
+                        cash_balance=current_cash_balance,
+                        current_holding=current_holding,
+                        order_type="market",
+                        quantity_type="Shares",
+                        market_price=market_price,
+                        amount=10,
+                        time_in_force="until_cancelled")
 
         with patch("backend.logic.base.fetch_iex_price") as fetch_price_mock:
             fetch_price_mock.return_value = (market_price, 1592202332)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
-        with self.engine.connect() as conn:
-            meli_order_price = conn.execute("""
-            SELECT price FROM orders WHERE symbol = %s ORDER BY id DESC LIMIT 0, 1;""", "MELI").fetchone()[0]
+        mock_data_meli_order_id = 9
+        meli_ticket = get_order_ticket(mock_data_meli_order_id)
 
-        self.assertAlmostEqual(buy_order_value, meli_order_price * 2 + 10 * market_price, 1)
+        # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
+        self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all

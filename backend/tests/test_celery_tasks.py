@@ -1,6 +1,6 @@
 import json
 import time
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
@@ -514,12 +514,12 @@ class TestVisualAssetsTasks(BaseTestCase):
 
             open_orders = get_all_open_orders()
             starting_open_orders = len(open_orders)
-            self.assertEqual(starting_open_orders, 4)
+            self.assertEqual(starting_open_orders, 6)
             res = async_process_all_open_orders.delay()
             while not res.ready():
                 continue
             new_open_orders = get_all_open_orders()
-            self.assertLessEqual(starting_open_orders - len(new_open_orders), 2)
+            self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
 
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,

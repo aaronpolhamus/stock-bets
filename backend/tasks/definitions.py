@@ -71,10 +71,10 @@ def async_fetch_active_symbol_prices(self):
     for symbol in active_symbols:
         async_fetch_and_cache_prices.delay(symbol)
 
-
 # --------------- #
 # Game management #
 # --------------- #
+
 
 @celery.task(name="async_get_user_invite_statuses_for_pending_game", bind=True, base=BaseTask)
 def async_get_user_invite_statuses_for_pending_game(self, game_id):

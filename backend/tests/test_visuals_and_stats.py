@@ -24,6 +24,7 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.logic.visuals import (
+    trade_time_index,
     serialize_and_pack_winners_table,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
@@ -36,7 +37,8 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
-    NULL_RGBA
+    NULL_RGBA,
+    N_PLOT_POINTS
 )
 from backend.logic.payouts import (
     get_winner,
@@ -307,3 +309,22 @@ class TestWinnerPayouts(BaseTestCase):
                 self.assertEqual(entry["Payout"], side_pot)
             else:
                 self.assertEqual(entry["Payout"], final_payout)
+
+
+class TestTradeTimeIndex(BaseTestCase):
+    """Test to ensure the integrity of a ugly little piece of code that produces the time indexes for charting
+    """
+
+    def test_trade_time_index(self):
+
+        with self.engine.connect() as conn:
+            prices = pd.read_sql("SELECT * FROM prices;", conn)
+
+        prices["timestamp"] = prices["timestamp"].apply(lambda x: posix_to_datetime(x))
+        with self.assertRaises(Exception):
+            prices["t_index"] = trade_time_index(prices["timestamp"])
+
+        prices.sort_values("timestamp", inplace=True)
+        prices["t_index"] = trade_time_index(prices["timestamp"])
+
+        self.assertEqual(prices["t_index"].nunique(), N_PLOT_POINTS)

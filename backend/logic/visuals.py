@@ -109,11 +109,42 @@ def format_posix_times(sr: pd.Series) -> pd.Series:
     return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
 
 
+def trade_time_index(timestamp_sr: pd.Series) -> List:
+    """this function solves the problem of how to create a continuous, linear index across a bunch of purchases and
+    sales happening at different times across trade days. Simply trying to get the timestamp for a fixed number of bins
+    results in the algorithm creating bins for "non-event" times on weekend and between trading hours. This algorithm
+    create a "trade time index" that maps scalar time index values dependably to corresponding datetimes.
+
+    Note that the passed-in timestamp series must be sorted, meaning that the dataframe from the outer environment must
+    be sorted in orders for this to work.
+    """
+    ls = timestamp_sr.to_list()
+    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))
+
+    anchor_time = last_time = timestamp_sr.min()
+    adjustment = 0  # the adjustment differences out the seconds attributable to "no event" space
+    trade_time_array = []
+    for t in timestamp_sr.to_list():
+        # if we crossed a boundary between days, increase the adjustment factor to account for the "no event" space
+        if t.day is not last_time.day:
+            current_schedule = get_next_trading_day_schedule(t)
+            current_start, _ = get_schedule_start_and_end(current_schedule)
+            last_schedule = get_next_trading_day_schedule(last_time)
+            _, last_end = get_schedule_start_and_end(last_schedule)
+            adjustment += current_start - last_end
+
+        trade_seconds = (t - anchor_time).total_seconds() - adjustment
+        trade_time_array.append(trade_seconds)
+        last_time = t
+
+    return pd.cut(pd.Series(trade_time_array), N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
+
+
 def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
     """
-    df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS, right=True, labels=False)
-    df["t_index"] = df["t_index"].rank(method="dense")
+    df.sort_values("timestamp", inplace=True)
+    df["t_index"] = trade_time_index(df["timestamp"])
     df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
     df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     return df
@@ -216,8 +247,8 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
         df["id"] = _id
         ls.append(df)
     df = pd.concat(ls)
-    df["bin"] = pd.cut(df["timestamp"], N_PLOT_POINTS, right=True, labels=False)
-    df["bin"] = df["bin"].rank(method="dense")
+    df.sort_values("timestamp", inplace=True)
+    df["bin"] = trade_time_index(df["timestamp"])
     labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
     labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df = df.merge(labels, how="inner", on="bin")

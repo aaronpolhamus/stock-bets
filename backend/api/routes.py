@@ -55,6 +55,8 @@ from backend.logic.visuals import (
     USD_FORMAT
 )
 from backend.tasks.definitions import (
+    async_update_player_stats,
+    async_update_play_game_visuals,
     async_compile_player_sidebar_stats,
     async_cache_price,
     async_suggest_symbols,
@@ -92,6 +94,7 @@ ORDER_PLACED_MESSAGE = "Order placed successfully!"
 GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
+ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
 
 
 # -------------- #
@@ -112,6 +115,16 @@ def authenticate(f):
             resp = make_response(INVALID_SIGNATURE_ERROR_MSG, 401)
         return resp
 
+    return decorated
+
+
+def admin(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        user_email = decode_token(request, "email")
+        if user_email not in ["aaron@stockbets.io"]:
+            return make_response(ADMIN_BLOCK_MSG, 401)
+        return f(*args, **kwargs)
     return decorated
 
 
@@ -477,6 +490,34 @@ def get_cash_balances():
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
+# ----- #
+# Admin #
+# ----- #
+
+
+@routes.route("/api/verify_admin", methods=["POST"])
+@authenticate
+@admin
+def verify_admin():
+    return make_response("Welcome to admin", 200)
+
+
+@routes.route("/api/update_player_stats", methods=["POST"])
+@authenticate
+@admin
+def update_player_stats():
+    async_update_player_stats.delay()
+    return make_response("updating stats...", 200)
+
+
+@routes.route("/api/refresh_visuals", methods=["POST"])
+@authenticate
+@admin
+def refresh_visuals():
+    async_update_play_game_visuals.delay()
+    return make_response("refreshing visuals...", 200)
+
+
 # ------ #
 # DevOps #
 # ------ #
@@ -485,3 +526,4 @@ def get_cash_balances():
 @routes.route("/healthcheck", methods=["GET"])
 def healthcheck():
     return make_response(HEALTH_CHECK_RESPONSE, 200)
+

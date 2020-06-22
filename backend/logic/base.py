@@ -18,7 +18,6 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.tasks.redis import rds
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 
@@ -36,7 +35,7 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
+PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
 nyse = mcal.get_calendar('NYSE')
 
 # ----------------------------------------------------------------------------------------------------------------- $
@@ -297,7 +296,7 @@ def resample_balances(symbol_subset):
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}S").last().ffill()
+    return df.resample(f"{PRICE_CACHING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
