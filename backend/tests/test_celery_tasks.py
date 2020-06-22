@@ -1,10 +1,14 @@
 import json
 import time
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
+from backend.logic.base import (
+    during_trading_day
+)
 from backend.logic.games import (
+    process_order,
     add_game,
     place_order,
     get_all_open_orders,
@@ -13,16 +17,12 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from logic.base import fetch_iex_price
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_fetch_price,
-    async_cache_price,
     async_suggest_symbols,
     async_respond_to_game_invite,
     async_service_open_games,
-    async_process_single_order,
     async_make_the_field_charts,
     async_serialize_current_balances,
     async_serialize_open_orders,
@@ -30,42 +30,43 @@ from backend.tasks.definitions import (
     async_get_friends_details,
     async_get_friend_invites,
     async_suggest_friends,
-    async_service_one_open_game
-)
-from backend.logic.base import (
-    PRICE_CACHING_INTERVAL,
-    during_trading_day
+    async_service_one_open_game,
+    async_cache_price
 )
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
+from logic.base import fetch_iex_price
 
 
 class TestStockDataTasks(BaseTestCase):
 
+    def test_price_caching(self):
+        symbol = "AMZN"
+        with self.engine.connect() as conn:
+            pre_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+
+        # replicate internal dynamics of async_fetch_and_cache_prices
+        with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
+            trading_day_mock.return_value = True
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+
+        with self.engine.connect() as conn:
+            post_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
+        self.assertEqual(post_count - pre_count, 3)
+
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
-        """Puzzle: If the "ACME" block is called above the AMZN block during trading hours an error comes up related to
-        the code not being able to find any meta data. Something with either the db_session or the DB itself fails when
-        calling async_cache_price directly, but after 5 hours of testing I couldn't figure out why.
-        """
-
-        symbol = "AMZN"
-        res = async_fetch_price.apply(args=[symbol])
-        price, _ = res.get()
-        self.assertIsNotNone(price)
-        self.assertTrue(price > 0)
-
-        update_time = time.time()
-        symbol = "ACME"
-        async_cache_price.apply(args=[symbol, 99, update_time])
-
-        cache_price, cache_time = rds.get(symbol).split("_")
-        self.assertEqual(float(cache_price), 99)
-        self.assertEqual(float(cache_time), update_time)
-
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
         async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
@@ -75,63 +76,6 @@ class TestStockDataTasks(BaseTestCase):
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
-
-
-class TestPriceCaching(BaseTestCase):
-
-    @patch("backend.logic.base.time")
-    @patch("backend.tasks.definitions.time")
-    def test_price_caching(self, task_time_mock, data_time_mock):
-
-        def _check_stocks():
-            for stock in stocks_to_monitor:
-                price, _ = fetch_iex_price(stock)
-                async_cache_price.apply(args=[stock, price, time.time()])
-
-        # clear the mocked-in price data and redis cache
-        with self.engine.connect() as conn:
-            conn.execute("TRUNCATE prices;")
-
-        # setup mocks
-        start_time = 1590511775
-        after_hours = 1590544501
-        stocks_to_monitor = [
-            "AMZN",
-            "TSLA",
-        ]
-        n_stocks = len(stocks_to_monitor)
-        time_list = [start_time] * n_stocks + \
-                    [start_time + PRICE_CACHING_INTERVAL / 2] * n_stocks + \
-                    [start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + \
-                    [after_hours] * n_stocks
-
-        time = Mock()
-        task_time_mock.time.side_effect = time.time.side_effect = time_list
-        # necessary to set this up separately because  we don't always hit the check trade day function
-        data_time_mock.time.side_effect = [start_time] * n_stocks + [
-            start_time + PRICE_CACHING_INTERVAL + 1] * n_stocks + [after_hours] * n_stocks
-
-        _check_stocks()
-        with self.engine.connect() as conn:
-            first_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-        self.assertEqual(first_count, len(stocks_to_monitor))
-
-        # We shouldn't see anymore data after immediately doing another check, provided that we are inside
-        # the caching window
-        _check_stocks()
-        with self.engine.connect() as conn:
-            second_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-        self.assertEqual(first_count, second_count)
-
-        _check_stocks()
-        with self.engine.connect() as conn:
-            third_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-        self.assertEqual(first_count + len(stocks_to_monitor), third_count)
-
-        _check_stocks()
-        with self.engine.connect() as conn:
-            fourth_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
-        self.assertEqual(third_count, fourth_count)
 
 
 class TestGameIntegration(BaseTestCase):
@@ -278,8 +222,7 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 500_000
-            res = async_fetch_price.apply(args=[stock_pick])
-            amzn_price, _ = res.get()
+            amzn_price, _ = fetch_iex_price(stock_pick)
 
             cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
@@ -361,44 +304,27 @@ class TestGameIntegration(BaseTestCase):
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
-        with patch("backend.tasks.definitions.async_fetch_price") as mock_price_fetch, patch(
-                "backend.tasks.definitions.time") as mock_task_time, patch(
-            "backend.logic.base.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
+        with patch("backend.logic.games.fetch_iex_price") as mock_price_fetch, patch(
+                "backend.logic.base.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5
 
-            class ResultMock(object):
-
-                def __init__(self, price):
-                    self.price = price
-
-                @property
-                def result(self):
-                    return self.price, None
-
-                @staticmethod
-                def ready():
-                    return True
-
             amzn_stop_ratio = 0.9
             meli_limit_ratio = 1.1
-            # this is async_fetch_price in for async_process_single order
-            mock_price_fetch.apply.side_effect = [
-                ResultMock(order_clear_price),
-                ResultMock(amzn_stop_ratio * amzn_price - 1),
-                ResultMock(meli_limit_ratio * meli_price + 1),
+            mock_price_fetch.side_effect = [
+                (order_clear_price, None),
+                (amzn_stop_ratio * amzn_price - 1, None),
+                (meli_limit_ratio * meli_price + 1, None),
             ]
-
-            mock_task_time.time.side_effect = [
+            mock_game_time.time.side_effect = [
                 game_start_time + 24 * 60 * 60,  # NVDA order from above
+                game_start_time + 24 * 60 * 60,
+                game_start_time + 24 * 60 * 60,
+                game_start_time + 24 * 60 * 60,
+                game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60 + 1000,  # AMZN order needs to clear on the same day
                 game_start_time + 48 * 60 * 60,  # MELI order is open until being cancelled
-            ]
-
-            mock_game_time.time.side_effect = [
-                game_start_time + 24 * 60 * 60,
-                game_start_time + 24 * 60 * 60,
-                game_start_time + 24 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
             ]
 
             mock_data_time.time.side_effect = [
@@ -418,7 +344,7 @@ class TestGameIntegration(BaseTestCase):
                                              WHERE user_id = %s AND game_id = %s AND symbol = %s;""",
                                              user_id, game_id, stock_pick).fetchone()[0]
 
-            async_process_single_order.apply(args=[open_order_id])
+            process_order(open_order_id)
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
@@ -484,8 +410,8 @@ class TestGameIntegration(BaseTestCase):
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
 
-            async_process_single_order.apply(args=[amzn_open_order_id])
-            async_process_single_order.apply(args=[meli_open_order_id])
+            process_order(amzn_open_order_id)
+            process_order(meli_open_order_id)
 
             with self.engine.connect() as conn:
                 query = """
@@ -588,12 +514,12 @@ class TestVisualAssetsTasks(BaseTestCase):
 
             open_orders = get_all_open_orders()
             starting_open_orders = len(open_orders)
-            self.assertEqual(starting_open_orders, 4)
+            self.assertEqual(starting_open_orders, 6)
             res = async_process_all_open_orders.delay()
             while not res.ready():
                 continue
             new_open_orders = get_all_open_orders()
-            self.assertLessEqual(starting_open_orders - len(new_open_orders), 2)
+            self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
 
     def test_line_charts(self):
         # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,

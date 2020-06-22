@@ -18,7 +18,6 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.tasks.redis import rds
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 
@@ -36,7 +35,7 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
+PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
 nyse = mcal.get_calendar('NYSE')
 
 # ----------------------------------------------------------------------------------------------------------------- $
@@ -297,7 +296,7 @@ def resample_balances(symbol_subset):
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}S").last().ffill()
+    return df.resample(f"{PRICE_CACHING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
@@ -480,20 +479,3 @@ def get_all_active_symbols():
         """)
 
     return [x[0] for x in result]
-
-
-def fetch_price_cache(symbol):
-    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
-    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
-    None and use that a trigger to pull data
-    """
-    posix_time = time.time()
-    if not during_trading_day():
-        if rds.exists(symbol):
-            price, update_time = rds.get(symbol).split("_")
-            update_time = float(update_time)
-            seconds_delta = posix_time - update_time
-            ny_update_time = posix_to_datetime(update_time)
-            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
-                return float(price), update_time
-    return None, None
