@@ -38,7 +38,6 @@ const PlaceOrder = ({ gameId }) => {
     e.preventDefault();
     const orderTicketCopy = { ...orderTicket };
     orderTicketCopy.symbol = symbolValue;
-    orderTicketCopy.market_price = priceData.price;
     setOrderTicket(orderTicketCopy);
     try {
       await api.post("/api/place_order", orderTicketCopy);

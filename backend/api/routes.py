@@ -337,6 +337,7 @@ def api_place_order():
 
     try:
         symbol = order_ticket["symbol"]
+        market_price, _ = fetch_iex_price(symbol)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         place_order(
@@ -348,7 +349,7 @@ def api_place_order():
             current_holding,
             order_ticket["order_type"],
             order_ticket["quantity_type"],
-            float(order_ticket["market_price"]),
+            market_price,
             float(order_ticket["amount"]),
             order_ticket["time_in_force"],
             stop_limit_price)

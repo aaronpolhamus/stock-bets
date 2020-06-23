@@ -263,6 +263,8 @@ def make_the_field_charts(game_id: int):
     portfolio_values = {}
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
+        if user_id == 27:
+            import ipdb;ipdb.set_trace()
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio_values[user_id] = aggregate_portfolio_value(df)
 
