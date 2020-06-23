@@ -38,6 +38,7 @@ WHITE_LIST = [
     "jmz7v.com@gmail.com",
     "Ken@escale.com.br",
     "ken@escale.com.br",
+    "kiefertravis@gmail.com",
     "landstromconsulting@gmail.com",
     "mark.polhamus@gmail.com",
     "matheus@sat.ws",
