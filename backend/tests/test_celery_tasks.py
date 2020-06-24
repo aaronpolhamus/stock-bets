@@ -65,6 +65,28 @@ class TestStockDataTasks(BaseTestCase):
             post_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
         self.assertEqual(post_count - pre_count, 3)
 
+        # check to make sure that redundant entries aren't written to the price table
+        symbol = "WORK"
+        with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
+            trading_day_mock.return_value = True
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                first_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(first_count, 1)
+
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                second_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(second_count, 1)
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(third_count, 2)
+
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])

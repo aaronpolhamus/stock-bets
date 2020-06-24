@@ -8,6 +8,8 @@ from backend.logic.base import (
     during_trading_day,
     get_user_id,
     get_all_game_users,
+    get_cache_price,
+    set_cache_price
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -55,8 +57,13 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
+    cache_price, cache_time = get_cache_price(symbol)
+    if cache_price is not None and cache_time == last_updated:
+        return
+
     if during_trading_day():
         add_row("prices", symbol=symbol, price=price, timestamp=last_updated)
+        set_cache_price(symbol, price, last_updated)
 
 
 @celery.task(name="async_fetch_and_cache_prices", bind=True, base=BaseTask)

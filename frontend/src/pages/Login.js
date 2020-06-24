@@ -136,6 +136,7 @@ export default function AlphabetLogin() {
             <p>
               <FacebookLogin
                 appId={process.env.REACT_APP_FACEBOOK_APP_ID}
+                disableMobileRedirect={true}
                 fields="name,email,picture"
                 callback={handleSubmit}
                 render={(renderProps) => (

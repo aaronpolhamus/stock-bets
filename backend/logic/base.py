@@ -20,7 +20,7 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
-
+from backend.tasks.redis import rds
 
 # -------- #
 # Defaults #
@@ -463,6 +463,17 @@ def fetch_iex_price(symbol):
         if not Config.IEX_API_PRODUCTION:
             timestamp = time.time()
         return price, timestamp
+
+
+def get_cache_price(symbol):
+    data = rds.get(symbol)
+    if data is None:
+        return None, None
+    return [float(x) for x in data.split("_")]
+
+
+def set_cache_price(symbol, price, timestamp):
+    rds.set(symbol, f"{price}_{timestamp}")
 
 
 def get_all_active_symbols():
