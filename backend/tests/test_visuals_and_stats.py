@@ -26,8 +26,8 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     trade_time_index,
     serialize_and_pack_winners_table,
-    serialize_and_pack_orders_open_orders,
-    serialize_and_pack_current_balances,
+    serialize_and_pack_order_details,
+    serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
     compile_and_pack_player_sidebar_stats,
     make_balances_chart_data,
@@ -161,12 +161,12 @@ class TestGameKickoff(BaseTestCase):
         self._start_game_runner(start_time, game_id)
 
         # These are the internals of the celery tasks that called to update their state
-        serialize_and_pack_orders_open_orders(game_id, self.user_id)
+        serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(open_orders["data"][0]["Symbol"], self.stock_pick)
         self.assertEqual(len(open_orders["data"]), 1)
 
-        serialize_and_pack_current_balances(game_id, self.user_id)
+        serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 0)
 
@@ -199,11 +199,11 @@ class TestGameKickoff(BaseTestCase):
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders, and if they're good
         # These are the internals of the celery tasks that called to update their state
-        serialize_and_pack_orders_open_orders(game_id, self.user_id)
+        serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(open_orders["data"]), 0)
 
-        serialize_and_pack_current_balances(game_id, self.user_id)
+        serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 1)
 

@@ -1,14 +1,19 @@
 import React from "react";
 
-const renderRow = (row, headers) => {
+const renderRow = (row, headers, exclude = ["id"]) => {
   return headers.map((key, index) => {
+    if (exclude.includes(key)) {
+      return null;
+    }
     return <td key={index}>{row[key]}</td>;
   });
 };
 
-const makeRows = (tableData) => {
+const makeRows = (tableData, exclude = ["id"]) => {
+  // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the
+  // order id for order cancellations
   return tableData.data.map((row, index) => {
-    return <tr key={index}>{renderRow(row, tableData.headers)}</tr>;
+    return <tr key={index}>{renderRow(row, tableData.headers, exclude)}</tr>;
   });
 };
 

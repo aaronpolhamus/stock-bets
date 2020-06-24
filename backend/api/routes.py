@@ -17,6 +17,7 @@ from backend.logic.games import (
     add_game,
     get_game_info_for_user,
     place_order,
+    cancel_order,
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
@@ -61,7 +62,7 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_get_user_invite_statuses_for_pending_game,
-    async_serialize_open_orders,
+    async_serialize_order_details,
     async_serialize_current_balances,
     async_get_game_info,
     async_invite_friend,
@@ -95,6 +96,7 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
+ORDER_CANCELLED_MESSAGE = "Order cancelled"
 
 
 # -------------- #
@@ -357,11 +359,22 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_open_orders.apply(args=[game_id, user_id])
+    async_serialize_order_details.apply(args=[game_id, user_id])
     async_serialize_current_balances.apply(args=[game_id, user_id])
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
+
+
+@routes.route("/api/cancel_order", methods=["POST"])
+@authenticate
+def api_cancel_order():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    order_id = request.json.get("order_id")
+    cancel_order(order_id)
+    async_serialize_order_details.apply(args=[game_id, user_id])
+    return make_response(ORDER_CANCELLED_MESSAGE, 200)
 
 
 @routes.route("/api/fetch_price", methods=["POST"])
@@ -528,4 +541,3 @@ def refresh_visuals():
 @routes.route("/healthcheck", methods=["GET"])
 def healthcheck():
     return make_response(HEALTH_CHECK_RESPONSE, 200)
-

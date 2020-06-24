@@ -25,7 +25,7 @@ from backend.tasks.definitions import (
     async_service_open_games,
     async_make_the_field_charts,
     async_serialize_current_balances,
-    async_serialize_open_orders,
+    async_serialize_order_details,
     async_calculate_game_metrics,
     async_get_friends_details,
     async_get_friend_invites,
@@ -554,7 +554,7 @@ class TestVisualAssetsTasks(BaseTestCase):
         task_results = list()
         task_results.append(async_make_the_field_charts.delay(game_id))
         for user_id in user_ids:
-            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_order_details.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected

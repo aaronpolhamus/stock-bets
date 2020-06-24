@@ -289,7 +289,7 @@ def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
     return df
 
 
-def serialize_and_pack_orders_open_orders(game_id: int, user_id: int):
+def serialize_and_pack_order_details(game_id: int, user_id: int):
     open_orders = get_open_orders(game_id, user_id)
     open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
     open_orders["time_in_force"] = open_orders["time_in_force"].apply(
@@ -348,7 +348,7 @@ def get_most_recent_prices(symbols):
         return pd.read_sql(sql, conn, params=symbols)
 
 
-def serialize_and_pack_current_balances(game_id: int, user_id: int):
+def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
                        "price": "Market price", "timestamp": "Updated at"}
     out_dict = dict(data=[], headers=list(column_mappings.values()))

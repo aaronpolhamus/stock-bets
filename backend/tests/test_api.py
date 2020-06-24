@@ -231,7 +231,7 @@ class TestCreateGame(BaseTestCase):
             "buy_in": buy_in,
             "duration": game_duation,
             "mode": "winner_takes_all",
-            "n_rebuys": 3,
+            "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
@@ -485,6 +485,19 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, str(LimitError()))
+
+        # cancel the last order that we placed successfully and verify that this updated the order details table
+        with self.engine.connect() as conn:
+            order_id = conn.execute("SELECT id FROM main.orders WHERE symbol = 'JETS';").fetchone()[0]
+        res = self.requests_session.post(f"{HOST_URL}/cancel_order", cookies={"session_token": session_token},
+                                         verify=False, json={"order_id": order_id, "game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
+        self.assertNotIn(stock_pick, stocks_in_table_response)
 
 
 class TestGetGameStats(BaseTestCase):
