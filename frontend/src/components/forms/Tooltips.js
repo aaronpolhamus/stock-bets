@@ -4,8 +4,9 @@ import { HelpCircle } from "react-feather";
 
 const Tooltip = ({ message }) => (
   <OverlayTrigger
-    placement="top"
+    placement="auto"
     trigger="hover"
+    html={true}
     overlay={
       <Popover>
         <Popover.Content>{message}</Popover.Content>

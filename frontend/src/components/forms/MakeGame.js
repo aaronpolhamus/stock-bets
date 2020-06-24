@@ -93,7 +93,7 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Title
-                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                <Tooltip message="We randomly generate a nonsense title for you, but feel free to pick your own!" />
               </Form.Label>
               <Form.Control
                 name="title"
@@ -105,7 +105,7 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Game mode
-                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                <Tooltip message='In a "consolation prize" game second place gets their money back. In a return weighted game, the pot is divided up proportionally based on game scores.' />
               </Form.Label>
               <RadioButtons
                 options={defaults.game_modes}
@@ -119,7 +119,7 @@ const MakeGame = () => {
                 <Form.Group>
                   <Form.Label>
                     Game duration (days)
-                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                    <Tooltip message="How many days would you like your game to last for?" />
                   </Form.Label>
                   <Form.Control
                     name="duration"
@@ -135,7 +135,7 @@ const MakeGame = () => {
                 <Form.Group>
                   <Form.Label>
                     Buy-in
-                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                    <Tooltip message="How many dollars does each player need to put in to join the game?" />
                   </Form.Label>
                   <Form.Control
                     name="buy_in"
@@ -145,25 +145,11 @@ const MakeGame = () => {
                   />
                 </Form.Group>
               </Col>
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label>
-                    Number of re-buys
-                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
-                  </Form.Label>
-                  <Form.Control
-                    name="n_rebuys"
-                    type="input"
-                    defaultValue={defaults.n_rebuys}
-                    onChange={handleChange}
-                  />
-                </Form.Group>
-              </Col>
             </Row>
             <Form.Group>
               <Form.Label>
                 Benchmark
-                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                <Tooltip message="If you're not sure what a Sharpe ratio is, go with simple return, which simply  divides the money you have at the end by the amount you started with." />
               </Form.Label>
 
               <RadioButtons
@@ -178,7 +164,7 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Add Participant
-                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                <Tooltip message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first." />
               </Form.Label>
               <StyledTypeahead
                 id="typeahead-particpants"
@@ -198,7 +184,7 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Sidebet % of pot
-                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                <Tooltip message="In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked." />
               </Form.Label>
               <Form.Control
                 name="side_bets_perc"
@@ -210,7 +196,10 @@ const MakeGame = () => {
             </Form.Group>
             {sidePotPct > 0 && (
               <Form.Group>
-                <Form.Label>Sidebet period</Form.Label>
+                <Form.Label>
+                  Sidebet period
+                  <Tooltip message="The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. " />
+                </Form.Label>
                 <Form.Control
                   name="side_bets_period"
                   as="select"

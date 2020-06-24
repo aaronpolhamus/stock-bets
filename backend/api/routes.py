@@ -252,13 +252,14 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
+    n_rebuys = 0  # this is not a popular user feature, and it  adds a lot of complexity.
     add_game(
         user_id,
         game_settings["title"],
         game_settings["mode"],
         game_settings["duration"],
         game_settings["buy_in"],
-        game_settings["n_rebuys"],
+        n_rebuys,
         game_settings["benchmark"],
         game_settings["side_bets_perc"],
         game_settings["side_bets_period"],

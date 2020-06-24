@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { fetchGameData } from "components/functions/api";
-import { dollarizer } from "components/functions/formats";
+import { Tooltip } from "components/forms/Tooltips";
 
 const GameDetails = styled.small`
   display: block;
@@ -57,7 +57,6 @@ const GameHeader = ({ gameId }) => {
     getGameData();
   }, []);
 
-  console.log("playgamejs", cashData);
   return (
     <Header>
       <h1>
@@ -69,6 +68,7 @@ const GameHeader = ({ gameId }) => {
         </GameDetails>
       </h1>
       <CashInfoWrapper>
+        <Tooltip message="Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few." />
         <p>
           <strong>Cash Balance: </strong>
           {cashData.cash_balance}
