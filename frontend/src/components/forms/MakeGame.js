@@ -5,7 +5,7 @@ import { Form, Button, Modal, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
 import { RadioButtons } from "components/forms/Inputs";
-
+import { Tooltip } from "components/forms/Tooltips";
 import styled from "styled-components";
 
 const StyledTypeahead = styled(Typeahead)`
@@ -91,7 +91,10 @@ const MakeGame = () => {
         <Row>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Title</Form.Label>
+              <Form.Label>
+                Title
+                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+              </Form.Label>
               <Form.Control
                 name="title"
                 type="input"
@@ -100,7 +103,10 @@ const MakeGame = () => {
               />
             </Form.Group>
             <Form.Group>
-              <Form.Label>Game mode</Form.Label>
+              <Form.Label>
+                Game mode
+                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+              </Form.Label>
               <RadioButtons
                 options={defaults.game_modes}
                 name="mode"
@@ -111,7 +117,10 @@ const MakeGame = () => {
             <Row>
               <Col xs={6}>
                 <Form.Group>
-                  <Form.Label>Game duration (days)</Form.Label>
+                  <Form.Label>
+                    Game duration (days)
+                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                  </Form.Label>
                   <Form.Control
                     name="duration"
                     type="input"
@@ -124,7 +133,10 @@ const MakeGame = () => {
             <Row>
               <Col xs={6}>
                 <Form.Group>
-                  <Form.Label>Buy-in</Form.Label>
+                  <Form.Label>
+                    Buy-in
+                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                  </Form.Label>
                   <Form.Control
                     name="buy_in"
                     type="input"
@@ -135,7 +147,10 @@ const MakeGame = () => {
               </Col>
               <Col xs={6}>
                 <Form.Group>
-                  <Form.Label>Number of re-buys</Form.Label>
+                  <Form.Label>
+                    Number of re-buys
+                    <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+                  </Form.Label>
                   <Form.Control
                     name="n_rebuys"
                     type="input"
@@ -146,7 +161,10 @@ const MakeGame = () => {
               </Col>
             </Row>
             <Form.Group>
-              <Form.Label>Benchmark</Form.Label>
+              <Form.Label>
+                Benchmark
+                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+              </Form.Label>
 
               <RadioButtons
                 options={defaults.benchmarks}
@@ -158,7 +176,10 @@ const MakeGame = () => {
           </Col>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Add Participant</Form.Label>
+              <Form.Label>
+                Add Participant
+                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+              </Form.Label>
               <StyledTypeahead
                 id="typeahead-particpants"
                 name="invitees"
@@ -175,7 +196,10 @@ const MakeGame = () => {
           </Col>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Sidebet % of pot</Form.Label>
+              <Form.Label>
+                Sidebet % of pot
+                <Tooltip message="This is placeholder text to showcase the tooltip component and see how it interacts with the whole interface" />
+              </Form.Label>
               <Form.Control
                 name="side_bets_perc"
                 type="input"
