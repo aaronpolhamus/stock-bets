@@ -7,13 +7,14 @@ import { Workbench } from "pages/Workbench";
 import { PlayGame } from "pages/PlayGame";
 import { JoinGame } from "pages/JoinGame";
 import { NewGame } from "pages/NewGame";
+import { Admin } from "pages/Admin";
 import { PrivacyPolicy } from "pages/PrivacyPolicy";
 
 export default function App() {
   return (
     <div className="App">
       <Router>
-        <Route exact path="/" component={Home} />{" "}
+        <Route exact path="/" component={Home} />
         <Route exact path="/login" component={Login} />
         <Route exact path="/welcome" component={Welcome} />
         <Route exact path="/workbench" component={Workbench} />
@@ -21,6 +22,7 @@ export default function App() {
         <Route exact path="/play/:gameId" component={PlayGame} />
         <Route exact path="/join/:gameId" component={JoinGame} />
         <Route exact path="/privacy" component={PrivacyPolicy} />
+        <Route exact path="/admin" component={Admin} />
       </Router>
     </div>
   );

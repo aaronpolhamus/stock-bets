@@ -1,6 +1,7 @@
 """Base business logic that can be shared between multiple modules. This is mainly here to help us avoid circular
 as we build out the logic library.
 """
+from typing import List
 import calendar
 import sys
 import time
@@ -17,7 +18,6 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.tasks.redis import rds
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 
@@ -35,7 +35,7 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-PRICE_CACHING_INTERVAL = 60  # The n-second interval for writing updated price values to the DB
+PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
 nyse = mcal.get_calendar('NYSE')
 
 # ----------------------------------------------------------------------------------------------------------------- $
@@ -279,41 +279,49 @@ def get_username(user_id: int):
 # --------------- #
 
 
-def get_price_histories(symbols):
+def get_price_histories(symbols: List[str], min_time: float, max_time: float):
     sql = f"""
         SELECT timestamp, price, symbol FROM prices
-        WHERE symbol IN ({','.join(['%s'] * len(symbols))})
+        WHERE 
+          symbol IN ({','.join(['%s'] * len(symbols))}) AND 
+          timestamp >= %s AND timestamp <= %s;
     """
+    params_list = list(symbols) + [min_time, max_time]
     with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
+        df = pd.read_sql(sql, conn, params=params_list)
+    return df.sort_values("timestamp")
 
 
 def resample_balances(symbol_subset):
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}S").last().ffill()
+    return df.resample(f"{PRICE_CACHING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
     resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
+    min_time = datetime_to_posix(resampled_balances["timestamp"].min())
+    max_time = datetime_to_posix(resampled_balances["timestamp"].max())
 
     # Now add price data
     symbols = balances_df["symbol"].unique()
-    price_df = get_price_histories(symbols)
+    price_df = get_price_histories(symbols, min_time, max_time)
     price_df["timestamp"] = price_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     price_subsets = []
     for symbol in symbols:
         balance_subset = resampled_balances[resampled_balances["symbol"] == symbol]
         prices_subset = price_df[price_df["symbol"] == symbol]
+        if prices_subset.empty and symbol == "Cash":
+            # Special handling for cash
+            balance_subset["price"] = 1
+            price_subsets.append(balance_subset)
+            continue
         del prices_subset["symbol"]
         price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
     df = pd.concat(price_subsets, axis=0)
-
-    # handle Cash and create a column for the value of each position in time
-    df.loc[df["symbol"] == "Cash", "price"] = 1
     df["value"] = df["balance"] * df["price"]
     return df
 
@@ -452,6 +460,8 @@ def fetch_iex_price(symbol):
         quote = res.json()
         timestamp = quote["latestUpdate"] / 1000
         price = quote["latestPrice"]
+        if not Config.IEX_API_PRODUCTION:
+            timestamp = time.time()
         return price, timestamp
 
 
@@ -469,20 +479,3 @@ def get_all_active_symbols():
         """)
 
     return [x[0] for x in result]
-
-
-def fetch_price_cache(symbol):
-    """This function checks whether a symbol has a current end-of-trading day cache. If it does, and a user is on the
-    platform during non-trading hours, we can use this updated value. If there isn't a valid cache entry we'll return
-    None and use that a trigger to pull data
-    """
-    posix_time = time.time()
-    if not during_trading_day():
-        if rds.exists(symbol):
-            price, update_time = rds.get(symbol).split("_")
-            update_time = float(update_time)
-            seconds_delta = posix_time - update_time
-            ny_update_time = posix_to_datetime(update_time)
-            if seconds_delta < 16.5 * 60 * 60 and ny_update_time.hour == 15 and ny_update_time.minute >= 59:
-                return float(price), update_time
-    return None, None

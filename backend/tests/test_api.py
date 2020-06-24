@@ -18,7 +18,9 @@ from backend.database.helpers import (
     query_to_dict,
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
-from backend.logic.base import during_trading_day
+from backend.logic.base import (
+    during_trading_day,
+    fetch_iex_price)
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
     DEFAULT_GAME_MODE,
@@ -42,7 +44,6 @@ from backend.logic.visuals import (
     PAYOUTS_PREFIX
 )
 from backend.tasks.definitions import (
-    async_fetch_price,
     async_calculate_game_metrics,
     async_compile_player_sidebar_stats
 )
@@ -335,7 +336,7 @@ class TestCreateGame(BaseTestCase):
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
-        self.assertEqual(len(side_bet_payouts), int(game_duation/7))
+        self.assertEqual(len(side_bet_payouts), game_duation // 7)
         # len(invitees) - 1 because one of the players declines the game
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
@@ -383,8 +384,7 @@ class TestPlayGame(BaseTestCase):
         stock_pick = "JETS"
         order_quantity = 25
 
-        res = async_fetch_price.apply(args=[stock_pick])
-        market_price, _ = res.result
+        market_price, _ = fetch_iex_price(stock_pick)
 
         order_ticket = {
             "user_id": user_id,
@@ -430,8 +430,7 @@ class TestPlayGame(BaseTestCase):
 
         # place a couple different types of invalid orders to make sure that we're getting what we expect back
         stock_pick = "AMZN"
-        res = async_fetch_price.apply(args=[stock_pick])
-        market_price, _ = res.result
+        market_price, _ = fetch_iex_price(stock_pick)
 
         # can't buy a billion dollars of Amazon
         order_ticket = {

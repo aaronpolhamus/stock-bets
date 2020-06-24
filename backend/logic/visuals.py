@@ -6,7 +6,6 @@ from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
-import seaborn as sns
 from backend.database.db import engine
 from backend.logic.base import (
     make_date_offset,
@@ -27,16 +26,6 @@ from backend.logic.base import (
 )
 from backend.tasks.redis import rds
 
-# -------------- #
-# Chart settings #
-# -------------- #
-
-N_PLOT_POINTS = 25
-USD_FORMAT = "${:,.2f}"
-DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
-RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
-NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
-
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -46,6 +35,60 @@ OPEN_ORDERS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
 PAYOUTS_PREFIX = "payouts"
+
+
+# -------------- #
+# Chart settings #
+# -------------- #
+
+N_PLOT_POINTS = 30
+USD_FORMAT = "${:,.2f}"
+DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
+RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
+
+# ------ #
+# Colors #
+# ------ #
+"""Colors are organized sequentially with three different grouping. We'll assign user colors in order, starting with the
+first one, and working our way through the list
+"""
+HEX_COLOR_PALETTE = [
+    "#453B85",  # group 1
+    "#FFAF75",
+    "#FF4B4B",
+    "#287B95",
+    "#FF778F",
+    "#7F7192",
+    "#473232",
+    "#8C80A1",  # group 2
+    "#FCC698",
+    "#FC8A7E",
+    "#7BA7AB",
+    "#FCA4A7",
+    "#AFA1A9",
+    "#8D7B6F",
+    "#4B495B",  # group 3
+    "#AA6E68",
+    "#AA324F",
+    "#02837B",
+    "#A05E7C",
+    "#903E88",
+    "#3C2340"]
+
+NULL_RGBA = "rgba(0, 0, 0, 0)"  # transparent plot elements
+
+
+def hex_to_rgb(h):
+    h = h.lstrip('#')
+    hlen = len(h)
+    return tuple(int(h[i:(i + hlen // 3)], 16) for i in range(0, hlen, hlen // 3))
+
+
+def palette_generator(n):
+    """For n distinct series, generate a unique color palette"""
+    hex_codes = HEX_COLOR_PALETTE[:n]
+    rgb_codes = [hex_to_rgb(x) for x in hex_codes]
+    return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
 # --------------- #
 # Dynamic display #
@@ -66,17 +109,42 @@ def format_posix_times(sr: pd.Series) -> pd.Series:
     return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
 
 
-def _interpolate_values(df):
-    df["value"] = df["value"].interpolate(method="akima")
-    return df.reset_index(drop=True)
+def trade_time_index(timestamp_sr: pd.Series) -> List:
+    """this function solves the problem of how to create a continuous, linear index across a bunch of purchases and
+    sales happening at different times across trade days. Simply trying to get the timestamp for a fixed number of bins
+    results in the algorithm creating bins for "non-event" times on weekend and between trading hours. This algorithm
+    create a "trade time index" that maps scalar time index values dependably to corresponding datetimes.
+
+    Note that the passed-in timestamp series must be sorted, meaning that the dataframe from the outer environment must
+    be sorted in orders for this to work.
+    """
+    ls = timestamp_sr.to_list()
+    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))
+
+    anchor_time = last_time = timestamp_sr.min()
+    adjustment = 0  # the adjustment differences out the seconds attributable to "no event" space
+    trade_time_array = []
+    for t in timestamp_sr.to_list():
+        # if we crossed a boundary between days, increase the adjustment factor to account for the "no event" space
+        if t.day is not last_time.day:
+            current_schedule = get_next_trading_day_schedule(t)
+            current_start, _ = get_schedule_start_and_end(current_schedule)
+            last_schedule = get_next_trading_day_schedule(last_time)
+            _, last_end = get_schedule_start_and_end(last_schedule)
+            adjustment += current_start - last_end
+
+        trade_seconds = (t - anchor_time).total_seconds() - adjustment
+        trade_time_array.append(trade_seconds)
+        last_time = t
+
+    return pd.cut(pd.Series(trade_time_array), N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
 
 def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
     """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
     """
-    df = df.groupby("symbol", as_index=False).apply(lambda subset: _interpolate_values(subset)).reset_index(drop=True)
-    df["t_index"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
-    df["t_index"] = df["t_index"].rank(method="dense")
+    df.sort_values("timestamp", inplace=True)
+    df["t_index"] = trade_time_index(df["timestamp"])
     df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
     df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     return df
@@ -100,13 +168,6 @@ def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
             entry[k] = row[v]
         output_array.append(entry)
     return output_array
-
-
-def palette_generator(n, palette="hls"):
-    """For n distinct series, generate a unique color palette
-    """
-    rgb_codes = sns.color_palette(palette, n)
-    return [f"rgba({255 * r}, {255 * g}, {255 * b}, 1)" for r, g, b in rgb_codes]
 
 
 def null_chart_series(null_label: str):
@@ -186,8 +247,8 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
         df["id"] = _id
         ls.append(df)
     df = pd.concat(ls)
-    df["bin"] = pd.cut(df["timestamp"], N_PLOT_POINTS * 4, right=True, labels=False)
-    df["bin"] = df["bin"].rank(method="dense")
+    df.sort_values("timestamp", inplace=True)
+    df["bin"] = trade_time_index(df["timestamp"])
     labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
     labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df = df.merge(labels, how="inner", on="bin")
@@ -376,7 +437,7 @@ def serialize_and_pack_winners_table(game_id: int):
 
 def _days_left(game_id: int):
     seconds_left = get_game_end_date(game_id) - time.time()
-    return int(seconds_left / (24 * 60 * 60))
+    return seconds_left // (24 * 60 * 60)
 
 
 def make_side_bar_output(game_id: int, user_stats: list):
@@ -397,6 +458,12 @@ def get_portfolio_value(game_id: int, user_id: int) -> float:
 
 def make_stat_entry(user_id: int, cash_balance: float, portfolio_value: float, stocks_held: List[str],
                     total_return: float = None, sharpe_ratio: float = None):
+    if total_return is None:
+        total_return = 100
+
+    if sharpe_ratio is None:
+        sharpe_ratio = 1
+
     entry = get_user_information(user_id)
     entry["total_return"] = total_return
     entry["sharpe_ratio"] = sharpe_ratio

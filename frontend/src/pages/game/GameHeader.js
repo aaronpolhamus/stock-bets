@@ -71,12 +71,12 @@ const GameHeader = ({ gameId }) => {
       <CashInfoWrapper>
         <p>
           <strong>Cash Balance: </strong>
-          {cashData.cash_balance && dollarizer.format(cashData.cash_balance)}
+          {cashData.cash_balance}
         </p>
         <p>
           <small>
             <strong>Buying power: </strong>
-            {cashData.buying_power && dollarizer.format(cashData.buying_power)}
+            {cashData.buying_power}
           </small>
         </p>
       </CashInfoWrapper>

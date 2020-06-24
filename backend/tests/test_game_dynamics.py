@@ -1,13 +1,15 @@
 """Bundles tests relating to games, including celery task tests
 """
 import json
-from unittest.mock import patch
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import get_pending_buy_order_value
 from backend.logic.games import (
+    get_order_ticket,
+    process_order,
     execute_order,
     make_random_game_title,
     get_current_game_cash_balance,
@@ -25,6 +27,7 @@ from backend.logic.games import (
     InsufficientFunds,
     InsufficientHoldings,
     LimitError,
+    NoNegativeOrders,
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tests import BaseTestCase
@@ -76,7 +79,7 @@ class TestGameLogic(BaseTestCase):
 
         # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
         # all games on the platform
-        expected = [9, 10]
+        expected = [9, 10, 13, 14]
         all_open_orders = get_all_open_orders()
         self.assertEqual(len(expected), len(all_open_orders))
 
@@ -86,7 +89,7 @@ class TestGameLogic(BaseTestCase):
             """, expected)
 
         stocks = [x[0] for x in res]
-        self.assertEqual(stocks, ["MELI", "SPXU"])
+        self.assertEqual(stocks, ["MELI", "SPXU", "SQQQ", "SPXU"])
 
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
@@ -224,48 +227,54 @@ class TestGameLogic(BaseTestCase):
             self.assertAlmostEqual(new_cash_balance, current_cash_balance + mock_sell_order["market_price"], 2)
             self.assertEqual(current_holding, mock_sell_order["amount"])
 
+            # no negative orders tests
+            with self.assertRaises(NoNegativeOrders):
+                place_order(user_id,
+                            game_id,
+                            mock_sell_order["symbol"],
+                            mock_sell_order["buy_or_sell"],
+                            current_cash_balance,
+                            current_holding,
+                            mock_sell_order["order_type"],
+                            mock_sell_order["quantity_type"],
+                            mock_sell_order["market_price"],
+                            -10,
+                            mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
-
+        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. Since buying power
+        is current cash balance - pendin
+        """
         user_id = 1
         game_id = 3
         buy_stock = "NVDA"
         market_price = 1_000
-        mock_buy_order = {"amount": 10,
-                          "buy_or_sell": "buy",
-                          "game_id": 3,
-                          "order_type": "market",
-                          "market_price": market_price,
-                          "quantity_type": "Shares",
-                          "symbol": buy_stock,
-                          "time_in_force": "until_cancelled",
-                          "title": "test game"}
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
-        with patch("backend.logic.games.time") as game_time_mock:
-            game_time_mock.time.side_effect = [1592202332, 1592202332]
+        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
+            game_time_mock.time.return_value = base_time_mock.time.return_value = 1592202332
             place_order(user_id,
                         game_id,
-                        mock_buy_order["symbol"],
-                        mock_buy_order["buy_or_sell"],
-                        current_cash_balance,
-                        current_holding,
-                        mock_buy_order["order_type"],
-                        mock_buy_order["quantity_type"],
-                        mock_buy_order["market_price"],
-                        mock_buy_order["amount"],
-                        mock_buy_order["time_in_force"])
+                        symbol=buy_stock,
+                        buy_or_sell="buy",
+                        cash_balance=current_cash_balance,
+                        current_holding=current_holding,
+                        order_type="market",
+                        quantity_type="Shares",
+                        market_price=market_price,
+                        amount=10,
+                        time_in_force="until_cancelled")
 
         with patch("backend.logic.base.fetch_iex_price") as fetch_price_mock:
             fetch_price_mock.return_value = (market_price, 1592202332)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
-        with self.engine.connect() as conn:
-            meli_order_price = conn.execute("""
-            SELECT price FROM orders WHERE symbol = %s ORDER BY id DESC LIMIT 0, 1;""", "MELI").fetchone()[0]
+        mock_data_meli_order_id = 9
+        meli_ticket = get_order_ticket(mock_data_meli_order_id)
 
-        self.assertEqual(buy_order_value, meli_order_price * 2 + 10 * market_price)
+        # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
+        self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
@@ -434,6 +443,23 @@ class TestGameLogic(BaseTestCase):
                 mock_sell_order["amount"],
                 meli_holding)
 
+    def test_order_fulfillment(self):
+        """This test goes into the internals of async_process_single_order"""
+        user_id = 4
+        game_id = 4
+        test_data_array = [(13, 1592573410.15422, "SQQQ", 7.990), (14, 1592573410.71635, "SPXU", 11.305)]
+        for order_id, timestamp, symbol, market_price in test_data_array:
+            order_ticket = get_order_ticket(order_id)
+            cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
+            with patch("backend.logic.games.time") as game_time_mock, patch(
+                    "backend.logic.games.fetch_iex_price") as fetch_price_mock, patch(
+                    "backend.logic.base.time") as base_time_mock:
+                base_time_mock.time.side_effect = game_time_mock.time.side_effect = [1592573410.15422] * 2
+                fetch_price_mock.return_value = (market_price, None)
+                process_order(order_id)
+                new_cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
+                self.assertAlmostEqual(new_cash_balance, cash_balance - market_price * order_ticket["quantity"], 3)
+
 
 class TestOrderLogic(unittest.TestCase):
 
@@ -448,21 +474,21 @@ class TestOrderLogic(unittest.TestCase):
 
         # market order to buy, enough cash
         self.assertTrue(execute_order(buy_or_sell="buy",
-                        order_type="market",
-                        market_price=100,
-                        order_price=100,
-                        cash_balance=200,
-                        current_holding=0,
-                        quantity=1))
+                                      order_type="market",
+                                      market_price=100,
+                                      order_price=100,
+                                      cash_balance=200,
+                                      current_holding=0,
+                                      quantity=1))
 
         # market order to buy, not enough cash
         self.assertFalse(execute_order(buy_or_sell="buy",
-                         order_type="market",
-                         market_price=100,
-                         order_price=100,
-                         cash_balance=50,
-                         current_holding=0,
-                         quantity=1))
+                                       order_type="market",
+                                       market_price=100,
+                                       order_price=100,
+                                       cash_balance=50,
+                                       current_holding=0,
+                                       quantity=1))
 
         # ----------------------------------------- #
         # market price clears stop and limit orders #
@@ -470,75 +496,75 @@ class TestOrderLogic(unittest.TestCase):
 
         # limit order to buy, enough cash
         self.assertTrue(execute_order(buy_or_sell="buy",
-                        order_type="limit",
-                        market_price=50,
-                        order_price=100,
-                        cash_balance=200,
-                        current_holding=0,
-                        quantity=1))
+                                      order_type="limit",
+                                      market_price=50,
+                                      order_price=100,
+                                      cash_balance=200,
+                                      current_holding=0,
+                                      quantity=1))
 
         # limit order to buy, not enough cash
         self.assertFalse(execute_order(buy_or_sell="buy",
-                         order_type="limit",
-                         market_price=50,
-                         order_price=100,
-                         cash_balance=25,
-                         current_holding=0,
-                         quantity=1))
+                                       order_type="limit",
+                                       market_price=50,
+                                       order_price=100,
+                                       cash_balance=25,
+                                       current_holding=0,
+                                       quantity=1))
 
         # stop order to buy, enough cash
         self.assertTrue(execute_order(buy_or_sell="buy",
-                        order_type="stop",
-                        market_price=150,
-                        order_price=100,
-                        cash_balance=200,
-                        current_holding=0,
-                        quantity=1))
+                                      order_type="stop",
+                                      market_price=150,
+                                      order_price=100,
+                                      cash_balance=200,
+                                      current_holding=0,
+                                      quantity=1))
 
         # stop order to buy, not enough cash
         self.assertFalse(execute_order(buy_or_sell="buy",
-                         order_type="stop",
-                         market_price=150,
-                         order_price=100,
-                         cash_balance=100,
-                         current_holding=0,
-                         quantity=1))
+                                       order_type="stop",
+                                       market_price=150,
+                                       order_price=100,
+                                       cash_balance=100,
+                                       current_holding=0,
+                                       quantity=1))
 
         # limit order to sell, sufficient holding
         self.assertTrue(execute_order(buy_or_sell="sell",
-                        order_type="limit",
-                        market_price=150,
-                        order_price=100,
-                        cash_balance=200,
-                        current_holding=2,
-                        quantity=1))
+                                      order_type="limit",
+                                      market_price=150,
+                                      order_price=100,
+                                      cash_balance=200,
+                                      current_holding=2,
+                                      quantity=1))
 
         # limit order to sell, insufficient holding
         self.assertFalse(execute_order(buy_or_sell="sell",
-                         order_type="limit",
-                         market_price=150,
-                         order_price=100,
-                         cash_balance=200,
-                         current_holding=0,
-                         quantity=1))
+                                       order_type="limit",
+                                       market_price=150,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))
 
         # stop order to sell, sufficient holding
         self.assertTrue(execute_order(buy_or_sell="sell",
-                        order_type="stop",
-                        market_price=75,
-                        order_price=100,
-                        cash_balance=200,
-                        current_holding=2,
-                        quantity=1))
+                                      order_type="stop",
+                                      market_price=75,
+                                      order_price=100,
+                                      cash_balance=200,
+                                      current_holding=2,
+                                      quantity=1))
 
         # stop order to sell, insufficient holding
         self.assertFalse(execute_order(buy_or_sell="sell",
-                         order_type="stop",
-                         market_price=75,
-                         order_price=100,
-                         cash_balance=200,
-                         current_holding=0,
-                         quantity=1))
+                                       order_type="stop",
+                                       market_price=75,
+                                       order_price=100,
+                                       cash_balance=200,
+                                       current_holding=0,
+                                       quantity=1))
 
         # market price doesn't clear order
         # -------------------------------

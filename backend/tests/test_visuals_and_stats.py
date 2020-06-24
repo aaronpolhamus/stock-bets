@@ -24,6 +24,7 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.logic.visuals import (
+    trade_time_index,
     serialize_and_pack_winners_table,
     serialize_and_pack_orders_open_orders,
     serialize_and_pack_current_balances,
@@ -36,7 +37,8 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
-    NULL_RGBA
+    NULL_RGBA,
+    N_PLOT_POINTS
 )
 from backend.logic.payouts import (
     get_winner,
@@ -50,6 +52,7 @@ from backend.tasks.redis import (
 )
 from backend.tests import BaseTestCase
 from backend.database.helpers import query_to_dict
+from backend.database.fixtures.mock_data import simulation_start_time
 
 
 class TestGameKickoff(BaseTestCase):
@@ -185,8 +188,12 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(rds.keys()), 4)
 
     def test_visuals_during_trading(self):
+        # TODO: Add a canonical test with fully populated data
+        """When a user first places an order, we don't necessarily expect that security to have generated any data, yet.
+        There should be a blank chart until data is available
+        """
         game_id = 5
-        start_time = 1591978045
+        start_time = simulation_start_time
         self._start_game_runner(start_time, game_id)
 
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
@@ -302,3 +309,22 @@ class TestWinnerPayouts(BaseTestCase):
                 self.assertEqual(entry["Payout"], side_pot)
             else:
                 self.assertEqual(entry["Payout"], final_payout)
+
+
+class TestTradeTimeIndex(BaseTestCase):
+    """Test to ensure the integrity of a ugly little piece of code that produces the time indexes for charting
+    """
+
+    def test_trade_time_index(self):
+
+        with self.engine.connect() as conn:
+            prices = pd.read_sql("SELECT * FROM prices;", conn)
+
+        prices["timestamp"] = prices["timestamp"].apply(lambda x: posix_to_datetime(x))
+        with self.assertRaises(Exception):
+            prices["t_index"] = trade_time_index(prices["timestamp"])
+
+        prices.sort_values("timestamp", inplace=True)
+        prices["t_index"] = trade_time_index(prices["timestamp"])
+
+        self.assertEqual(prices["t_index"].nunique(), N_PLOT_POINTS)
