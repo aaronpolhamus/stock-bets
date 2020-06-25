@@ -1,4 +1,5 @@
 import React from "react";
+import { Table } from "react-bootstrap";
 
 const renderRow = (row, headers) => {
   return headers.map((key, index) => {
@@ -18,15 +19,18 @@ const makeHeader = (headers) => {
   });
 };
 
-const MakeTable = (tableData) => {
-  return (
-    <>
-      <thead>
-        <tr>{makeHeader(tableData.headers)}</tr>
-      </thead>
-      <tbody>{makeRows(tableData)}</tbody>
-    </>
-  );
+const AutoTable = (props) => {
+  if (props.tableData.data) {
+    return (
+      <Table {...props}>
+        <thead>
+          <tr>{makeHeader(props.tableData.headers)}</tr>
+        </thead>
+        <tbody>{makeRows(props.tableData)}</tbody>
+      </Table>
+    );
+  }
+  return null;
 };
 
-export { MakeTable };
+export { AutoTable };

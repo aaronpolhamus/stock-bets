@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
-import { MakeTable } from "components/functions/tables";
+import { AutoTable } from "components/functions/tables";
 import { fetchGameData } from "components/functions/api";
 
 const OpenOrdersTable = ({ gameId }) => {
@@ -14,11 +14,8 @@ const OpenOrdersTable = ({ gameId }) => {
   }, [gameId]);
 
   console.log(tableData);
-  return (
-    <Table striped hover>
-      {tableData.data && MakeTable(tableData)}
-    </Table>
-  );
+
+  return <AutoTable hover tableData={tableData} />;
 };
 
 export { OpenOrdersTable };

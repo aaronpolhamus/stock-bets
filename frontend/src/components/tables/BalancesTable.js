@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table } from "react-bootstrap";
-import { MakeTable } from "components/functions/tables";
+import { AutoTable } from "components/functions/tables";
 import { fetchGameData } from "components/functions/api";
 
 const BalancesTable = ({ gameId }) => {
@@ -12,7 +11,7 @@ const BalancesTable = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
-  return <Table hover>{tableData.data && MakeTable(tableData)}</Table>;
+  return <AutoTable hover tableData={tableData} />;
 };
 
 export { BalancesTable };
