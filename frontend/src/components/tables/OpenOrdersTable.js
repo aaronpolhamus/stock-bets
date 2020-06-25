@@ -13,6 +13,7 @@ const OpenOrdersTable = ({ gameId }) => {
     getGameData();
   }, [gameId]);
 
+  console.log(tableData);
   return (
     <Table striped hover>
       {tableData.data && MakeTable(tableData)}
