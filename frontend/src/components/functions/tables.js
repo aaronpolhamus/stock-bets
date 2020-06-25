@@ -20,13 +20,13 @@ const makeHeader = (headers) => {
 };
 
 const AutoTable = (props) => {
-  if (props.tableData.data) {
+  if (props.tabledata.data) {
     return (
       <Table {...props}>
         <thead>
-          <tr>{makeHeader(props.tableData.headers)}</tr>
+          <tr>{makeHeader(props.tabledata.headers)}</tr>
         </thead>
-        <tbody>{makeRows(props.tableData)}</tbody>
+        <tbody>{makeRows(props.tabledata)}</tbody>
       </Table>
     );
   }

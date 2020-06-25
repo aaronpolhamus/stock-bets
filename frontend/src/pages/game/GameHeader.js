@@ -57,7 +57,6 @@ const GameHeader = ({ gameId }) => {
     getGameData();
   }, []);
 
-  console.log("playgamejs", cashData);
   return (
     <Header>
       <h1>

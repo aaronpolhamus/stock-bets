@@ -11,7 +11,7 @@ const BalancesTable = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
-  return <AutoTable hover tableData={tableData} />;
+  return <AutoTable hover tabledata={tableData} />;
 };
 
 export { BalancesTable };

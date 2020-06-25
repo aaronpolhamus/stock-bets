@@ -83,7 +83,8 @@ const buildRadios = (props, mode) => {
       type: "radio",
       label: props.options[key],
       value: key,
-      id: `${props.name}${index}`,
+      key: index,
+      id: `${props.name}-${index}`,
       checked: props.defaultValue === key ? true : false,
       ...props,
     };
@@ -103,7 +104,7 @@ const RadioButtons = (props) => (
 );
 
 const TabbedRadioButtons = (props) => (
-  <div>{props.options && buildRadios(props, "tabbed")}</div>
+  <>{props.options && buildRadios(props, "tabbed")}</>
 );
 
 export { RadioButtons, TabbedRadioButtons };
