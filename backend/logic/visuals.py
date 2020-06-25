@@ -11,7 +11,7 @@ from backend.logic.base import (
     make_date_offset,
     n_sidebets_in_game,
     get_game_info,
-    get_open_orders,
+    get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     get_all_game_users,
@@ -290,17 +290,32 @@ def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
 
 
 def serialize_and_pack_order_details(game_id: int, user_id: int):
-    open_orders = get_open_orders(game_id, user_id)
+    open_orders = get_order_details(game_id, user_id)
     open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
     open_orders["time_in_force"] = open_orders["time_in_force"].apply(
         lambda x: "Day" if x == "day" else "Until cancelled")
     open_orders = number_columns_to_currency(open_orders, ["price"])
     open_orders.loc[open_orders["order_type"] == "market", "price"] = " -- "
-    column_mappings = {"symbol": "Symbol", "buy_or_sell": "Buy/Sell", "quantity": "Quantity", "price": "Price",
-                       "order_type": "Order type", "time_in_force": "Time in force", "timestamp": "Placed on"}
+    column_mappings = {"symbol": "Symbol",
+                       "timestamp": "Placed on",
+                       "buy_or_sell": "Buy/Sell",
+                       "quantity": "Quantity",
+                       "price": "Price",
+                       "order_type": "Order type",
+                       "time_in_force": "Time in force"}
     open_orders.rename(columns=column_mappings, inplace=True)
     out_dict = dict(data=open_orders.to_dict(orient="records"), headers=list(column_mappings.values()))
     rds.set(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+
+
+def update_order_details(game_id: int, user_id: int, order_id: int, action: str):
+    assert action in ["add", "remove"]
+
+    if action == "add":
+        pass
+
+    if action == "remove":
+        pass
 
 
 def get_active_balances(game_id: int, user_id: int):
@@ -363,6 +378,21 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
         df.rename(columns=column_mappings, inplace=True)
         out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+
+
+def update_portfolio_details(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                    order_price, order_quantity, symbol):
+    """This function provides a lighter, targeted way to update the portfolio information table and is made to be
+    called with or immediately after update_balances
+    """
+
+    assert buy_or_sell in ["buy", "sell"]
+
+    if buy_or_sell == "buy":
+        pass
+
+    if buy_or_sell == "sell":
+        pass
 
 
 def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):

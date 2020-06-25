@@ -7,7 +7,7 @@ const OpenOrdersTable = ({ gameId }) => {
   const [tableData, setTableData] = useState({});
   useEffect(() => {
     const getGameData = async () => {
-      const data = await fetchGameData(gameId, "get_open_orders_table");
+      const data = await fetchGameData(gameId, "get_order_details_table");
       setTableData(data);
     };
     getGameData();

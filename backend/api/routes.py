@@ -359,8 +359,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_order_details.apply(args=[game_id, user_id])
-    async_serialize_current_balances.apply(args=[game_id, user_id])
+    async_serialize_order_details.apply(args=[game_id, user_id])  # this needs to be a single-row update
+    async_serialize_current_balances.apply(args=[game_id, user_id])  # this needs to be a single-row update
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
@@ -469,9 +469,9 @@ def get_current_balances_table():
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/get_open_orders_table", methods=["POST"])
+@routes.route("/api/get_order_details_table", methods=["POST"])
 @authenticate
-def get_open_orders_table():
+def get_order_details_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))

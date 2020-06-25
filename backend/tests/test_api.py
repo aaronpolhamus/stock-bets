@@ -411,7 +411,7 @@ class TestPlayGame(BaseTestCase):
                 ORDER BY id DESC LIMIT 0, 1;
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
-        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
@@ -493,7 +493,7 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"order_id": order_id, "game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
@@ -753,17 +753,22 @@ class TestPriceFetching(BaseTestCase):
         refresh_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        if Config.IEX_API_PRODUCTION:
-            res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},
-                                             json={"symbol": "TSLA"}, verify=False)
-            self.assertEqual(res.status_code, 200)
+        res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},
+                                         json={"symbol": "TSLA"}, verify=False)
+        self.assertEqual(res.status_code, 200)
 
-            if during_trading_day():
-                # if during trading hours...
-                pass
-            else:
-                # expect to see no GMT TZ in the timestamp
-                self.assertNotIn("GMT", res.json()["last_updated"])
+        self.assertNotIn("GMT", res.json()["last_updated"])
+        self.assertIn("EST", res.json()["last_updated"])
 
-                # expect to see a new price entry persisted to the cache, but not to the DB
-                self.assertIn("TSLA", rds.keys())
+        # we only expect a database entry during trading hours
+        with self.engine.connect() as conn:
+            count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+
+        if during_trading_day():
+            while "TSLA" not in rds.keys():
+                continue
+            self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
+            self.assertEqual(count, 1)
+        else:
+            self.assertNotIn("TSLA", rds.keys())
+            self.assertEqual(count, 0)

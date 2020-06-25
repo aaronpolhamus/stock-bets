@@ -190,28 +190,38 @@ def get_current_game_cash_balance(user_id, game_id):
     return result
 
 
-def get_open_orders(game_id: int, user_id: int):
-    # this kinda feels like we'd be better off just handling two pandas tables...
+def get_order_details(game_id: int, user_id: int):
+    """Retrieves order and fulfillment information for all orders for a game/user that have not been either cancelled
+    or expired
+    """
     query = """
-        SELECT symbol, buy_or_sell, quantity, price, order_type, time_in_force, open_orders.timestamp
+        SELECT 
+            symbol, 
+            relevant_orders.timestamp, 
+            buy_or_sell, 
+            quantity, 
+            order_type,
+            time_in_force,
+            price,
+            relevant_orders.clear_price 
         FROM orders o
         INNER JOIN (
-          SELECT os_start.timestamp, os_start.order_id
-          FROM order_status os_start
+          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price
+          FROM order_status os_full
           INNER JOIN (
-            SELECT id, os.order_id, os.timestamp
+            SELECT os.order_id
             FROM order_status os
-                   INNER JOIN
+              INNER JOIN
                  (SELECT order_id, max(id) as max_id
                   FROM order_status
                   GROUP BY order_id) grouped_os
                  ON
                    os.id = grouped_os.max_id
-            WHERE os.status = 'pending'
-          ) os_pending
-          ON os_pending.id = os_start.id
-        ) open_orders
-        ON open_orders.order_id = o.id
+            WHERE os.status NOT IN ('cancelled', 'expired')
+          ) os_relevant
+          ON os_relevant.order_id = os_full.order_id
+        ) relevant_orders
+        ON relevant_orders.order_id = o.id
         WHERE game_id = %s and user_id = %s;
     """
     with engine.connect() as conn:
@@ -220,7 +230,7 @@ def get_open_orders(game_id: int, user_id: int):
 
 def get_pending_buy_order_value(user_id, game_id):
     open_value = 0
-    df = get_open_orders(game_id, user_id)
+    df = get_order_details(game_id, user_id)
     tab = df[(df["order_type"].isin(["limit", "stop"])) & (df["buy_or_sell"] == "buy")]
     if not tab.empty:
         tab["value"] = tab["price"] * tab["quantity"]

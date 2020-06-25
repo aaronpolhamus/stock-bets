@@ -145,7 +145,7 @@ if __name__ == '__main__':
     details = get_user_details_from_ids(accepted_invite_user_ids)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "jack", "jadis"}
 
-    res = btc.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": user_token},
+    res = btc.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": user_token},
                                     json={"game_id": 1}, verify=False)
     open_orders_table_init = res.json()
 
