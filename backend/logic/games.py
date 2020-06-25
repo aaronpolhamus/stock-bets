@@ -32,12 +32,15 @@ from backend.logic.base import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_winners_table,
-    serialize_and_pack_order_details,
+    init_order_details,
+    update_order_details,
     serialize_and_pack_portfolio_details,
     compile_and_pack_player_sidebar_stats,
-    make_the_field_charts
+    make_the_field_charts,
+    ORDER_DETAILS_PREFIX
 )
 from funkybob import RandomNameGenerator
+from backend.tasks.redis import rds
 
 # Default make game settings
 # --------------------------
@@ -240,7 +243,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     # initialize current balances and open orders
     for user_id in user_id_list:
         serialize_and_pack_portfolio_details(game_id, user_id)
-        serialize_and_pack_order_details(game_id, user_id)
+        init_order_details(game_id, user_id)
 
     # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
     make_the_field_charts(game_id)
@@ -555,6 +558,10 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
                         clear_price=order_price)
         update_balances(user_id, game_id, os_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
                         order_quantity, symbol)
+
+    # update order info table
+    if rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"):
+        update_order_details(game_id, user_id, order_id, "add")
 
 
 def get_order_ticket(order_id):

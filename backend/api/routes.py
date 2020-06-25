@@ -47,6 +47,7 @@ from logic.base import (
 )
 from backend.logic.visuals import (
     format_time_for_response,
+    update_order_details,
     ORDER_DETAILS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -373,6 +374,7 @@ def api_cancel_order():
     game_id = request.json.get("game_id")
     order_id = request.json.get("order_id")
     cancel_order(order_id)
+    update_order_details(game_id, user_id, order_id, "remove")
     async_serialize_order_details.apply(args=[game_id, user_id])
     return make_response(ORDER_CANCELLED_MESSAGE, 200)
 

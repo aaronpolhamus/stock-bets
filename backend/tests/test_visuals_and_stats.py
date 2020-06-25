@@ -38,7 +38,8 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
     NULL_RGBA,
-    N_PLOT_POINTS
+    N_PLOT_POINTS,
+    NA_TEXT_SYMBOL
 )
 from backend.logic.payouts import (
     get_winner,
@@ -118,11 +119,11 @@ class TestGameKickoff(BaseTestCase):
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
-        self.assertEqual(len(a_current_balance_table["headers"]), 5)
+        self.assertEqual(len(a_current_balance_table["headers"]), 7)
 
         an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["data"], [])
-        self.assertEqual(len(an_open_orders_table["headers"]), 7)
+        self.assertEqual(len(an_open_orders_table["headers"]), 14)
 
         a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(a_balances_chart["line_data"]), 1)
@@ -201,7 +202,9 @@ class TestGameKickoff(BaseTestCase):
         # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(len(open_orders["data"]), 0)
+        self.assertEqual(len(open_orders["data"]), 1)
+        # since the order has been filled, we expect a cleare price to be present
+        self.assertNotEqual(open_orders["data"][0]["Clear price"], NA_TEXT_SYMBOL)
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
@@ -238,9 +241,9 @@ class TestVisualsWithData(BaseTestCase):
         serialize_and_pack_order_details(game_id, user_id)
         order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
         df = pd.DataFrame(order_details["data"])
-        self.assertEqual(df.shape, (8, 13))
+        self.assertEqual(df.shape, (8, 14))
         self.assertNotIn("order_id", order_details["headers"])
-        self.assertEqual(len(order_details["headers"]), 12)
+        self.assertEqual(len(order_details["headers"]), 13)
 
 
 class TestWinnerPayouts(BaseTestCase):

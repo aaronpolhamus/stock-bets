@@ -325,13 +325,13 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 5)
+        self.assertEqual(len(init_balances_entry["headers"]), 7)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
-        self.assertEqual(len(init_open_orders_entry["headers"]), 7)
+        self.assertEqual(len(init_open_orders_entry["headers"]), 14)
 
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
@@ -497,7 +497,7 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
-        self.assertNotIn(stock_pick, stocks_in_table_response)
+        self.assertNotIn("JETS", stocks_in_table_response)
 
 
 class TestGetGameStats(BaseTestCase):
@@ -761,14 +761,18 @@ class TestPriceFetching(BaseTestCase):
         self.assertIn("EST", res.json()["last_updated"])
 
         # we only expect a database entry during trading hours
-        with self.engine.connect() as conn:
-            count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
-
         if during_trading_day():
             while "TSLA" not in rds.keys():
                 continue
+
+            with self.engine.connect() as conn:
+                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+
             self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
             self.assertEqual(count, 1)
         else:
+            with self.engine.connect() as conn:
+                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+
             self.assertNotIn("TSLA", rds.keys())
             self.assertEqual(count, 0)

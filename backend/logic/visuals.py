@@ -26,7 +26,7 @@ from backend.logic.base import (
     datetime_to_posix,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.tasks.redis import rds
+from backend.tasks.redis import rds, unpack_redis_json
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -55,6 +55,7 @@ RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 
 ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
                          "symbol": "Symbol",
+                         "status": "Status",
                          "timestamp_pending": "Placed on",
                          "timestamp_fulfilled": "Cleared on",
                          "buy_or_sell": "Buy/Sell",
@@ -66,6 +67,16 @@ ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
                          "Market price": "Market price",
                          "as of": "as of",
                          "Hypothetical % return": "Hypothetical % return"}
+
+PORTFOLIO_DETAIL_MAPPINGS = {
+    "symbol": "Symbol",
+    "balance": "Balance",
+    "clear_price": "Last order price",
+    "price": "Market price",
+    "timestamp": "Updated at",
+    "Value": "Value",
+    "Portfolio %": "Portfolio %"}
+
 
 # ------ #
 # Colors #
@@ -129,15 +140,11 @@ def percent_formatter(val):
 # ------------------ #
 
 
-def format_posix_times(sr: pd.Series) -> pd.Series:
-
-    def _format_value(ts):
-        if np.isnan(ts):
-            return ts
-        dtime = posix_to_datetime(ts)
-        return dtime.strftime(DATE_LABEL_FORMAT)
-
-    return sr.apply(lambda x: _format_value(x))
+def format_posix_time(ts):
+    if np.isnan(ts):
+        return ts
+    dtime = posix_to_datetime(ts)
+    return dtime.strftime(DATE_LABEL_FORMAT)
 
 
 def trade_time_index(timestamp_sr: pd.Series) -> List:
@@ -315,28 +322,15 @@ def make_the_field_charts(game_id: int):
 # ------ #
 
 
+def number_to_currency(val):
+    if np.isnan(val):
+        return val
+    return USD_FORMAT.format(val)
+
+
 def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
-
-    def _format_value(val):
-        if np.isnan(val):
-            return val
-        return USD_FORMAT.format(val)
-
-    df[columns_to_format] = df[columns_to_format].applymap(lambda x: _format_value(x))
+    df[columns_to_format] = df[columns_to_format].applymap(lambda x: number_to_currency(x))
     return df
-
-
-def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
-    """The vast majority of orders in the order details table are redundant. The timestamp and clear price are not.
-    We'll pivot this table to consolidate most of the information in a single row, while adding columns for timestamp,
-    status, and clear_price.
-    """
-    pivot_df = order_details.set_index(
-        ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
-    pivot_df = pivot_df.pivot(columns="status").reset_index()
-    pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
-    del pivot_df["clear_price_pending"]
-    return pivot_df
 
 
 def add_market_prices_to_order_details(df):
@@ -348,17 +342,16 @@ def add_market_prices_to_order_details(df):
         market_price, timestamp = fetch_iex_price(row["symbol"])
         df.loc[i, "Market price"] = market_price
         df.loc[i, "as of"] = timestamp
-    df["as of"] = format_posix_times(df["as of"])
+    df["as of"] = df["as of"].apply(lambda x: format_posix_time(x))
     df["Hypothetical % return"] = df["Market price"] / df["clear_price_fulfilled"] - 1
     df["Hypothetical % return"] = df["Hypothetical % return"].apply(lambda x: percent_formatter(x))
     return df
 
 
 def serialize_and_pack_order_details(game_id: int, user_id: int):
-    order_details = get_order_details(game_id, user_id)
-    df = pivot_order_details(order_details)
-    df["timestamp_pending"] = format_posix_times(df["timestamp_pending"])
-    df["timestamp_fulfilled"] = format_posix_times(df["timestamp_fulfilled"])
+    df = get_order_details(game_id, user_id)
+    df["timestamp_pending"] = df["timestamp_pending"].apply(lambda x: format_posix_time(x))
+    df["timestamp_fulfilled"] = df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
     df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
     df = add_market_prices_to_order_details(df)
     df.rename(columns=ORDER_DETAIL_MAPPINGS, inplace=True)
@@ -369,14 +362,50 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
 
+def init_order_details(game_id: int, user_id: int):
+    """Before we have any order information to log, make a blank entry to kick  off a game
+    """
+    headers = list(ORDER_DETAIL_MAPPINGS.values())
+    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(dict(data=[], headers=headers)))
+
+
 def update_order_details(game_id: int, user_id: int, order_id: int, action: str):
     assert action in ["add", "remove"]
 
+    fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
+    order_details = unpack_redis_json(fn)
     if action == "add":
-        pass
+        df = get_order_details(game_id, user_id)
+        order_record = [record for record in df.to_dict(orient="records") if record["order_id"] == order_id][0]
+
+        market_price, timestamp = fetch_iex_price(order_record["symbol"])
+        clear_price = order_record["clear_price_fulfilled"]
+        fulfilled_on = order_record["timestamp_fulfilled"]
+        entry = {
+            "order_id": order_id,
+            "Symbol": order_record["symbol"],
+            "Status": order_record["status"],
+            "Placed on": format_posix_time(order_record["timestamp_pending"]),
+            "Cleared on": NA_TEXT_SYMBOL if fulfilled_on == np.nan else format_posix_time(fulfilled_on),
+            "Buy/Sell": order_record["buy_or_sell"],
+            "Quantity": order_record["quantity"],
+            "Order type": order_record["order_type"],
+            "Time in force": "Day" if order_record["time_in_force"] == "day" else "Until cancelled",
+            "Order price": number_to_currency(order_record["price"]),
+            "Clear price": NA_TEXT_SYMBOL if clear_price == np.nan else number_to_currency(clear_price),
+            "Market price": number_to_currency(market_price),
+            "as of": format_posix_time(timestamp),
+            "Hypothetical % return": NA_TEXT_SYMBOL
+        }
+        if clear_price != np.nan:
+            entry["Hypothetical % return"]: percent_formatter(market_price / clear_price - 1)
+        order_details["data"].append(entry)
+        assert set(ORDER_DETAIL_MAPPINGS.values()) == set(entry.keys())
 
     if action == "remove":
-        pass
+        order_details["data"] = [entry for entry in order_details["data"] if entry["order_id"] is not order_id]
+
+    rds.set(fn, json.dumps(order_details))
 
 
 def get_active_balances(game_id: int, user_id: int):
@@ -425,18 +454,20 @@ def get_most_recent_prices(symbols):
 
 
 def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
-    column_mappings = {"symbol": "Symbol", "balance": "Balance", "clear_price": "Last order price",
-                       "price": "Market price", "timestamp": "Updated at"}
-    out_dict = dict(data=[], headers=list(column_mappings.values()))
+    out_dict = dict(data=[], headers=list(PORTFOLIO_DETAIL_MAPPINGS.values()))
     balances = get_active_balances(game_id, user_id)
     if not balances.empty:
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
         symbols = balances["symbol"].unique()
         prices = get_most_recent_prices(symbols)
         df = balances.groupby("symbol", as_index=False).aggregate({"balance": "last", "clear_price": "last"})
         df = df.merge(prices, on="symbol", how="left")
-        df["timestamp"] = format_posix_times(df["timestamp"])
-        df = number_columns_to_currency(df, ["price", "clear_price"])
-        df.rename(columns=column_mappings, inplace=True)
+        df["timestamp"] = df["timestamp"].apply(lambda x: format_posix_time(x))
+        df["Value"] = df["balance"] * df["price"]
+        total_portfolio_value = df["Value"].sum() + cash_balance
+        df["Portfolio %"] = (df["Value"] / total_portfolio_value).apply(lambda x: percent_formatter(x))
+        df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
+        df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
         out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 

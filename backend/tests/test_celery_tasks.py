@@ -233,12 +233,7 @@ class TestGameIntegration(BaseTestCase):
         # Place two market orders and a buy limit order
         with patch("backend.logic.games.time") as mock_game_time, patch(
                 "backend.logic.base.time") as mock_data_time:
-            time_list = [
-                game_start_time + 300,
-                game_start_time + 300,
-                game_start_time + 300
-            ]
-            mock_game_time.time.side_effect = mock_data_time.time.side_effect = time_list
+            mock_game_time.time.return_value = mock_data_time.time.return_value = game_start_time + 300
 
             # Everything working as expected. Place a couple buy orders to get things started
             stock_pick = "AMZN"
