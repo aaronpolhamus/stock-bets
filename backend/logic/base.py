@@ -195,7 +195,9 @@ def get_order_details(game_id: int, user_id: int):
     or expired
     """
     query = """
-        SELECT 
+        SELECT
+            o.id as order_id, 
+            relevant_orders.status,
             symbol, 
             relevant_orders.timestamp, 
             buy_or_sell, 
@@ -206,7 +208,7 @@ def get_order_details(game_id: int, user_id: int):
             relevant_orders.clear_price 
         FROM orders o
         INNER JOIN (
-          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price
+          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
           FROM order_status os_full
           INNER JOIN (
             SELECT os.order_id

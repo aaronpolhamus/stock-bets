@@ -47,7 +47,7 @@ from logic.base import (
 )
 from backend.logic.visuals import (
     format_time_for_response,
-    OPEN_ORDERS_PREFIX,
+    ORDER_DETAILS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
@@ -474,7 +474,7 @@ def get_current_balances_table():
 def get_order_details_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_payouts_table", methods=["POST"])

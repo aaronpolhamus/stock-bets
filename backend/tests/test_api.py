@@ -40,7 +40,7 @@ from backend.logic.visuals import (
     serialize_and_pack_winners_table,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
-    OPEN_ORDERS_PREFIX,
+    ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX
 )
 from backend.tasks.definitions import (
@@ -327,7 +327,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(init_balances_entry["data"], [])
         self.assertEqual(len(init_balances_entry["headers"]), 5)
 
-        open_orders_keys = [x for x in rds.keys() if OPEN_ORDERS_PREFIX in x]
+        open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])

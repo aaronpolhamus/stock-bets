@@ -1,6 +1,6 @@
 import React from "react";
 
-const renderRow = (row, headers, exclude = ["id"]) => {
+const renderRow = (row, headers, exclude = ["order_id"]) => {
   return headers.map((key, index) => {
     if (exclude.includes(key)) {
       return null;
@@ -9,7 +9,7 @@ const renderRow = (row, headers, exclude = ["id"]) => {
   });
 };
 
-const makeRows = (tableData, exclude = ["id"]) => {
+const makeRows = (tableData, exclude = ["order_id"]) => {
   // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the
   // order id for order cancellations
   return tableData.data.map((row, index) => {

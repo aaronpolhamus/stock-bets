@@ -5,9 +5,11 @@ import time
 from datetime import datetime as dt
 from typing import List
 
+import numpy as np
 import pandas as pd
 from backend.database.db import engine
 from backend.logic.base import (
+    fetch_iex_price,
     make_date_offset,
     n_sidebets_in_game,
     get_game_info,
@@ -31,20 +33,39 @@ from backend.tasks.redis import rds
 # -------------------------------- #
 CURRENT_BALANCES_PREFIX = "current_balances"
 SIDEBAR_STATS_PREFIX = "sidebar_stats"
-OPEN_ORDERS_PREFIX = "open_orders"
+ORDER_DETAILS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
 PAYOUTS_PREFIX = "payouts"
-
 
 # -------------- #
 # Chart settings #
 # -------------- #
 
+NA_TEXT_SYMBOL = "--"
 N_PLOT_POINTS = 30
 USD_FORMAT = "${:,.2f}"
+PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
+
+# -------------- #
+# Table settings #
+# -------------- #
+
+ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
+                         "symbol": "Symbol",
+                         "timestamp_pending": "Placed on",
+                         "timestamp_fulfilled": "Cleared on",
+                         "buy_or_sell": "Buy/Sell",
+                         "quantity": "Quantity",
+                         "order_type": "Order type",
+                         "time_in_force": "Time in force",
+                         "price": "Order price",
+                         "clear_price_fulfilled": "Clear price",
+                         "Market price": "Market price",
+                         "as of": "as of",
+                         "Hypothetical % return": "Hypothetical % return"}
 
 # ------ #
 # Colors #
@@ -99,14 +120,24 @@ def format_time_for_response(timestamp: dt) -> str:
     return_time = posix_to_datetime(timestamp).replace(tzinfo=None)
     return f"{return_time.strftime(format=RETURN_TIME_FORMAT)}"
 
+
+def percent_formatter(val):
+    return val if np.isnan(val) else PCT_FORMAT.format(val)
+
 # ------------------ #
 # Time series charts #
 # ------------------ #
 
 
 def format_posix_times(sr: pd.Series) -> pd.Series:
-    sr = sr.apply(lambda x: posix_to_datetime(x))
-    return sr.apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+
+    def _format_value(ts):
+        if np.isnan(ts):
+            return ts
+        dtime = posix_to_datetime(ts)
+        return dtime.strftime(DATE_LABEL_FORMAT)
+
+    return sr.apply(lambda x: _format_value(x))
 
 
 def trade_time_index(timestamp_sr: pd.Series) -> List:
@@ -285,27 +316,57 @@ def make_the_field_charts(game_id: int):
 
 
 def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
-    df[columns_to_format] = df[columns_to_format].applymap(lambda x: USD_FORMAT.format(x))
+
+    def _format_value(val):
+        if np.isnan(val):
+            return val
+        return USD_FORMAT.format(val)
+
+    df[columns_to_format] = df[columns_to_format].applymap(lambda x: _format_value(x))
+    return df
+
+
+def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
+    """The vast majority of orders in the order details table are redundant. The timestamp and clear price are not.
+    We'll pivot this table to consolidate most of the information in a single row, while adding columns for timestamp,
+    status, and clear_price.
+    """
+    pivot_df = order_details.set_index(
+        ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
+    pivot_df = pivot_df.pivot(columns="status").reset_index()
+    pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
+    del pivot_df["clear_price_pending"]
+    return pivot_df
+
+
+def add_market_prices_to_order_details(df):
+    df["Market price"] = np.nan
+    df["as of"] = np.nan
+    for i, row in df.iterrows():
+        # for now grab current market price data directly from price fetcher. In the future it will probably make more
+        # sense to use a cache
+        market_price, timestamp = fetch_iex_price(row["symbol"])
+        df.loc[i, "Market price"] = market_price
+        df.loc[i, "as of"] = timestamp
+    df["as of"] = format_posix_times(df["as of"])
+    df["Hypothetical % return"] = df["Market price"] / df["clear_price_fulfilled"] - 1
+    df["Hypothetical % return"] = df["Hypothetical % return"].apply(lambda x: percent_formatter(x))
     return df
 
 
 def serialize_and_pack_order_details(game_id: int, user_id: int):
-    open_orders = get_order_details(game_id, user_id)
-    open_orders["timestamp"] = format_posix_times(open_orders["timestamp"])
-    open_orders["time_in_force"] = open_orders["time_in_force"].apply(
-        lambda x: "Day" if x == "day" else "Until cancelled")
-    open_orders = number_columns_to_currency(open_orders, ["price"])
-    open_orders.loc[open_orders["order_type"] == "market", "price"] = " -- "
-    column_mappings = {"symbol": "Symbol",
-                       "timestamp": "Placed on",
-                       "buy_or_sell": "Buy/Sell",
-                       "quantity": "Quantity",
-                       "price": "Price",
-                       "order_type": "Order type",
-                       "time_in_force": "Time in force"}
-    open_orders.rename(columns=column_mappings, inplace=True)
-    out_dict = dict(data=open_orders.to_dict(orient="records"), headers=list(column_mappings.values()))
-    rds.set(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+    order_details = get_order_details(game_id, user_id)
+    df = pivot_order_details(order_details)
+    df["timestamp_pending"] = format_posix_times(df["timestamp_pending"])
+    df["timestamp_fulfilled"] = format_posix_times(df["timestamp_fulfilled"])
+    df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
+    df = add_market_prices_to_order_details(df)
+    df.rename(columns=ORDER_DETAIL_MAPPINGS, inplace=True)
+    df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
+    df.fillna(NA_TEXT_SYMBOL, inplace=True)
+    df = df[ORDER_DETAIL_MAPPINGS.values()]
+    out_dict = dict(data=df.to_dict(orient="records"), headers=[x for x in list(df.columns) if x != "order_id"])
+    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
 
 def update_order_details(game_id: int, user_id: int, order_id: int, action: str):
