@@ -12,6 +12,7 @@ from sqlalchemy.exc import ResourceClosedError, StatementError
 
 # Sometimes tasks break when they have trouble communicating with an external resource. We'll have those errors and
 # retry the tasks
+RESULT_EXPIRE_TIME = 60 * 60 * 4  # keep tasks around for four hours
 DEFAULT_RETRY_DELAY = 3  # (seconds)
 MAX_RETRIES = 10
 RETRY_INVENTORY = (
@@ -27,7 +28,8 @@ RETRY_INVENTORY = (
 celery = celery.Celery('tasks',
                        broker=Config.CELERY_BROKER_URL,
                        backend=Config.CELERY_RESULTS_BACKEND,
-                       include=['tasks.definitions'])
+                       include=['tasks.definitions'],
+                       result_expires=RESULT_EXPIRE_TIME)
 
 # Setup regularly scheduled events
 celery.conf.timezone = TIMEZONE

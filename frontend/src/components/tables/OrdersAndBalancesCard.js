@@ -9,7 +9,7 @@ const OrdersAndBalancesCard = ({ gameId }) => {
   return (
     <>
       <Tabs>
-        <Tab eventKey="orders" title="Open orders">
+        <Tab eventKey="orders" title="Orders">
           <OpenOrdersTable gameId={gameId} />
         </Tab>
         <Tab eventKey="balances" title="Balances">

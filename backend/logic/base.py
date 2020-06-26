@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
+import numpy as np
 import pandas as pd
 from pandas.tseries.offsets import DateOffset
 import pandas_market_calendars as mcal
@@ -20,7 +21,7 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
-
+from backend.tasks.redis import rds
 
 # -------- #
 # Defaults #
@@ -190,43 +191,77 @@ def get_current_game_cash_balance(user_id, game_id):
     return result
 
 
-def get_open_orders(game_id: int, user_id: int):
-    # this kinda feels like we'd be better off just handling two pandas tables...
+def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
+    """The vast majority of orders in the order details table are redundant. The timestamp and clear price are not.
+    We'll pivot this table to consolidate most of the information in a single row, while adding columns for timestamp,
+    status, and clear_price.
+    """
+    pivot_df = order_details.set_index(
+        ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
+    pivot_df = pivot_df.pivot(columns="status").reset_index()
+    pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
+    del pivot_df["clear_price_pending"]
+    expanded_columns = ["timestamp_pending", "timestamp_fulfilled", "clear_price_fulfilled"]
+    for column in expanded_columns:
+        if column not in pivot_df.columns:
+            pivot_df[column] = np.nan  # it's OK for there to be no data for these columns, but we do need them present
+    return pivot_df
+
+
+def get_order_details(game_id: int, user_id: int):
+    """Retrieves order and fulfillment information for all orders for a game/user that have not been either cancelled
+    or expired
+    """
     query = """
-        SELECT symbol, buy_or_sell, quantity, price, order_type, time_in_force, open_orders.timestamp
+        SELECT
+            o.id as order_id, 
+            relevant_orders.status,
+            symbol, 
+            relevant_orders.timestamp, 
+            buy_or_sell, 
+            quantity, 
+            order_type,
+            time_in_force,
+            price,
+            relevant_orders.clear_price 
         FROM orders o
         INNER JOIN (
-          SELECT os_start.timestamp, os_start.order_id
-          FROM order_status os_start
+          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
+          FROM order_status os_full
           INNER JOIN (
-            SELECT id, os.order_id, os.timestamp
+            SELECT os.order_id
             FROM order_status os
-                   INNER JOIN
+              INNER JOIN
                  (SELECT order_id, max(id) as max_id
                   FROM order_status
                   GROUP BY order_id) grouped_os
                  ON
                    os.id = grouped_os.max_id
-            WHERE os.status = 'pending'
-          ) os_pending
-          ON os_pending.id = os_start.id
-        ) open_orders
-        ON open_orders.order_id = o.id
+            WHERE os.status NOT IN ('cancelled', 'expired')
+          ) os_relevant
+          ON os_relevant.order_id = os_full.order_id
+        ) relevant_orders
+        ON relevant_orders.order_id = o.id
         WHERE game_id = %s and user_id = %s;
     """
     with engine.connect() as conn:
-        return pd.read_sql(query, conn, params=[game_id, user_id])
+        df = pd.read_sql(query, conn, params=[game_id, user_id])
+    df = pivot_order_details(df)
+    df["status"] = "fulfilled"
+    df.loc[df["timestamp_fulfilled"].isna(), "status"] = "pending"
+    return df
 
 
 def get_pending_buy_order_value(user_id, game_id):
     open_value = 0
-    df = get_open_orders(game_id, user_id)
-    tab = df[(df["order_type"].isin(["limit", "stop"])) & (df["buy_or_sell"] == "buy")]
+    df = get_order_details(game_id, user_id)
+    df = df[(df["status"] == "pending") & (df["buy_or_sell"] == "buy")]
+    tab = df[(df["order_type"].isin(["limit", "stop"]))]
     if not tab.empty:
         tab["value"] = tab["price"] * tab["quantity"]
         open_value += tab["value"].sum()
 
-    tab = df[(df["order_type"] == "market") & (df["buy_or_sell"] == "buy")]
+    tab = df[(df["order_type"] == "market")]
     if not tab.empty:
         for _, row in tab.iterrows():
             price, _ = fetch_iex_price(row["symbol"])
@@ -463,6 +498,17 @@ def fetch_iex_price(symbol):
         if not Config.IEX_API_PRODUCTION:
             timestamp = time.time()
         return price, timestamp
+
+
+def get_cache_price(symbol):
+    data = rds.get(symbol)
+    if data is None:
+        return None, None
+    return [float(x) for x in data.split("_")]
+
+
+def set_cache_price(symbol, price, timestamp):
+    rds.set(symbol, f"{price}_{timestamp}")
 
 
 def get_all_active_symbols():

@@ -38,9 +38,10 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_winners_table,
+    serialize_and_pack_order_details,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
-    OPEN_ORDERS_PREFIX,
+    ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX
 )
 from backend.tasks.definitions import (
@@ -231,7 +232,7 @@ class TestCreateGame(BaseTestCase):
             "buy_in": buy_in,
             "duration": game_duation,
             "mode": "winner_takes_all",
-            "n_rebuys": 3,
+            "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
@@ -325,13 +326,13 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 5)
+        self.assertEqual(len(init_balances_entry["headers"]), 7)
 
-        open_orders_keys = [x for x in rds.keys() if OPEN_ORDERS_PREFIX in x]
+        open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
-        self.assertEqual(len(init_open_orders_entry["headers"]), 7)
+        self.assertEqual(len(init_open_orders_entry["headers"]), 14)
 
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
@@ -381,11 +382,10 @@ class TestPlayGame(BaseTestCase):
         user_id = 1
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
+        serialize_and_pack_order_details(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
-
         market_price, _ = fetch_iex_price(stock_pick)
-
         order_ticket = {
             "user_id": user_id,
             "game_id": game_id,
@@ -411,7 +411,7 @@ class TestPlayGame(BaseTestCase):
                 ORDER BY id DESC LIMIT 0, 1;
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
-        res = self.requests_session.post(f"{HOST_URL}/get_open_orders_table", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
@@ -485,6 +485,19 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, str(LimitError()))
+
+        # cancel the last order that we placed successfully and verify that this updated the order details table
+        with self.engine.connect() as conn:
+            order_id = conn.execute("SELECT id FROM main.orders WHERE symbol = 'JETS';").fetchone()[0]
+        res = self.requests_session.post(f"{HOST_URL}/cancel_order", cookies={"session_token": session_token},
+                                         verify=False, json={"order_id": order_id, "game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
+        self.assertNotIn("JETS", stocks_in_table_response)
 
 
 class TestGetGameStats(BaseTestCase):
@@ -740,17 +753,26 @@ class TestPriceFetching(BaseTestCase):
         refresh_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        if Config.IEX_API_PRODUCTION:
-            res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},
-                                             json={"symbol": "TSLA"}, verify=False)
-            self.assertEqual(res.status_code, 200)
+        res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},
+                                         json={"symbol": "TSLA"}, verify=False)
+        self.assertEqual(res.status_code, 200)
 
-            if during_trading_day():
-                # if during trading hours...
-                pass
-            else:
-                # expect to see no GMT TZ in the timestamp
-                self.assertNotIn("GMT", res.json()["last_updated"])
+        self.assertNotIn("GMT", res.json()["last_updated"])
+        self.assertIn("EST", res.json()["last_updated"])
 
-                # expect to see a new price entry persisted to the cache, but not to the DB
-                self.assertIn("TSLA", rds.keys())
+        # we only expect a database entry during trading hours
+        if during_trading_day():
+            while "TSLA" not in rds.keys():
+                continue
+
+            with self.engine.connect() as conn:
+                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+
+            self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
+            self.assertEqual(count, 1)
+        else:
+            with self.engine.connect() as conn:
+                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+
+            self.assertNotIn("TSLA", rds.keys())
+            self.assertEqual(count, 0)

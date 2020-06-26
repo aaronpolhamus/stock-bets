@@ -47,7 +47,7 @@ def portfolio_value_by_day(game_id, user_id, start_date, end_date) -> pd.DataFra
 def porfolio_total_return(df: pd.DataFrame):
     start_val = df.iloc[0]["value"]
     end_val = df.iloc[-1]["value"]
-    return (end_val - start_val) / start_val
+    return 100 * (end_val - start_val) / start_val
 
 
 def calculate_sharpe_ratio(returns: pd.Series, rf: float, days: int) -> float:

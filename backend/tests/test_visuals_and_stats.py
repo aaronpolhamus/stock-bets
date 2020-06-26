@@ -26,19 +26,20 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     trade_time_index,
     serialize_and_pack_winners_table,
-    serialize_and_pack_orders_open_orders,
-    serialize_and_pack_current_balances,
+    serialize_and_pack_order_details,
+    serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
     compile_and_pack_player_sidebar_stats,
     make_balances_chart_data,
     SIDEBAR_STATS_PREFIX,
-    OPEN_ORDERS_PREFIX,
+    ORDER_DETAILS_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
     NULL_RGBA,
-    N_PLOT_POINTS
+    N_PLOT_POINTS,
+    NA_TEXT_SYMBOL
 )
 from backend.logic.payouts import (
     get_winner,
@@ -104,7 +105,7 @@ class TestGameKickoff(BaseTestCase):
         self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
         for user_id in all_ids:
             self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}", cache_keys)
+            self.assertIn(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", cache_keys)
             self.assertIn(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
 
         # quickly verify the structure of the chart assets. They should be blank, with transparent colors
@@ -118,11 +119,11 @@ class TestGameKickoff(BaseTestCase):
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
-        self.assertEqual(len(a_current_balance_table["headers"]), 5)
+        self.assertEqual(len(a_current_balance_table["headers"]), 7)
 
-        an_open_orders_table = unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["data"], [])
-        self.assertEqual(len(an_open_orders_table["headers"]), 7)
+        self.assertEqual(len(an_open_orders_table["headers"]), 14)
 
         a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(a_balances_chart["line_data"]), 1)
@@ -161,12 +162,12 @@ class TestGameKickoff(BaseTestCase):
         self._start_game_runner(start_time, game_id)
 
         # These are the internals of the celery tasks that called to update their state
-        serialize_and_pack_orders_open_orders(game_id, self.user_id)
-        open_orders = unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        serialize_and_pack_order_details(game_id, self.user_id)
+        open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(open_orders["data"][0]["Symbol"], self.stock_pick)
         self.assertEqual(len(open_orders["data"]), 1)
 
-        serialize_and_pack_current_balances(game_id, self.user_id)
+        serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 0)
 
@@ -199,11 +200,13 @@ class TestGameKickoff(BaseTestCase):
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders, and if they're good
         # These are the internals of the celery tasks that called to update their state
-        serialize_and_pack_orders_open_orders(game_id, self.user_id)
-        open_orders = unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(len(open_orders["data"]), 0)
+        serialize_and_pack_order_details(game_id, self.user_id)
+        open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
+        self.assertEqual(len(open_orders["data"]), 1)
+        # since the order has been filled, we expect a cleare price to be present
+        self.assertNotEqual(open_orders["data"][0]["Clear price"], NA_TEXT_SYMBOL)
 
-        serialize_and_pack_current_balances(game_id, self.user_id)
+        serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 1)
 
@@ -228,6 +231,19 @@ class TestGameKickoff(BaseTestCase):
 
         # The number of cached transactions that we expect an order to refresh
         self.assertEqual(len(rds.keys()), 4)
+
+
+class TestVisualsWithData(BaseTestCase):
+
+    def test_visuals_with_data(self):
+        game_id = 3
+        user_id = 1
+        serialize_and_pack_order_details(game_id, user_id)
+        order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
+        df = pd.DataFrame(order_details["data"])
+        self.assertEqual(df.shape, (8, 14))
+        self.assertNotIn("order_id", order_details["headers"])
+        self.assertEqual(len(order_details["headers"]), 13)
 
 
 class TestWinnerPayouts(BaseTestCase):

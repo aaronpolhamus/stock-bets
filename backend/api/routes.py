@@ -17,6 +17,7 @@ from backend.logic.games import (
     add_game,
     get_game_info_for_user,
     place_order,
+    cancel_order,
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
@@ -46,7 +47,8 @@ from logic.base import (
 )
 from backend.logic.visuals import (
     format_time_for_response,
-    OPEN_ORDERS_PREFIX,
+    update_order_details,
+    ORDER_DETAILS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
@@ -61,7 +63,7 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_get_user_invite_statuses_for_pending_game,
-    async_serialize_open_orders,
+    async_serialize_order_details,
     async_serialize_current_balances,
     async_get_game_info,
     async_invite_friend,
@@ -95,6 +97,7 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
+ORDER_CANCELLED_MESSAGE = "Order cancelled"
 
 
 # -------------- #
@@ -252,13 +255,14 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
+    n_rebuys = 0  # this is not a popular user feature, and it  adds a lot of complexity.
     add_game(
         user_id,
         game_settings["title"],
         game_settings["mode"],
         game_settings["duration"],
         game_settings["buy_in"],
-        game_settings["n_rebuys"],
+        n_rebuys,
         game_settings["benchmark"],
         game_settings["side_bets_perc"],
         game_settings["side_bets_period"],
@@ -337,6 +341,7 @@ def api_place_order():
 
     try:
         symbol = order_ticket["symbol"]
+        market_price, _ = fetch_iex_price(symbol)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         place_order(
@@ -348,18 +353,29 @@ def api_place_order():
             current_holding,
             order_ticket["order_type"],
             order_ticket["quantity_type"],
-            float(order_ticket["market_price"]),
+            market_price,
             float(order_ticket["amount"]),
             order_ticket["time_in_force"],
             stop_limit_price)
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_open_orders.apply(args=[game_id, user_id])
     async_serialize_current_balances.apply(args=[game_id, user_id])
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
+
+
+@routes.route("/api/cancel_order", methods=["POST"])
+@authenticate
+def api_cancel_order():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    order_id = request.json.get("order_id")
+    cancel_order(order_id)
+    update_order_details(game_id, user_id, order_id, "remove")
+    async_serialize_order_details.apply(args=[game_id, user_id])
+    return make_response(ORDER_CANCELLED_MESSAGE, 200)
 
 
 @routes.route("/api/fetch_price", methods=["POST"])
@@ -454,12 +470,12 @@ def get_current_balances_table():
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/get_open_orders_table", methods=["POST"])
+@routes.route("/api/get_order_details_table", methods=["POST"])
 @authenticate
-def get_open_orders_table():
+def get_order_details_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{OPEN_ORDERS_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_payouts_table", methods=["POST"])
@@ -526,4 +542,3 @@ def refresh_visuals():
 @routes.route("/healthcheck", methods=["GET"])
 def healthcheck():
     return make_response(HEALTH_CHECK_RESPONSE, 200)
-
