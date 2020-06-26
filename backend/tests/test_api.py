@@ -38,6 +38,7 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_winners_table,
+    serialize_and_pack_order_details,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
@@ -381,11 +382,10 @@ class TestPlayGame(BaseTestCase):
         user_id = 1
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
+        serialize_and_pack_order_details(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
-
         market_price, _ = fetch_iex_price(stock_pick)
-
         order_ticket = {
             "user_id": user_id,
             "game_id": game_id,

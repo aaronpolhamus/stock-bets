@@ -360,8 +360,7 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_order_details.apply(args=[game_id, user_id])  # this needs to be a single-row update
-    async_serialize_current_balances.apply(args=[game_id, user_id])  # this needs to be a single-row update
+    async_serialize_current_balances.apply(args=[game_id, user_id])
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)

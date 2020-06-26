@@ -472,21 +472,6 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
 
-def update_portfolio_details(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
-                    order_price, order_quantity, symbol):
-    """This function provides a lighter, targeted way to update the portfolio information table and is made to be
-    called with or immediately after update_balances
-    """
-
-    assert buy_or_sell in ["buy", "sell"]
-
-    if buy_or_sell == "buy":
-        pass
-
-    if buy_or_sell == "sell":
-        pass
-
-
 def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
     expected_sidebet_dates = []
     if side_bets_perc:
