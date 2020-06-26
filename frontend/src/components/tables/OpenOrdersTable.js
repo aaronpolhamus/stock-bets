@@ -2,62 +2,117 @@ import React, { useEffect, useState } from "react";
 import { Table, Button } from "react-bootstrap";
 import { fetchGameData } from "components/functions/api";
 import { ArrowDownLeft, ArrowUpRight, Trash } from "react-feather";
-import {
-  OnHoverToggle,
-  AlignText,
-  CustomTr,
-  SmallCaps,
-  Subtext,
-} from "components/textComponents/Text";
+import { AlignText, SmallCaps, Subtext } from "components/textComponents/Text";
 
-import { makeHeader } from "components/functions/tables";
+import {
+  RowStyled,
+  CellStyled,
+  CancelButton,
+} from "components/tables/TableStyledComponents";
+
+import { makeCustomHeader } from "components/functions/tables";
 
 const OrderTypeIcon = ({ type, ...props }) => {
   switch (type) {
     case "buy":
-      return <ArrowDownLeft color="var(--color-success)" {...props} />;
+      return <ArrowDownLeft color="var(--color-text-light-gray)" {...props} />;
     case "sell":
-      return <ArrowUpRight color="var(--color-text-gray)" {...props} />;
+      return <ArrowUpRight color="#5ac763" {...props} />;
   }
 };
 
-const customHeaders = [
-  "Type",
-  "Symbol",
-  "Quantity",
-  "Price",
-  "Time in force",
-  "Date Placed",
-];
+const tableHeaders = {
+  pending: [
+    {
+      value: "Type",
+    },
+    {
+      value: "Symbol",
+    },
+    {
+      value: "Quantity",
+      align: "right",
+    },
+    {
+      value: "Price",
+      align: "right",
+    },
+    {
+      value: "Time in force",
+    },
+    {
+      value: "Date Placed",
+      align: "right",
+    },
+  ],
+  fulfilled: [
+    {
+      value: "Type",
+    },
+    {
+      value: "Symbol",
+    },
+    {
+      value: "Quantity",
+      align: "right",
+    },
+    {
+      value: "Price",
+      align: "right",
+    },
+    {
+      value: "Date Placed",
+      align: "right",
+    },
+  ],
+};
 
 const renderRows = (rows) => {
   return rows.map((row, index) => {
     return (
-      <CustomTr>
+      <RowStyled>
         <td>
-          <OrderTypeIcon size={18} type={row["Buy/Sell"]} />
+          <OrderTypeIcon size={20} type={row["Buy/Sell"]} />
           <SmallCaps color="var(--color-text-gray)">
             {row["Order type"]}
           </SmallCaps>
         </td>
         <td>{row["Symbol"]}</td>
-        <td>
+        <CellStyled>
           <strong>{row["Quantity"]}</strong>
-        </td>
-        <td>
-          <strong>{row["Price"]}</strong>
-          <Subtext>{row["Price"]}</Subtext>
-        </td>
+        </CellStyled>
+        <CellStyled>
+          <strong>{row["Order price"]}</strong>
+        </CellStyled>
         <td>
           <SmallCaps>{row["Time in force"]}</SmallCaps>
         </td>
-        <td>
+        <CellStyled>
           {row["Placed on"]}
-          <button>
-            <Trash size={14} />
-          </button>
+          <CancelButton />
+        </CellStyled>
+      </RowStyled>
+    );
+  });
+};
+
+const renderFulfilledRows = (rows) => {
+  return rows.map((row, index) => {
+    return (
+      <tr>
+        <td>
+          <OrderTypeIcon size={18} type={row["Buy/Sell"]} />
         </td>
-      </CustomTr>
+        <td>{row["Symbol"]}</td>
+        <CellStyled>
+          <strong>{row["Quantity"]}</strong>
+        </CellStyled>
+        <CellStyled>
+          <strong>{row["Clear price"]}</strong>
+          <Subtext>{row["Hypothetical % return"]}</Subtext>
+        </CellStyled>
+        <CellStyled>{row["Placed on"]}</CellStyled>
+      </tr>
     );
   });
 };
@@ -71,15 +126,27 @@ const OpenOrdersTable = ({ gameId }) => {
     };
     getGameData();
   }, [gameId]);
-  console.log(tableData);
-  if (tableData.data) {
+  if (tableData.orders) {
     return (
-      <Table hover>
-        <thead>
-          <tr>{makeHeader(customHeaders)}</tr>
-        </thead>
-        <tbody>{renderRows(tableData.data)}</tbody>
-      </Table>
+      <>
+        <Table hover>
+          <thead>
+            <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
+          </thead>
+          <tbody>{renderRows(tableData.orders.pending)}</tbody>
+        </Table>
+        <h2>
+          <SmallCaps>Fulfilled orders</SmallCaps>
+        </h2>
+        <Table hover>
+          <thead>
+            <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
+          </thead>
+          <tbody>
+            {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
+          </tbody>
+        </Table>
+      </>
     );
   }
   return null;

@@ -71,32 +71,12 @@ const SmallCaps = styled.small`
   color: ${(props) => props.color || "var(--color-text-primary)"};
 `;
 
-const CustomTr = styled.tr`
-  white-space: nowrap;
-  td {
-    position: relative;
-  }
-`;
-
-const OnHoverToggle = styled.div`
-  opacity: 0;
-  background-color: pink;
-  position: absolute;
-  top: 10px;
-  transition: all 0.5s;
-  tr:hover & {
-    opacity: 1;
-  }
-`;
-
 export {
   AlignText,
   AuxiliarText,
-  CustomTr,
   FlexRow,
   FormFooter,
   Label,
-  OnHoverToggle,
   SimplifiedCurrency,
   SectionTitle,
   SmallCaps,

@@ -24,6 +24,16 @@ const makeHeader = (headers) => {
   });
 };
 
+const makeCustomHeader = (headers) => {
+  return headers.map((header, index) => {
+    return (
+      <th key={index} style={{ textAlign: header.align }}>
+        {header.value}
+      </th>
+    );
+  });
+};
+
 const AutoTable = (props) => {
   if (props.tabledata.data) {
     return (
@@ -38,4 +48,4 @@ const AutoTable = (props) => {
   return null;
 };
 
-export { AutoTable, makeHeader, makeRows };
+export { AutoTable, makeHeader, makeRows, makeCustomHeader };
