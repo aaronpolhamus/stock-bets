@@ -30,6 +30,7 @@ from backend.logic.games import (
     NoNegativeOrders,
     DEFAULT_VIRTUAL_CASH
 )
+from backend.logic.visuals import init_order_details
 from backend.tests import BaseTestCase
 from logic.base import get_all_active_symbols
 
@@ -449,6 +450,7 @@ class TestGameLogic(BaseTestCase):
         """This test goes into the internals of async_process_single_order"""
         user_id = 4
         game_id = 4
+        init_order_details(game_id, user_id)
         test_data_array = [(13, 1592573410.15422, "SQQQ", 7.990), (14, 1592573410.71635, "SPXU", 11.305)]
         for order_id, timestamp, symbol, market_price in test_data_array:
             order_ticket = get_order_ticket(order_id)

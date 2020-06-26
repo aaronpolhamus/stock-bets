@@ -407,11 +407,12 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
             entry["Hypothetical % return"]: percent_formatter(market_price / clear_price - 1)
 
         assert entry["Status"] in ["pending", "fulfilled"]
-        order_details["order"][entry["Status"]].append(entry)
+        order_details["orders"][entry["Status"]].append(entry)
         assert set(ORDER_DETAIL_MAPPINGS.values()) == set(entry.keys())
 
     if action == "remove":
-        order_details["data"] = [entry for entry in order_details["data"] if entry["order_id"] is not order_id]
+        order_details["orders"]["pending"] = [entry for entry in order_details["orders"]["pending"] if
+                                              entry["order_id"] is not order_id]
 
     rds.set(fn, json.dumps(order_details))
 
