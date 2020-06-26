@@ -77,7 +77,6 @@ PORTFOLIO_DETAIL_MAPPINGS = {
     "Value": "Value",
     "Portfolio %": "Portfolio %"}
 
-
 # ------ #
 # Colors #
 # ------ #
@@ -122,6 +121,7 @@ def palette_generator(n):
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
+
 # --------------- #
 # Dynamic display #
 # --------------- #
@@ -134,6 +134,7 @@ def format_time_for_response(timestamp: dt) -> str:
 
 def percent_formatter(val):
     return val if np.isnan(val) else PCT_FORMAT.format(val)
+
 
 # ------------------ #
 # Time series charts #
@@ -317,6 +318,7 @@ def make_the_field_charts(game_id: int):
     aggregated_df = aggregate_all_portfolios(portfolio_values)
     serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 
+
 # ------ #
 # Tables #
 # ------ #
@@ -358,7 +360,10 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
     df = df[ORDER_DETAIL_MAPPINGS.values()]
-    out_dict = dict(data=df.to_dict(orient="records"), headers=[x for x in list(df.columns) if x != "order_id"])
+    records = df.to_dict(orient="records")
+    orders_json = dict(pending=[x for x in records if x["Status"] == "pending"],
+                       fulfilled=[x for x in records if x["Status"] == "fulfilled"])
+    out_dict = dict(orders=orders_json, headers=[x for x in list(df.columns) if x != "order_id"])
     rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
 
 
@@ -366,10 +371,11 @@ def init_order_details(game_id: int, user_id: int):
     """Before we have any order information to log, make a blank entry to kick  off a game
     """
     headers = list(ORDER_DETAIL_MAPPINGS.values())
-    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(dict(data=[], headers=headers)))
+    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}",
+            json.dumps(dict(orders=dict(pending=[], fulfilled=[]), headers=headers)))
 
 
-def update_order_details(game_id: int, user_id: int, order_id: int, action: str):
+def update_order_details_table(game_id: int, user_id: int, order_id: int, action: str):
     assert action in ["add", "remove"]
 
     fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
@@ -386,20 +392,22 @@ def update_order_details(game_id: int, user_id: int, order_id: int, action: str)
             "Symbol": order_record["symbol"],
             "Status": order_record["status"],
             "Placed on": format_posix_time(order_record["timestamp_pending"]),
-            "Cleared on": NA_TEXT_SYMBOL if fulfilled_on == np.nan else format_posix_time(fulfilled_on),
+            "Cleared on": NA_TEXT_SYMBOL if np.isnan(fulfilled_on) else format_posix_time(fulfilled_on),
             "Buy/Sell": order_record["buy_or_sell"],
             "Quantity": order_record["quantity"],
             "Order type": order_record["order_type"],
             "Time in force": "Day" if order_record["time_in_force"] == "day" else "Until cancelled",
             "Order price": number_to_currency(order_record["price"]),
-            "Clear price": NA_TEXT_SYMBOL if clear_price == np.nan else number_to_currency(clear_price),
+            "Clear price": NA_TEXT_SYMBOL if np.isnan(clear_price) else number_to_currency(clear_price),
             "Market price": number_to_currency(market_price),
             "as of": format_posix_time(timestamp),
             "Hypothetical % return": NA_TEXT_SYMBOL
         }
         if clear_price != np.nan:
             entry["Hypothetical % return"]: percent_formatter(market_price / clear_price - 1)
-        order_details["data"].append(entry)
+
+        assert entry["Status"] in ["pending", "fulfilled"]
+        order_details["order"][entry["Status"]].append(entry)
         assert set(ORDER_DETAIL_MAPPINGS.values()) == set(entry.keys())
 
     if action == "remove":
@@ -536,6 +544,7 @@ def serialize_and_pack_winners_table(game_id: int):
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))
     rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict))
+
 
 # ----- #
 # Lists #
