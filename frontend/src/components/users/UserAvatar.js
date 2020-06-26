@@ -14,6 +14,7 @@ const Avatar = styled.div`
   border-radius: 50%;
   width: ${({ size }) => handleSize(size)};
   height: ${({ size }) => handleSize(size)};
+  flex: 0 0 ${({ size }) => handleSize(size)};
   display: block;
   background-color: var(--color-light-gray);
   overflow: hidden;

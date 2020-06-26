@@ -39,6 +39,7 @@ label {
     letter-spacing: var(--letter-spacing-smallcaps);
     color: var(--color-text-gray);
     border-bottom: 2px solid transparent;
+    transition: all 0.2s;
   }
   .nav-link:focus {
     outline: none;
@@ -47,7 +48,6 @@ label {
   .nav-link.active,
   .nav-item.show .nav-link {
     line-height: 1rem;
-    font-size: var(--font-size-small);
     border-bottom: 2px solid var(--color-primary-darken);
   }
 }

@@ -129,6 +129,7 @@ const PlaceOrder = ({ gameId }) => {
             name="buy_or_sell"
             defaultValue={orderTicket.buy_or_sell}
             onChange={handleChange}
+            className=""
             options={gameInfo.buy_sell_options}
             color="var(--color-text-light-gray)"
             colorChecked="var(--color-lightest)"
