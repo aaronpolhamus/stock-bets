@@ -1,43 +1,63 @@
 import React, { useEffect, useState } from "react";
 import { Table, Button } from "react-bootstrap";
-import { AutoTable } from "components/functions/tables";
 import { fetchGameData } from "components/functions/api";
+import { ArrowDownLeft, ArrowUpRight, Trash } from "react-feather";
+import {
+  OnHoverToggle,
+  AlignText,
+  CustomTr,
+  SmallCaps,
+  Subtext,
+} from "components/textComponents/Text";
 
-const TypeIcon = ({ type }) => {
+import { makeHeader } from "components/functions/tables";
+
+const OrderTypeIcon = ({ type, ...props }) => {
   switch (type) {
+    case "buy":
+      return <ArrowDownLeft color="var(--color-success)" {...props} />;
+    case "sell":
+      return <ArrowUpRight color="var(--color-text-gray)" {...props} />;
   }
 };
 
+const customHeaders = [
+  "Type",
+  "Symbol",
+  "Quantity",
+  "Price",
+  "Time in force",
+  "Date Placed",
+];
+
 const renderRows = (rows) => {
   return rows.map((row, index) => {
-    console.log(row);
     return (
-      <tr>
+      <CustomTr>
         <td>
-          {row["Buy/Sell"]}
-          <small>{row["Order type"]}</small>
+          <OrderTypeIcon size={18} type={row["Buy/Sell"]} />
+          <SmallCaps color="var(--color-text-gray)">
+            {row["Order type"]}
+          </SmallCaps>
         </td>
-
         <td>{row["Symbol"]}</td>
-
-        <td>{row["Quantity"]}</td>
-
         <td>
-          {row["Price"]}
-          <small>{row["Price"]}</small>
+          <strong>{row["Quantity"]}</strong>
         </td>
-
         <td>
-          {row["Time in force"]}
-          <small>{row["Placed on"]}</small>
+          <strong>{row["Price"]}</strong>
+          <Subtext>{row["Price"]}</Subtext>
         </td>
-
         <td>
-          <Button variant="danger" size="sm">
-            Cancel Order
-          </Button>
+          <SmallCaps>{row["Time in force"]}</SmallCaps>
         </td>
-      </tr>
+        <td>
+          {row["Placed on"]}
+          <button>
+            <Trash size={14} />
+          </button>
+        </td>
+      </CustomTr>
     );
   });
 };
@@ -56,7 +76,7 @@ const OpenOrdersTable = ({ gameId }) => {
     return (
       <Table hover>
         <thead>
-          <tr></tr>
+          <tr>{makeHeader(customHeaders)}</tr>
         </thead>
         <tbody>{renderRows(tableData.data)}</tbody>
       </Table>

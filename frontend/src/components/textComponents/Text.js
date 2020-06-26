@@ -58,14 +58,49 @@ const Label = styled.p`
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
 
+const Subtext = styled.small`
+  display: block;
+  color: var(--color-text-gray);
+`;
+
+const SmallCaps = styled.small`
+  font-size: var(--font-size-min);
+  font-weight: 400;
+  letter-spacing: var(--letter-spacing-smallcaps);
+  text-transform: uppercase;
+  color: ${(props) => props.color || "var(--color-text-primary)"};
+`;
+
+const CustomTr = styled.tr`
+  white-space: nowrap;
+  td {
+    position: relative;
+  }
+`;
+
+const OnHoverToggle = styled.div`
+  opacity: 0;
+  background-color: pink;
+  position: absolute;
+  top: 10px;
+  transition: all 0.5s;
+  tr:hover & {
+    opacity: 1;
+  }
+`;
+
 export {
   AlignText,
   AuxiliarText,
+  CustomTr,
   FlexRow,
   FormFooter,
   Label,
+  OnHoverToggle,
   SimplifiedCurrency,
   SectionTitle,
+  SmallCaps,
+  Subtext,
   TextButton,
   SmallText,
 };

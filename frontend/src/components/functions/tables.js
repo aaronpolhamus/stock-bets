@@ -33,4 +33,4 @@ const AutoTable = (props) => {
   return null;
 };
 
-export { AutoTable };
+export { AutoTable, makeHeader, makeRows };
