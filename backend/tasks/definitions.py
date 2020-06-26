@@ -8,6 +8,8 @@ from backend.logic.base import (
     during_trading_day,
     get_user_id,
     get_all_game_users,
+    get_cache_price,
+    set_cache_price
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -33,17 +35,18 @@ from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, 
 from backend.logic.visuals import (
     serialize_and_pack_winners_table,
     compile_and_pack_player_sidebar_stats,
-    serialize_and_pack_orders_open_orders,
+    serialize_and_pack_order_details,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
     make_the_field_charts,
-    serialize_and_pack_current_balances,
+    serialize_and_pack_portfolio_details,
 )
 from backend.tasks.celery import (
     celery,
     BaseTask,
     pause_return_until_subtask_completion
 )
+from backend.tasks.redis import rds
 
 # -------------------------- #
 # Price fetching and caching #
@@ -55,8 +58,13 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
     """
+    cache_price, cache_time = get_cache_price(symbol)
+    if cache_price is not None and cache_time == last_updated:
+        return
+
     if during_trading_day():
         add_row("prices", symbol=symbol, price=price, timestamp=last_updated)
+        set_cache_price(symbol, price, last_updated)
 
 
 @celery.task(name="async_fetch_and_cache_prices", bind=True, base=BaseTask)
@@ -194,7 +202,7 @@ def async_get_friend_invites(self, user_id):
 # ------------- #
 # Visual assets #
 # ------------- #
-"""This gets a little bit dense. async_serialize_open_orders and async_serialize_current_balances run at the game-user
+"""This gets a little bit dense. async_serialize_order_details and async_serialize_current_balances run at the game-user
 level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
 both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
 expensive task that serializes balance histories for all user positions in all open games and, based on that data, 
@@ -202,20 +210,20 @@ creates a "the field" chart for portfolio level comps.
 
 In addition to being run by async_update_play_game_visuals, these tasks are also run when calling the place_order
 endpoint in order to have user data be as dynamic and responsive as possible:
-* async_serialize_open_orders
+* async_serialize_order_details
 * async_serialize_current_balances
 * async_serialize_balances_chart
 """
 
 
-@celery.task(name="async_serialize_open_orders", bind=True, base=BaseTask)
-def async_serialize_open_orders(self, game_id, user_id):
-    serialize_and_pack_orders_open_orders(game_id, user_id)
+@celery.task(name="async_serialize_order_details", bind=True, base=BaseTask)
+def async_serialize_order_details(self, game_id, user_id):
+    serialize_and_pack_order_details(game_id, user_id)
 
 
 @celery.task(name="async_serialize_current_balances", bind=True, base=BaseTask)
 def async_serialize_current_balances(self, game_id, user_id):
-    serialize_and_pack_current_balances(game_id, user_id)
+    serialize_and_pack_portfolio_details(game_id, user_id)
 
 
 @celery.task(name="async_serialize_balances_chart", bind=True, base=BaseTask)
@@ -239,14 +247,15 @@ def async_update_play_game_visuals(self):
         task_results.append(async_compile_player_sidebar_stats.delay(game_id))
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
-            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_order_details.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
     pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
-
 
 # ---------------------- #
 # Player stat production #
 # ---------------------- #
+
+
 @celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
 def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_date=None):
     calculate_and_pack_metrics(game_id, user_id, start_date, end_date)

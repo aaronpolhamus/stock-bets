@@ -6,6 +6,7 @@ import { optionBuilder } from "components/functions/forms";
 import { AuxiliarText, FormFooter } from "components/textComponents/Text";
 import { fetchGameData } from "components/functions/api";
 import { RadioButtons, TabbedRadioButtons } from "components/forms/Inputs";
+import { Tooltip } from "components/forms/Tooltips";
 
 // request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
@@ -38,7 +39,6 @@ const PlaceOrder = ({ gameId }) => {
     e.preventDefault();
     const orderTicketCopy = { ...orderTicket };
     orderTicketCopy.symbol = symbolValue;
-    orderTicketCopy.market_price = priceData.price;
     setOrderTicket(orderTicketCopy);
     try {
       await api.post("/api/place_order", orderTicketCopy);
@@ -160,7 +160,9 @@ const PlaceOrder = ({ gameId }) => {
               <small>Last updated: {priceData.last_updated}</small>
               <br />
               <small>
-                <a href="https://iexcloud.io">Data provided by IEX Cloud</a>
+                <a href="https://iexcloud.io" target="_blank">
+                  Data provided by IEX Cloud
+                </a>
               </small>
             </AuxiliarText>
           )}
@@ -197,7 +199,10 @@ const PlaceOrder = ({ gameId }) => {
         <Row>
           <Col>
             <Form.Group>
-              <Form.Label>Order type</Form.Label>
+              <Form.Label>
+                Order type
+                <Tooltip message="A market order clears right away, at  whatever price is currently on the market. A 'limit' order is an order where the price direction is in your favor, e.g. a buy-limit order clears when the market price is less than or equal to the price you set. A sell-limit order, on the other hand, clears when the market price is greater than or equal to your order price. A sell-stop order is a common way to reduce exposure to loss, and clears when the market price is at or below the sale order price. Orders only clear during trading day--if you're placing orders outside of trading hours, you should see them reflected in your orders table as pending." />
+              </Form.Label>
               <RadioButtons
                 name="order_type"
                 defaultValue={orderTicket.order_type}
@@ -216,7 +221,10 @@ const PlaceOrder = ({ gameId }) => {
           </Col>
         </Row>
         <Form.Group>
-          <Form.Label>Time in Force</Form.Label>
+          <Form.Label>
+            Time in Force
+            <Tooltip message="We'll continually monitor an 'Until cancelled' order for execution until you cancel it by hand." />
+          </Form.Label>
           <Form.Control
             name="time_in_force"
             as="select"

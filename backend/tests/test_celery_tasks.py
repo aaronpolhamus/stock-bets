@@ -25,7 +25,7 @@ from backend.tasks.definitions import (
     async_service_open_games,
     async_make_the_field_charts,
     async_serialize_current_balances,
-    async_serialize_open_orders,
+    async_serialize_order_details,
     async_calculate_game_metrics,
     async_get_friends_details,
     async_get_friend_invites,
@@ -64,6 +64,28 @@ class TestStockDataTasks(BaseTestCase):
         with self.engine.connect() as conn:
             post_count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
         self.assertEqual(post_count - pre_count, 3)
+
+        # check to make sure that redundant entries aren't written to the price table
+        symbol = "WORK"
+        with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
+            trading_day_mock.return_value = True
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                first_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(first_count, 1)
+
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                second_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(second_count, 1)
+
+            price, timestamp = fetch_iex_price(symbol)
+            async_cache_price.apply(args=[symbol, price, timestamp])
+            with self.engine.connect() as conn:
+                third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
+            self.assertEqual(third_count, 2)
 
     @patch("backend.tasks.definitions.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
@@ -211,12 +233,7 @@ class TestGameIntegration(BaseTestCase):
         # Place two market orders and a buy limit order
         with patch("backend.logic.games.time") as mock_game_time, patch(
                 "backend.logic.base.time") as mock_data_time:
-            time_list = [
-                game_start_time + 300,
-                game_start_time + 300,
-                game_start_time + 300
-            ]
-            mock_game_time.time.side_effect = mock_data_time.time.side_effect = time_list
+            mock_game_time.time.return_value = mock_data_time.time.return_value = game_start_time + 300
 
             # Everything working as expected. Place a couple buy orders to get things started
             stock_pick = "AMZN"
@@ -532,7 +549,7 @@ class TestVisualAssetsTasks(BaseTestCase):
         task_results = list()
         task_results.append(async_make_the_field_charts.delay(game_id))
         for user_id in user_ids:
-            task_results.append(async_serialize_open_orders.delay(game_id, user_id))
+            task_results.append(async_serialize_order_details.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected

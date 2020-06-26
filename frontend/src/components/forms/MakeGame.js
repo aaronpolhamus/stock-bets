@@ -5,7 +5,7 @@ import { Form, Button, Modal, Row, Col } from "react-bootstrap";
 import { Typeahead } from "react-bootstrap-typeahead";
 import { optionBuilder } from "components/functions/forms";
 import { RadioButtons } from "components/forms/Inputs";
-
+import { Tooltip } from "components/forms/Tooltips";
 import styled from "styled-components";
 
 const StyledTypeahead = styled(Typeahead)`
@@ -91,7 +91,10 @@ const MakeGame = () => {
         <Row>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Title</Form.Label>
+              <Form.Label>
+                Title
+                <Tooltip message="We randomly generate a nonsense title for you, but feel free to pick your own!" />
+              </Form.Label>
               <Form.Control
                 name="title"
                 type="input"
@@ -100,7 +103,10 @@ const MakeGame = () => {
               />
             </Form.Group>
             <Form.Group>
-              <Form.Label>Game mode</Form.Label>
+              <Form.Label>
+                Game mode
+                <Tooltip message='In a "consolation prize" game second place gets their money back. In a return weighted game, the pot is divided up proportionally based on game scores.' />
+              </Form.Label>
               <RadioButtons
                 options={defaults.game_modes}
                 name="mode"
@@ -111,7 +117,10 @@ const MakeGame = () => {
             <Row>
               <Col xs={6}>
                 <Form.Group>
-                  <Form.Label>Game duration (days)</Form.Label>
+                  <Form.Label>
+                    Game duration (days)
+                    <Tooltip message="How many days would you like your game to last for?" />
+                  </Form.Label>
                   <Form.Control
                     name="duration"
                     type="input"
@@ -124,7 +133,10 @@ const MakeGame = () => {
             <Row>
               <Col xs={6}>
                 <Form.Group>
-                  <Form.Label>Buy-in</Form.Label>
+                  <Form.Label>
+                    Buy-in
+                    <Tooltip message="How many dollars does each player need to put in to join the game?" />
+                  </Form.Label>
                   <Form.Control
                     name="buy_in"
                     type="input"
@@ -133,20 +145,12 @@ const MakeGame = () => {
                   />
                 </Form.Group>
               </Col>
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label>Number of re-buys</Form.Label>
-                  <Form.Control
-                    name="n_rebuys"
-                    type="input"
-                    defaultValue={defaults.n_rebuys}
-                    onChange={handleChange}
-                  />
-                </Form.Group>
-              </Col>
             </Row>
             <Form.Group>
-              <Form.Label>Benchmark</Form.Label>
+              <Form.Label>
+                Benchmark
+                <Tooltip message="If you're not sure what a Sharpe ratio is, go with simple return, which simply  divides the money you have at the end by the amount you started with." />
+              </Form.Label>
 
               <RadioButtons
                 options={defaults.benchmarks}
@@ -158,7 +162,10 @@ const MakeGame = () => {
           </Col>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Add Participant</Form.Label>
+              <Form.Label>
+                Add Participant
+                <Tooltip message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first." />
+              </Form.Label>
               <StyledTypeahead
                 id="typeahead-particpants"
                 name="invitees"
@@ -175,7 +182,10 @@ const MakeGame = () => {
           </Col>
           <Col lg={4}>
             <Form.Group>
-              <Form.Label>Sidebet % of pot</Form.Label>
+              <Form.Label>
+                Sidebet % of pot
+                <Tooltip message="In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked." />
+              </Form.Label>
               <Form.Control
                 name="side_bets_perc"
                 type="input"
@@ -186,7 +196,10 @@ const MakeGame = () => {
             </Form.Group>
             {sidePotPct > 0 && (
               <Form.Group>
-                <Form.Label>Sidebet period</Form.Label>
+                <Form.Label>
+                  Sidebet period
+                  <Tooltip message="The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. " />
+                </Form.Label>
                 <Form.Control
                   name="side_bets_period"
                   as="select"
