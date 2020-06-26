@@ -33,7 +33,7 @@ from backend.logic.base import (
 from backend.logic.visuals import (
     serialize_and_pack_winners_table,
     init_order_details,
-    update_order_details,
+    update_order_details_table,
     serialize_and_pack_portfolio_details,
     compile_and_pack_player_sidebar_stats,
     make_the_field_charts,
@@ -560,8 +560,10 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
                         order_quantity, symbol)
 
     # update order info table
-    if rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"):
-        update_order_details(game_id, user_id, order_id, "add")
+    if rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}") is None:
+        init_order_details(game_id, user_id)
+
+    update_order_details_table(game_id, user_id, order_id, "add")
 
 
 def get_order_ticket(order_id):
@@ -592,6 +594,13 @@ def process_order(order_id):
                                   clear_price=market_price)
         update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
                         market_price, quantity, symbol)
+
+        # update orders table
+        update_order_details_table(game_id, user_id, order_id, "remove")
+        update_order_details_table(game_id, user_id, order_id, "add")
+
+        # update balances table
+        serialize_and_pack_portfolio_details(game_id, user_id)
 
 
 def get_order_expiration_status(order_id):

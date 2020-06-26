@@ -55,6 +55,7 @@ $theme-colors: (
   "secondary": $color-secondary,
   "info": #efefef,
   "success": $color-success,
+  "danger": $color-terciary,
   "light": $color-light-gray,
 );
 
@@ -64,7 +65,6 @@ $headings-font-weight: 100;
 $table-hover-bg: $color-light-gray;
 $table-border-color: $color-cool-gray;
 $badge-pill-padding-x: 0.75em;
-$input-btn-padding-x: 1rem;
 
 /* import bootstrap to set changes */
 @import "../node_modules/bootstrap/scss/bootstrap";

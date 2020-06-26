@@ -1,4 +1,5 @@
 import React from "react";
+import { Table } from "react-bootstrap";
 
 const renderRow = (row, headers, exclude = ["order_id"]) => {
   return headers.map((key, index) => {
@@ -23,15 +24,28 @@ const makeHeader = (headers) => {
   });
 };
 
-const MakeTable = (tableData) => {
-  return (
-    <>
-      <thead>
-        <tr>{makeHeader(tableData.headers)}</tr>
-      </thead>
-      <tbody>{makeRows(tableData)}</tbody>
-    </>
-  );
+const makeCustomHeader = (headers) => {
+  return headers.map((header, index) => {
+    return (
+      <th key={index} style={{ textAlign: header.align }}>
+        {header.value}
+      </th>
+    );
+  });
 };
 
-export { MakeTable };
+const AutoTable = (props) => {
+  if (props.tabledata.data) {
+    return (
+      <Table {...props}>
+        <thead>
+          <tr>{makeHeader(props.tabledata.headers)}</tr>
+        </thead>
+        <tbody>{makeRows(props.tabledata)}</tbody>
+      </Table>
+    );
+  }
+  return null;
+};
+
+export { AutoTable, makeHeader, makeRows, makeCustomHeader };

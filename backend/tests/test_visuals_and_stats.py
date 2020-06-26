@@ -4,7 +4,8 @@ that they are logic-level tests of how what the users do impacts what the users 
 from unittest.mock import patch
 
 import pandas as pd
-from pandas.tseries.offsets import DateOffset
+from backend.database.fixtures.mock_data import simulation_start_time
+from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     posix_to_datetime,
     datetime_to_posix,
@@ -22,6 +23,12 @@ from backend.logic.games import (
     start_game_if_all_invites_responded,
     place_order,
     DEFAULT_VIRTUAL_CASH
+)
+from backend.logic.payouts import (
+    get_winner,
+    get_last_sidebet_payout,
+    portfolio_value_by_day,
+    log_winners,
 )
 from backend.logic.visuals import (
     trade_time_index,
@@ -41,19 +48,12 @@ from backend.logic.visuals import (
     N_PLOT_POINTS,
     NA_TEXT_SYMBOL
 )
-from backend.logic.payouts import (
-    get_winner,
-    get_last_sidebet_payout,
-    portfolio_value_by_day,
-    log_winners,
-)
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
-from backend.database.helpers import query_to_dict
-from backend.database.fixtures.mock_data import simulation_start_time
+from pandas.tseries.offsets import DateOffset
 
 
 class TestGameKickoff(BaseTestCase):
@@ -122,7 +122,8 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(a_current_balance_table["headers"]), 7)
 
         an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(an_open_orders_table["data"], [])
+        self.assertEqual(an_open_orders_table["orders"]["pending"], [])
+        self.assertEqual(an_open_orders_table["orders"]["fulfilled"], [])
         self.assertEqual(len(an_open_orders_table["headers"]), 14)
 
         a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
@@ -164,8 +165,9 @@ class TestGameKickoff(BaseTestCase):
         # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(open_orders["data"][0]["Symbol"], self.stock_pick)
-        self.assertEqual(len(open_orders["data"]), 1)
+        self.assertEqual(open_orders["orders"]["pending"][0]["Symbol"], self.stock_pick)
+        self.assertEqual(open_orders["orders"]["fulfilled"], [])
+        self.assertEqual(len(open_orders["orders"]["pending"]), 1)
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
@@ -198,13 +200,15 @@ class TestGameKickoff(BaseTestCase):
         self._start_game_runner(start_time, game_id)
 
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
-        # valid stop/limit orders should post to pending orders, and if they're good
+        # valid stop/limit orders should post to pending orders
         # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(len(open_orders["data"]), 1)
-        # since the order has been filled, we expect a cleare price to be present
-        self.assertNotEqual(open_orders["data"][0]["Clear price"], NA_TEXT_SYMBOL)
+        # since the order has been filled, we expect a clear price to be present
+        self.assertNotEqual(open_orders["orders"]["fulfilled"][0]["Clear price"], NA_TEXT_SYMBOL)
+        self.assertEqual(open_orders["orders"]["fulfilled"][0]["Symbol"], self.stock_pick)
+        self.assertEqual(open_orders["orders"]["pending"], [])
+        self.assertEqual(len(open_orders["orders"]["fulfilled"]), 1)
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
@@ -240,7 +244,8 @@ class TestVisualsWithData(BaseTestCase):
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
         order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-        df = pd.DataFrame(order_details["data"])
+        df = pd.concat(
+            [pd.DataFrame(order_details["orders"]["pending"]), pd.DataFrame(order_details["orders"]["fulfilled"])])
         self.assertEqual(df.shape, (8, 14))
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
@@ -297,7 +302,7 @@ class TestWinnerPayouts(BaseTestCase):
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
-            side_pot = pot_size * (game_info["side_bets_perc"]/100) / n_sidebets
+            side_pot = pot_size * (game_info["side_bets_perc"] / 100) / n_sidebets
             self.assertEqual(sidebet_entry["payout"], side_pot)
             self.assertEqual(sidebet_entry["type"], "sidebet")
 
@@ -332,7 +337,6 @@ class TestTradeTimeIndex(BaseTestCase):
     """
 
     def test_trade_time_index(self):
-
         with self.engine.connect() as conn:
             prices = pd.read_sql("SELECT * FROM prices;", conn)
 

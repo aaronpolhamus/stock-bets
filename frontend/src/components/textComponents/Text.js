@@ -58,6 +58,19 @@ const Label = styled.p`
   letter-spacing: var(--letter-spacing-smallcaps);
 `;
 
+const Subtext = styled.small`
+  display: block;
+  color: var(--color-text-gray);
+`;
+
+const SmallCaps = styled.small`
+  font-size: var(--font-size-min);
+  font-weight: 400;
+  letter-spacing: var(--letter-spacing-smallcaps);
+  text-transform: uppercase;
+  color: ${(props) => props.color || "var(--color-text-primary)"};
+`;
+
 export {
   AlignText,
   AuxiliarText,
@@ -66,6 +79,8 @@ export {
   Label,
   SimplifiedCurrency,
   SectionTitle,
+  SmallCaps,
+  Subtext,
   TextButton,
   SmallText,
 };

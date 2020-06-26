@@ -331,7 +331,8 @@ class TestCreateGame(BaseTestCase):
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
-        self.assertEqual(init_open_orders_entry["data"], [])
+        self.assertEqual(init_open_orders_entry["orders"]["pending"], [])
+        self.assertEqual(init_open_orders_entry["orders"]["fulfilled"], [])
         self.assertEqual(len(init_open_orders_entry["headers"]), 14)
 
         serialize_and_pack_winners_table(game_id)
@@ -414,7 +415,7 @@ class TestPlayGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
         balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
@@ -496,7 +497,7 @@ class TestPlayGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
         self.assertNotIn("JETS", stocks_in_table_response)
 
 
