@@ -29,7 +29,8 @@ from backend.logic.games import (
     get_user_invite_status_for_game
 )
 from backend.logic.payouts import (
-    calculate_and_pack_metrics
+    calculate_and_pack_metrics,
+    log_winners
 )
 from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols, get_game_info
 from backend.logic.visuals import (
@@ -281,3 +282,15 @@ def async_update_player_stats(self):
 @celery.task(name="async_serialize_and_pack_winners_table", bind=True, base=BaseTask)
 def async_serialize_and_pack_winners_table(self, game_id):
     serialize_and_pack_winners_table(game_id)
+
+
+@celery.task(name="async_calculate_winner", bind=True, base=BaseTask)
+def async_calculate_winner(self, game_id):
+    log_winners(game_id)
+
+
+@celery.task(name="async_calculate_winners", bind=True, base=BaseTask)
+def async_calculate_winners(self):
+    open_game_ids = get_active_game_ids()
+    for game_id in open_game_ids:
+        async_calculate_winner.delay(game_id)

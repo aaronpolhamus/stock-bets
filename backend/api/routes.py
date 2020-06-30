@@ -63,7 +63,7 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_suggest_symbols,
     async_get_user_invite_statuses_for_pending_game,
-    async_serialize_order_details,
+    async_calculate_winners,
     async_serialize_current_balances,
     async_get_game_info,
     async_invite_friend,
@@ -532,6 +532,13 @@ def refresh_visuals():
     async_update_play_game_visuals.delay()
     return make_response("refreshing visuals...", 200)
 
+
+@routes.route("/api/calculate_winners", methods=["POST"])
+@authenticate
+@admin
+def calculate_winners():
+    async_calculate_winners.delay()
+    return make_response("calculating winners...", 200)
 
 # ------ #
 # DevOps #

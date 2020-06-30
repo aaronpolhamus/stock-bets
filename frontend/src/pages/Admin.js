@@ -67,6 +67,11 @@ const Admin = () => {
           Refresh visuals
         </Button>
       </Row>
+      <Row>
+        <Button onClick={async () => api.post("/api/calculate_winners")}>
+          Calculate winners
+        </Button>
+      </Row>
     </>
   );
 };

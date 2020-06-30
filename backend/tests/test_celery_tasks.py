@@ -322,7 +322,7 @@ class TestGameIntegration(BaseTestCase):
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
         with patch("backend.logic.games.fetch_iex_price") as mock_price_fetch, patch(
-                "backend.logic.base.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
+                "backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5
 
@@ -344,11 +344,14 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 48 * 60 * 60,
             ]
 
-            mock_data_time.time.side_effect = [
+            mock_base_time.time.side_effect = [
+                game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
             ]

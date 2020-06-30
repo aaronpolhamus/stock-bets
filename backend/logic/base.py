@@ -494,6 +494,8 @@ def fetch_iex_price(symbol):
     if res.status_code == 200:
         quote = res.json()
         timestamp = quote["latestUpdate"] / 1000
+        if Config.IEX_API_PRODUCTION is False:
+            timestamp = time.time()
         price = quote["latestPrice"]
         return price, timestamp
 
