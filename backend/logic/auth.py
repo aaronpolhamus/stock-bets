@@ -51,6 +51,7 @@ WHITE_LIST = [
     "thebigmehtaphor@gmail.com",
     "thedanc@gmail.com",
     "tommaso@mymoons.mx",
+    "torygreen@gmail.com",
     "waverly.james92@gmail.com",
 ]
 
