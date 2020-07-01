@@ -549,16 +549,13 @@ class TestVisualAssetsTasks(BaseTestCase):
         async_service_one_open_game.apply(args=[game_id])
 
         # this is basically the internals of async_update_play_game_visuals for one game
-        task_results = list()
-        task_results.append(async_make_the_field_charts.delay(game_id))
+        async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
-            task_results.append(async_serialize_order_details.delay(game_id, user_id))
-            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+            async_serialize_order_details.apply(args=[game_id, user_id])
+            async_serialize_current_balances.apply(args=[game_id, user_id])
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
-        field_chart = unpack_redis_json("field_chart_3")
-        while field_chart is None:
-            field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(unpack_redis_json("field_chart_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))

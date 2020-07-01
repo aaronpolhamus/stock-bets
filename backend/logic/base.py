@@ -351,7 +351,7 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
         prices_subset = price_df[price_df["symbol"] == symbol]
         if prices_subset.empty and symbol == "Cash":
             # Special handling for cash
-            balance_subset["price"] = 1
+            balance_subset.loc[:, "price"] = 1
             price_subsets.append(balance_subset)
             continue
         del prices_subset["symbol"]

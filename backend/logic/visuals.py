@@ -117,7 +117,14 @@ def hex_to_rgb(h):
 
 def palette_generator(n):
     """For n distinct series, generate a unique color palette"""
-    hex_codes = HEX_COLOR_PALETTE[:n]
+    hex_codes = []
+    i = 0
+    # recycle color palette if we've maxed it out -- there's definitely a more compact way to do this
+    for _ in range(n):
+        hex_codes.append(HEX_COLOR_PALETTE[i])
+        i += 1
+        if i == len(HEX_COLOR_PALETTE):
+            i = 0
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
@@ -179,21 +186,21 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     return pd.cut(pd.Series(trade_time_array), N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
 
-def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
-    """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
-    """
+def build_labels(df: pd.DataFrame) -> pd.DataFrame:
     df.sort_values("timestamp", inplace=True)
     df["t_index"] = trade_time_index(df["timestamp"])
-    df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
-    df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
-    return df
+    labels = df.groupby("t_index", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
+    labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+    return df.merge(labels, how="inner", on="t_index")
 
 
 def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
     df = make_historical_balances_and_prices_table(game_id, user_id)
     if df.empty:  # this should only happen outside of trading hours
         return df
-    return reformat_for_plotting(df)
+    df = build_labels(df)
+    return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
+        {"label": "last", "value": "last", "timestamp": "last"})
 
 
 def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
@@ -271,10 +278,10 @@ def aggregate_portfolio_value(df: pd.DataFrame):
     if df.empty:
         return df
 
-    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "last", "value": "last"})
-    return last_entry_df.groupby("t_index", as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "first", "value": "sum"})
+    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["label", "value", "timestamp"]].aggregate(
+        {"label": "last", "value": "last", "timestamp": "last"})
+    return last_entry_df.groupby("t_index", as_index=False)[["label", "value", "timestamp"]].aggregate(
+        {"label": "first", "value": "sum", "timestamp": "first"})
 
 
 def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
@@ -286,12 +293,9 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
         df["id"] = _id
         ls.append(df)
     df = pd.concat(ls)
-    df.sort_values("timestamp", inplace=True)
-    df["bin"] = trade_time_index(df["timestamp"])
-    labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
-    labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
-    df = df.merge(labels, how="inner", on="bin")
-    return df.groupby(["id", "bin"], as_index=False).aggregate({"label": "last", "value": "last"})
+    del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
+    df = build_labels(df)
+    return df.groupby(["id", "t_index"], as_index=False)[["label", "value"]].agg("last")
 
 
 def make_the_field_charts(game_id: int):
