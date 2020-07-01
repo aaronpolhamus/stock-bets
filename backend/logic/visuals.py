@@ -203,72 +203,93 @@ def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
         {"label": "last", "value": "last", "timestamp": "last"})
 
 
-def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
-    """The key for each kwarg is the corresponding react chart mapping that we're targeting. The value is the value
-    of that data in the dataframe being parsed, e.g. y="value"
+def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, dataset_color: str, labels: List[str],
+                                     data_column: str, label_column: str = "label"):
+    """The serializer requires a list of "global" labels that it can use to decide when to make null assignments, along
+    with an identification of the column that contains the data mapping. We also pass in a label and color for the
+    dataset
     """
-    output_array = []
-    for _, row in df.iterrows():
-        entry = {}
-        for k, v, in kwargs.items():
-            entry[k] = row[v]
-        output_array.append(entry)
-    return output_array
+    dataset = dict(label=dataset_label, borderColor=dataset_color)
+    data = []
+    for label in labels:
+        row = df[df[label_column] == label]
+        assert row.shape[0] <= 1
+        if not row:
+            data.append(None)
+            continue
+        data.append(row[data_column])
+    dataset["data"] = data
+    return dataset
 
 
-def null_chart_series(null_label: str):
+def null_dataset(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
     """
     schedule = get_next_trading_day_schedule(dt.utcnow())
     start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
-    series = [{"x": t.strftime(DATE_LABEL_FORMAT), "y": DEFAULT_VIRTUAL_CASH} for t in
-              pd.date_range(start, end, N_PLOT_POINTS)]
-    series[0]["y"] = 0
-    return dict(id=null_label, data=series)
+    labels = [t.strftime(DATE_LABEL_FORMAT) for t in pd.date_range(start, end, N_PLOT_POINTS)]
+    data = [DEFAULT_VIRTUAL_CASH for _ in labels]
+    return dict(labels=labels, datasets=[dict(label=null_label, data=data, borderColor=NULL_RGBA)])
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
-    result of calling make_balances_chart_data
-    """
-    chart_json = dict(
-        line_data=[null_chart_series("Cash")],
-        colors=[NULL_RGBA]
-    )
-    if not df.empty:
-        line_data = []
-        symbols = df["symbol"].unique()
-        for i, symbol in enumerate(symbols):
-            entry = dict(id=symbol)
-            subset = df[df["symbol"] == symbol]
-            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            line_data.append(entry)
-        chart_json = dict(line_data=line_data, colors=palette_generator(len(symbols)))
+    result of calling make_balances_chart_data. Target schema is:
+    data = {
+        labels = [ ... ],
+        datasets = [
+            {
+             "label": "<symbol>",
+             "data": [x1, x2, ..., xn],
+             "borderColor: "rgba(r, g, b, a)"
+            },
+            ...
+        ]
+    }
 
+    Labels can have values of None for where we do want to have a tick, but not a label so as to avoid overcrowding.
+    Similarly, the data array for each dataset should have None values corresponding to where no data is observed for a
+    given label.
+    """
+    chart_json = null_dataset("Cash")
+    if not df.empty:
+        df.sort_values("timestamp", inplace=True)
+        labels = df["label"].unique()
+        datasets = []
+        symbols = df["symbol"].unique()
+        colors = palette_generator(len(symbols))
+        for symbol, color in zip(symbols, colors):
+            subset = df[df["symbol"] == symbol]
+            entry = serialize_pandas_rows_to_dataset(subset, symbol, color, labels, "value")
+            datasets.append(entry)
+        chart_json = dict(labels=labels, datasets=datasets)
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
+    """This shares the same schema with the balances chart. See doc string for serialize_and_pack_balances_chart
+    """
     user_ids = get_all_game_users(game_id)
-    line_data = []
-    colors = []
-    palette = palette_generator(len(user_ids))
-    for i, user_id in enumerate(user_ids):
-        username = get_username(user_id)
-        if df.empty:
-            entry = null_chart_series(username)
-            color = NULL_RGBA
-        else:
-            entry = dict(id=username)
+    datasets = []
+    colors = palette_generator(len(user_ids))
+    if df.empty:
+        for i, user_id in enumerate(user_ids):
+            username = get_username(user_id)
+            null_data = null_dataset(username)
+            datasets.append(null_data[["datasets"][0]])
+        labels = null_data["labels"]
+    else:
+        df.sort_values("timestamp", inplace=True)
+        labels = df["label"].unique()
+        for user_id, color in zip(user_ids, colors):
+            username = get_username(user_id)
             subset = df[df["id"] == user_id]
-            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            color = palette[i]
-        line_data.append(entry)
-        colors.append(color)
+            entry = serialize_pandas_rows_to_dataset(subset, username, color, labels, "value")
+            datasets.append(entry)
 
-    chart_json = dict(line_data=line_data, colors=colors)
+    chart_json = dict(labels=labels, datasets=datasets)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
