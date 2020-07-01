@@ -1,24 +1,24 @@
-import React from "react";
-import { Tabs, Tab } from "react-bootstrap";
-import { useParams } from "react-router-dom";
-import { PlaceOrder } from "components/forms/PlaceOrder";
+import React from 'react'
+import { Tabs, Tab } from 'react-bootstrap'
+import { useParams } from 'react-router-dom'
+import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Layout,
   Sidebar,
   PageSection,
   Content,
   SmallColumn,
-  Breadcrumb,
-} from "components/layout/Layout";
-import { FieldChart } from "components/charts/FieldChart";
-import { BalancesChart } from "components/charts/BalancesChart";
-import { OrdersAndBalancesCard } from "components/tables/OrdersAndBalancesCard";
-import { GameHeader } from "pages/game/GameHeader";
-import { PlayGameStats } from "components/lists/PlayGameStats";
-import { ChevronLeft } from "react-feather";
+  Breadcrumb
+} from 'components/layout/Layout'
+import { FieldChart } from 'components/charts/FieldChart'
+import { UserDropDownChart } from 'components/charts/BaseCharts'
+import { OrdersAndBalancesCard } from 'components/tables/OrdersAndBalancesCard'
+import { GameHeader } from 'pages/game/GameHeader'
+import { PlayGameStats } from 'components/lists/PlayGameStats'
+import { ChevronLeft } from 'react-feather'
 
 const PlayGame = (props) => {
-  const { gameId } = useParams();
+  const { gameId } = useParams()
 
   return (
     <Layout>
@@ -31,20 +31,20 @@ const PlayGame = (props) => {
       <Content>
         <PageSection>
           <Breadcrumb>
-            <a href="/">
-              {" "}
-              <ChevronLeft size={14} style={{ marginTop: "-3px" }} /> Dashboard
+            <a href='/'>
+              {' '}
+              <ChevronLeft size={14} style={{ marginTop: '-3px' }} /> Dashboard
             </a>
           </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>
         <PageSection>
           <Tabs>
-            <Tab eventKey="field-chart" title="Field">
+            <Tab eventKey='field-chart' title='Field'>
               <FieldChart gameId={gameId} />
             </Tab>
-            <Tab eventKey="balances-chart" title="Balances">
-              <BalancesChart gameId={gameId} />
+            <Tab eventKey='balances-chart' title='Balances'>
+              <UserDropDownChart gameId={gameId} endpoint='get_balances_chart' />
             </Tab>
           </Tabs>
         </PageSection>
@@ -53,7 +53,7 @@ const PlayGame = (props) => {
         </PageSection>
       </Content>
     </Layout>
-  );
-};
+  )
+}
 
-export { PlayGame };
+export { PlayGame }

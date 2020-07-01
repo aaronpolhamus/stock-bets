@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from "react";
-import { AutoTable } from "components/functions/tables";
-import { fetchGameData } from "components/functions/api";
+import React, { useEffect, useState } from 'react'
+import { AutoTable } from 'components/functions/tables'
+import { fetchGameData } from 'components/functions/api'
 
 const PayoutsTable = ({ gameId }) => {
-  const [tableData, setTableData] = useState({});
+  const [tableData, setTableData] = useState({})
   useEffect(() => {
     const getGameData = async () => {
-      const data = await fetchGameData(gameId, "get_payouts_table");
-      setTableData(data);
-    };
-    getGameData();
-  }, [gameId]);
+      const data = await fetchGameData(gameId, 'get_payouts_table')
+      setTableData(data)
+    }
+    getGameData()
+  }, [gameId])
 
-  return <AutoTable hover tabledata={tableData} />;
-};
+  return <AutoTable hover tabledata={tableData} />
+}
 
-export { PayoutsTable };
+export { PayoutsTable }

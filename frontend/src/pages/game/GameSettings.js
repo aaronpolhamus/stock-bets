@@ -1,26 +1,26 @@
-import React from "react";
-import { SidebarSection } from "components/layout/Layout";
-import { SectionTitle, Label } from "components/textComponents/Text";
-import { UserMiniCard } from "components/users/UserMiniCard";
-import styled from "styled-components";
+import React from 'react'
+import { SidebarSection } from 'components/layout/Layout'
+import { SectionTitle, Label } from 'components/textComponents/Text'
+import { UserMiniCard } from 'components/users/UserMiniCard'
+import styled from 'styled-components'
 
 const StyledDd = styled.dd`
   margin-bottom: var(--space-300);
   margin-top: 0;
-`;
+`
 
 const GameSettings = ({ gameInfo }) => {
   return (
     <div>
       <SidebarSection>
-        <SectionTitle color="var(--color-primary)">Game Host</SectionTitle>
+        <SectionTitle color='var(--color-primary)'>Game Host</SectionTitle>
         <UserMiniCard
           username={gameInfo.creator_username}
-          nameColor="var(--color-lighter)"
+          nameColor='var(--color-lighter)'
         />
       </SidebarSection>
       <SidebarSection>
-        <SectionTitle color="var(--color-primary)">Game Settings</SectionTitle>
+        <SectionTitle color='var(--color-primary)'>Game Settings</SectionTitle>
         <dl>
           <dt>
             <Label>Game Mode</Label>
@@ -51,7 +51,7 @@ const GameSettings = ({ gameInfo }) => {
         </dl>
       </SidebarSection>
     </div>
-  );
-};
+  )
+}
 
-export { GameSettings };
+export { GameSettings }

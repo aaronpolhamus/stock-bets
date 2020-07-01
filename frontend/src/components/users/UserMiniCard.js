@@ -1,12 +1,12 @@
-import React from "react";
-import styled from "styled-components";
-import { UserAvatar } from "components/users/UserAvatar";
+import React from 'react'
+import styled from 'styled-components'
+import { UserAvatar } from 'components/users/UserAvatar'
 
 const infoBuilder = (info) => {
   return info.map((part, index) => {
-    return <span key={index}>{part}</span>;
-  });
-};
+    return <span key={index}>{part}</span>
+  })
+}
 
 const MiniCard = styled.div`
   display: flex;
@@ -15,11 +15,11 @@ const MiniCard = styled.div`
     margin-bottom: 0;
     line-height: 1;
   }
-`;
+`
 const UserData = styled.p`
   text-transform: uppercase;
-  font-size: ${(props) => props.fontSize || "var(--font-size-min)"};
-  color: ${(props) => props.color || "var(--color-text-gray)"};
+  font-size: ${(props) => props.fontSize || 'var(--font-size-min)'};
+  color: ${(props) => props.color || 'var(--color-text-gray)'};
   margin-top: var(--space-50);
   span {
     &::before {
@@ -33,16 +33,16 @@ const UserData = styled.p`
       display: none;
     }
   }
-`;
+`
 
 const UserName = styled.p`
-  color: ${(props) => props.color || "var(--color-text-gray)"};
-  font-size: ${(props) => props.fontSize || "var(--font-size-normal)"};
-`;
+  color: ${(props) => props.color || 'var(--color-text-gray)'};
+  font-size: ${(props) => props.fontSize || 'var(--font-size-normal)'};
+`
 
 const UserInfo = styled.div`
   margin-left: var(--space-100);
-`;
+`
 
 const UserMiniCard = ({
   className,
@@ -55,7 +55,7 @@ const UserMiniCard = ({
   dataColor,
   dataFontSize,
   email,
-  info,
+  info
 }) => {
   return (
     <MiniCard title={email} className={className}>
@@ -69,7 +69,7 @@ const UserMiniCard = ({
         </UserData>
       </UserInfo>
     </MiniCard>
-  );
-};
+  )
+}
 
-export { UserMiniCard };
+export { UserMiniCard }

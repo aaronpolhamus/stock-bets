@@ -1,5 +1,4 @@
-import React from "react";
-
+import React from 'react'
 
 const Payouts = (props) => {
   return (
@@ -7,4 +6,4 @@ const Payouts = (props) => {
   )
 }
 
-export {Payouts};
+export { Payouts }

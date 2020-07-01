@@ -1,20 +1,20 @@
-import React from "react";
-import { Popover, OverlayTrigger } from "react-bootstrap";
-import { HelpCircle } from "react-feather";
+import React from 'react'
+import { Popover, OverlayTrigger } from 'react-bootstrap'
+import { HelpCircle } from 'react-feather'
 
 const Tooltip = ({ message }) => (
   <OverlayTrigger
-    placement="auto"
-    trigger="hover"
-    html={true}
+    placement='auto'
+    trigger='hover'
+    html
     overlay={
       <Popover>
         <Popover.Content>{message}</Popover.Content>
       </Popover>
     }
   >
-    <HelpCircle size={14} style={{ marginTop: "2px" }} />
+    <HelpCircle size={14} style={{ marginTop: '2px' }} />
   </OverlayTrigger>
-);
+)
 
-export { Tooltip };
+export { Tooltip }

@@ -1,23 +1,23 @@
-import React, { useState } from "react";
-import { Redirect, useHistory } from "react-router-dom";
-import { Button, Container } from "react-bootstrap";
-import { ReactComponent as Logo } from "assets/logo.svg";
-import { Content } from "components/layout/Layout";
-import styled from "styled-components";
+import React, { useState } from 'react'
+import { Redirect, useHistory } from 'react-router-dom'
+import { Button, Container } from 'react-bootstrap'
+import { ReactComponent as Logo } from 'assets/logo.svg'
+import { Content } from 'components/layout/Layout'
+import styled from 'styled-components'
 
 const StyledLogo = styled(Logo)`
   max-width: 300px;
   width: 90%;
   margin-bottom: 2rem;
-`;
+`
 
 const PrivacyPolicy = () => {
-  const [redirect, setRedirect] = useState(false);
-  const history = useHistory();
+  const [redirect, setRedirect] = useState(false)
+  const history = useHistory()
 
-  if (redirect) return <Redirect to="/login" />;
+  if (redirect) return <Redirect to='/login' />
   return (
-    <Content className="text-page" padding="var(--space-lg-200)">
+    <Content className='text-page' padding='var(--space-lg-200)'>
       <Container>
         <StyledLogo />
         <h1>stockbets.io privacy policy</h1>
@@ -32,15 +32,15 @@ const PrivacyPolicy = () => {
           A fully-featured virtual trading experience that allows people who are
           fascinated by markets to play fantasy-style stock trading competitions
           with each other. We hope that you love it. stockbets.io is currently
-          an exploratory project beta produced and owned by{" "}
+          an exploratory project beta produced and owned by{' '}
           <i>Pisces Ventures LLC</i>, a Delaware company in good standing with
-          its registered agent as{" "}
+          its registered agent as{' '}
           <i>
             Northwest Registered Agent Service, Inc., 8 The Green, Ste B, Dover,
             DE 19901
           </i>
-          . For all inquiries, please contact{" "}
-          <a href="mailto: contact@stockbets.io">
+          . For all inquiries, please contact{' '}
+          <a href='mailto: contact@stockbets.io'>
             contact [at] stockbets [dot] io
           </a>
           . If/when we formalize the project further, we will register the
@@ -95,7 +95,7 @@ const PrivacyPolicy = () => {
             <li>
               Share it with other users on the platform without your consent and
               approval. Specifically, unless someone is your friend, the only
-              thing they can know about you is your username and avatar.{" "}
+              thing they can know about you is your username and avatar.{' '}
             </li>
           </ul>
         </p>
@@ -122,10 +122,10 @@ const PrivacyPolicy = () => {
         </h2>
         <p>
           We'll deliver an account removal feature as we grow the platform. For
-          now we'll help you out with that by hand. Please email{" "}
-          <a href="mailto: contact@stockbets.io">
+          now we'll help you out with that by hand. Please email{' '}
+          <a href='mailto: contact@stockbets.io'>
             contact [at] stockbets [dot] io
-          </a>{" "}
+          </a>{' '}
           for assistance.
         </p>
 
@@ -151,17 +151,17 @@ const PrivacyPolicy = () => {
           session access on lock.
         </p>
         <hr />
-        <p className="text-right">
-          <Button variant="outline-secondary" onClick={() => history.go(-2)}>
+        <p className='text-right'>
+          <Button variant='outline-secondary' onClick={() => history.go(-2)}>
             Thanks but no, thanks.
           </Button>
-          <Button variant="primary" onClick={() => setRedirect(true)}>
+          <Button variant='primary' onClick={() => setRedirect(true)}>
             Sounds great, sign me in!
           </Button>
         </p>
       </Container>
     </Content>
-  );
-};
+  )
+}
 
-export { PrivacyPolicy };
+export { PrivacyPolicy }

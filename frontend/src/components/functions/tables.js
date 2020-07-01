@@ -1,28 +1,28 @@
-import React from "react";
-import { Table } from "react-bootstrap";
+import React from 'react'
+import { Table } from 'react-bootstrap'
 
-const renderRow = (row, headers, exclude = ["order_id"]) => {
+const renderRow = (row, headers, exclude = ['order_id']) => {
   return headers.map((key, index) => {
     if (exclude.includes(key)) {
-      return null;
+      return null
     }
-    return <td key={index}>{row[key]}</td>;
-  });
-};
+    return <td key={index}>{row[key]}</td>
+  })
+}
 
-const makeRows = (tableData, exclude = ["order_id"]) => {
+const makeRows = (tableData, exclude = ['order_id']) => {
   // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the
   // order id for order cancellations
   return tableData.data.map((row, index) => {
-    return <tr key={index}>{renderRow(row, tableData.headers, exclude)}</tr>;
-  });
-};
+    return <tr key={index}>{renderRow(row, tableData.headers, exclude)}</tr>
+  })
+}
 
 const makeHeader = (headers) => {
   return headers.map((key, index) => {
-    return <th key={key}>{key}</th>;
-  });
-};
+    return <th key={key}>{key}</th>
+  })
+}
 
 const makeCustomHeader = (headers) => {
   return headers.map((header, index) => {
@@ -30,9 +30,9 @@ const makeCustomHeader = (headers) => {
       <th key={index} style={{ textAlign: header.align }}>
         {header.value}
       </th>
-    );
-  });
-};
+    )
+  })
+}
 
 const AutoTable = (props) => {
   if (props.tabledata.data) {
@@ -43,9 +43,9 @@ const AutoTable = (props) => {
         </thead>
         <tbody>{makeRows(props.tabledata)}</tbody>
       </Table>
-    );
+    )
   }
-  return null;
-};
+  return null
+}
 
-export { AutoTable, makeHeader, makeRows, makeCustomHeader };
+export { AutoTable, makeHeader, makeRows, makeCustomHeader }

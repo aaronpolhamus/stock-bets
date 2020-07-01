@@ -1,89 +1,86 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import { fetchGameData, apiPost } from "components/functions/api";
+import React, { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { fetchGameData, apiPost } from 'components/functions/api'
 import {
   Layout,
   Sidebar,
   Content,
   Header,
   PageSection,
-  Breadcrumb,
-} from "components/layout/Layout";
-import { GameSettings } from "pages/game/GameSettings";
-import { PendingGameParticipants } from "pages/game/PendingGameParticipants";
+  Breadcrumb
+} from 'components/layout/Layout'
+import { GameSettings } from 'pages/game/GameSettings'
+import { PendingGameParticipants } from 'pages/game/PendingGameParticipants'
 
-import { Button } from "react-bootstrap";
-import * as Icon from "react-feather";
+import { Button } from 'react-bootstrap'
+import * as Icon from 'react-feather'
 
 const JoinGame = (props) => {
-  const { gameId } = useParams();
+  const { gameId } = useParams()
 
-  const [gameInfo, setGameInfo] = useState([]);
-  const [gameParticipants, setGameParticipants] = useState([]);
-  const [invite, setInvite] = useState("");
+  const [gameInfo, setGameInfo] = useState([])
+  const [gameParticipants, setGameParticipants] = useState([])
 
   const getGameData = async () => {
-    const gameData = await fetchGameData(gameId, "game_info");
-    setGameInfo(gameData);
+    const gameData = await fetchGameData(gameId, 'game_info')
+    setGameInfo(gameData)
 
     const gameParticipantsData = await fetchGameData(
       gameId,
-      "get_pending_game_info"
-    );
-    setGameParticipants(gameParticipantsData);
-  };
+      'get_pending_game_info'
+    )
+    setGameParticipants(gameParticipantsData)
+  }
 
   useEffect(() => {
-    getGameData();
-  }, []);
+    getGameData()
+  }, [])
 
   const handleRespondInvite = async (decision) => {
-    await apiPost("respond_to_game_invite", {
+    await apiPost('respond_to_game_invite', {
       game_id: gameId,
-      decision: decision,
-    });
-
-    setInvite(decision);
-    getGameData();
-  };
+      decision: decision
+    })
+    getGameData()
+  }
 
   const renderButtons = (status) => {
     switch (status) {
-      case "invited":
+      case 'invited':
         return (
           <div>
             <Button
-              variant="outline-danger"
+              variant='outline-danger'
               onClick={() => {
-                handleRespondInvite("declined");
+                handleRespondInvite('declined')
               }}
             >
               Decline Invite
             </Button>
             <Button
-              variant="success"
+              variant='success'
               onClick={() => {
-                handleRespondInvite("joined");
+                handleRespondInvite('joined')
               }}
             >
               Join Game
             </Button>
           </div>
-        );
-      case "joined":
+        )
+      case 'joined':
         return (
-          <Button variant="success" disabled>
+          <Button variant='success' disabled>
             Joined
           </Button>
-        );
-      case "declined":
+        )
+      case 'declined':
         return (
-          <Button variant="danger" disabled>
+          <Button variant='danger' disabled>
             Declined
           </Button>
-        );
+        )
     }
-  };
+  }
 
   return (
     <Layout>
@@ -93,8 +90,8 @@ const JoinGame = (props) => {
       <Content>
         <PageSection>
           <Breadcrumb>
-            <a href="/">
-              <Icon.ChevronLeft size={14} style={{ marginTop: "-3px" }} />
+            <a href='/'>
+              <Icon.ChevronLeft size={14} style={{ marginTop: '-3px' }} />
               Dashboard
             </a>
           </Breadcrumb>
@@ -108,7 +105,7 @@ const JoinGame = (props) => {
         </PageSection>
       </Content>
     </Layout>
-  );
-};
+  )
+}
 
-export { JoinGame };
+export { JoinGame }

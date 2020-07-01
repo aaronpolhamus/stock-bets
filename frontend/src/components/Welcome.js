@@ -1,30 +1,30 @@
-import React, { useState } from "react";
-import api from "services/api";
-import { Redirect } from "react-router-dom";
-import { Form, Button } from "react-bootstrap";
+import React, { useState } from 'react'
+import api from 'services/api'
+import { Redirect } from 'react-router-dom'
+import { Form, Button } from 'react-bootstrap'
 
 const Welcome = () => {
-  const [username, setUserName] = useState("");
-  const [updated, setUpdated] = useState(false);
+  const [username, setUserName] = useState('')
+  const [updated, setUpdated] = useState(false)
 
   const handleChange = (e) => {
-    setUserName(e.target.value);
-  };
+    setUserName(e.target.value)
+  }
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     try {
-      await api.post("/api/set_username", {
-        username: username,
-      });
-      setUpdated(true);
+      await api.post('/api/set_username', {
+        username: username
+      })
+      setUpdated(true)
     } catch (error) {
-      alert(`'${username}' looks like it's taken, try another one`);
-      setUpdated(false);
+      alert(`'${username}' looks like it's taken, try another one`)
+      setUpdated(false)
     }
-  };
+  }
 
-  if (updated) return <Redirect to="/" />;
+  if (updated) return <Redirect to='/' />
   return (
     <Form>
       <Form.Label>
@@ -33,15 +33,15 @@ const Welcome = () => {
       </Form.Label>
       <Form.Control
         onChange={handleChange}
-        type="input"
-        name="username"
-        placeholder="Enter name here"
+        type='input'
+        name='username'
+        placeholder='Enter name here'
       />
-      <Button onClick={handleSubmit} variant="primary" type="submit">
+      <Button onClick={handleSubmit} variant='primary' type='submit'>
         Submit
       </Button>
     </Form>
-  );
-};
+  )
+}
 
-export default Welcome;
+export default Welcome

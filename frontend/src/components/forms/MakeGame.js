@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { Redirect } from "react-router-dom";
-import api from "services/api";
-import { Form, Button, Modal, Row, Col } from "react-bootstrap";
-import { Typeahead } from "react-bootstrap-typeahead";
-import { optionBuilder } from "components/functions/forms";
-import { RadioButtons } from "components/forms/Inputs";
-import { Tooltip } from "components/forms/Tooltips";
-import styled from "styled-components";
+import React, { useState, useEffect } from 'react'
+import { Redirect } from 'react-router-dom'
+import api from 'services/api'
+import { Form, Button, Modal, Row, Col } from 'react-bootstrap'
+import { Typeahead } from 'react-bootstrap-typeahead'
+import { optionBuilder } from 'components/functions/forms'
+import { RadioButtons } from 'components/forms/Inputs'
+import { Tooltip } from 'components/forms/Tooltips'
+import styled from 'styled-components'
 
 const StyledTypeahead = styled(Typeahead)`
   .rbt-input-wrapper {
@@ -20,70 +20,70 @@ const StyledTypeahead = styled(Typeahead)`
   .rbt-input-wrapper [option] {
     margin-top: var(--space-300);
   }
-`;
+`
 
 const MakeGame = () => {
-  const [defaults, setDefaults] = useState({});
-  const [sidePotPct, setSidePotPct] = useState(0);
-  const [formValues, setFormValues] = useState({});
-  const [redirect, setRedirect] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [defaults, setDefaults] = useState({})
+  const [sidePotPct, setSidePotPct] = useState(0)
+  const [formValues, setFormValues] = useState({})
+  const [redirect, setRedirect] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const fetchData = async () => {
-    const response = await api.post("/api/game_defaults");
+    const response = await api.post('/api/game_defaults')
     if (response.status === 200) {
-      setDefaults(response.data);
-      setFormValues(response.data); // this syncs our form value submission state with the incoming defaults
+      setDefaults(response.data)
+      setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
     }
-  };
+  }
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
     await api
-      .post("/api/create_game", formValues)
+      .post('/api/create_game', formValues)
       .then()
-      .catch((e) => {});
-    setShowModal(true);
-  };
+      .catch((e) => {})
+    setShowModal(true)
+  }
 
   const handleClose = () => {
-    setShowModal(false);
-    setRedirect(true);
-  };
+    setShowModal(false)
+    setRedirect(true)
+  }
 
   const handleChange = (e) => {
-    let formValuesCopy = { ...formValues };
-    formValuesCopy[e.target.name] = e.target.value;
-    setFormValues(formValuesCopy);
-  };
+    const formValuesCopy = { ...formValues }
+    formValuesCopy[e.target.name] = e.target.value
+    setFormValues(formValuesCopy)
+  }
 
   const handleRadio = (e) => {
-    let formValuesCopy = { ...formValues };
+    const formValuesCopy = { ...formValues }
     // formValuesCopy['mode'] =
-    setFormValues(formValuesCopy);
-  };
+    setFormValues(formValuesCopy)
+  }
 
   // necessary because this field has a special change action whereby the
   const handleSideBetChange = (e) => {
-    setSidePotPct(e.target.value);
-    let formValuesCopy = { ...formValues };
-    formValuesCopy["side_bets_perc"] = e.target.value;
-    setFormValues(formValuesCopy);
-  };
+    setSidePotPct(e.target.value)
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.side_bets_perc = e.target.value
+    setFormValues(formValuesCopy)
+  }
 
   // I'm not in love wit this separate implementation for typeahead fields. I couldn't figure out a good way to get them to play well
   // with standard bootstrap controlled forms, so this is what I went with
   const handleInviteesChange = (inviteesInput) => {
-    let formValuesCopy = { ...formValues };
-    formValuesCopy["invitees"] = inviteesInput;
-    setFormValues(formValuesCopy);
-  };
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.invitees = inviteesInput
+    setFormValues(formValuesCopy)
+  }
 
-  if (redirect) return <Redirect to="/" />;
+  if (redirect) return <Redirect to='/' />
   return (
     <>
       <Form onSubmit={handleSubmit}>
@@ -93,11 +93,11 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Title
-                <Tooltip message="We randomly generate a nonsense title for you, but feel free to pick your own!" />
+                <Tooltip message='We randomly generate a nonsense title for you, but feel free to pick your own!' />
               </Form.Label>
               <Form.Control
-                name="title"
-                type="input"
+                name='title'
+                type='input'
                 defaultValue={defaults.title}
                 onChange={handleChange}
               />
@@ -109,7 +109,7 @@ const MakeGame = () => {
               </Form.Label>
               <RadioButtons
                 options={defaults.game_modes}
-                name="mode"
+                name='mode'
                 onChange={handleChange}
                 defaultValue={formValues.mode}
               />
@@ -119,11 +119,11 @@ const MakeGame = () => {
                 <Form.Group>
                   <Form.Label>
                     Game duration (days)
-                    <Tooltip message="How many days would you like your game to last for?" />
+                    <Tooltip message='How many days would you like your game to last for?' />
                   </Form.Label>
                   <Form.Control
-                    name="duration"
-                    type="input"
+                    name='duration'
+                    type='input'
                     defaultValue={defaults.duration}
                     onChange={handleChange}
                   />
@@ -135,11 +135,11 @@ const MakeGame = () => {
                 <Form.Group>
                   <Form.Label>
                     Buy-in
-                    <Tooltip message="How many dollars does each player need to put in to join the game?" />
+                    <Tooltip message='How many dollars does each player need to put in to join the game?' />
                   </Form.Label>
                   <Form.Control
-                    name="buy_in"
-                    type="input"
+                    name='buy_in'
+                    type='input'
                     defaultValue={defaults.buy_in}
                     onChange={handleChange}
                   />
@@ -154,7 +154,7 @@ const MakeGame = () => {
 
               <RadioButtons
                 options={defaults.benchmarks}
-                name="benchmark"
+                name='benchmark'
                 onChange={handleChange}
                 defaultValue={formValues.benchmark}
               />
@@ -167,9 +167,9 @@ const MakeGame = () => {
                 <Tooltip message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first." />
               </Form.Label>
               <StyledTypeahead
-                id="typeahead-particpants"
-                name="invitees"
-                labelKey="name"
+                id='typeahead-particpants'
+                name='invitees'
+                labelKey='name'
                 multiple
                 options={
                   defaults.available_invitees &&
@@ -184,11 +184,11 @@ const MakeGame = () => {
             <Form.Group>
               <Form.Label>
                 Sidebet % of pot
-                <Tooltip message="In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked." />
+                <Tooltip message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.' />
               </Form.Label>
               <Form.Control
-                name="side_bets_perc"
-                type="input"
+                name='side_bets_perc'
+                type='input'
                 defaultValue={defaults.side_bets_perc}
                 value={sidePotPct}
                 onChange={handleSideBetChange}
@@ -198,11 +198,11 @@ const MakeGame = () => {
               <Form.Group>
                 <Form.Label>
                   Sidebet period
-                  <Tooltip message="The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. " />
+                  <Tooltip message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. ' />
                 </Form.Label>
                 <Form.Control
-                  name="side_bets_period"
-                  as="select"
+                  name='side_bets_period'
+                  as='select'
                   defaultValue={defaults.side_bets_period}
                   onChange={handleChange}
                 >
@@ -213,15 +213,15 @@ const MakeGame = () => {
             )}
           </Col>
         </Row>
-        <div className="text-right">
-          <Button variant="primary" type="submit">
+        <div className='text-right'>
+          <Button variant='primary' type='submit'>
             Create New Game
           </Button>
         </div>
       </Form>
       <Modal show={showModal} onHide={handleClose}>
         <Modal.Body>
-          <div className="text-center">
+          <div className='text-center'>
             You've sent a game invite! We'll let your friends know.
             <div>
               <small>
@@ -230,14 +230,14 @@ const MakeGame = () => {
             </div>
           </div>
         </Modal.Body>
-        <Modal.Footer className="centered">
-          <Button variant="primary" onClick={handleClose}>
+        <Modal.Footer className='centered'>
+          <Button variant='primary' onClick={handleClose}>
             Awesome!
           </Button>
         </Modal.Footer>
       </Modal>
     </>
-  );
-};
+  )
+}
 
-export { MakeGame };
+export { MakeGame }
