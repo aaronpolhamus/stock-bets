@@ -42,6 +42,8 @@ PAYOUTS_PREFIX = "payouts"
 # Chart settings #
 # -------------- #
 
+CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
+BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
 N_PLOT_POINTS = 30
 USD_FORMAT = "${:,.2f}"
@@ -209,20 +211,21 @@ def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, datas
     with an identification of the column that contains the data mapping. We also pass in a label and color for the
     dataset
     """
-    dataset = dict(label=dataset_label, borderColor=dataset_color)
+    dataset = dict(label=dataset_label, borderColor=dataset_color, backgroundColor=dataset_color, fill=False,
+                   cubicInterpolationMode=CHART_INTERPOLATION_SETTING, borderWidth=BORDER_WIDTH_SETTING)
     data = []
     for label in labels:
         row = df[df[label_column] == label]
         assert row.shape[0] <= 1
-        if not row:
+        if row.empty:
             data.append(None)
             continue
-        data.append(row[data_column])
+        data.append(row.iloc[0][data_column])
     dataset["data"] = data
     return dataset
 
 
-def null_dataset(null_label: str):
+def make_null_chart(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
@@ -231,7 +234,9 @@ def null_dataset(null_label: str):
     start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
     labels = [t.strftime(DATE_LABEL_FORMAT) for t in pd.date_range(start, end, N_PLOT_POINTS)]
     data = [DEFAULT_VIRTUAL_CASH for _ in labels]
-    return dict(labels=labels, datasets=[dict(label=null_label, data=data, borderColor=NULL_RGBA)])
+    return dict(labels=labels,
+                datasets=[
+                    dict(label=null_label, data=data, borderColor=NULL_RGBA, backgroundColor=NULL_RGBA, fill=False)])
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
@@ -253,7 +258,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     Similarly, the data array for each dataset should have None values corresponding to where no data is observed for a
     given label.
     """
-    chart_json = null_dataset("Cash")
+    chart_json = make_null_chart("Cash")
     if not df.empty:
         df.sort_values("timestamp", inplace=True)
         labels = df["label"].unique()
@@ -264,7 +269,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
             subset = df[df["symbol"] == symbol]
             entry = serialize_pandas_rows_to_dataset(subset, symbol, color, labels, "value")
             datasets.append(entry)
-        chart_json = dict(labels=labels, datasets=datasets)
+        chart_json = dict(labels=list(labels), datasets=datasets)
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
@@ -277,11 +282,10 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     if df.empty:
         for i, user_id in enumerate(user_ids):
             username = get_username(user_id)
-            null_data = null_dataset(username)
-            datasets.append(null_data[["datasets"][0]])
-        labels = null_data["labels"]
+            null_chart = make_null_chart(username)
+            datasets.append(null_chart["datasets"][0])
+        labels = null_chart["labels"]
     else:
-        df.sort_values("timestamp", inplace=True)
         labels = df["label"].unique()
         for user_id, color in zip(user_ids, colors):
             username = get_username(user_id)
@@ -289,7 +293,7 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
             entry = serialize_pandas_rows_to_dataset(subset, username, color, labels, "value")
             datasets.append(entry)
 
-    chart_json = dict(labels=labels, datasets=datasets)
+    chart_json = dict(labels=list(labels), datasets=datasets)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
@@ -316,6 +320,7 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
     df = pd.concat(ls)
     del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
     df = build_labels(df)
+    df.sort_values("timestamp", inplace=True)
     return df.groupby(["id", "t_index"], as_index=False)[["label", "value"]].agg("last")
 
 

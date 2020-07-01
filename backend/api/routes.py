@@ -41,6 +41,7 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from logic.base import (
+    get_user_id,
     get_pending_buy_order_value,
     fetch_iex_price,
     get_user_information
@@ -448,8 +449,16 @@ def suggest_friend_invites():
 @routes.route("/api/get_balances_chart", methods=["POST"])
 @authenticate
 def balances_chart():
+    """Be default, the frontend will load with username = null for the chart selector dropdown, and we'll show them
+    their own chart. When the user proactively picks a username to checkout, this will be sent in the POST request to
+    this endpoint and used to pull up the appropriate chart
+    """
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_id(username)
+    else:
+        user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
 
 

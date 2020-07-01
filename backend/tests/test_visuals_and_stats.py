@@ -110,8 +110,9 @@ class TestGameKickoff(BaseTestCase):
 
         # quickly verify the structure of the chart assets. They should be blank, with transparent colors
         field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}")
-        self.assertEqual(len(field_chart["line_data"]), len(all_ids))
-        self.assertTrue(all([x == NULL_RGBA for x in field_chart["colors"]]))
+        self.assertEqual(len(field_chart["datasets"]), len(all_ids))
+        chart_colors = [x["backgroundColor"] for x in field_chart["datasets"]]
+        self.assertTrue(all([x == NULL_RGBA for x in chart_colors]))
 
         sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
         self.assertEqual(len(sidebar_stats["records"]), len(all_ids))
@@ -127,10 +128,9 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(an_open_orders_table["headers"]), 14)
 
         a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(len(a_balances_chart["line_data"]), 1)
-        self.assertEqual(a_balances_chart["line_data"][0]["id"], "Cash")
-        self.assertEqual(len(a_balances_chart["colors"]), 1)
-        self.assertEqual(a_balances_chart["colors"][0], NULL_RGBA)
+        self.assertEqual(len(a_balances_chart["datasets"]), 1)
+        self.assertEqual(a_balances_chart["datasets"][0]["label"], "Cash")
+        self.assertEqual(a_balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
         # now have a user put in a couple orders. These should go straight to the queue and be reflected in the open
         # orders table, but they should not have any impact on the user's balances
@@ -178,10 +178,9 @@ class TestGameKickoff(BaseTestCase):
             df = make_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
             balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
-            self.assertEqual(len(balances_chart["line_data"]), 1)
-            self.assertEqual(balances_chart["line_data"][0]["id"], "Cash")
-            self.assertEqual(len(balances_chart["colors"]), 1)
-            self.assertEqual(balances_chart["colors"][0], NULL_RGBA)
+            self.assertEqual(len(balances_chart["datasets"]), 1)
+            self.assertEqual(balances_chart["datasets"][0]["label"], "Cash")
+            self.assertEqual(balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
             compile_and_pack_player_sidebar_stats(game_id)
             sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
@@ -220,11 +219,10 @@ class TestGameKickoff(BaseTestCase):
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
             balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
 
-            self.assertEqual(len(balances_chart["line_data"]), 2)
-            stocks = set([x["id"] for x in balances_chart["line_data"]])
+            self.assertEqual(len(balances_chart["datasets"]), 2)
+            stocks = set([x["label"] for x in balances_chart["datasets"]])
             self.assertEqual(stocks, {"Cash", self.stock_pick})
-            self.assertEqual(len(balances_chart["colors"]), 2)
-            self.assertNotIn(NULL_RGBA, balances_chart["colors"])
+            self.assertNotIn(NULL_RGBA, [x["backgroundColor"] for x in balances_chart["datasets"]])
 
             compile_and_pack_player_sidebar_stats(game_id)
             sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")

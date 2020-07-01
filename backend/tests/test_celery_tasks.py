@@ -549,6 +549,8 @@ class TestVisualAssetsTasks(BaseTestCase):
         async_service_one_open_game.apply(args=[game_id])
 
         # this is basically the internals of async_update_play_game_visuals for one game
+        from backend.logic.visuals import make_the_field_charts
+        make_the_field_charts(game_id)
         async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
             async_serialize_order_details.apply(args=[game_id, user_id])

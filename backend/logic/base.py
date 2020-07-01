@@ -200,7 +200,8 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
         ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
     pivot_df = pivot_df.pivot(columns="status").reset_index()
     pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
-    del pivot_df["clear_price_pending"]
+    if "clear_price_pending" in pivot_df.columns:
+        del pivot_df["clear_price_pending"]
     expanded_columns = ["timestamp_pending", "timestamp_fulfilled", "clear_price_fulfilled"]
     for column in expanded_columns:
         if column not in pivot_df.columns:

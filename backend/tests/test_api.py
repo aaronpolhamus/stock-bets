@@ -426,7 +426,7 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
-        returned_current_balances_series = set([x['id'] for x in res.json()["line_data"]])
+        returned_current_balances_series = set([x['label'] for x in res.json()["datasets"]])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # place a couple different types of invalid orders to make sure that we're getting what we expect back
