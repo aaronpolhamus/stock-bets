@@ -42,7 +42,8 @@ from backend.logic.visuals import (
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
-    PAYOUTS_PREFIX
+    PAYOUTS_PREFIX,
+    USD_FORMAT
 )
 from backend.tasks.definitions import (
     async_calculate_game_metrics,
@@ -721,6 +722,13 @@ class TestHomePage(BaseTestCase):
                                    json={"game_id": 1, "decision": "joined"}, verify=False)
         self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
                                    json={"game_id": 1, "decision": "declined"}, verify=False)
+
+        # verify that starting cash balances work as expected
+        res = self.requests_session.post(f"{HOST_URL}/get_cash_balances", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": 1})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["cash_balance"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
+        self.assertEqual(res.json()["buying_power"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {
