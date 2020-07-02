@@ -38,7 +38,7 @@ from backend.tasks.redis import (
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
-from logic.base import fetch_iex_price
+from logic.base import fetch_price
 
 
 class TestStockDataTasks(BaseTestCase):
@@ -52,13 +52,13 @@ class TestStockDataTasks(BaseTestCase):
         with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
             trading_day_mock.return_value = True
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
         with self.engine.connect() as conn:
@@ -70,7 +70,7 @@ class TestStockDataTasks(BaseTestCase):
         with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
             trading_day_mock.return_value = True
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
             with self.engine.connect() as conn:
                 first_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
@@ -81,7 +81,7 @@ class TestStockDataTasks(BaseTestCase):
                 second_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
             self.assertEqual(second_count, 1)
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
             with self.engine.connect() as conn:
                 third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
@@ -239,7 +239,7 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 500_000
-            amzn_price, _ = fetch_iex_price(stock_pick)
+            amzn_price, _ = fetch_price(stock_pick)
 
             cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
@@ -321,7 +321,7 @@ class TestGameIntegration(BaseTestCase):
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
-        with patch("backend.logic.games.fetch_iex_price") as mock_price_fetch, patch(
+        with patch("backend.logic.games.fetch_price") as mock_price_fetch, patch(
                 "backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5

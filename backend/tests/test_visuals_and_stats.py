@@ -37,9 +37,11 @@ from backend.logic.visuals import (
     serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
     compile_and_pack_player_sidebar_stats,
+    serialize_and_pack_order_performance_chart,
     make_balances_chart_data,
     SIDEBAR_STATS_PREFIX,
     ORDER_DETAILS_PREFIX,
+    ORDER_PERF_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -107,6 +109,7 @@ class TestGameKickoff(BaseTestCase):
             self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
             self.assertIn(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", cache_keys)
             self.assertIn(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
+            self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
 
         # quickly verify the structure of the chart assets. They should be blank, with transparent colors
         field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}")
@@ -247,6 +250,17 @@ class TestVisualsWithData(BaseTestCase):
         self.assertEqual(df.shape, (8, 14))
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
+
+        user_ids = get_all_game_users(game_id)
+        for user_id in user_ids:
+            serialize_and_pack_order_performance_chart(game_id, user_id)
+
+        op_chart_3_1 = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_3_1")
+        chart_stocks = set([x["label"].split("/")[0] for x in op_chart_3_1["datasets"]])
+        expected_stocks = {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"}
+        self.assertEqual(chart_stocks, expected_stocks)
+        for user_id in user_ids:
+            self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
 
 
 class TestWinnerPayouts(BaseTestCase):

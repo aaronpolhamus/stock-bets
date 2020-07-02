@@ -269,7 +269,7 @@ class TestGameLogic(BaseTestCase):
                         amount=10,
                         time_in_force="until_cancelled")
 
-        with patch("backend.logic.base.fetch_iex_price") as fetch_price_mock:
+        with patch("backend.logic.base.fetch_price") as fetch_price_mock:
             fetch_price_mock.return_value = (market_price, 1592202332)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
@@ -456,7 +456,7 @@ class TestGameLogic(BaseTestCase):
             order_ticket = get_order_ticket(order_id)
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
-                    "backend.logic.games.fetch_iex_price") as fetch_price_mock, patch(
+                    "backend.logic.games.fetch_price") as fetch_price_mock, patch(
                     "backend.logic.base.time") as base_time_mock:
                 base_time_mock.time.side_effect = game_time_mock.time.side_effect = [1592573410.15422] * 2
                 fetch_price_mock.return_value = (market_price, None)

@@ -35,7 +35,7 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-RESAMPLING_INTERVAL = 10  # resampling interval in minutes when building series of balances and prices
+RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
 
 
@@ -266,7 +266,7 @@ def get_pending_buy_order_value(user_id, game_id):
     tab = df[(df["order_type"] == "market")]
     if not tab.empty:
         for _, row in tab.iterrows():
-            price, _ = fetch_iex_price(row["symbol"])
+            price, _ = fetch_price(row["symbol"])
             open_value += price * row["quantity"]
 
     return open_value
@@ -498,7 +498,7 @@ def get_symbols_table(n_rows=None):
     return pd.DataFrame(row_list)
 
 
-def fetch_iex_price(symbol):
+def fetch_price_iex(symbol):
     secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
     base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
     res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
@@ -509,6 +509,11 @@ def fetch_iex_price(symbol):
             timestamp = time.time()
         price = quote["latestPrice"]
         return price, timestamp
+
+
+def fetch_price(symbol, provider="iex"):
+    if provider == "iex":
+        return fetch_price_iex(symbol)
 
 
 def get_cache_price(symbol):

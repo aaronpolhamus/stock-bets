@@ -20,7 +20,7 @@ from backend.database.helpers import (
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.base import (
     during_trading_day,
-    fetch_iex_price)
+    fetch_price)
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
     DEFAULT_GAME_MODE,
@@ -390,7 +390,7 @@ class TestPlayGame(BaseTestCase):
         serialize_and_pack_order_details(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
-        market_price, _ = fetch_iex_price(stock_pick)
+        market_price, _ = fetch_price(stock_pick)
         order_ticket = {
             "user_id": user_id,
             "game_id": game_id,
@@ -445,7 +445,7 @@ class TestPlayGame(BaseTestCase):
 
         # place a couple different types of invalid orders to make sure that we're getting what we expect back
         stock_pick = "AMZN"
-        market_price, _ = fetch_iex_price(stock_pick)
+        market_price, _ = fetch_price(stock_pick)
 
         # can't buy a billion dollars of Amazon
         order_ticket = {

@@ -43,7 +43,7 @@ from backend.logic.games import (
 from logic.base import (
     get_user_id,
     get_pending_buy_order_value,
-    fetch_iex_price,
+    fetch_price,
     get_user_information
 )
 from backend.logic.visuals import (
@@ -55,7 +55,8 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     SIDEBAR_STATS_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT
+    USD_FORMAT,
+    ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
     async_update_player_stats,
@@ -342,7 +343,7 @@ def api_place_order():
 
     try:
         symbol = order_ticket["symbol"]
-        market_price, _ = fetch_iex_price(symbol)
+        market_price, _ = fetch_price(symbol)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         place_order(
@@ -380,9 +381,9 @@ def api_cancel_order():
 
 @routes.route("/api/fetch_price", methods=["POST"])
 @authenticate
-def fetch_price():
+def api_fetch_price():
     symbol = request.json.get("symbol")
-    price, timestamp = fetch_iex_price(symbol)
+    price, timestamp = fetch_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
 
@@ -460,6 +461,20 @@ def balances_chart():
     else:
         user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_order_performance_chart", methods=["POST"])
+@authenticate
+def order_performance_chart():
+    """This endpoints works exactly the same as balances_chart. See above for details
+    """
+    game_id = request.json.get("game_id")
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_id(username)
+    else:
+        user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_field_chart", methods=["POST"])

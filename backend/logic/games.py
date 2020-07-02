@@ -23,7 +23,7 @@ from backend.database.models import (
     TimeInForce)
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
-    fetch_iex_price,
+    fetch_price,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -31,6 +31,7 @@ from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.visuals import (
+    serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
     init_order_details,
     update_order_details_table,
@@ -240,12 +241,13 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     # initialize a blank payouts table
     serialize_and_pack_winners_table(game_id)
 
-    # initialize current balances and open orders
+    # initialize current balances, open orders, and order performance chart
     for user_id in user_id_list:
         serialize_and_pack_portfolio_details(game_id, user_id)
         init_order_details(game_id, user_id)
+        serialize_and_pack_order_performance_chart(game_id, user_id)
 
-    # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
+    # build the balances and portfolio performance charts together
     make_the_field_charts(game_id)
 
 
@@ -583,7 +585,7 @@ def process_order(order_id):
     buy_or_sell = order_ticket["buy_or_sell"]
     quantity = order_ticket["quantity"]
 
-    market_price, _ = fetch_iex_price(symbol)
+    market_price, _ = fetch_price(symbol)
 
     # Only process active outstanding orders during trading day
     cash_balance = get_current_game_cash_balance(user_id, game_id)

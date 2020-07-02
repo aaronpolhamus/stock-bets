@@ -14,7 +14,7 @@ from backend.logic.base import (
     get_next_trading_day_schedule,
     TIMEZONE
 )
-from backend.logic.base import fetch_iex_price
+from backend.logic.base import fetch_price
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -86,7 +86,7 @@ class TestStockDataLogic(unittest.TestCase):
 
     def test_price_fetchers(self):
         symbol = "AMZN"
-        amzn_price, updated_at = fetch_iex_price(symbol)
+        amzn_price, updated_at = fetch_price(symbol)
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))

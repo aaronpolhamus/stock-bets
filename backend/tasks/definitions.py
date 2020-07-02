@@ -32,8 +32,15 @@ from backend.logic.payouts import (
     calculate_and_pack_metrics,
     log_winners
 )
-from logic.base import SeleniumDriverError, get_symbols_table, fetch_iex_price, get_all_active_symbols, get_game_info
+from logic.base import (
+    SeleniumDriverError,
+    get_symbols_table,
+    fetch_price,
+    get_all_active_symbols,
+    get_game_info
+)
 from backend.logic.visuals import (
+    serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
     compile_and_pack_player_sidebar_stats,
     serialize_and_pack_order_details,
@@ -47,7 +54,6 @@ from backend.tasks.celery import (
     BaseTask,
     pause_return_until_subtask_completion
 )
-from backend.tasks.redis import rds
 
 # -------------------------- #
 # Price fetching and caching #
@@ -70,7 +76,7 @@ def async_cache_price(self, symbol: str, price: float, last_updated: float):
 
 @celery.task(name="async_fetch_and_cache_prices", bind=True, base=BaseTask)
 def async_fetch_and_cache_prices(self, symbol):
-    price, timestamp = fetch_iex_price(symbol)
+    price, timestamp = fetch_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
 
 
@@ -238,18 +244,26 @@ def async_make_the_field_charts(self, game_id):
     make_the_field_charts(game_id)
 
 
+@celery.task(name="async_make_order_performance_chart", bind=True, base=BaseTask)
+def async_make_order_performance_chart(self, game_id, user_id):
+    serialize_and_pack_order_performance_chart(game_id, user_id)
+
+
 @celery.task(name="async_update_play_game_visuals", bind=True, base=BaseTask)
 def async_update_play_game_visuals(self):
     open_game_ids = get_active_game_ids()
     task_results = []
     for game_id in open_game_ids:
+        # game-level assets
         task_results.append(async_make_the_field_charts.delay(game_id))
         task_results.append(async_serialize_and_pack_winners_table.delay(game_id))
         task_results.append(async_compile_player_sidebar_stats.delay(game_id))
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
+            # game/user-level assets
             task_results.append(async_serialize_order_details.delay(game_id, user_id))
             task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+            task_results.append(async_make_order_performance_chart.delay(game_id, user_id))
     pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
 
 # ---------------------- #
