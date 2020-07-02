@@ -33,6 +33,8 @@ from backend.tasks.redis import rds, unpack_redis_json
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
+from logic.base import get_active_balances
+
 CURRENT_BALANCES_PREFIX = "current_balances"
 SIDEBAR_STATS_PREFIX = "sidebar_stats"
 ORDER_DETAILS_PREFIX = "open_orders"
@@ -374,37 +376,35 @@ def make_order_performance_table(game_id: int, user_id: int):
     order_df = order_df.reset_index()
     del order_df["level_0"]
 
-    # we need this function for cumulative buys -- we just want the actual purchase time to have a non-zero entry
-    def _clip_quantity(subset):
-        subset = subset.reset_index(drop=True)
-        subset.loc[1:, "quantity"] = 0
-        return subset
-
-    order_df = order_df.groupby("order_label", as_index=False).apply(_clip_quantity)
-
     # we'll now ensure that resampled orders are properly sorte and compute cumulative purchases
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
-
-    def _make_cumulative_purchases(subset):
-        subset["cum_buys"] = subset["quantity"].cumsum()
-        return subset
-
-    order_df = order_df.groupby("symbol", as_index=False).apply(_make_cumulative_purchases).reset_index(drop=True)
+    tmp_array = []
+    for symbol in order_df["symbol"].unique():
+        cum_buys = 0
+        symbol_subset = order_df[order_df["symbol"] == symbol]
+        for order_label in symbol_subset["order_label"].unique():
+            order_subset = symbol_subset[symbol_subset["order_label"] == order_label]
+            cum_buys += order_subset.iloc[0]["quantity"]
+            order_subset["cum_buys"] = cum_buys
+            tmp_array.append(order_subset)
+    order_df = pd.concat(tmp_array)
 
     # get historical balances and prices
     bp_df = make_historical_balances_and_prices_table(game_id, user_id)
 
     def _make_cumulative_sales(subset):
-        subset["cum_sales"] = subset["balance"].diff(1).abs().fillna(0).cumsum()
+        sales_diffs = subset["balance"].diff(1).fillna(0)
+        sales_diffs[sales_diffs > 0] = 0
+        subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
 
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
     slices = []
-    for symbol in order_df["symbol"].unique():
-        order_subset = order_df[order_df["symbol"] == symbol]
-        bp_subset = bp_df[bp_df["symbol"] == symbol]
+    for order_label in order_df["order_label"].unique():
+        order_subset = order_df[order_df["order_label"] == order_label]
+        bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
         del bp_subset["symbol"]
         right_cols = ["timestamp", "price", "cum_sales"]
         df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
@@ -413,14 +413,14 @@ def make_order_performance_table(game_id: int, user_id: int):
         # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
         mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
         true_index = list(np.where(mask)[0])
-        if len(true_index) < len(mask):
+        if true_index[-1] < df_slice.shape[0] - 1:
             true_index.append(true_index[-1] + 1)
 
         df_slice = df_slice.iloc[true_index]
         slices.append(df_slice)
 
     df = pd.concat(slices)
-    df["return"] = df["price"] / df["clear_price_fulfilled"] - 1
+    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100).apply(lambda x: round(x, 2))
     return df
 
 
@@ -540,34 +540,6 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
                                               entry["order_id"] is not order_id]
 
     rds.set(fn, json.dumps(order_details))
-
-
-def get_active_balances(game_id: int, user_id: int):
-    """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
-    """
-    sql = """
-        SELECT symbol, balance, os.timestamp, clear_price
-        FROM order_status os
-        INNER JOIN
-        (
-          SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
-          FROM game_balances gb
-          INNER JOIN
-          (SELECT symbol, user_id, game_id, balance_type, max(id) as max_id
-            FROM game_balances
-            WHERE
-              game_id = %s AND
-              user_id = %s AND
-              balance_type = 'virtual_stock'
-            GROUP BY symbol, game_id, balance_type, user_id) grouped_gb
-          ON
-            gb.id = grouped_gb.max_id
-          WHERE balance > 0
-        ) balances
-        WHERE balances.order_status_id = os.id;
-    """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=[game_id, user_id])
 
 
 def get_most_recent_prices(symbols):

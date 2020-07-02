@@ -8,6 +8,7 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import get_pending_buy_order_value
 from backend.logic.games import (
+    suggest_symbols,
     get_order_ticket,
     process_order,
     execute_order,
@@ -644,3 +645,30 @@ class TestOrderLogic(unittest.TestCase):
                                        cash_balance=200,
                                        current_holding=0,
                                        quantity=1))
+
+
+class TestSymbolSuggestion(BaseTestCase):
+
+    def test_symbol_suggestion(self):
+        game_id = 3
+        user_id = 1
+
+        # test buy suggestions
+        text = "A"
+        buy_or_sell = "buy"
+        expected_suggestions = [
+            {"symbol": "AAPL", "label": "AAPL (APPLE)"},
+            {"symbol": "AMZN", "label": "AMZN (AMAZON)"},
+            {"symbol": "GOOG", "label": "GOOG (ALPHABET CLASS C)"},
+            {"symbol": "GOOGL", "label": "GOOGL (ALPHABET CLASS A)"},
+            {"symbol": "T", "label": "T (AT&T)"},
+        ]
+        result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        self.assertEqual(result, expected_suggestions)
+
+        # test sell suggestions
+        text = "A"
+        buy_or_sell = "sell"
+        expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)"}]
+        result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        self.assertEqual(result, expected_suggestions)

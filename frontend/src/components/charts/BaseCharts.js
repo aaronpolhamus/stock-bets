@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Form } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
-import { optionBuilder } from 'components/functions/forms'
 
-const BaseCharts = ({ data, height }) => {
+const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <Line
@@ -25,14 +24,20 @@ const BaseCharts = ({ data, height }) => {
           yAxes: [
             {
               ticks: {
-                callback: function (value, index, values) {
-                  if (parseInt(value) >= 1000) {
-                    return (
-                      '$' +
-                      value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                    )
-                  } else {
-                    return '$' + value
+                callback: function (value, index, values, yScale = yScaleType) {
+                  if (yScaleType === 'dollar') {
+                    if (parseInt(value) >= 1000) {
+                      return (
+                        '$' +
+                        value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                      )
+                    } else {
+                      return '$' + value
+                    }
+                  }
+                  if (yScaleType === 'percent') {
+                    // for now the pattern here is to convert percent data server-side then decorate it here
+                    return value + '%'
                   }
                 }
               }
@@ -44,7 +49,7 @@ const BaseCharts = ({ data, height }) => {
   )
 }
 
-const UserDropDownChart = ({ gameId, endpoint, height }) => {
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) => {
   const [data, setData] = useState([])
   const [myUsername, setMyUsername] = useState(null)
   const [usernames, setUsernames] = useState([])
@@ -85,8 +90,8 @@ const UserDropDownChart = ({ gameId, endpoint, height }) => {
       >
         {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
       </Form.Control>
-      <BaseCharts data={data} height={height} />
+      <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )
 }
-export { BaseCharts, UserDropDownChart }
+export { BaseChart, UserDropDownChart }

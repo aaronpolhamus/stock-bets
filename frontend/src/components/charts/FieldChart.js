@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { fetchGameData } from 'components/functions/api'
-import { BaseCharts } from 'components/charts/BaseCharts'
+import { BaseChart } from 'components/charts/BaseCharts'
 
 const FieldChart = ({ gameId, height }) => {
   const [data, setData] = useState([])
@@ -12,7 +12,7 @@ const FieldChart = ({ gameId, height }) => {
     }
     getGameData()
   }, [gameId])
-  return <BaseCharts data={data} height={height} />
+  return <BaseChart data={data} height={height} />
 }
 
 export { FieldChart }

@@ -20,7 +20,6 @@ from backend.logic.games import (
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_suggest_symbols,
     async_respond_to_game_invite,
     async_service_open_games,
     async_make_the_field_charts,
@@ -103,18 +102,6 @@ class TestStockDataTasks(BaseTestCase):
 class TestGameIntegration(BaseTestCase):
 
     def test_play_game_tasks(self):
-        text = "A"
-        expected_suggestions = [
-            {"symbol": "AAPL", "label": "AAPL (APPLE)"},
-            {"symbol": "AMZN", "label": "AMZN (AMAZON)"},
-            {"symbol": "GOOG", "label": "GOOG (ALPHABET CLASS C)"},
-            {"symbol": "GOOGL", "label": "GOOGL (ALPHABET CLASS A)"},
-            {"symbol": "T", "label": "T (AT&T)"},
-        ]
-
-        result = async_suggest_symbols.apply(args=[text]).result
-        self.assertEqual(result, expected_suggestions)
-
         start_time = time.time()
         game_title = "lucky few"
         creator_id = 1

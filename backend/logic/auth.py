@@ -32,7 +32,7 @@ WHITE_LIST = [
     "jafet@captec.io",
     "jaime@rodas.mx",
     "jafetgonz@gmail.com",
-    "jmz7v.com@gmail.com",
+    "jmz7vcom@gmail.com",
     "jsanchezcastillejos@gmail.com",
     "ken@escale.com.br",
     "kiefertravis@gmail.com",
@@ -69,7 +69,8 @@ def standardize_email(email):
 
 
 def check_against_whitelist(email):
-    if standardize_email(email) in WHITE_LIST:
+    standardized_list = [standardize_email(x) for x in WHITE_LIST]
+    if standardize_email(email) in standardized_list:
         return
     raise WhiteListException
 

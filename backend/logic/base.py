@@ -16,6 +16,7 @@ from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.tasks.redis import rds
+from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -541,3 +542,31 @@ def get_all_active_symbols():
         """)
 
     return [x[0] for x in result]
+
+
+def get_active_balances(game_id: int, user_id: int):
+    """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
+    """
+    sql = """
+        SELECT symbol, balance, os.timestamp, clear_price
+        FROM order_status os
+        INNER JOIN
+        (
+          SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
+          FROM game_balances gb
+          INNER JOIN
+          (SELECT symbol, user_id, game_id, balance_type, max(id) as max_id
+            FROM game_balances
+            WHERE
+              game_id = %s AND
+              user_id = %s AND
+              balance_type = 'virtual_stock'
+            GROUP BY symbol, game_id, balance_type, user_id) grouped_gb
+          ON
+            gb.id = grouped_gb.max_id
+          WHERE balance > 0
+        ) balances
+        WHERE balances.order_status_id = os.id;
+    """
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=[game_id, user_id])

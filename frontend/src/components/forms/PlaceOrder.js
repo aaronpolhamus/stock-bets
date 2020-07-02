@@ -67,6 +67,8 @@ const PlaceOrder = ({ gameId }) => {
   const onSuggestionsFetchRequested = async (text) => {
     const response = await api.post('/api/suggest_symbols', {
       text: text.value,
+      game_id: gameId,
+      buy_or_sell: orderTicket.buy_or_sell,
       withCredentials: true
     })
     setSymbolSuggestions(response.data)
@@ -248,8 +250,7 @@ const PlaceOrder = ({ gameId }) => {
             We got your order in!
             <div>
               <small>
-                Refresh the page to see updates to your open orders and balances
-                (we'll make this more responsive shortly)
+                Hit refresh in about 20 seconds to see your updated orders and balances -- we'll make this more responsive shortly
               </small>
             </div>
           </div>

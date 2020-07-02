@@ -40,6 +40,7 @@ from logic.base import (
     get_game_info
 )
 from backend.logic.visuals import (
+    update_order_details_table,
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
     compile_and_pack_player_sidebar_stats,
@@ -130,17 +131,6 @@ def async_get_game_info(self, game_id, user_id):
 # ---------------- #
 
 
-@celery.task(name="async_suggest_symbols", base=BaseTask)
-def async_suggest_symbols(text):
-    with engine.connect() as conn:
-        to_match = f"{text.upper()}%"
-        symbol_suggestions = conn.execute("""
-            SELECT * FROM symbols
-            WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", (to_match, to_match))
-
-    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
-
-
 @celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=BaseTask)
 def async_update_symbols_table(self, n_rows=None):
     symbols_table = get_symbols_table(n_rows)
@@ -162,6 +152,12 @@ def async_process_all_open_orders(self):
     open_orders = get_all_open_orders()
     for order_id, _ in open_orders.items():
         process_order(order_id)
+
+
+@celery.task(name="async_update_order_details_table", bind=True, base=BaseTask)
+def async_update_order_details_table(self, game_id, user_id, order_id, action):
+    update_order_details_table(game_id, user_id, order_id, action)
+
 
 # ------- #
 # Friends #
