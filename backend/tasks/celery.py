@@ -1,14 +1,14 @@
 import celery
 from backend.config import Config
-from backend.logic.base import (
-    TIMEZONE,
-    PRICE_CACHING_INTERVAL
-)
+from backend.logic.base import TIMEZONE
 from logic.base import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
 from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
 from sqlalchemy.exc import ResourceClosedError, StatementError
+
+# task execution defaults
+PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
 
 # Sometimes tasks break when they have trouble communicating with an external resource. We'll have those errors and
 # retry the tasks
@@ -57,6 +57,10 @@ celery.conf.beat_schedule = {
     "update_player_stats": {
         "task": "async_update_player_stats",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
+    },
+    "calculate_winners": {
+        "task": "async_calculate_winners",
+        "schedule": crontab(minute="5", hour="16")
     }
 }
 

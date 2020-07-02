@@ -1,10 +1,10 @@
-import React from "react";
-import styled from "styled-components";
-import { XCircle } from "react-feather";
+import React from 'react'
+import styled from 'styled-components'
+import { XCircle } from 'react-feather'
 
 const CellStyled = styled.td`
-  text-align: ${(props) => props.align || "right"};
-`;
+  text-align: ${(props) => props.align || 'right'};
+`
 
 const RowStyled = styled.tr`
   white-space: nowrap;
@@ -12,15 +12,15 @@ const RowStyled = styled.tr`
     vertical-align: middle;
     position: relative;
   }
-`;
+`
 
 const CancelButtonWrapper = ({ onClick, className }) => {
   return (
-    <button onClick={onClick} className={className} title="Cancel Order">
+    <button onClick={onClick} className={className} title='Cancel Order'>
       <XCircle size={16} />
     </button>
-  );
-};
+  )
+}
 
 const CancelButton = styled(CancelButtonWrapper)`
   appearance: none;
@@ -44,6 +44,6 @@ const CancelButton = styled(CancelButtonWrapper)`
   tr:hover &:hover svg {
     stroke: white;
   }
-`;
+`
 
-export { RowStyled, CellStyled, CancelButton };
+export { RowStyled, CellStyled, CancelButton }

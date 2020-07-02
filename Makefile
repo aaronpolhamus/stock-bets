@@ -121,13 +121,9 @@ stop:
 destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
 	# Remove all containers
 	make stop
-	docker rm $(docker ps -aq)
 
 	# remove all images
 	docker rmi $(docker images -a -q) -f
-
-	# prune all networks
-	docker network prune -f
 
 	# prune all volumes
 	docker volume prune -f

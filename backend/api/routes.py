@@ -14,6 +14,7 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    suggest_symbols,
     add_game,
     get_game_info_for_user,
     place_order,
@@ -41,8 +42,9 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from logic.base import (
+    get_user_id,
     get_pending_buy_order_value,
-    fetch_iex_price,
+    fetch_price,
     get_user_information
 )
 from backend.logic.visuals import (
@@ -54,16 +56,17 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     SIDEBAR_STATS_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT
+    USD_FORMAT,
+    ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
+    async_update_order_details_table,
     async_update_player_stats,
     async_update_play_game_visuals,
     async_compile_player_sidebar_stats,
     async_cache_price,
-    async_suggest_symbols,
     async_get_user_invite_statuses_for_pending_game,
-    async_serialize_order_details,
+    async_calculate_winners,
     async_serialize_current_balances,
     async_get_game_info,
     async_invite_friend,
@@ -341,10 +344,10 @@ def api_place_order():
 
     try:
         symbol = order_ticket["symbol"]
-        market_price, _ = fetch_iex_price(symbol)
+        market_price, _ = fetch_price(symbol)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        place_order(
+        order_id = place_order(
             user_id,
             game_id,
             symbol,
@@ -360,7 +363,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_current_balances.apply(args=[game_id, user_id])
+    async_serialize_current_balances.delay(game_id, user_id)
+    async_update_order_details_table.delay(game_id, user_id, order_id, "add")
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
@@ -379,9 +383,9 @@ def api_cancel_order():
 
 @routes.route("/api/fetch_price", methods=["POST"])
 @authenticate
-def fetch_price():
+def api_fetch_price():
     symbol = request.json.get("symbol")
-    price, timestamp = fetch_iex_price(symbol)
+    price, timestamp = fetch_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
     return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
 
@@ -389,8 +393,11 @@ def fetch_price():
 @routes.route("/api/suggest_symbols", methods=["POST"])
 @authenticate
 def api_suggest_symbols():
+    user_id = decode_token(request)
+    game_id = request.json["game_id"]
     text = request.json["text"]
-    return jsonify(async_suggest_symbols.apply(args=[text]).result)
+    buy_or_sell = request.json["buy_or_sell"]
+    return jsonify(suggest_symbols(game_id, user_id, text, buy_or_sell))
 
 # ------- #
 # Friends #
@@ -448,9 +455,31 @@ def suggest_friend_invites():
 @routes.route("/api/get_balances_chart", methods=["POST"])
 @authenticate
 def balances_chart():
+    """Be default, the frontend will load with username = null for the chart selector dropdown, and we'll show them
+    their own chart. When the user proactively picks a username to checkout, this will be sent in the POST request to
+    this endpoint and used to pull up the appropriate chart
+    """
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_id(username)
+    else:
+        user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_order_performance_chart", methods=["POST"])
+@authenticate
+def order_performance_chart():
+    """This endpoints works exactly the same as balances_chart. See above for details
+    """
+    game_id = request.json.get("game_id")
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_id(username)
+    else:
+        user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_field_chart", methods=["POST"])
@@ -532,6 +561,13 @@ def refresh_visuals():
     async_update_play_game_visuals.delay()
     return make_response("refreshing visuals...", 200)
 
+
+@routes.route("/api/calculate_winners", methods=["POST"])
+@authenticate
+@admin
+def calculate_winners():
+    async_calculate_winners.delay()
+    return make_response("calculating winners...", 200)
 
 # ------ #
 # DevOps #

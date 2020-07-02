@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import styled from "styled-components";
-import { fetchGameData } from "components/functions/api";
-import { Tooltip } from "components/forms/Tooltips";
+import React, { useEffect, useState } from 'react'
+import styled from 'styled-components'
+import { fetchGameData } from 'components/functions/api'
+import { Tooltip } from 'components/forms/Tooltips'
 
 const GameDetails = styled.small`
   display: block;
@@ -10,12 +10,12 @@ const GameDetails = styled.small`
   text-transform: uppercase;
   color: var(--color-text-gray);
   margin-top: var(--space-100);
-`;
+`
 
 const TextDivider = styled.span`
   font-weight: bold;
   color: var(--color-primary-darken);
-`;
+`
 
 const CashInfoWrapper = styled.div`
   text-align: right;
@@ -30,7 +30,7 @@ const CashInfoWrapper = styled.div`
   small {
     color: var(--color-text-light-gray);
   }
-`;
+`
 const Header = styled.header`
   display: flex;
   justify-content: space-between;
@@ -39,23 +39,23 @@ const Header = styled.header`
     margin-top: 0;
     line-height: 1;
   }
-`;
+`
 
 const GameHeader = ({ gameId }) => {
-  const [gameInfo, setGameInfo] = useState([]);
-  const [cashData, setCashData] = useState({});
+  const [gameInfo, setGameInfo] = useState([])
+  const [cashData, setCashData] = useState({})
 
   const getGameData = async () => {
-    const data = await fetchGameData(gameId, "game_info");
-    const cashInfo = await fetchGameData(gameId, "get_cash_balances");
+    const data = await fetchGameData(gameId, 'game_info')
+    const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
 
-    setCashData(cashInfo);
-    setGameInfo(data);
-  };
+    setCashData(cashInfo)
+    setGameInfo(data)
+  }
 
   useEffect(() => {
-    getGameData();
-  }, []);
+    getGameData()
+  }, [])
 
   return (
     <Header>
@@ -68,7 +68,7 @@ const GameHeader = ({ gameId }) => {
         </GameDetails>
       </h1>
       <CashInfoWrapper>
-        <Tooltip message="Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few." />
+        <Tooltip message='Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few.' />
         <p>
           <strong>Cash Balance: </strong>
           {cashData.cash_balance}
@@ -81,7 +81,7 @@ const GameHeader = ({ gameId }) => {
         </p>
       </CashInfoWrapper>
     </Header>
-  );
-};
+  )
+}
 
-export { GameHeader };
+export { GameHeader }

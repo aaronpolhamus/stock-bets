@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from "react";
-import { fetchGameData } from "components/functions/api";
+import React, { useEffect, useState } from 'react'
+import { fetchGameData } from 'components/functions/api'
 import {
   SimplifiedCurrency,
-  AuxiliarText,
-} from "components/textComponents/Text";
-import styled from "styled-components";
-import { UserMiniCard } from "components/users/UserMiniCard";
+  AuxiliarText
+} from 'components/textComponents/Text'
+import styled from 'styled-components'
+import { UserMiniCard } from 'components/users/UserMiniCard'
 
 const SectionTitle = styled.h2`
   text-transform: uppercase;
   font-size: var(--font-size-small);
   font-weight: bold;
   letter-spacing: var(--letter-spacing-smallcaps);
-`;
+`
 
 const UserRow = styled.div`
   display: flex;
   justify-content: space-between;
   margin-bottom: var(--space-400);
-`;
+`
 const UserStatsInfo = styled.div`
   text-align: right;
   font-weight: medium;
@@ -28,16 +28,16 @@ const UserStatsInfo = styled.div`
     margin: var(--space-50) 0 0 0;
     line-height: 1;
   }
-`;
+`
 
 const FieldHeader = styled.div`
   display: flex;
   justify-content: space-between;
-`;
+`
 
 const FieldParticipants = styled.div`
   margin-top: var(--space-400);
-`;
+`
 
 const entryBuilder = (data) => {
   return data.map((row, index) => {
@@ -45,10 +45,10 @@ const entryBuilder = (data) => {
       <UserRow key={index}>
         <UserMiniCard
           avatarSrc={row.profile_pic}
-          avatarSize="small"
+          avatarSize='small'
           username={row.username}
-          nameFontSize="var(--font-size-small)"
-          info={[`${row.stocks_held.join(", ")}`]}
+          nameFontSize='var(--font-size-small)'
+          info={[`${row.stocks_held.join(', ')}`]}
         />
         <UserStatsInfo>
           <p>
@@ -64,21 +64,21 @@ const entryBuilder = (data) => {
           </p>
         </UserStatsInfo>
       </UserRow>
-    );
-  });
-};
+    )
+  })
+}
 
 const PlayGameStats = ({ gameId }) => {
-  const [statData, setStatData] = useState({});
+  const [statData, setStatData] = useState({})
 
   const getGameData = async () => {
-    const data = await fetchGameData(gameId, "get_sidebar_stats");
-    setStatData(data);
-  };
+    const data = await fetchGameData(gameId, 'get_sidebar_stats')
+    setStatData(data)
+  }
 
   useEffect(() => {
-    getGameData();
-  }, [gameId]);
+    getGameData()
+  }, [gameId])
   return (
     <div>
       <FieldHeader>
@@ -91,7 +91,7 @@ const PlayGameStats = ({ gameId }) => {
         {statData.records && entryBuilder(statData.records)}
       </FieldParticipants>
     </div>
-  );
-};
+  )
+}
 
-export { PlayGameStats };
+export { PlayGameStats }

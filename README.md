@@ -32,6 +32,20 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 * _How do I test celery tasks?_: When possible, it's nice to actually use celery in the same way that it will be used in production with the `task.delay(...)` invocation. However, it's frequently necessary to mock values into tasks, and to do this you need to run the task locally instead of on the worker clusters. For this, use `task.apply(args=[...], ...)`. 
 * _CORS-related frontend errors_: Yeah, this is a thing. The current project setup should allow your Chrome browser to communicate with the API server on `localhost` after invoking `chrome://flags/#allow-insecure-localhost`, but holler if you're having an issue. Before you do, check the server api logs with `make api-logs` when sending your API requests. The current setup will return a CORS error if the server responds with `500`, even if the issue isn't CORS but an internal problem with  business logic raising an exception.
 * _Everything is broken, I can't figure out what's going on. Is this a docker issue?_: There's _probably_ a quicker fix, but if you think that tearing everything down and starting from scratch is the answer run `make destroy-everything` (you can run the individual commands inside if any don't execute successfully), restart your docker machine, and call `make up`. If that doesn't fix the problem, check in with a teammate. 
+
+### Style
+#### Overall
+* Favor a functional over object-oriented style (although object-oriented is sometimes the best approach, especially for custom, complex data structures)
+* Never ever repeat yourself. Wherever you're working, if you find yourself writing the same block of code two different times, turn that into an importable function to invoke
+* Seek informative name choices for variables and functions, and accept that sometimes this may lead to longer names. 
+
+#### Javascript
+* We use [eslint standard](https://standardjs.com/) for javascript formatting. Please configure your editor to implement automatic standard fixes upon committing
+* All components should be composed in a functional style, with state being with [react hooks](https://reactjs.org/docs/hooks-intro.html). 
+
+#### Python
+* All python code should be [PEP-8 compliant](https://www.python.org/dev/peps/pep-0008/)
+
 ### Production notes
 `.env.dev` versions credential information for your local environment so that you don't have to keep track of everything. Here's an inventory of all the variables that need to be defined for deploying to production:
 * `ENV` (should be equal to `prod`) 
@@ -52,4 +66,4 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 * `REDIS_HOST`
 * `GECKO_DRIVER_LOCATION`
 * `IEX_API_PRODUCTION` (should be equal to `True`)
-* `IEX_API_SECRET_PROD`s
+* `IEX_API_SECRET_PROD`

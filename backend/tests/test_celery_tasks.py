@@ -20,7 +20,6 @@ from backend.logic.games import (
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_suggest_symbols,
     async_respond_to_game_invite,
     async_service_open_games,
     async_make_the_field_charts,
@@ -38,7 +37,7 @@ from backend.tasks.redis import (
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
-from logic.base import fetch_iex_price
+from logic.base import fetch_price
 
 
 class TestStockDataTasks(BaseTestCase):
@@ -52,13 +51,13 @@ class TestStockDataTasks(BaseTestCase):
         with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
             trading_day_mock.return_value = True
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
 
         with self.engine.connect() as conn:
@@ -70,7 +69,7 @@ class TestStockDataTasks(BaseTestCase):
         with patch("backend.tasks.definitions.during_trading_day") as trading_day_mock:
             trading_day_mock.return_value = True
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
             with self.engine.connect() as conn:
                 first_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
@@ -81,7 +80,7 @@ class TestStockDataTasks(BaseTestCase):
                 second_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
             self.assertEqual(second_count, 1)
 
-            price, timestamp = fetch_iex_price(symbol)
+            price, timestamp = fetch_price(symbol)
             async_cache_price.apply(args=[symbol, price, timestamp])
             with self.engine.connect() as conn:
                 third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
@@ -103,18 +102,6 @@ class TestStockDataTasks(BaseTestCase):
 class TestGameIntegration(BaseTestCase):
 
     def test_play_game_tasks(self):
-        text = "A"
-        expected_suggestions = [
-            {"symbol": "AAPL", "label": "AAPL (APPLE)"},
-            {"symbol": "AMZN", "label": "AMZN (AMAZON)"},
-            {"symbol": "GOOG", "label": "GOOG (ALPHABET CLASS C)"},
-            {"symbol": "GOOGL", "label": "GOOGL (ALPHABET CLASS A)"},
-            {"symbol": "T", "label": "T (AT&T)"},
-        ]
-
-        result = async_suggest_symbols.apply(args=[text]).result
-        self.assertEqual(result, expected_suggestions)
-
         start_time = time.time()
         game_title = "lucky few"
         creator_id = 1
@@ -239,7 +226,7 @@ class TestGameIntegration(BaseTestCase):
             stock_pick = "AMZN"
             user_id = 1
             order_quantity = 500_000
-            amzn_price, _ = fetch_iex_price(stock_pick)
+            amzn_price, _ = fetch_price(stock_pick)
 
             cash_balance = get_current_game_cash_balance(user_id, game_id)
             current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
@@ -321,8 +308,8 @@ class TestGameIntegration(BaseTestCase):
             self.assertEqual(updated_holding, 0)
             self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
 
-        with patch("backend.logic.games.fetch_iex_price") as mock_price_fetch, patch(
-                "backend.logic.base.time") as mock_data_time, patch("backend.logic.games.time") as mock_game_time:
+        with patch("backend.logic.games.fetch_price") as mock_price_fetch, patch(
+                "backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
 
             order_clear_price = stop_limit_price - 5
 
@@ -344,11 +331,14 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 48 * 60 * 60,
             ]
 
-            mock_data_time.time.side_effect = [
+            mock_base_time.time.side_effect = [
+                game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60,
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
             ]
@@ -546,16 +536,15 @@ class TestVisualAssetsTasks(BaseTestCase):
         async_service_one_open_game.apply(args=[game_id])
 
         # this is basically the internals of async_update_play_game_visuals for one game
-        task_results = list()
-        task_results.append(async_make_the_field_charts.delay(game_id))
+        from backend.logic.visuals import make_the_field_charts
+        make_the_field_charts(game_id)
+        async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
-            task_results.append(async_serialize_order_details.delay(game_id, user_id))
-            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
+            async_serialize_order_details.apply(args=[game_id, user_id])
+            async_serialize_current_balances.apply(args=[game_id, user_id])
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
-        field_chart = unpack_redis_json("field_chart_3")
-        while field_chart is None:
-            field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(unpack_redis_json("field_chart_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
         self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))

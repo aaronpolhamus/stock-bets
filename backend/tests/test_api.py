@@ -20,7 +20,7 @@ from backend.database.helpers import (
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.base import (
     during_trading_day,
-    fetch_iex_price)
+    fetch_price)
 from backend.logic.auth import create_jwt
 from backend.logic.games import (
     DEFAULT_GAME_MODE,
@@ -37,12 +37,16 @@ from backend.logic.games import (
     LimitError
 )
 from backend.logic.visuals import (
+    make_balances_chart_data,
+    serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
-    PAYOUTS_PREFIX
+    PAYOUTS_PREFIX,
+    USD_FORMAT,
+    BALANCES_CHART_PREFIX
 )
 from backend.tasks.definitions import (
     async_calculate_game_metrics,
@@ -386,7 +390,7 @@ class TestPlayGame(BaseTestCase):
         serialize_and_pack_order_details(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
-        market_price, _ = fetch_iex_price(stock_pick)
+        market_price, _ = fetch_price(stock_pick)
         order_ticket = {
             "user_id": user_id,
             "game_id": game_id,
@@ -412,26 +416,42 @@ class TestPlayGame(BaseTestCase):
                 ORDER BY id DESC LIMIT 0, 1;
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
+
+        # TODO: Update these tests once we implement websockets
+        order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
+        while stock_pick not in [x["Symbol"] for x in order_details_table["orders"]["pending"]]:
+            order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
+            continue
         res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
-        balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+        balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
         while balances_chart is None:
-            balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+            balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
 
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
-        returned_current_balances_series = set([x['id'] for x in res.json()["line_data"]])
+        returned_current_balances_series = set([x['label'] for x in res.json()["datasets"]])
+        self.assertEqual(expected_current_balances_series, returned_current_balances_series)
+
+        # check a different user's balance information
+        df = make_balances_chart_data(game_id, 3)
+        serialize_and_pack_balances_chart(df, game_id, 3)
+        res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id, "username": "toofast"})
+        self.assertEqual(res.status_code, 200)
+        expected_current_balances_series = {'NVDA', 'Cash', 'NKE'}
+        returned_current_balances_series = set([x['label'] for x in res.json()["datasets"]])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # place a couple different types of invalid orders to make sure that we're getting what we expect back
         stock_pick = "AMZN"
-        market_price, _ = fetch_iex_price(stock_pick)
+        market_price, _ = fetch_price(stock_pick)
 
         # can't buy a billion dollars of Amazon
         order_ticket = {
@@ -721,6 +741,13 @@ class TestHomePage(BaseTestCase):
                                    json={"game_id": 1, "decision": "joined"}, verify=False)
         self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": miguel_token},
                                    json={"game_id": 1, "decision": "declined"}, verify=False)
+
+        # verify that starting cash balances work as expected
+        res = self.requests_session.post(f"{HOST_URL}/get_cash_balances", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": 1})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["cash_balance"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
+        self.assertEqual(res.json()["buying_power"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {

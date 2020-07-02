@@ -9,7 +9,8 @@ import numpy as np
 import pandas as pd
 from backend.database.db import engine
 from backend.logic.base import (
-    fetch_iex_price,
+    add_bookends,
+    fetch_price,
     make_date_offset,
     n_sidebets_in_game,
     get_game_info,
@@ -24,24 +25,30 @@ from backend.logic.base import (
     get_username,
     posix_to_datetime,
     datetime_to_posix,
-    DEFAULT_VIRTUAL_CASH
+    DEFAULT_VIRTUAL_CASH,
+    RESAMPLING_INTERVAL
 )
 from backend.tasks.redis import rds, unpack_redis_json
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
+from logic.base import get_active_balances
+
 CURRENT_BALANCES_PREFIX = "current_balances"
 SIDEBAR_STATS_PREFIX = "sidebar_stats"
 ORDER_DETAILS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
+ORDER_PERF_CHART_PREFIX = "order_performance_chart"
 PAYOUTS_PREFIX = "payouts"
 
 # -------------- #
 # Chart settings #
 # -------------- #
 
+CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
+BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
 N_PLOT_POINTS = 30
 USD_FORMAT = "${:,.2f}"
@@ -117,7 +124,14 @@ def hex_to_rgb(h):
 
 def palette_generator(n):
     """For n distinct series, generate a unique color palette"""
-    hex_codes = HEX_COLOR_PALETTE[:n]
+    hex_codes = []
+    i = 0
+    # recycle color palette if we've maxed it out -- there's definitely a more compact way to do this
+    for _ in range(n):
+        hex_codes.append(HEX_COLOR_PALETTE[i])
+        i += 1
+        if i == len(HEX_COLOR_PALETTE):
+            i = 0
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
@@ -179,89 +193,112 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     return pd.cut(pd.Series(trade_time_array), N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
 
-def reformat_for_plotting(df: pd.DataFrame) -> pd.DataFrame:
-    """Get position values, add a t_index or plotting, and down-sample for easier client-side rendering
-    """
-    df.sort_values("timestamp", inplace=True)
-    df["t_index"] = trade_time_index(df["timestamp"])
-    df = df.groupby(["symbol", "t_index"], as_index=False).aggregate({"value": "last", "timestamp": "last"})
-    df["label"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
-    return df
+def build_labels(df: pd.DataFrame, time_col="timestamp") -> pd.DataFrame:
+    df.sort_values(time_col, inplace=True)
+    df["t_index"] = trade_time_index(df[time_col])
+    labels = df.groupby("t_index", as_index=False)[time_col].max().rename(columns={time_col: "label"})
+    labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
+    return df.merge(labels, how="inner", on="t_index")
 
 
 def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
     df = make_historical_balances_and_prices_table(game_id, user_id)
     if df.empty:  # this should only happen outside of trading hours
         return df
-    return reformat_for_plotting(df)
+    df = build_labels(df)
+    return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
+        {"label": "last", "value": "last", "timestamp": "last"})
 
 
-def serialize_pandas_rows_to_json(df: pd.DataFrame, **kwargs):
-    """The key for each kwarg is the corresponding react chart mapping that we're targeting. The value is the value
-    of that data in the dataframe being parsed, e.g. y="value"
+def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, dataset_color: str, labels: List[str],
+                                     data_column: str, label_column: str = "label"):
+    """The serializer requires a list of "global" labels that it can use to decide when to make null assignments, along
+    with an identification of the column that contains the data mapping. We also pass in a label and color for the
+    dataset
     """
-    output_array = []
-    for _, row in df.iterrows():
-        entry = {}
-        for k, v, in kwargs.items():
-            entry[k] = row[v]
-        output_array.append(entry)
-    return output_array
+    dataset = dict(label=dataset_label, borderColor=dataset_color, backgroundColor=dataset_color, fill=False,
+                   cubicInterpolationMode=CHART_INTERPOLATION_SETTING, borderWidth=BORDER_WIDTH_SETTING)
+    data = []
+    for label in labels:
+        row = df[df[label_column] == label]
+        assert row.shape[0] <= 1
+        if row.empty:
+            data.append(None)
+            continue
+        data.append(row.iloc[0][data_column])
+    dataset["data"] = data
+    return dataset
 
 
-def null_chart_series(null_label: str):
+def make_null_chart(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
     that we can add other attributes later if need be.
     """
     schedule = get_next_trading_day_schedule(dt.utcnow())
     start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
-    series = [{"x": t.strftime(DATE_LABEL_FORMAT), "y": DEFAULT_VIRTUAL_CASH} for t in
-              pd.date_range(start, end, N_PLOT_POINTS)]
-    series[0]["y"] = 0
-    return dict(id=null_label, data=series)
+    labels = [t.strftime(DATE_LABEL_FORMAT) for t in pd.date_range(start, end, N_PLOT_POINTS)]
+    data = [DEFAULT_VIRTUAL_CASH for _ in labels]
+    return dict(labels=labels,
+                datasets=[
+                    dict(label=null_label, data=data, borderColor=NULL_RGBA, backgroundColor=NULL_RGBA, fill=False)])
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
-    result of calling make_balances_chart_data
-    """
-    chart_json = dict(
-        line_data=[null_chart_series("Cash")],
-        colors=[NULL_RGBA]
-    )
-    if not df.empty:
-        line_data = []
-        symbols = df["symbol"].unique()
-        for i, symbol in enumerate(symbols):
-            entry = dict(id=symbol)
-            subset = df[df["symbol"] == symbol]
-            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            line_data.append(entry)
-        chart_json = dict(line_data=line_data, colors=palette_generator(len(symbols)))
+    result of calling make_balances_chart_data. Target schema is:
+    data = {
+        labels = [ ... ],
+        datasets = [
+            {
+             "label": "<symbol>",
+             "data": [x1, x2, ..., xn],
+             "borderColor: "rgba(r, g, b, a)"
+            },
+            ...
+        ]
+    }
 
+    Labels can have values of None for where we do want to have a tick, but not a label so as to avoid overcrowding.
+    Similarly, the data array for each dataset should have None values corresponding to where no data is observed for a
+    given label.
+    """
+    chart_json = make_null_chart("Cash")
+    if not df.empty:
+        df.sort_values("timestamp", inplace=True)
+        labels = df["label"].unique()
+        datasets = []
+        symbols = df["symbol"].unique()
+        colors = palette_generator(len(symbols))
+        for symbol, color in zip(symbols, colors):
+            subset = df[df["symbol"] == symbol]
+            entry = serialize_pandas_rows_to_dataset(subset, symbol, color, labels, "value")
+            datasets.append(entry)
+        chart_json = dict(labels=list(labels), datasets=datasets)
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
+    """This shares the same schema with the balances chart. See doc string for serialize_and_pack_balances_chart
+    """
     user_ids = get_all_game_users(game_id)
-    line_data = []
-    colors = []
-    palette = palette_generator(len(user_ids))
-    for i, user_id in enumerate(user_ids):
-        username = get_username(user_id)
-        if df.empty:
-            entry = null_chart_series(username)
-            color = NULL_RGBA
-        else:
-            entry = dict(id=username)
+    datasets = []
+    colors = palette_generator(len(user_ids))
+    if df.empty:
+        for i, user_id in enumerate(user_ids):
+            username = get_username(user_id)
+            null_chart = make_null_chart(username)
+            datasets.append(null_chart["datasets"][0])
+        labels = null_chart["labels"]
+    else:
+        labels = df["label"].unique()
+        for user_id, color in zip(user_ids, colors):
+            username = get_username(user_id)
             subset = df[df["id"] == user_id]
-            entry["data"] = serialize_pandas_rows_to_json(subset, x="label", y="value")
-            color = palette[i]
-        line_data.append(entry)
-        colors.append(color)
+            entry = serialize_pandas_rows_to_dataset(subset, username, color, labels, "value")
+            datasets.append(entry)
 
-    chart_json = dict(line_data=line_data, colors=colors)
+    chart_json = dict(labels=list(labels), datasets=datasets)
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
@@ -271,10 +308,10 @@ def aggregate_portfolio_value(df: pd.DataFrame):
     if df.empty:
         return df
 
-    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "last", "value": "last"})
-    return last_entry_df.groupby("t_index", as_index=False)[["timestamp", "value"]].aggregate(
-        {"timestamp": "first", "value": "sum"})
+    last_entry_df = df.groupby(["symbol", "t_index"], as_index=False)[["label", "value", "timestamp"]].aggregate(
+        {"label": "last", "value": "last", "timestamp": "last"})
+    return last_entry_df.groupby("t_index", as_index=False)[["label", "value", "timestamp"]].aggregate(
+        {"label": "first", "value": "sum", "timestamp": "first"})
 
 
 def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
@@ -286,12 +323,10 @@ def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
         df["id"] = _id
         ls.append(df)
     df = pd.concat(ls)
+    del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
+    df = build_labels(df)
     df.sort_values("timestamp", inplace=True)
-    df["bin"] = trade_time_index(df["timestamp"])
-    labels = df.groupby("bin", as_index=False)["timestamp"].max().rename(columns={"timestamp": "label"})
-    labels["label"] = labels["label"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
-    df = df.merge(labels, how="inner", on="bin")
-    return df.groupby(["id", "bin"], as_index=False).aggregate({"label": "last", "value": "last"})
+    return df.groupby(["id", "t_index"], as_index=False)[["label", "value"]].agg("last")
 
 
 def make_the_field_charts(game_id: int):
@@ -319,6 +354,96 @@ def make_the_field_charts(game_id: int):
     serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
 
 
+def make_order_performance_table(game_id: int, user_id: int):
+    # get historical order details
+    order_df = get_order_details(game_id, user_id)
+    order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["buy_or_sell"] == "buy")]
+    if order_df.empty:
+        return order_df
+
+    # add a label that uniquely identifies a purchase order
+    order_df["order_label"] = order_df["symbol"] + order_df["timestamp_fulfilled"].astype(str)
+    order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
+    order_df["order_label"] = order_df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
+    order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
+        "clear_price_fulfilled"].apply(lambda x: number_to_currency(x)) + "/" + order_df["order_label"]
+
+    # add bookend times and resample
+    order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
+    order_df["timestamp_fulfilled"] = order_df["timestamp_fulfilled"].apply(lambda x: posix_to_datetime(x))
+    order_df.set_index("timestamp_fulfilled", inplace=True)
+    order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
+    order_df = order_df.reset_index()
+    del order_df["level_0"]
+
+    # we'll now ensure that resampled orders are properly sorte and compute cumulative purchases
+    order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
+    tmp_array = []
+    for symbol in order_df["symbol"].unique():
+        cum_buys = 0
+        symbol_subset = order_df[order_df["symbol"] == symbol]
+        for order_label in symbol_subset["order_label"].unique():
+            order_subset = symbol_subset[symbol_subset["order_label"] == order_label]
+            cum_buys += order_subset.iloc[0]["quantity"]
+            order_subset["cum_buys"] = cum_buys
+            tmp_array.append(order_subset)
+    order_df = pd.concat(tmp_array)
+
+    # get historical balances and prices
+    bp_df = make_historical_balances_and_prices_table(game_id, user_id)
+
+    def _make_cumulative_sales(subset):
+        sales_diffs = subset["balance"].diff(1).fillna(0)
+        sales_diffs[sales_diffs > 0] = 0
+        subset["cum_sales"] = sales_diffs.abs().cumsum()
+        return subset.reset_index(drop=True)
+
+    bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
+
+    # merge running balance  information with order history
+    slices = []
+    for order_label in order_df["order_label"].unique():
+        order_subset = order_df[order_df["order_label"] == order_label]
+        bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
+        del bp_subset["symbol"]
+        right_cols = ["timestamp", "price", "cum_sales"]
+        df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
+                                 right_on="timestamp", direction="nearest")
+
+        # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
+        mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
+        true_index = list(np.where(mask)[0])
+        if true_index[-1] < df_slice.shape[0] - 1:
+            true_index.append(true_index[-1] + 1)
+
+        df_slice = df_slice.iloc[true_index]
+        slices.append(df_slice)
+
+    df = pd.concat(slices)
+    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100).apply(lambda x: round(x, 2))
+    return df
+
+
+def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
+    order_perf = make_order_performance_table(game_id, user_id)
+    if order_perf.empty:
+        chart_json = make_null_chart("Waiting for orders...")
+    else:
+        order_perf = build_labels(order_perf)
+        order_perf = order_perf.groupby(["order_label", "t_index"], as_index=False)[
+            ["label", "return", "timestamp"]].last()
+        order_perf.sort_values("t_index", inplace=True)
+        chart_labels = list(order_perf["label"].unique())
+        order_labels = order_perf["order_label"].unique()
+        colors = palette_generator(len(order_labels))
+        datasets = []
+        for order_label, color in zip(order_labels, colors):
+            subset = order_perf[order_perf["order_label"] == order_label]
+            datasets.append(serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return"))
+        chart_json = dict(labels=chart_labels, datasets=datasets)
+    rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
+
+
 # ------ #
 # Tables #
 # ------ #
@@ -341,7 +466,7 @@ def add_market_prices_to_order_details(df):
     for i, row in df.iterrows():
         # for now grab current market price data directly from price fetcher. In the future it will probably make more
         # sense to use a cache
-        market_price, timestamp = fetch_iex_price(row["symbol"])
+        market_price, timestamp = fetch_price(row["symbol"])
         df.loc[i, "Market price"] = market_price
         df.loc[i, "as of"] = timestamp
     df["as of"] = df["as of"].apply(lambda x: format_posix_time(x))
@@ -384,7 +509,7 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
         df = get_order_details(game_id, user_id)
         order_record = [record for record in df.to_dict(orient="records") if record["order_id"] == order_id][0]
 
-        market_price, timestamp = fetch_iex_price(order_record["symbol"])
+        market_price, timestamp = fetch_price(order_record["symbol"])
         clear_price = order_record["clear_price_fulfilled"]
         fulfilled_on = order_record["timestamp_fulfilled"]
         entry = {
@@ -415,34 +540,6 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
                                               entry["order_id"] is not order_id]
 
     rds.set(fn, json.dumps(order_details))
-
-
-def get_active_balances(game_id: int, user_id: int):
-    """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
-    """
-    sql = """
-        SELECT symbol, balance, os.timestamp, clear_price
-        FROM order_status os
-        INNER JOIN
-        (
-          SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
-          FROM game_balances gb
-          INNER JOIN
-          (SELECT symbol, user_id, game_id, balance_type, max(id) as max_id
-            FROM game_balances
-            WHERE
-              game_id = %s AND
-              user_id = %s AND
-              balance_type = 'virtual_stock'
-            GROUP BY symbol, game_id, balance_type, user_id) grouped_gb
-          ON
-            gb.id = grouped_gb.max_id
-          WHERE balance > 0
-        ) balances
-        WHERE balances.order_status_id = os.id;
-    """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=[game_id, user_id])
 
 
 def get_most_recent_prices(symbols):

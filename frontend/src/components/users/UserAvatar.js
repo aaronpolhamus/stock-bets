@@ -1,14 +1,14 @@
-import React from "react";
-import styled from "styled-components";
+import React from 'react'
+import styled from 'styled-components'
 
 const handleSize = (size) => {
   switch (size) {
-    case "small":
-      return "1.5rem";
+    case 'small':
+      return '1.5rem'
     default:
-      return "3rem";
+      return '3rem'
   }
-};
+}
 
 const Avatar = styled.div`
   border-radius: 50%;
@@ -24,17 +24,17 @@ const Avatar = styled.div`
     width: 100%;
     height: 100%;
   }
-`;
+`
 
 const UserAvatar = ({ src, size }) => {
   if (src) {
     return (
       <Avatar size={size}>
-        <img src={src} alt="Avatar" />
+        <img src={src} alt='Avatar' />
       </Avatar>
-    );
+    )
   }
-  return <Avatar size={size} />;
-};
+  return <Avatar size={size} />
+}
 
-export { UserAvatar };
+export { UserAvatar }

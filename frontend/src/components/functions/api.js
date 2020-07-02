@@ -1,68 +1,68 @@
-import { useState, useEffect } from "react";
-import api from "services/api";
+import { useState, useEffect } from 'react'
+import api from 'services/api'
 
 const fetchGameData = async (gameId, apiEndpoint) => {
   // helper function for components whose data can be retrieved just passing a gameId
   return await apiPost(apiEndpoint, {
     game_id: gameId,
-    withCredentials: true,
-  });
-};
+    withCredentials: true
+  })
+}
 
-//helper function to fetch api providing an endpoint and json post data
+// helper function to fetch api providing an endpoint and json post data
 const apiPost = async (endpoint, data) => {
-  const response = await api.post(`/api/${endpoint}`, data);
-  return response.data;
-};
+  const response = await api.post(`/api/${endpoint}`, data)
+  return response.data
+}
 
 const isEmpty = function (data) {
-  if (typeof data === "object") {
-    if (JSON.stringify(data) === "{}" || JSON.stringify(data) === "[]") {
-      return true;
+  if (typeof data === 'object') {
+    if (JSON.stringify(data) === '{}' || JSON.stringify(data) === '[]') {
+      return true
     } else if (!data) {
-      return true;
+      return true
     }
-    return false;
-  } else if (typeof data === "string") {
+    return false
+  } else if (typeof data === 'string') {
     if (!data.trim()) {
-      return true;
+      return true
     }
-    return false;
-  } else if (typeof data === "undefined") {
-    return true;
+    return false
+  } else if (typeof data === 'undefined') {
+    return true
   } else {
-    return false;
+    return false
   }
-};
+}
 
 const usePostRequest = (url, payload) => {
-  const [data, setData] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState({});
+  const [data, setData] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState({})
 
   const postUrl = async (url, payload) => {
     try {
-      setLoading(true);
+      setLoading(true)
       const response = await api.post(url, {
         withCredentials: true,
-        data: payload,
-      });
-      setData(response.data);
+        data: payload
+      })
+      setData(response.data)
     } catch (error) {
-      setError(error);
+      setError(error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
   useEffect(() => {
-    postUrl(url, payload);
-  }, [url, payload]);
+    postUrl(url, payload)
+  }, [url, payload])
 
   return {
     data,
     loading,
-    error,
-  };
-};
+    error
+  }
+}
 
-export { isEmpty, usePostRequest, apiPost, fetchGameData };
+export { isEmpty, usePostRequest, apiPost, fetchGameData }

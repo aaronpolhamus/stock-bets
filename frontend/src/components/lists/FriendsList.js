@@ -1,72 +1,72 @@
-import React, { useEffect, useState } from "react";
-import { apiPost } from "components/functions/api";
-import { UserMiniCard } from "components/users/UserMiniCard";
-import { Button, Modal } from "react-bootstrap";
-import { Header } from "components/layout/Layout";
-import { SectionTitle } from "components/textComponents/Text";
-import { AddFriends } from "components/forms/AddFriends";
-import styled from "styled-components";
+import React, { useEffect, useState } from 'react'
+import { apiPost } from 'components/functions/api'
+import { UserMiniCard } from 'components/users/UserMiniCard'
+import { Button, Modal } from 'react-bootstrap'
+import { Header } from 'components/layout/Layout'
+import { SectionTitle } from 'components/textComponents/Text'
+import { AddFriends } from 'components/forms/AddFriends'
+import styled from 'styled-components'
 
 const FriendsListWrapper = styled.div`
   margin-top: var(--space-400);
-`;
+`
 
 const FriendsListList = styled.ul`
   list-style-type: none;
   padding: 0;
-`;
+`
 
 const FriendsListItem = styled.li`
   padding: var(--space-100) 0;
-`;
+`
 
 const FriendRequest = styled.p`
   font-size: var(--font-size-small);
   display: flex;
   align-items: center;
   justify-content: space-between;
-`;
+`
 
 const FriendsList = () => {
-  const [friendsData, setFriendsData] = useState({});
-  const [friendRequestsData, setFriendRequestsData] = useState({});
+  const [friendsData, setFriendsData] = useState({})
+  const [friendRequestsData, setFriendRequestsData] = useState({})
 
-  const [show, setShow] = useState(false);
-  const [requester, setRequester] = useState("");
-  const [requestRespondMessage, setRequestRespondMessage] = useState("");
+  const [show, setShow] = useState(false)
+  const [requester, setRequester] = useState('')
+  const [requestRespondMessage, setRequestRespondMessage] = useState('')
 
   useEffect(() => {
     const getFriendsLists = async () => {
-      const friends = await apiPost("get_list_of_friends");
-      setFriendsData(friends);
+      const friends = await apiPost('get_list_of_friends')
+      setFriendsData(friends)
 
-      setFriendRequestsData(getFriendInvites);
-    };
+      setFriendRequestsData(getFriendInvites)
+    }
 
-    getFriendsLists();
-  }, [requestRespondMessage]);
+    getFriendsLists()
+  }, [requestRespondMessage])
 
   const getFriendInvites = async () => {
-    const friendRequests = await apiPost("get_list_of_friend_invites");
-    setFriendRequestsData(friendRequests);
-  };
+    const friendRequests = await apiPost('get_list_of_friend_invites')
+    setFriendRequestsData(friendRequests)
+  }
 
   const handleRespondFriend = async (requesterUsername, decision) => {
-    const respondInvite = await apiPost("respond_to_friend_request", {
+    const respondInvite = await apiPost('respond_to_friend_request', {
       requester_username: requesterUsername,
-      decision: decision,
-    });
+      decision: decision
+    })
 
-    setRequestRespondMessage(respondInvite);
-    setFriendRequestsData(getFriendInvites);
-  };
+    setRequestRespondMessage(respondInvite)
+    setFriendRequestsData(getFriendInvites)
+  }
 
-  const handleClose = () => setShow(false);
+  const handleClose = () => setShow(false)
   const handleShow = (requester) => {
-    setRequestRespondMessage("");
-    setRequester(requester);
-    setShow(true);
-  };
+    setRequestRespondMessage('')
+    setRequester(requester)
+    setShow(true)
+  }
 
   const friendsListBuilder = (data) => {
     return data.map((friend, index) => {
@@ -74,15 +74,15 @@ const FriendsList = () => {
         <FriendsListItem key={index}>
           <UserMiniCard
             avatarSrc={friend.profile_pic}
-            avatarSize="small"
+            avatarSize='small'
             username={friend.username}
-            nameFontSize="var(--font-size-small)"
-            nameColor="var(--color-light-gray)"
+            nameFontSize='var(--font-size-small)'
+            nameColor='var(--color-light-gray)'
           />
         </FriendsListItem>
-      );
-    });
-  };
+      )
+    })
+  }
 
   const friendRequestsBuilder = (data) => {
     return data.map((friend, index) => {
@@ -92,21 +92,21 @@ const FriendsList = () => {
             Friend request from <strong>{friend}</strong>
           </span>
           <Button
-            size="sm"
-            variant="secondary"
+            size='sm'
+            variant='secondary'
             onClick={() => handleShow(friend)}
           >
             View
           </Button>
         </FriendRequest>
-      );
-    });
-  };
+      )
+    })
+  }
 
   return (
     <FriendsListWrapper>
       <Header>
-        <SectionTitle color="var(--color-primary)">Friends</SectionTitle>
+        <SectionTitle color='var(--color-primary)'>Friends</SectionTitle>
       </Header>
       {friendRequestsData.length > 0 &&
         friendRequestsBuilder(friendRequestsData)}
@@ -123,39 +123,39 @@ const FriendsList = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {requestRespondMessage === ""
+          {requestRespondMessage === ''
             ? `${requester} wants to be your friend`
             : requestRespondMessage}
         </Modal.Body>
         <Modal.Footer>
-          {requestRespondMessage === "" ? (
+          {requestRespondMessage === '' ? (
             <>
               <Button
-                variant="outline-secondary"
+                variant='outline-secondary'
                 onClick={() => {
-                  handleRespondFriend(requester, "declined");
+                  handleRespondFriend(requester, 'declined')
                 }}
               >
                 Decline
               </Button>
               <Button
-                variant="success"
+                variant='success'
                 onClick={() => {
-                  handleRespondFriend(requester, "accepted");
+                  handleRespondFriend(requester, 'accepted')
                 }}
               >
                 Accept invite
               </Button>
             </>
           ) : (
-            <Button variant="primary" onClick={handleClose}>
+            <Button variant='primary' onClick={handleClose}>
               Awesome!
             </Button>
           )}
         </Modal.Footer>
       </Modal>
     </FriendsListWrapper>
-  );
-};
+  )
+}
 
-export { FriendsList };
+export { FriendsList }

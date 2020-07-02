@@ -8,6 +8,7 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import get_pending_buy_order_value
 from backend.logic.games import (
+    suggest_symbols,
     get_order_ticket,
     process_order,
     execute_order,
@@ -269,7 +270,7 @@ class TestGameLogic(BaseTestCase):
                         amount=10,
                         time_in_force="until_cancelled")
 
-        with patch("backend.logic.base.fetch_iex_price") as fetch_price_mock:
+        with patch("backend.logic.base.fetch_price") as fetch_price_mock:
             fetch_price_mock.return_value = (market_price, 1592202332)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
@@ -456,7 +457,7 @@ class TestGameLogic(BaseTestCase):
             order_ticket = get_order_ticket(order_id)
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
-                    "backend.logic.games.fetch_iex_price") as fetch_price_mock, patch(
+                    "backend.logic.games.fetch_price") as fetch_price_mock, patch(
                     "backend.logic.base.time") as base_time_mock:
                 base_time_mock.time.side_effect = game_time_mock.time.side_effect = [1592573410.15422] * 2
                 fetch_price_mock.return_value = (market_price, None)
@@ -644,3 +645,30 @@ class TestOrderLogic(unittest.TestCase):
                                        cash_balance=200,
                                        current_holding=0,
                                        quantity=1))
+
+
+class TestSymbolSuggestion(BaseTestCase):
+
+    def test_symbol_suggestion(self):
+        game_id = 3
+        user_id = 1
+
+        # test buy suggestions
+        text = "A"
+        buy_or_sell = "buy"
+        expected_suggestions = [
+            {"symbol": "AAPL", "label": "AAPL (APPLE)"},
+            {"symbol": "AMZN", "label": "AMZN (AMAZON)"},
+            {"symbol": "GOOG", "label": "GOOG (ALPHABET CLASS C)"},
+            {"symbol": "GOOGL", "label": "GOOGL (ALPHABET CLASS A)"},
+            {"symbol": "T", "label": "T (AT&T)"},
+        ]
+        result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        self.assertEqual(result, expected_suggestions)
+
+        # test sell suggestions
+        text = "A"
+        buy_or_sell = "sell"
+        expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)"}]
+        result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        self.assertEqual(result, expected_suggestions)

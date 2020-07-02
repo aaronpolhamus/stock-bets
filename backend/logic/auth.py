@@ -12,49 +12,46 @@ WHITE_LIST = [
     "adamdominik24@gmail.com",
     "adrian@captec.io",
     "alexanderclapp@gmail.com",
-    "alexander.clapp@gmail.com",
+    "andressierrasoler@gmail.com",
     "apolhamu@gmail.com",
     "benp2007@gmail.com",
     "benspener@gmail.com",
     "bethanydominik@gmail.com",
-    "casey.oswald@gmail.com",
     "caseyoswald@gmail.com",
     "charly@captec.io",
     "dannygins@gmail.com",
-    "Dud341@gmail.com",
     "dud341@gmail.com",
-    "eddie.strickler@gmail.com",
+    "eddiestrickler@gmail.com",
     "edgar@captec.io",
     "gtheckt@gmail.com",
     "gavarj@spu.edu",
-    "gretchen.guo@gmail.com",
+    "gretchenguo@gmail.com",
     "guillermomrelliug@gmail.com",
     "gustavo@captec.io",
-    "ian.hrovatin@gmail.com",
-    "ianhrovatin@gmail.com"
+    "ianhrovatin@gmail.com",
     "jafet@captec.io",
     "jaime@rodas.mx",
     "jafetgonz@gmail.com",
-    "jmz7v.com@gmail.com",
+    "jmz7vcom@gmail.com",
     "jsanchezcastillejos@gmail.com",
-    "Ken@escale.com.br",
     "ken@escale.com.br",
     "kiefertravis@gmail.com",
     "landstromconsulting@gmail.com",
-    "mark.polhamus@gmail.com",
+    "markpolhamus@gmail.com",
     "matheus@sat.ws",
     "matt@escale.com.br",
+    "mcooper4040@gmail.com",
     "mjpcooper@gmail.com",
     "mpolovin@gmail.com",
     "miguel@stockbets.io",
     "miguel@ruidovisual.com",
     "pattycampam@gmail.com",
     "renny@wearefirstin.com",
-    "Ryan@amoils.com",
-    "ryan.willemsen@gmail.com",
+    "ryanwillemsen@gmail.com",
     "thebigmehtaphor@gmail.com",
     "thedanc@gmail.com",
     "tommaso@mymoons.mx",
+    "torygreen@gmail.com",
     "waverly.james92@gmail.com",
 ]
 
@@ -65,8 +62,15 @@ class WhiteListException(Exception):
         super().__init__(message)
 
 
+def standardize_email(email):
+    prefix, suffix = email.lower().split("@")
+    prefix = prefix.replace(".", "")
+    return "@".join([prefix, suffix])
+
+
 def check_against_whitelist(email):
-    if email in WHITE_LIST:
+    standardized_list = [standardize_email(x) for x in WHITE_LIST]
+    if standardize_email(email) in standardized_list:
         return
     raise WhiteListException
 

@@ -14,6 +14,8 @@
     "add": "^2.0.6",
     "axios": "^0.19.2",
     "bootstrap": "^4.5.0",
+    "chart.js": "^2.9.3",
+    "chartjs": "^0.3.24",
     "env-cmd": "^10.1.0",
     "express": "^4.17.1",
     "http-proxy-middleware": "^1.0.3",
@@ -29,6 +31,7 @@
     "react-bootstrap": "^1.0.1",
     "react-bootstrap-multiselect": "^2.4.1",
     "react-bootstrap-typeahead": "^4.2.3",
+    "react-chartjs-2": "^2.9.0",
     "react-dom": "^16.13.1",
     "react-facebook-login": "^4.1.1",
     "react-feather": "^2.0.8",
@@ -37,7 +40,8 @@
     "react-scripts": "3.4.1",
     "react-twitter-auth": "0.0.13",
     "react-use-googlelogin": "^0.11.2",
-    "styled-components": "^5.1.1"
+    "styled-components": "^5.1.1",
+    "typescript": "^3.9.6"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -71,13 +75,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "lint-staged"
+      "pre-commit": "./precommit.sh"
     }
-  },
-  "lint-staged": {
-    "src/**/*.{js,jsx,ts,tsx,json,css,scss,md}": [
-      "prettier --write",
-      "git add"
-    ]
   }
 }

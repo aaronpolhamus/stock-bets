@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     game_entry = query_to_dict("SELECT * FROM games WHERE id = 1")
     for k, v in game_settings.items():
-        if k == "invitees":
+        if k in ["invitees", "n_rebuys"]:
             continue
         assert game_entry[k] == v
 

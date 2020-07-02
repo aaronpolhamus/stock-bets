@@ -1,20 +1,14 @@
 """Base business logic that can be shared between multiple modules. This is mainly here to help us avoid circular
 as we build out the logic library.
 """
-from typing import List
 import calendar
 import sys
 import time
 from datetime import datetime as dt, timedelta
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
+from typing import List
 
 import numpy as np
 import pandas as pd
-from pandas.tseries.offsets import DateOffset
 import pandas_market_calendars as mcal
 import pytz
 import requests
@@ -22,6 +16,12 @@ from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.tasks.redis import rds
+from database.db import engine
+from pandas.tseries.offsets import DateOffset
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 # -------- #
 # Defaults #
@@ -36,8 +36,9 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
+RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
+
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -108,6 +109,7 @@ def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
         count += 1
         t += offset
     return count
+
 
 # ------------ #
 # Game-related #
@@ -200,7 +202,8 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
         ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
     pivot_df = pivot_df.pivot(columns="status").reset_index()
     pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
-    del pivot_df["clear_price_pending"]
+    if "clear_price_pending" in pivot_df.columns:
+        del pivot_df["clear_price_pending"]
     expanded_columns = ["timestamp_pending", "timestamp_fulfilled", "clear_price_fulfilled"]
     for column in expanded_columns:
         if column not in pivot_df.columns:
@@ -264,7 +267,7 @@ def get_pending_buy_order_value(user_id, game_id):
     tab = df[(df["order_type"] == "market")]
     if not tab.empty:
         for _, row in tab.iterrows():
-            price, _ = fetch_iex_price(row["symbol"])
+            price, _ = fetch_price(row["symbol"])
             open_value += price * row["quantity"]
 
     return open_value
@@ -284,6 +287,7 @@ def get_game_end_date(game_id: int):
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
     return start_time + duration * 24 * 60 * 60
+
 
 # --------- #
 # User info #
@@ -309,6 +313,7 @@ def get_username(user_id: int):
         """, int(user_id)).fetchone()[0]
     return username
 
+
 # --------------- #
 # Data processing #
 # --------------- #
@@ -331,7 +336,7 @@ def resample_balances(symbol_subset):
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}T").last().ffill()
+    return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
@@ -351,7 +356,7 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
         prices_subset = price_df[price_df["symbol"] == symbol]
         if prices_subset.empty and symbol == "Cash":
             # Special handling for cash
-            balance_subset["price"] = 1
+            balance_subset.loc[:, "price"] = 1
             price_subsets.append(balance_subset)
             continue
         del prices_subset["symbol"]
@@ -385,16 +390,23 @@ def make_bookend_time():
     return max_time_val
 
 
-def add_bookends(balances: pd.DataFrame) -> pd.DataFrame:
+def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
+                 time_var: str = "timestamp") -> pd.DataFrame:
     """If the final balance entry that we have for a position is not 0, then we'll extend that position out
     until the current date.
+
+    :param balances: a pandas dataframe with a valid group_var, condition_var, and time_var
+    :param group_var: what is the grouping unit that the bookend time is being added to?
+    :param condition_var: We only add bookends when there is still a non-zero quantity for the final observation. Which
+      column defines that rule?
+    :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    symbols = balances["symbol"].unique()
+    symbols = balances[group_var].unique()
     for symbol in symbols:
-        row = balances[balances["symbol"] == symbol].tail(1)
-        if row.iloc[0]["balance"] > 0 and row.iloc[0]["timestamp"] < bookend_time:
-            row["timestamp"] = bookend_time
+        row = balances[balances[group_var] == symbol].tail(1)
+        if row.iloc[0][condition_var] > 0 and row.iloc[0][time_var] < bookend_time:
+            row[time_var] = bookend_time
             balances = balances.append([row], ignore_index=True)
     return balances
 
@@ -418,7 +430,7 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
 
 def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
-    plotting and calculating winners. It's the reason the 7 functions above exis
+    plotting and calculating winners. It's the reason the 7 functions above exist
     """
     balance_history = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
@@ -487,15 +499,22 @@ def get_symbols_table(n_rows=None):
     return pd.DataFrame(row_list)
 
 
-def fetch_iex_price(symbol):
+def fetch_price_iex(symbol):
     secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
     base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
     res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
     if res.status_code == 200:
         quote = res.json()
         timestamp = quote["latestUpdate"] / 1000
+        if Config.IEX_API_PRODUCTION is False:
+            timestamp = time.time()
         price = quote["latestPrice"]
         return price, timestamp
+
+
+def fetch_price(symbol, provider="iex"):
+    if provider == "iex":
+        return fetch_price_iex(symbol)
 
 
 def get_cache_price(symbol):
@@ -523,3 +542,31 @@ def get_all_active_symbols():
         """)
 
     return [x[0] for x in result]
+
+
+def get_active_balances(game_id: int, user_id: int):
+    """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
+    """
+    sql = """
+        SELECT symbol, balance, os.timestamp, clear_price
+        FROM order_status os
+        INNER JOIN
+        (
+          SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
+          FROM game_balances gb
+          INNER JOIN
+          (SELECT symbol, user_id, game_id, balance_type, max(id) as max_id
+            FROM game_balances
+            WHERE
+              game_id = %s AND
+              user_id = %s AND
+              balance_type = 'virtual_stock'
+            GROUP BY symbol, game_id, balance_type, user_id) grouped_gb
+          ON
+            gb.id = grouped_gb.max_id
+          WHERE balance > 0
+        ) balances
+        WHERE balances.order_status_id = os.id;
+    """
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=[game_id, user_id])

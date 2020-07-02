@@ -23,24 +23,25 @@ from backend.database.models import (
     TimeInForce)
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
-    fetch_iex_price,
+    fetch_price,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
     get_schedule_start_and_end,
-    during_trading_day
+    during_trading_day,
+    get_active_balances
 )
 from backend.logic.visuals import (
+    serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
     init_order_details,
     update_order_details_table,
     serialize_and_pack_portfolio_details,
     compile_and_pack_player_sidebar_stats,
     make_the_field_charts,
-    ORDER_DETAILS_PREFIX
 )
 from funkybob import RandomNameGenerator
-from backend.tasks.redis import rds
+
 
 # Default make game settings
 # --------------------------
@@ -240,12 +241,13 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     # initialize a blank payouts table
     serialize_and_pack_winners_table(game_id)
 
-    # initialize current balances and open orders
+    # initialize current balances, open orders, and order performance chart
     for user_id in user_id_list:
         serialize_and_pack_portfolio_details(game_id, user_id)
         init_order_details(game_id, user_id)
+        serialize_and_pack_order_performance_chart(game_id, user_id)
 
-    # initialize graphics -- this is normally a very heavy function, but it's super-light when starting a game
+    # build the balances and portfolio performance charts together
     make_the_field_charts(game_id)
 
 
@@ -374,9 +376,33 @@ def get_user_invite_statuses_for_pending_game(game_id):
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
 
-
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------
+
+
+def suggest_symbols(game_id, user_id, text, buy_or_sell):
+    # TODO: Take this of task definitions, move it down to logic, a use a NoSQL backend
+    if buy_or_sell == "buy":
+        with engine.connect() as conn:
+            to_match = f"{text.upper()}%"
+            symbol_suggestions = conn.execute("""
+                SELECT * FROM symbols
+                WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", (to_match, to_match))
+
+    if buy_or_sell == "sell":
+        balances = get_active_balances(game_id, user_id)
+        symbols = list(balances["symbol"].unique())
+        with engine.connect() as conn:
+            to_match = f"{text.upper()}%"
+            params_list = [to_match] * 2 + symbols
+            symbol_suggestions = conn.execute(f"""
+                SELECT * FROM symbols
+                WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))})
+                LIMIT 20;""", params_list)
+
+    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+
+
 def get_current_stock_holding(user_id, game_id, symbol):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
@@ -558,12 +584,7 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
                         clear_price=order_price)
         update_balances(user_id, game_id, os_id, timestamp, buy_or_sell, cash_balance, current_holding, order_price,
                         order_quantity, symbol)
-
-    # update order info table
-    if rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}") is None:
-        init_order_details(game_id, user_id)
-
-    update_order_details_table(game_id, user_id, order_id, "add")
+    return order_id
 
 
 def get_order_ticket(order_id):
@@ -583,7 +604,7 @@ def process_order(order_id):
     buy_or_sell = order_ticket["buy_or_sell"]
     quantity = order_ticket["quantity"]
 
-    market_price, _ = fetch_iex_price(symbol)
+    market_price, _ = fetch_price(symbol)
 
     # Only process active outstanding orders during trading day
     cash_balance = get_current_game_cash_balance(user_id, game_id)
@@ -639,8 +660,7 @@ def get_order_expiration_status(order_id):
 
 
 def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balance, current_holding, quantity):
-    """Function to flag an order for execution based on order type, price, and market price
-    """
+    """Function to flag an order for execution based on order type, price, and market price"""
     assert order_type in ["stop", "limit", "market"]
     assert buy_or_sell in ["buy", "sell"]
 
