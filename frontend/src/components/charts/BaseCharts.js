@@ -20,6 +20,10 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
             radius: 0
           }
         },
+        tooltips: {
+          intersect: false,
+          backgroundColor: 'rgba(0,0,0,0.5)'
+        },
         scales: {
           yAxes: [
             {

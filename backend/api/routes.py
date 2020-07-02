@@ -343,7 +343,7 @@ def api_place_order():
         stop_limit_price = float(stop_limit_price)
 
     try:
-        symbol = order_ticket["symbol"]
+        symbol = order_ticket["symbol"].upper()  # ensure upper casing
         market_price, _ = fetch_price(symbol)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
