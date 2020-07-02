@@ -37,13 +37,16 @@ from backend.logic.games import (
     LimitError
 )
 from backend.logic.visuals import (
+    make_balances_chart_data,
+    serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
     SIDEBAR_STATS_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT
+    USD_FORMAT,
+    BALANCES_CHART_PREFIX
 )
 from backend.tasks.definitions import (
     async_calculate_game_metrics,
@@ -419,14 +422,24 @@ class TestPlayGame(BaseTestCase):
         stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
-        balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+        balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
         while balances_chart is None:
-            balances_chart = rds.get(f"balances_chart_{game_id}_{user_id}")
+            balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
 
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         expected_current_balances_series = {'AMZN', 'Cash', 'LYFT', 'NVDA', 'SPXU', 'TSLA'}
+        returned_current_balances_series = set([x['label'] for x in res.json()["datasets"]])
+        self.assertEqual(expected_current_balances_series, returned_current_balances_series)
+
+        # check a different user's balance information
+        df = make_balances_chart_data(game_id, 3)
+        serialize_and_pack_balances_chart(df, game_id, 3)
+        res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id, "username": "toofast"})
+        self.assertEqual(res.status_code, 200)
+        expected_current_balances_series = {'NVDA', 'Cash', 'NKE'}
         returned_current_balances_series = set([x['label'] for x in res.json()["datasets"]])
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 

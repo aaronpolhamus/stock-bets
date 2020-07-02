@@ -1,20 +1,14 @@
 """Base business logic that can be shared between multiple modules. This is mainly here to help us avoid circular
 as we build out the logic library.
 """
-from typing import List
 import calendar
 import sys
 import time
 from datetime import datetime as dt, timedelta
-
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
+from typing import List
 
 import numpy as np
 import pandas as pd
-from pandas.tseries.offsets import DateOffset
 import pandas_market_calendars as mcal
 import pytz
 import requests
@@ -22,6 +16,11 @@ from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.tasks.redis import rds
+from pandas.tseries.offsets import DateOffset
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 # -------- #
 # Defaults #
@@ -36,8 +35,9 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 # Managing time and trad schedules #
 # -------------------------------- #
 TIMEZONE = 'America/New_York'
-PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
+RESAMPLING_INTERVAL = 10  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
+
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -108,6 +108,7 @@ def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
         count += 1
         t += offset
     return count
+
 
 # ------------ #
 # Game-related #
@@ -286,6 +287,7 @@ def get_game_end_date(game_id: int):
         """, game_id).fetchone()
     return start_time + duration * 24 * 60 * 60
 
+
 # --------- #
 # User info #
 # --------- #
@@ -310,6 +312,7 @@ def get_username(user_id: int):
         """, int(user_id)).fetchone()[0]
     return username
 
+
 # --------------- #
 # Data processing #
 # --------------- #
@@ -332,7 +335,7 @@ def resample_balances(symbol_subset):
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{PRICE_CACHING_INTERVAL}T").last().ffill()
+    return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
@@ -386,16 +389,23 @@ def make_bookend_time():
     return max_time_val
 
 
-def add_bookends(balances: pd.DataFrame) -> pd.DataFrame:
+def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
+                 time_var: str = "timestamp") -> pd.DataFrame:
     """If the final balance entry that we have for a position is not 0, then we'll extend that position out
     until the current date.
+
+    :param balances: a pandas dataframe with a valid group_var, condition_var, and time_var
+    :param group_var: what is the grouping unit that the bookend time is being added to?
+    :param condition_var: We only add bookends when there is still a non-zero quantity for the final observation. Which
+      column defines that rule?
+    :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    symbols = balances["symbol"].unique()
+    symbols = balances[group_var].unique()
     for symbol in symbols:
-        row = balances[balances["symbol"] == symbol].tail(1)
-        if row.iloc[0]["balance"] > 0 and row.iloc[0]["timestamp"] < bookend_time:
-            row["timestamp"] = bookend_time
+        row = balances[balances[group_var] == symbol].tail(1)
+        if row.iloc[0][condition_var] > 0 and row.iloc[0][time_var] < bookend_time:
+            row[time_var] = bookend_time
             balances = balances.append([row], ignore_index=True)
     return balances
 
@@ -419,7 +429,7 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
 
 def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
-    plotting and calculating winners. It's the reason the 7 functions above exis
+    plotting and calculating winners. It's the reason the 7 functions above exist
     """
     balance_history = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
