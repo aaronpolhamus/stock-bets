@@ -50,7 +50,7 @@ const StyledMiniCard = styled(UserMiniCard)`
 `
 
 const Home = () => {
-  const { data, loading, error } = usePostRequest('/api/home')
+  const { data, loading } = usePostRequest('/api/home')
 
   useEffect(() => {
     // identify user once they've hit the homepage
