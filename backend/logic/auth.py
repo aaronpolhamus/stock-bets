@@ -36,6 +36,7 @@ WHITE_LIST = [
     "jafet@captec.io",
     "jaime@rodas.mx",
     "jafetgonz@gmail.com",
+    "jason.shaw.23@gmail.com",
     "jmz7vcom@gmail.com",
     "jsanchezcastillejos@gmail.com",
     "ken@escale.com.br",
