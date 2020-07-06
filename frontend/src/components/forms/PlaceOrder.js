@@ -45,7 +45,7 @@ const PlaceOrder = ({ gameId }) => {
       setSubmitted(true)
     } catch (e) {
       if (e.response.status === 400) {
-        alert(e.response.data)
+        window && window.alert(e.response.data)
       }
       setSubmitted(false)
     }
