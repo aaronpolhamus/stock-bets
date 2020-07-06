@@ -14,7 +14,7 @@ const Admin = () => {
         setValidated(true)
       } catch (e) {
         console.log(e)
-        alert('Admins only')
+        window && window.alert('Admins only')
         setRedirect(true)
       }
     }

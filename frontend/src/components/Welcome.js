@@ -19,7 +19,7 @@ const Welcome = () => {
       })
       setUpdated(true)
     } catch (error) {
-      alert(`'${username}' looks like it's taken, try another one`)
+      window && window.alert(`'${username}' looks like it's taken, try another one`)
       setUpdated(false)
     }
   }
