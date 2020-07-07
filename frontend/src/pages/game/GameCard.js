@@ -6,7 +6,8 @@ import { PlayGameStats } from 'components/lists/PlayGameStats'
 import { Header } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
 
-import { ArrowRightCircle } from 'react-feather'
+import { PlayCircle } from 'react-feather'
+import { SmallCaps } from 'components/textComponents/Text'
 
 const CardLeftColumn = styled.div`
   width: 300px;
@@ -40,25 +41,27 @@ const GameCard = ({ gameId }) => {
 
     getGameData()
   }, [gameId])
-
+  console.log(gameInfo)
   return (
     <GameCardWrapper>
-      <CardLeftColumn>
-        <PlayGameStats gameId={gameId} />
-      </CardLeftColumn>
       <CardMainColumn>
         <Header alignItems='flex-start'>
-          <h2>{gameInfo.title}</h2>
-          <Button href={`/play/${gameId}`} size='sm' variant='light'>
-            <ArrowRightCircle
+          <div>
+            <h3>{gameInfo.title}</h3>
+            <SmallCaps
               color='var(--color-text-gray)'
+            >
+              {gameInfo.mode}
+            </SmallCaps>
+          </div>
+          <Button href={`/play/${gameId}`} size='sm' variant='light'>
+            <PlayCircle
+              color='var(--color-primary-darken)'
               size={14}
               style={{ marginTop: '-3px', marginRight: '4px' }}
             />
-            Play
           </Button>
         </Header>
-        <FieldChart gameId={gameId} height='200px' />
       </CardMainColumn>
     </GameCardWrapper>
   )

@@ -1,1 +1,7 @@
-module.exports = { "extends": "standard" };
+module.exports = {
+  extends:
+  [
+    'standard',
+    'plugin:react/recommended'
+  ]
+}
