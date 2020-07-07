@@ -15,26 +15,6 @@ const apiPost = async (endpoint, data) => {
   return response.data
 }
 
-const isEmpty = function (data) {
-  if (typeof data === 'object') {
-    if (JSON.stringify(data) === '{}' || JSON.stringify(data) === '[]') {
-      return true
-    } else if (!data) {
-      return true
-    }
-    return false
-  } else if (typeof data === 'string') {
-    if (!data.trim()) {
-      return true
-    }
-    return false
-  } else if (typeof data === 'undefined') {
-    return true
-  } else {
-    return false
-  }
-}
-
 const usePostRequest = (url, payload) => {
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
@@ -65,4 +45,4 @@ const usePostRequest = (url, payload) => {
   }
 }
 
-export { isEmpty, usePostRequest, apiPost, fetchGameData }
+export { usePostRequest, apiPost, fetchGameData }

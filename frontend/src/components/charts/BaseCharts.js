@@ -47,6 +47,41 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
               }
             }
           ]
+        },
+        // see zoom settings at https://github.com/chartjs/chartjs-plugin-zoom
+        plugins: {
+          zoom: {
+            pan: {
+              enabled: true,
+              mode: 'xy',
+              rangeMin: {
+                x: null,
+                y: null
+              },
+              rangeMax: {
+                x: null,
+                y: null
+              },
+              speed: 20,
+              threshold: 10
+            },
+            zoom: {
+              enabled: true,
+              drag: true,
+              mode: 'xy',
+              rangeMin: {
+                x: null,
+                y: null
+              },
+              rangeMax: {
+                x: null,
+                y: null
+              },
+              speed: 0.1,
+              threshold: 2,
+              sensitivity: 3
+            }
+          }
         }
       }}
     />

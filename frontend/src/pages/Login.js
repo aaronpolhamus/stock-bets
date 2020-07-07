@@ -100,7 +100,7 @@ export default function AlphabetLogin () {
         .post('/api/login', responseCopy)
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
-      alert(
+      window && window.alert(
         "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email contact@stockbets.io for access before that :)"
       )
     }
