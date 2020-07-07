@@ -31,7 +31,7 @@ def lambda_handler(event, context):
     worker_count = get_worker_count()
     print(f"msgs per worker: {message_count / worker_count}")
     metric_data = [
-        {'MetricName': 'MessagesPerWorker', "Unit": "None", 'Value': message_count / worker_count},
-        {'MetricName': 'NTasks', "Unit": "None", 'Value': worker_count}
+        {'MetricName': 'MessagesPerWorker', "Unit": "MsgsPerWorker", 'Value': message_count / worker_count},
+        {'MetricName': 'NTasks', "Unit": "WorkerCount", 'Value': worker_count}
     ]
     cloudwatch_client.put_metric_data(MetricData=metric_data, Namespace="RabbitMQ")
