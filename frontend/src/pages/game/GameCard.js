@@ -12,17 +12,26 @@ const CardMainColumn = styled.div`
   flex-grow: 1;
 `
 
-const GameCardWrapper = styled.div`
+const GameCardWrapper = styled.a`
   display: flex;
   border-radius: 10px;
   overrflow: hidden;
   margin-bottom: var(--space-400);
   box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15),
     0px 1px 4px rgba(31, 47, 102, 0.15);
+  color: inherit;
+  position: relative;
+  top: 0;
+  transition: all .2s;
+  &:hover{
+    top: -5px;
+    color: inherit;
+    text-decoration: none;
+  }
 `
 
 const GameCard = ({ gameId }) => {
-  const [gameInfo, setGameInfo] = useState([])
+  const [gameInfo, setGameInfo] = useState({})
 
   useEffect(() => {
     const getGameData = async () => {
@@ -32,8 +41,9 @@ const GameCard = ({ gameId }) => {
 
     getGameData()
   }, [gameId])
+  console.log(gameInfo)
   return (
-    <GameCardWrapper>
+    <GameCardWrapper href={`/play/${gameId}`}>
       <CardMainColumn>
         <Header alignItems='flex-start'>
           <div>

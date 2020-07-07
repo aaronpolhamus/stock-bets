@@ -1,16 +1,17 @@
 import React, { useEffect } from 'react'
 import { Link, Redirect } from 'react-router-dom'
-import { Button } from 'react-bootstrap'
+import { Button, Col } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
 import {
-  Layout,
-  Sidebar,
+  Breadcrumb,
+  Column,
   Content,
   Header,
+  Layout,
   PageSection,
-  Breadcrumb
+  Sidebar
 } from 'components/layout/Layout'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { FriendsList } from 'components/lists/FriendsList'
@@ -126,7 +127,7 @@ const Home = () => {
 
   return (
     <Layout>
-      <Sidebar>
+      <Sidebar md={3}>
         <StyledMiniCard
           avatarSrc={data.profile_pic}
           username={data.username}
@@ -137,7 +138,7 @@ const Home = () => {
         />
         <FriendsList />
       </Sidebar>
-      <Content>
+      <Column md={9}>
         <PageSection>
           <Breadcrumb justifyContent='flex-end'>
             <Button variant='link' onClick={Logout}>
@@ -163,7 +164,7 @@ const Home = () => {
         <GameList>
           {data.game_info && pendingListBuilder(data.game_info, 'joined')}
         </GameList>
-      </Content>
+      </Column>
     </Layout>
   )
 }

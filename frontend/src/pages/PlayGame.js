@@ -7,6 +7,7 @@ import {
   Sidebar,
   PageSection,
   Content,
+  Column,
   SmallColumn,
   Breadcrumb
 } from 'components/layout/Layout'
@@ -22,13 +23,13 @@ const PlayGame = (props) => {
 
   return (
     <Layout>
-      <Sidebar>
+      <Sidebar md={3}>
         <PlaceOrder gameId={gameId} />
       </Sidebar>
-      <SmallColumn>
+      <SmallColumn md={3}>
         <PlayGameStats gameId={gameId} />
       </SmallColumn>
-      <Content>
+      <Column md={6}>
         <PageSection>
           <Breadcrumb>
             <a href='/'>
@@ -54,7 +55,7 @@ const PlayGame = (props) => {
         <PageSection>
           <OrdersAndBalancesCard gameId={gameId} />
         </PageSection>
-      </Content>
+      </Column>
     </Layout>
   )
 }
