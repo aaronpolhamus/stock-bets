@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { Link, Redirect } from 'react-router-dom'
 import { Button } from 'react-bootstrap'
-import { isEmpty, usePostRequest } from 'components/functions/api'
+import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
 import {
@@ -50,7 +50,7 @@ const StyledMiniCard = styled(UserMiniCard)`
 `
 
 const Home = () => {
-  const { data, loading, error } = usePostRequest('/api/home')
+  const { data, loading } = usePostRequest('/api/home')
 
   useEffect(() => {
     // identify user once they've hit the homepage
@@ -63,14 +63,7 @@ const Home = () => {
   if (loading) {
     return <p>Loading...</p>
   }
-
-  if (!isEmpty(error)) {
-    if (error.response.status === 401) {
-      return <Redirect to='/login' />
-    }
-  }
-
-  if (isEmpty(data.username)) {
+  if (data.username === null) {
     return <Redirect to='/welcome' />
   }
 
