@@ -72,17 +72,3 @@ class BaseTask(celery.Task):
     autoretry_for = RETRY_INVENTORY
     default_retry_delay = DEFAULT_RETRY_DELAY
     max_retries = MAX_RETRIES
-
-
-def pause_return_until_subtask_completion(status_list, task_name, iteration_limit=10_000):
-    # TODO: Migrate this logic to chords: https://docs.celeryproject.org/en/latest/userguide/canvas.html#chords
-    """This function exists to support the case where a task spawns a bunch of subtasks, and we want to wait for the
-    ready() command of the parent task to return True until all those subtasks have finished. It's kinda like a DAG.
-    If you know of a more elegant way to do this please kill this function immediately ;)
-    """
-    n = 0
-    while not all([x.ready() for x in status_list]):
-        n += 1
-        if n > iteration_limit:
-            raise Exception(f"Tasks spawned by {task_name} not completed. Are celery and the DB in good shape?")
-        continue

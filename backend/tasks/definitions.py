@@ -52,8 +52,7 @@ from backend.logic.visuals import (
 )
 from backend.tasks.celery import (
     celery,
-    BaseTask,
-    pause_return_until_subtask_completion
+    BaseTask
 )
 
 # -------------------------- #
@@ -109,10 +108,8 @@ def async_respond_to_game_invite(self, game_id, user_id, status):
 @celery.task(name="async_service_open_games", bind=True, base=BaseTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_invite_ids()
-    status_list = []
     for game_id in open_game_ids:
-        status_list.append(async_service_one_open_game.delay(game_id))
-    pause_return_until_subtask_completion(status_list, "async_service_open_games")
+        async_service_one_open_game.delay(game_id)
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
@@ -248,19 +245,17 @@ def async_make_order_performance_chart(self, game_id, user_id):
 @celery.task(name="async_update_play_game_visuals", bind=True, base=BaseTask)
 def async_update_play_game_visuals(self):
     open_game_ids = get_active_game_ids()
-    task_results = []
     for game_id in open_game_ids:
         # game-level assets
-        task_results.append(async_make_the_field_charts.delay(game_id))
-        task_results.append(async_serialize_and_pack_winners_table.delay(game_id))
-        task_results.append(async_compile_player_sidebar_stats.delay(game_id))
+        async_make_the_field_charts.delay(game_id)
+        async_serialize_and_pack_winners_table.delay(game_id)
+        async_compile_player_sidebar_stats.delay(game_id)
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             # game/user-level assets
-            task_results.append(async_serialize_order_details.delay(game_id, user_id))
-            task_results.append(async_serialize_current_balances.delay(game_id, user_id))
-            task_results.append(async_make_order_performance_chart.delay(game_id, user_id))
-    pause_return_until_subtask_completion(task_results, "async_update_play_game_visuals")
+            async_serialize_order_details.delay(game_id, user_id)
+            async_serialize_current_balances.delay(game_id, user_id)
+            async_make_order_performance_chart.delay(game_id, user_id)
 
 # ---------------------- #
 # Player stat production #
