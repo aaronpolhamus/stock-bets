@@ -1,3 +1,4 @@
+import React from 'react'
 import styled from 'styled-components'
 import { simplifyCurrency } from 'components/functions/currencyHelpers'
 
@@ -71,7 +72,7 @@ const SmallCaps = styled.small`
 `
 
 const TitleCard = styled.h3`
-
+  
 `
 
 export {

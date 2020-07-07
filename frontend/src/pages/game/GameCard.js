@@ -2,19 +2,10 @@ import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Button } from 'react-bootstrap'
-import { PlayGameStats } from 'components/lists/PlayGameStats'
 import { Header } from 'components/layout/Layout'
-import { FieldChart } from 'components/charts/FieldChart'
-
 import { PlayCircle } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
-
-const CardLeftColumn = styled.div`
-  width: 300px;
-  box-sizing: border-box;
-  background-color: var(--color-light-gray);
-  padding: var(--space-300);
-`
+import PropTypes from 'prop-types'
 
 const CardMainColumn = styled.div`
   padding: var(--space-300);
@@ -41,7 +32,6 @@ const GameCard = ({ gameId }) => {
 
     getGameData()
   }, [gameId])
-  console.log(gameInfo)
   return (
     <GameCardWrapper>
       <CardMainColumn>
@@ -65,6 +55,10 @@ const GameCard = ({ gameId }) => {
       </CardMainColumn>
     </GameCardWrapper>
   )
+}
+
+GameCard.propTypes = {
+  gameId: PropTypes.number
 }
 
 export { GameCard }
