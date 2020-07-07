@@ -7,15 +7,15 @@ import {
   Sidebar,
   PageSection,
   Content,
-  SmallColumn,
   Breadcrumb
 } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
 import { UserDropDownChart } from 'components/charts/BaseCharts'
-import { OrdersAndBalancesCard } from 'components/tables/OrdersAndBalancesCard'
+import { OpenOrdersTable } from 'components/tables/OpenOrdersTable'
 import { GameHeader } from 'pages/game/GameHeader'
-import { PlayGameStats } from 'components/lists/PlayGameStats'
 import { ChevronLeft } from 'react-feather'
+import { BalancesTable } from 'components/tables/BalancesTable'
+import { PayoutsTable } from 'components/tables/PayoutsTable'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
@@ -25,9 +25,6 @@ const PlayGame = (props) => {
       <Sidebar>
         <PlaceOrder gameId={gameId} />
       </Sidebar>
-      <SmallColumn>
-        <PlayGameStats gameId={gameId} />
-      </SmallColumn>
       <Content>
         <PageSection>
           <Breadcrumb>
@@ -40,19 +37,20 @@ const PlayGame = (props) => {
         </PageSection>
         <PageSection>
           <Tabs>
-            <Tab eventKey='field-chart' title='Field'>
+            <Tab eventKey='field-chart' title='The Field'>
               <FieldChart gameId={gameId} />
-            </Tab>
-            <Tab eventKey='balances-chart' title='Balances'>
-              <UserDropDownChart gameId={gameId} endpoint='get_balances_chart' />
-            </Tab>
-            <Tab eventKey='order-performance-chart' title='Order Performance'>
               <UserDropDownChart gameId={gameId} endpoint='get_order_performance_chart' yScaleType='percent' />
             </Tab>
+            <Tab eventKey='balances-chart' title='Orders and Balances'>
+              <UserDropDownChart gameId={gameId} endpoint='get_balances_chart' />
+              <BalancesTable gameId={gameId} />
+              <UserDropDownChart gameId={gameId} endpoint='get_order_performance_chart' yScaleType='percent' />
+              <OpenOrdersTable gameId={gameId} />
+            </Tab>
+            <Tab eventKey='order-performance-chart' title='Payouts'>
+              <PayoutsTable gameId={gameId} />
+            </Tab>
           </Tabs>
-        </PageSection>
-        <PageSection>
-          <OrdersAndBalancesCard gameId={gameId} />
         </PageSection>
       </Content>
     </Layout>

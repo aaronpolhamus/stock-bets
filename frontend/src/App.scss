@@ -6,6 +6,7 @@ body {
 
 h1 {
   letter-spacing: -0.03em;
+  font-size: 2rem;
 }
 
 .text-page h2 {
@@ -31,11 +32,11 @@ label {
 .nav-tabs {
   border: none;
   .nav-link {
-    text-transform: uppercase;
-
-    font-size: var(--font-size-small);
     border: none;
+    font-size: var(--font-size-small);
+    font-weight: bold;
     line-height: 1rem;
+    text-transform: uppercase;
     letter-spacing: var(--letter-spacing-smallcaps);
     color: var(--color-text-gray);
     border-bottom: 2px solid transparent;
@@ -48,7 +49,6 @@ label {
   .nav-link.active,
   .nav-item.show .nav-link {
     line-height: 1rem;
-    font-weight: bold;
     border-bottom: 2px solid var(--color-primary-darken);
   }
 }
