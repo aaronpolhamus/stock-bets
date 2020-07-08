@@ -12,10 +12,12 @@ const SidebarWrapper = styled(Col)`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   box-sizing: border-box;
-  min-height: 100vh;
   border-radius: 0 1rem 0 0;
   box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
+  @media screen and (min-width: 768px){
+    min-height: 100vh;
+  }
 `
 
 const SmallColumnWrapper = styled(Col)`
