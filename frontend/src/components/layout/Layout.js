@@ -1,7 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Container, Col, Row } from 'react-bootstrap'
-
+import { breakpoints } from 'components/layout/Breakpoints'
 // Global Layout Component
 const StyledContainer = styled(Container)`
   padding: 0;
@@ -12,10 +12,11 @@ const SidebarWrapper = styled(Col)`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
   box-sizing: border-box;
-  border-radius: 0 1rem 0 0;
   box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
-  @media screen and (min-width: 768px){
+
+  @media screen and (min-width: ${breakpoints.md}){
+    border-radius: 0 1rem 0 0;
     min-height: 100vh;
   }
 `
@@ -72,7 +73,10 @@ const PageSection = styled.section`
 `
 
 const ColContent = styled.div`
-  padding: var(--space-400);
+  padding: var(--space-200);
+  @media screen and (min-width: ${breakpoints.md}){
+    padding: var(--space-400);
+  }
 `
 
 const Column = ({ children, ...props }) => (
