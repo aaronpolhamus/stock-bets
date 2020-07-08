@@ -92,11 +92,6 @@ def async_fetch_active_symbol_prices(self):
 # --------------- #
 
 
-@celery.task(name="async_get_user_invite_statuses_for_pending_game", bind=True, base=BaseTask)
-def async_get_user_invite_statuses_for_pending_game(self, game_id):
-    return get_user_invite_statuses_for_pending_game(game_id)
-
-
 @celery.task(name="async_respond_to_game_invite", bind=True, base=BaseTask)
 def async_respond_to_game_invite(self, game_id, user_id, status):
     assert status in ["joined", "declined"]
@@ -117,12 +112,6 @@ def async_service_open_games(self):
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
 
-
-@celery.task(name="async_get_game_info", bind=True, base=BaseTask)
-def async_get_game_info(self, game_id, user_id):
-    game_info = get_game_info(game_id)
-    game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
-    return game_info
 
 # ---------------- #
 # Order management #
@@ -250,7 +239,6 @@ def async_update_play_game_visuals(self):
     for game_id in open_game_ids:
         # game-level assets
         async_make_the_field_charts.delay(game_id)
-        async_serialize_and_pack_winners_table.delay(game_id)
         async_compile_player_sidebar_stats.delay(game_id)
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
@@ -293,7 +281,9 @@ def async_serialize_and_pack_winners_table(self, game_id):
 
 @celery.task(name="async_calculate_winner", bind=True, base=BaseTask)
 def async_calculate_winner(self, game_id):
-    log_winners(game_id)
+    update_performed = log_winners(game_id, time.time())
+    if update_performed:
+        serialize_and_pack_winners_table(game_id)
 
 
 @celery.task(name="async_calculate_winners", bind=True, base=BaseTask)

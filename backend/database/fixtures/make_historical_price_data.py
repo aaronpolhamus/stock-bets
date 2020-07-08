@@ -32,7 +32,7 @@ def make_stock_data_records():
 
     timezone = pytz.timezone(TIMEZONE)
     unique_days = list(set([x["date"] for x in stock_data["AMZN"]]))
-    schedule = nyse.schedule(start_date=dt.utcnow(), end_date=dt.utcnow() + timedelta(days=14))
+    schedule = nyse.schedule(start_date=dt.utcnow(), end_date=dt.utcnow() + timedelta(days=21))
     trading_days = []
     for i in range(5):
         trading_days.append(schedule.iloc[i]["market_open"])

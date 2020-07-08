@@ -35,7 +35,8 @@ from backend.tasks.definitions import (
 )
 from backend.tasks.redis import (
     rds,
-    unpack_redis_json
+    unpack_redis_json,
+    TASK_LOCK_MSG
 )
 from backend.logic.visuals import make_the_field_charts
 from backend.tests import BaseTestCase
@@ -613,3 +614,17 @@ class TestDataAccess(BaseTestCase):
             symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
+
+
+class TestTaskBlocking(BaseTestCase):
+
+    def test_process_open_orders(self):
+        """This test simulates a situation where multiple process open orders tasks are queued simulatenously. We don't
+        want this to happen because it can result in an order being cleared multiple times
+        """
+        res1 = async_process_all_open_orders.delay()
+        res2 = async_process_all_open_orders.delay()
+        res3 = async_process_all_open_orders.delay()
+        self.assertIsNone(res1.get())
+        self.assertEqual(res2.get(), TASK_LOCK_MSG)
+        self.assertEqual(res3.get(), TASK_LOCK_MSG)

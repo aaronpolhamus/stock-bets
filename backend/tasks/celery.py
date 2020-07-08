@@ -60,7 +60,7 @@ celery.conf.beat_schedule = {
     },
     "calculate_winners": {
         "task": "async_calculate_winners",
-        "schedule": crontab(minute="5", hour="16")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     }
 }
 

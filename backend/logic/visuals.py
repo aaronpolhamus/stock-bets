@@ -14,7 +14,6 @@ from backend.logic.base import (
     fetch_price,
     make_date_offset,
     n_sidebets_in_game,
-    get_game_info,
     get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -33,7 +32,7 @@ from backend.tasks.redis import rds, unpack_redis_json
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-from logic.base import get_active_balances
+from logic.base import get_active_balances, get_payouts_meta_data
 
 CURRENT_BALANCES_PREFIX = "current_balances"
 SIDEBAR_STATS_PREFIX = "sidebar_stats"
@@ -519,7 +518,8 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
             "Symbol": order_record["symbol"],
             "Status": order_status,
             "Placed on": format_posix_time(order_status_placed["timestamp"]),
-            "Cleared on": format_posix_time(order_status_latest["timestamp"]) if order_status == "fulfilled" else NA_TEXT_SYMBOL,
+            "Cleared on": format_posix_time(
+                order_status_latest["timestamp"]) if order_status == "fulfilled" else NA_TEXT_SYMBOL,
             "Buy/Sell": order_record["buy_or_sell"],
             "Quantity": order_record["quantity"],
             "Order type": order_record["order_type"],
@@ -590,18 +590,28 @@ def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_p
     return expected_sidebet_dates
 
 
+def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: float, type: str, benchmark: str = None,
+                            score: float = None):
+    if score is None:
+        formatted_score = " -- "
+    else:
+        assert benchmark in ["return_ratio", "sharpe_ratio"]
+        formatted_score = PCT_FORMAT.format(score / 100)
+        if benchmark == "sharpe_ratio":
+            formatted_score = round(score, 3)
+
+    return dict(
+        Start=start_date.strftime(DATE_LABEL_FORMAT),
+        End=end_date.strftime(DATE_LABEL_FORMAT),
+        Winner=winner,
+        Payout=payout,
+        Type=type,
+        Score=formatted_score
+    )
+
+
 def serialize_and_pack_winners_table(game_id: int):
-    # TODO: a lot of this can be consolidated with log_winners.
-    game_info = get_game_info(game_id)
-    player_ids = get_all_game_users(game_id)
-    n_players = len(player_ids)
-    pot_size = n_players * game_info["buy_in"]
-    side_bets_perc = game_info.get("side_bets_perc")
-    start_time = posix_to_datetime(game_info["start_time"])
-    end_time = posix_to_datetime(game_info["end_time"])
-    side_bets_period = game_info.get("side_bets_period")
-    if side_bets_perc is None:
-        side_bets_perc = 0
+    pot_size, start_time, end_time, side_bets_period, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
 
     # pull winners data from DB
     with engine.connect() as conn:
@@ -622,24 +632,25 @@ def serialize_and_pack_winners_table(game_id: int):
         expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
         for _, row in winners_df.iterrows():
             if row["type"] == "sidebet":
-                date = posix_to_datetime(row["timestamp"]).strftime(DATE_LABEL_FORMAT)
                 winner = get_username(row["winner_id"])
-                data.append({"Date": date, "Winner": winner, "Payout": payout, "Type": "Sidebet"})
+                data.append(
+                    make_payout_table_entry(posix_to_datetime(row["start_time"]), posix_to_datetime(row["end_time"]),
+                                            winner, payout, "Sidebet", benchmark, row["score"]))
 
         dates_to_fill_in = [x for x in expected_sidebet_dates if x > last_observed_win]
+        last_date = last_observed_win
         for payout_date in dates_to_fill_in:
-            data.append(
-                {"Date": payout_date.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout, "Type": "Sidebet"})
+            data.append(make_payout_table_entry(last_date, payout_date, "???", payout, "Sidebet"))
+            last_date = payout_date
 
     payout = pot_size * (1 - side_bets_perc / 100)
     if not game_finished:
-        final_entry = {"Date": end_time.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout,
-                       "Type": "Overall"}
+        final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
     else:
-        date = posix_to_datetime(winners_df["timestamp"].max()).strftime(DATE_LABEL_FORMAT)
-        winner_id = winners_df.loc[winners_df["type"] == "overall", "winner_id"].iloc[0]
-        winner = get_username(winner_id)
-        final_entry = {"Date": date, "Winner": winner, "Payout": payout, "Type": "Overall"}
+        winner_row = winners_df.loc[winners_df["type"] == "overall"].iloc[0]
+        winner = get_username(winner_row["winner_id"])
+        final_entry = make_payout_table_entry(start_time, end_time, winner, payout, "Overall", benchmark,
+                                              winner_row["score"])
 
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))

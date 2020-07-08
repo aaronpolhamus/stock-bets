@@ -14,6 +14,8 @@ from backend.logic.auth import (
     WhiteListException
 )
 from backend.logic.games import (
+    get_user_invite_statuses_for_pending_game,
+    get_user_invite_status_for_game,
     suggest_symbols,
     add_game,
     get_game_info_for_user,
@@ -42,6 +44,7 @@ from backend.logic.games import (
     QUANTITY_OPTIONS
 )
 from logic.base import (
+    get_game_info,
     get_user_id,
     get_pending_buy_order_value,
     fetch_price,
@@ -65,10 +68,8 @@ from backend.tasks.definitions import (
     async_update_play_game_visuals,
     async_compile_player_sidebar_stats,
     async_cache_price,
-    async_get_user_invite_statuses_for_pending_game,
     async_calculate_winners,
     async_serialize_current_balances,
-    async_get_game_info,
     async_invite_friend,
     async_respond_to_friend_invite,
     async_suggest_friends,
@@ -286,8 +287,7 @@ def respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-    res = async_get_user_invite_statuses_for_pending_game.apply(args=[game_id])
-    return jsonify(res.result)
+    return jsonify(get_user_invite_statuses_for_pending_game(game_id))
 
 # --------------------------- #
 # Order management and prices #
@@ -296,10 +296,12 @@ def get_pending_game_info():
 
 @routes.route("/api/game_info", methods=["POST"])
 @authenticate
-def game_info():
+def api_game_info():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
-    return jsonify(async_get_game_info.apply(args=[game_id, user_id]).get())
+    game_info = get_game_info(game_id)
+    game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
+    return jsonify(game_info)
 
 
 @routes.route("/api/order_form_defaults", methods=["POST"])

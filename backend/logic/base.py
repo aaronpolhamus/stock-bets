@@ -13,7 +13,6 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.tasks.redis import rds
 from database.db import engine
@@ -148,7 +147,7 @@ def get_game_info(game_id: int):
     info = query_to_dict(sql_query, game_id)
     info["creator_username"] = get_username(info["creator_id"])
     info["mode"] = info["mode"].upper().replace("_", " ")
-    info["benchmark"] = info["benchmark"].upper().replace("_", " ")
+    info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
     start_time = get_game_start_time(game_id)
     info["start_time"] = start_time
@@ -570,3 +569,17 @@ def get_active_balances(game_id: int, user_id: int):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
+
+
+def get_payouts_meta_data(game_id: int):
+    game_info = get_game_info(game_id)
+    player_ids = get_all_game_users(game_id)
+    n_players = len(player_ids)
+    pot_size = n_players * game_info["buy_in"]
+    side_bets_perc = game_info.get("side_bets_perc")
+    start_time = posix_to_datetime(game_info["start_time"])
+    end_time = posix_to_datetime(game_info["end_time"])
+    side_bets_period = game_info.get("side_bets_period")
+    if side_bets_perc is None:
+        side_bets_perc = 0
+    return pot_size, start_time, end_time, side_bets_period, side_bets_perc, game_info["benchmark"]
