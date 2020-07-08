@@ -8,6 +8,7 @@ from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.games import (
+    seed_visual_assets,
     get_open_game_invite_ids,
     service_open_game,
     process_order,
@@ -36,6 +37,7 @@ from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
+from backend.logic.visuals import make_the_field_charts
 from backend.tests import BaseTestCase
 from logic.base import fetch_price
 
@@ -537,10 +539,9 @@ class TestVisualAssetsTasks(BaseTestCase):
         # since game #3 is our realistic test case, but could be worth going back and debugging later.
         game_id = 3
         user_ids = [1, 3, 4]
-        service_open_game(game_id)
+        seed_visual_assets(game_id, user_ids)
 
         # this is basically the internals of async_update_play_game_visuals for one game
-        from backend.logic.visuals import make_the_field_charts
         make_the_field_charts(game_id)
         async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
