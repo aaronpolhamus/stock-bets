@@ -172,7 +172,7 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     be sorted in orders for this to work.
     """
     ls = timestamp_sr.to_list()
-    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))
+    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))  # enforces that timestamps are strictly sorted
 
     anchor_time = last_time = timestamp_sr.min()
     adjustment = 0  # the adjustment differences out the seconds attributable to "no event" space

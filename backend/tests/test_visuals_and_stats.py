@@ -358,5 +358,6 @@ class TestTradeTimeIndex(BaseTestCase):
 
         prices.sort_values("timestamp", inplace=True)
         prices["t_index"] = trade_time_index(prices["timestamp"])
+        prices.to_csv("df.csv", index=False)
 
         self.assertEqual(prices["t_index"].nunique(), N_PLOT_POINTS)

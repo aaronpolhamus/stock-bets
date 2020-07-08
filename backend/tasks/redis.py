@@ -3,6 +3,8 @@ from redis import Redis
 
 from backend.config import Config
 
+TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
+
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
 
 
@@ -10,11 +12,9 @@ def task_lock(function=None, key="", timeout=None):
     """Enforce only one celery task at a time."""
 
     def _dec(run_func):
-        """Decorator."""
 
         def _caller(*args, **kwargs):
-            """Caller."""
-            ret_value = "Task execution skipped -- another task already has the lock "
+            ret_value = TASK_LOCK_MSG
             have_lock = False
             lock = rds.lock(key, timeout=timeout)
             try:
