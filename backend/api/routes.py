@@ -100,7 +100,6 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
-ORDER_CANCELLED_MESSAGE = "Order cancelled"
 
 
 # -------------- #
@@ -364,7 +363,7 @@ def api_place_order():
         return make_response(str(e), 400)
 
     async_serialize_current_balances.delay(game_id, user_id)
-    async_update_order_details_table.delay(game_id, user_id, order_id, "add")
+    async_update_order_details_table.apply(args=[game_id, user_id, order_id, "add"])
     async_serialize_balances_chart.delay(game_id, user_id)
     async_compile_player_sidebar_stats.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
@@ -378,7 +377,7 @@ def api_cancel_order():
     order_id = request.json.get("order_id")
     cancel_order(order_id)
     update_order_details_table(game_id, user_id, order_id, "remove")
-    return make_response(ORDER_CANCELLED_MESSAGE, 200)
+    return make_response(f"Cancelled orderId: {order_id}", 200)
 
 
 @routes.route("/api/fetch_price", methods=["POST"])

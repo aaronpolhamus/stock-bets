@@ -8,6 +8,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     add_bookends,
     fetch_price,
@@ -29,7 +30,6 @@ from backend.logic.base import (
     RESAMPLING_INTERVAL
 )
 from backend.tasks.redis import rds, unpack_redis_json
-
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -506,29 +506,31 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
     fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
     order_details = unpack_redis_json(fn)
     if action == "add":
-        df = get_order_details(game_id, user_id)
-        order_record = [record for record in df.to_dict(orient="records") if record["order_id"] == order_id][0]
-
+        order_record = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
+        order_status_latest = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)
+        order_status = order_status_latest["status"]
+        order_status_placed = query_to_dict("SELECT * FROM order_status WHERE order_id = %s AND status = 'pending'",
+                                            order_id)
         market_price, timestamp = fetch_price(order_record["symbol"])
-        clear_price = order_record["clear_price_fulfilled"]
-        fulfilled_on = order_record["timestamp_fulfilled"]
+        clear_price = order_status_latest["clear_price"]
         entry = {
             "order_id": order_id,
             "Symbol": order_record["symbol"],
-            "Status": order_record["status"],
-            "Placed on": format_posix_time(order_record["timestamp_pending"]),
-            "Cleared on": NA_TEXT_SYMBOL if np.isnan(fulfilled_on) else format_posix_time(fulfilled_on),
+            "Status": order_status,
+            "Placed on": format_posix_time(order_status_placed["timestamp"]),
+            "Cleared on": format_posix_time(order_status_latest["timestamp"]) if order_status == "fulfilled" else NA_TEXT_SYMBOL,
             "Buy/Sell": order_record["buy_or_sell"],
             "Quantity": order_record["quantity"],
             "Order type": order_record["order_type"],
             "Time in force": "Day" if order_record["time_in_force"] == "day" else "Until cancelled",
             "Order price": number_to_currency(order_record["price"]),
-            "Clear price": NA_TEXT_SYMBOL if np.isnan(clear_price) else number_to_currency(clear_price),
+            "Clear price": NA_TEXT_SYMBOL if clear_price is None else number_to_currency(clear_price),
             "Market price": number_to_currency(market_price),
             "as of": format_posix_time(timestamp),
             "Hypothetical % return": NA_TEXT_SYMBOL
         }
-        if clear_price != np.nan:
+        if clear_price is not None:
             entry["Hypothetical % return"]: percent_formatter(market_price / clear_price - 1)
 
         assert entry["Status"] in ["pending", "fulfilled"]
@@ -537,7 +539,7 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
 
     if action == "remove":
         order_details["orders"]["pending"] = [entry for entry in order_details["orders"]["pending"] if
-                                              entry["order_id"] is not order_id]
+                                              entry["order_id"] != order_id]
 
     rds.set(fn, json.dumps(order_details))
 
