@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
 import pandas as pd
 import pytz
@@ -9,6 +9,7 @@ import requests
 from backend.logic.base import (
     TIMEZONE,
     datetime_to_posix,
+    nyse
 )
 from logic.base import IEX_BASE_PROD_URL
 
@@ -31,7 +32,10 @@ def make_stock_data_records():
 
     timezone = pytz.timezone(TIMEZONE)
     unique_days = list(set([x["date"] for x in stock_data["AMZN"]]))
-    trading_days = pd.bdate_range(end=dt.utcnow(), periods=len(unique_days), freq="B")
+    schedule = nyse.schedule(start_date=dt.utcnow(), end_date=dt.utcnow() + timedelta(days=21))
+    trading_days = []
+    for i in range(5):
+        trading_days.append(schedule.iloc[i]["market_open"])
     price_records = []
     for actual_day, simulated_day in zip(unique_days, trading_days):
         for stock_symbol in stock_data.keys():

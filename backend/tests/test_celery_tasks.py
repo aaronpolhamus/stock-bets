@@ -8,6 +8,9 @@ from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.games import (
+    seed_visual_assets,
+    get_open_game_invite_ids,
+    service_open_game,
     process_order,
     add_game,
     place_order,
@@ -21,7 +24,6 @@ from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
     async_respond_to_game_invite,
-    async_service_open_games,
     async_make_the_field_charts,
     async_serialize_current_balances,
     async_serialize_order_details,
@@ -29,13 +31,14 @@ from backend.tasks.definitions import (
     async_get_friends_details,
     async_get_friend_invites,
     async_suggest_friends,
-    async_service_one_open_game,
     async_cache_price
 )
 from backend.tasks.redis import (
     rds,
-    unpack_redis_json
+    unpack_redis_json,
+    TASK_LOCK_MSG
 )
+from backend.logic.visuals import make_the_field_charts
 from backend.tests import BaseTestCase
 from logic.base import fetch_price
 
@@ -173,7 +176,9 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        async_service_open_games.apply()
+        open_game_ids = get_open_game_invite_ids()
+        for _id in open_game_ids:
+            service_open_game(_id)
 
         with self.engine.connect() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
@@ -196,7 +201,9 @@ class TestGameIntegration(BaseTestCase):
         with patch("backend.logic.games.time") as mock_time:
             # users have joined, and we're past the invite window
             mock_time.time.return_value = game_start_time
-            async_service_open_games.apply()  # Execute locally wth apply in order to use time mock
+            open_game_ids = get_open_game_invite_ids()
+            for _id in open_game_ids:
+                service_open_game(_id)
 
             with self.engine.connect() as conn:
                 # Verify game updated to active status and active players
@@ -533,10 +540,9 @@ class TestVisualAssetsTasks(BaseTestCase):
         # since game #3 is our realistic test case, but could be worth going back and debugging later.
         game_id = 3
         user_ids = [1, 3, 4]
-        async_service_one_open_game.apply(args=[game_id])
+        seed_visual_assets(game_id, user_ids)
 
         # this is basically the internals of async_update_play_game_visuals for one game
-        from backend.logic.visuals import make_the_field_charts
         make_the_field_charts(game_id)
         async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
@@ -608,3 +614,17 @@ class TestDataAccess(BaseTestCase):
             symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
+
+
+class TestTaskBlocking(BaseTestCase):
+
+    def test_process_open_orders(self):
+        """This test simulates a situation where multiple process open orders tasks are queued simulatenously. We don't
+        want this to happen because it can result in an order being cleared multiple times
+        """
+        res1 = async_process_all_open_orders.delay()
+        res2 = async_process_all_open_orders.delay()
+        res3 = async_process_all_open_orders.delay()
+        self.assertIsNone(res1.get())
+        self.assertEqual(res2.get(), TASK_LOCK_MSG)
+        self.assertEqual(res3.get(), TASK_LOCK_MSG)
