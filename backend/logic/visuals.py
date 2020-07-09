@@ -8,12 +8,11 @@ from typing import List
 import numpy as np
 import pandas as pd
 from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     add_bookends,
     fetch_price,
-    make_date_offset,
     n_sidebets_in_game,
-    get_game_info,
     get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -29,11 +28,10 @@ from backend.logic.base import (
     RESAMPLING_INTERVAL
 )
 from backend.tasks.redis import rds, unpack_redis_json
-
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-from logic.base import get_active_balances
+from logic.base import get_active_balances, get_payouts_meta_data
 
 CURRENT_BALANCES_PREFIX = "current_balances"
 SIDEBAR_STATS_PREFIX = "sidebar_stats"
@@ -172,7 +170,7 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     be sorted in orders for this to work.
     """
     ls = timestamp_sr.to_list()
-    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))
+    assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))  # enforces that timestamps are strictly sorted
 
     anchor_time = last_time = timestamp_sr.min()
     adjustment = 0  # the adjustment differences out the seconds attributable to "no event" space
@@ -506,29 +504,32 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
     fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
     order_details = unpack_redis_json(fn)
     if action == "add":
-        df = get_order_details(game_id, user_id)
-        order_record = [record for record in df.to_dict(orient="records") if record["order_id"] == order_id][0]
-
+        order_record = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
+        order_status_latest = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)
+        order_status = order_status_latest["status"]
+        order_status_placed = query_to_dict("SELECT * FROM order_status WHERE order_id = %s AND status = 'pending'",
+                                            order_id)
         market_price, timestamp = fetch_price(order_record["symbol"])
-        clear_price = order_record["clear_price_fulfilled"]
-        fulfilled_on = order_record["timestamp_fulfilled"]
+        clear_price = order_status_latest["clear_price"]
         entry = {
             "order_id": order_id,
             "Symbol": order_record["symbol"],
-            "Status": order_record["status"],
-            "Placed on": format_posix_time(order_record["timestamp_pending"]),
-            "Cleared on": NA_TEXT_SYMBOL if np.isnan(fulfilled_on) else format_posix_time(fulfilled_on),
+            "Status": order_status,
+            "Placed on": format_posix_time(order_status_placed["timestamp"]),
+            "Cleared on": format_posix_time(
+                order_status_latest["timestamp"]) if order_status == "fulfilled" else NA_TEXT_SYMBOL,
             "Buy/Sell": order_record["buy_or_sell"],
             "Quantity": order_record["quantity"],
             "Order type": order_record["order_type"],
             "Time in force": "Day" if order_record["time_in_force"] == "day" else "Until cancelled",
             "Order price": number_to_currency(order_record["price"]),
-            "Clear price": NA_TEXT_SYMBOL if np.isnan(clear_price) else number_to_currency(clear_price),
+            "Clear price": NA_TEXT_SYMBOL if clear_price is None else number_to_currency(clear_price),
             "Market price": number_to_currency(market_price),
             "as of": format_posix_time(timestamp),
             "Hypothetical % return": NA_TEXT_SYMBOL
         }
-        if clear_price != np.nan:
+        if clear_price is not None:
             entry["Hypothetical % return"]: percent_formatter(market_price / clear_price - 1)
 
         assert entry["Status"] in ["pending", "fulfilled"]
@@ -537,7 +538,7 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
 
     if action == "remove":
         order_details["orders"]["pending"] = [entry for entry in order_details["orders"]["pending"] if
-                                              entry["order_id"] is not order_id]
+                                              entry["order_id"] != order_id]
 
     rds.set(fn, json.dumps(order_details))
 
@@ -588,18 +589,28 @@ def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_p
     return expected_sidebet_dates
 
 
+def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: float, type: str, benchmark: str = None,
+                            score: float = None):
+    if score is None:
+        formatted_score = " -- "
+    else:
+        assert benchmark in ["return_ratio", "sharpe_ratio"]
+        formatted_score = PCT_FORMAT.format(score / 100)
+        if benchmark == "sharpe_ratio":
+            formatted_score = round(score, 3)
+
+    return dict(
+        Start=start_date.strftime(DATE_LABEL_FORMAT),
+        End=end_date.strftime(DATE_LABEL_FORMAT),
+        Winner=winner,
+        Payout=payout,
+        Type=type,
+        Score=formatted_score
+    )
+
+
 def serialize_and_pack_winners_table(game_id: int):
-    # TODO: a lot of this can be consolidated with log_winners.
-    game_info = get_game_info(game_id)
-    player_ids = get_all_game_users(game_id)
-    n_players = len(player_ids)
-    pot_size = n_players * game_info["buy_in"]
-    side_bets_perc = game_info.get("side_bets_perc")
-    start_time = posix_to_datetime(game_info["start_time"])
-    end_time = posix_to_datetime(game_info["end_time"])
-    side_bets_period = game_info.get("side_bets_period")
-    if side_bets_perc is None:
-        side_bets_perc = 0
+    pot_size, start_time, end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
 
     # pull winners data from DB
     with engine.connect() as conn:
@@ -614,30 +625,30 @@ def serialize_and_pack_winners_table(game_id: int):
 
     data = []
     if side_bets_perc:
-        offset = make_date_offset(side_bets_period)
         n_sidebets = n_sidebets_in_game(datetime_to_posix(start_time), datetime_to_posix(end_time), offset)
         payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
         expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
         for _, row in winners_df.iterrows():
             if row["type"] == "sidebet":
-                date = posix_to_datetime(row["timestamp"]).strftime(DATE_LABEL_FORMAT)
                 winner = get_username(row["winner_id"])
-                data.append({"Date": date, "Winner": winner, "Payout": payout, "Type": "Sidebet"})
+                data.append(
+                    make_payout_table_entry(posix_to_datetime(row["start_time"]), posix_to_datetime(row["end_time"]),
+                                            winner, payout, "Sidebet", benchmark, row["score"]))
 
         dates_to_fill_in = [x for x in expected_sidebet_dates if x > last_observed_win]
+        last_date = last_observed_win
         for payout_date in dates_to_fill_in:
-            data.append(
-                {"Date": payout_date.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout, "Type": "Sidebet"})
+            data.append(make_payout_table_entry(last_date, payout_date, "???", payout, "Sidebet"))
+            last_date = payout_date
 
     payout = pot_size * (1 - side_bets_perc / 100)
     if not game_finished:
-        final_entry = {"Date": end_time.strftime(DATE_LABEL_FORMAT), "Winner": "???", "Payout": payout,
-                       "Type": "Overall"}
+        final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
     else:
-        date = posix_to_datetime(winners_df["timestamp"].max()).strftime(DATE_LABEL_FORMAT)
-        winner_id = winners_df.loc[winners_df["type"] == "overall", "winner_id"].iloc[0]
-        winner = get_username(winner_id)
-        final_entry = {"Date": date, "Winner": winner, "Payout": payout, "Type": "Overall"}
+        winner_row = winners_df.loc[winners_df["type"] == "overall"].iloc[0]
+        winner = get_username(winner_row["winner_id"])
+        final_entry = make_payout_table_entry(start_time, end_time, winner, payout, "Overall", benchmark,
+                                              winner_row["score"])
 
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))

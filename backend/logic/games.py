@@ -42,7 +42,6 @@ from backend.logic.visuals import (
 )
 from funkybob import RandomNameGenerator
 
-
 # Default make game settings
 # --------------------------
 DEFAULT_GAME_MODE = "return_weighted"
@@ -222,19 +221,7 @@ def get_invite_list_by_status(game_id, status="joined"):
     return [x[0] for x in result]
 
 
-def kick_off_game(game_id: int, user_id_list: List[int], update_time):
-    """Mark a game as active and seed users' virtual cash balances
-    """
-    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_status_entry["game_id"], status="active", users=user_id_list,
-            timestamp=update_time)
-    for user_id in user_id_list:
-        add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=DEFAULT_VIRTUAL_CASH)
-
-    # Mark any outstanding invitations as "expired" now that the game is active
-    mark_invites_expired(game_id, ["invited"], update_time)
-
+def seed_visual_assets(game_id: int, user_id_list: List[int]):
     # initialize a blank sidebar stats entry
     compile_and_pack_player_sidebar_stats(game_id)
 
@@ -249,6 +236,22 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # build the balances and portfolio performance charts together
     make_the_field_charts(game_id)
+
+
+def kick_off_game(game_id: int, user_id_list: List[int], update_time):
+    """Mark a game as active and seed users' virtual cash balances
+    """
+    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
+    add_row("game_status", game_id=game_status_entry["game_id"], status="active", users=user_id_list,
+            timestamp=update_time)
+    for user_id in user_id_list:
+        add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
+                balance=DEFAULT_VIRTUAL_CASH)
+
+    # Mark any outstanding invitations as "expired" now that the game is active
+    mark_invites_expired(game_id, ["invited"], update_time)
+
+    seed_visual_assets(game_id, user_id_list)
 
 
 def close_game(game_id, update_time):
@@ -375,6 +378,7 @@ def get_user_invite_statuses_for_pending_game(game_id):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
+
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------
@@ -698,6 +702,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
 
 def cancel_order(order_id):
     add_row("order_status", order_id=order_id, timestamp=time.time(), status="cancelled")
+
 
 # Functions for serving information about games
 # ---------------------------------------------

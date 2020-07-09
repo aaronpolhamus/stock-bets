@@ -18,10 +18,10 @@ from backend.database.helpers import (
     query_to_dict,
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
+from backend.logic.auth import create_jwt
 from backend.logic.base import (
     during_trading_day,
     fetch_price)
-from backend.logic.auth import create_jwt
 from backend.logic.games import (
     DEFAULT_GAME_MODE,
     DEFAULT_GAME_DURATION,
@@ -422,7 +422,8 @@ class TestPlayGame(BaseTestCase):
         while stock_pick not in [x["Symbol"] for x in order_details_table["orders"]["pending"]]:
             order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
             continue
-        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
+                                         cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
@@ -514,7 +515,8 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"order_id": order_id, "game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
+                                         cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
@@ -554,7 +556,8 @@ class TestGetGameStats(BaseTestCase):
 
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time"]:
+            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
+                     "benchmark_formatted"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
@@ -562,7 +565,7 @@ class TestGetGameStats(BaseTestCase):
         self.assertEqual(res.json()["game_status"], "active")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
-        self.assertEqual(res.json()["benchmark"], "RETURN RATIO")
+        self.assertEqual(res.json()["benchmark_formatted"], "RETURN RATIO")
         self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")
 
 

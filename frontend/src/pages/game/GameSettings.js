@@ -37,7 +37,7 @@ const GameSettings = ({ gameInfo }) => {
           <dt>
             <Label>Benchmark</Label>
           </dt>
-          <StyledDd>{gameInfo.benchmark}</StyledDd>
+          <StyledDd>{gameInfo.benchmark_formatted}</StyledDd>
           <dt>
             <Label>Sidebet</Label>
           </dt>

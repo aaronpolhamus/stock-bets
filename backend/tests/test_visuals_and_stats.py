@@ -1,7 +1,7 @@
 """There's a lot of overlap between these tests and a few other tests files, but what defines this group of tests is
 that they are logic-level tests of how what the users do impacts what the users see
 """
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import pandas as pd
 from backend.database.fixtures.mock_data import simulation_start_time
@@ -31,6 +31,7 @@ from backend.logic.payouts import (
     log_winners,
 )
 from backend.logic.visuals import (
+    get_expected_sidebets_payout_dates,
     trade_time_index,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
@@ -300,37 +301,48 @@ class TestWinnerPayouts(BaseTestCase):
         user_3_portfolio = portfolio_value_by_day(game_id, 3, start_dt, end_dt)
         user_4_portfolio = portfolio_value_by_day(game_id, 4, start_dt, end_dt)
 
-        with patch("backend.logic.payouts.time") as payout_time_mock, patch(
-                "backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+        # expected sidebet dates
+        sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
+        sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
+
+        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+            time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
             time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
-            payout_time_mock.time.side_effect = [time_1, time_2]
+
+            time.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
 
             # TODO: there's time-related randomness in who the winner is right now based on how the test data is built.
             # clean this up later
-            winner_id, score = get_winner(game_id, start_time, end_time, user_ids, game_info["benchmark"])
-            log_winners(game_id)
+            winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])
+            log_winners(game_id, time.time())
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
             side_pot = pot_size * (game_info["side_bets_perc"] / 100) / n_sidebets
             self.assertEqual(sidebet_entry["payout"], side_pot)
             self.assertEqual(sidebet_entry["type"], "sidebet")
+            self.assertEqual(sidebet_entry["start_time"], start_time)
+            self.assertEqual(sidebet_entry["end_time"], sidebet_dates_posix[0])
+            self.assertEqual(sidebet_entry["timestamp"], time_1)
 
-            log_winners(game_id)
+            log_winners(game_id, time.time())
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 2;")
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
             self.assertEqual(sidebet_entry["payout"], side_pot)
             self.assertEqual(sidebet_entry["type"], "sidebet")
+            self.assertEqual(sidebet_entry["start_time"], sidebet_dates_posix[0])
+            self.assertEqual(sidebet_entry["end_time"], sidebet_dates_posix[1])
+            self.assertEqual(sidebet_entry["timestamp"], time_2)
 
             overall_entry = query_to_dict("SELECT * FROM winners WHERE id = 3;")
             final_payout = pot_size * (1 - game_info["side_bets_perc"] / 100)
             self.assertEqual(overall_entry["payout"], final_payout)
             with self.engine.connect() as conn:
                 df = pd.read_sql("SELECT * FROM winners", conn)
-            self.assertEqual(df.shape, (3, 7))
+            self.assertEqual(df.shape, (3, 10))
 
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
@@ -358,5 +370,6 @@ class TestTradeTimeIndex(BaseTestCase):
 
         prices.sort_values("timestamp", inplace=True)
         prices["t_index"] = trade_time_index(prices["timestamp"])
+        prices.to_csv("df.csv", index=False)
 
         self.assertEqual(prices["t_index"].nunique(), N_PLOT_POINTS)
