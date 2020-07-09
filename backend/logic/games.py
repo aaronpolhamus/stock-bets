@@ -37,7 +37,7 @@ from backend.logic.visuals import (
     init_order_details,
     update_order_details_table,
     serialize_and_pack_portfolio_details,
-    compile_and_pack_player_sidebar_stats,
+    compile_and_pack_player_leaderboard,
     make_the_field_charts,
 )
 from funkybob import RandomNameGenerator
@@ -222,8 +222,8 @@ def get_invite_list_by_status(game_id, status="joined"):
 
 
 def seed_visual_assets(game_id: int, user_id_list: List[int]):
-    # initialize a blank sidebar stats entry
-    compile_and_pack_player_sidebar_stats(game_id)
+    # initialize a blank leaderboard entry
+    compile_and_pack_player_leaderboard(game_id)
 
     # initialize a blank payouts table
     serialize_and_pack_winners_table(game_id)

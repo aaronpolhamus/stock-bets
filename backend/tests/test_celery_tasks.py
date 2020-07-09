@@ -569,14 +569,14 @@ class TestStatsProduction(BaseTestCase):
             sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         sharpe_ratio_3_3 = rds.get("sharpe_ratio_3_3")
         sharpe_ratio_3_1 = rds.get("sharpe_ratio_3_1")
-        total_return_3_1 = rds.get("total_return_3_1")
-        total_return_3_3 = rds.get("total_return_3_3")
-        total_return_3_4 = rds.get("total_return_3_4")
+        return_ratio_3_1 = rds.get("return_ratio_3_1")
+        return_ratio_3_3 = rds.get("return_ratio_3_3")
+        return_ratio_3_4 = rds.get("return_ratio_3_4")
         self.assertIsNotNone(sharpe_ratio_3_3)
         self.assertIsNotNone(sharpe_ratio_3_1)
-        self.assertIsNotNone(total_return_3_1)
-        self.assertIsNotNone(total_return_3_3)
-        self.assertIsNotNone(total_return_3_4)
+        self.assertIsNotNone(return_ratio_3_1)
+        self.assertIsNotNone(return_ratio_3_3)
+        self.assertIsNotNone(return_ratio_3_4)
 
 
 class TestFriendManagement(BaseTestCase):

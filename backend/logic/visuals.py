@@ -10,6 +10,7 @@ import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_game_info,
     add_bookends,
     fetch_price,
     n_sidebets_in_game,
@@ -34,7 +35,7 @@ from backend.tasks.redis import rds, unpack_redis_json
 from logic.base import get_active_balances, get_payouts_meta_data
 
 CURRENT_BALANCES_PREFIX = "current_balances"
-SIDEBAR_STATS_PREFIX = "sidebar_stats"
+LEADERBOARD_PREFIX = "leaderboard"
 ORDER_DETAILS_PREFIX = "open_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
@@ -147,6 +148,77 @@ def format_time_for_response(timestamp: dt) -> str:
 def percent_formatter(val):
     return val if np.isnan(val) else PCT_FORMAT.format(val)
 
+
+def assign_user_colors(game_id: int):
+    user_ids = get_all_game_users(game_id)
+    colors = palette_generator(len(user_ids))
+    return {user_id: color for user_id, color in zip(user_ids, colors)}
+
+# ----- #
+# Lists #
+# ----- #
+
+
+def _days_left(game_id: int):
+    seconds_left = get_game_end_date(game_id) - time.time()
+    return seconds_left // (24 * 60 * 60)
+
+
+def make_side_bar_output(game_id: int, user_stats: list):
+    return dict(days_left=_days_left(game_id), records=user_stats)
+
+
+def get_portfolio_value(game_id: int, user_id: int) -> float:
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
+    balances = get_active_balances(game_id, user_id)
+    symbols = balances["symbol"].unique()
+    if len(symbols) == 0:
+        return cash_balance
+    prices = get_most_recent_prices(symbols)
+    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
+    df["value"] = df["balance"] * df["price"]
+    return df["value"].sum() + cash_balance
+
+
+def make_stat_entry(user_id: int, color: str, cash_balance: float, portfolio_value: float, stocks_held: List[str],
+                    return_ratio: float = None, sharpe_ratio: float = None):
+    if return_ratio is None:
+        return_ratio = 100
+
+    if sharpe_ratio is None:
+        sharpe_ratio = 1
+
+    entry = get_user_information(user_id)
+    entry["return_ratio"] = return_ratio
+    entry["sharpe_ratio"] = sharpe_ratio
+    entry["stocks_held"] = stocks_held
+    entry["cash_balance"] = cash_balance
+    entry["portfolio_value"] = portfolio_value
+    entry["color"] = color
+    return entry
+
+
+def compile_and_pack_player_leaderboard(game_id: int):
+    user_ids = get_all_game_users(game_id)
+    user_colors = assign_user_colors(game_id)
+    records = []
+    for user_id in user_ids:
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
+        balances = get_active_balances(game_id, user_id)
+        stocks_held = list(balances["symbol"].unique())
+        record = make_stat_entry(user_id=user_id,
+                                 color=user_colors[user_id],
+                                 cash_balance=cash_balance,
+                                 portfolio_value=get_portfolio_value(game_id, user_id),
+                                 stocks_held=stocks_held,
+                                 return_ratio=float(rds.get(f"return_ratio_{game_id}_{user_id}")),
+                                 sharpe_ratio=float(rds.get(f"sharpe_ratio_{game_id}_{user_id}")))
+        records.append(record)
+
+    benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
+    records = sorted(records, key=lambda x: -x[benchmark])
+    output = make_side_bar_output(game_id, records)
+    rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output))
 
 # ------------------ #
 # Time series charts #
@@ -279,24 +351,24 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     """This shares the same schema with the balances chart. See doc string for serialize_and_pack_balances_chart
     """
-    user_ids = get_all_game_users(game_id)
+    user_colors = assign_user_colors(game_id)
     datasets = []
-    colors = palette_generator(len(user_ids))
     if df.empty:
-        for i, user_id in enumerate(user_ids):
+        for user_id in user_colors.keys():
             username = get_username(user_id)
             null_chart = make_null_chart(username)
             datasets.append(null_chart["datasets"][0])
         labels = null_chart["labels"]
     else:
         labels = df["label"].unique()
-        for user_id, color in zip(user_ids, colors):
+        for user_id, color in user_colors.items():
             username = get_username(user_id)
             subset = df[df["id"] == user_id]
             entry = serialize_pandas_rows_to_dataset(subset, username, color, labels, "value")
             datasets.append(entry)
 
-    chart_json = dict(labels=list(labels), datasets=datasets)
+    leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+    chart_json = dict(labels=list(labels), datasets=datasets, leaderboard=leaderboard["records"])
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
@@ -653,64 +725,3 @@ def serialize_and_pack_winners_table(game_id: int):
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))
     rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict))
-
-
-# ----- #
-# Lists #
-# ----- #
-
-
-def _days_left(game_id: int):
-    seconds_left = get_game_end_date(game_id) - time.time()
-    return seconds_left // (24 * 60 * 60)
-
-
-def make_side_bar_output(game_id: int, user_stats: list):
-    return dict(days_left=_days_left(game_id), records=user_stats)
-
-
-def get_portfolio_value(game_id: int, user_id: int) -> float:
-    cash_balance = get_current_game_cash_balance(user_id, game_id)
-    balances = get_active_balances(game_id, user_id)
-    symbols = balances["symbol"].unique()
-    if len(symbols) == 0:
-        return cash_balance
-    prices = get_most_recent_prices(symbols)
-    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
-    df["value"] = df["balance"] * df["price"]
-    return df["value"].sum() + cash_balance
-
-
-def make_stat_entry(user_id: int, cash_balance: float, portfolio_value: float, stocks_held: List[str],
-                    total_return: float = None, sharpe_ratio: float = None):
-    if total_return is None:
-        total_return = 100
-
-    if sharpe_ratio is None:
-        sharpe_ratio = 1
-
-    entry = get_user_information(user_id)
-    entry["total_return"] = total_return
-    entry["sharpe_ratio"] = sharpe_ratio
-    entry["stocks_held"] = stocks_held
-    entry["cash_balance"] = cash_balance
-    entry["portfolio_value"] = portfolio_value
-    return entry
-
-
-def compile_and_pack_player_sidebar_stats(game_id: int):
-    user_ids = get_all_game_users(game_id)
-    records = []
-    for user_id in user_ids:
-        cash_balance = get_current_game_cash_balance(user_id, game_id)
-        balances = get_active_balances(game_id, user_id)
-        stocks_held = list(balances["symbol"].unique())
-        record = make_stat_entry(user_id=user_id,
-                                 cash_balance=cash_balance,
-                                 portfolio_value=get_portfolio_value(game_id, user_id),
-                                 stocks_held=stocks_held,
-                                 total_return=rds.get(f"total_return_{game_id}_{user_id}"),
-                                 sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
-        records.append(record)
-    output = make_side_bar_output(game_id, records)
-    rds.set(f"{SIDEBAR_STATS_PREFIX}_{game_id}", json.dumps(output))

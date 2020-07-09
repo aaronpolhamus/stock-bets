@@ -57,7 +57,7 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
-    SIDEBAR_STATS_PREFIX,
+    LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
     USD_FORMAT,
     ORDER_PERF_CHART_PREFIX
@@ -66,7 +66,7 @@ from backend.tasks.definitions import (
     async_update_order_details_table,
     async_update_player_stats,
     async_update_play_game_visuals,
-    async_compile_player_sidebar_stats,
+    async_compile_player_leaderboard,
     async_cache_price,
     async_calculate_winners,
     async_serialize_current_balances,
@@ -301,6 +301,7 @@ def api_game_info():
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
+    game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
 
@@ -367,7 +368,7 @@ def api_place_order():
     async_serialize_current_balances.delay(game_id, user_id)
     async_update_order_details_table.apply(args=[game_id, user_id, order_id, "add"])
     async_serialize_balances_chart.delay(game_id, user_id)
-    async_compile_player_sidebar_stats.delay(game_id)
+    async_compile_player_leaderboard.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -518,11 +519,11 @@ def get_payouts_table():
 # ----- #
 
 
-@routes.route("/api/get_sidebar_stats", methods=["POST"])
+@routes.route("/api/get_leaderboard", methods=["POST"])
 @authenticate
-def get_sidebar_stats():
+def get_leaderboard():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
+    return jsonify(unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_cash_balances", methods=["POST"])

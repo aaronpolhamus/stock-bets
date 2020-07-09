@@ -40,7 +40,7 @@ from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
-    compile_and_pack_player_sidebar_stats,
+    compile_and_pack_player_leaderboard,
     serialize_and_pack_order_details,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
@@ -236,7 +236,7 @@ def async_update_play_game_visuals(self):
     for game_id in open_game_ids:
         # game-level assets
         async_make_the_field_charts.delay(game_id)
-        async_compile_player_sidebar_stats.delay(game_id)
+        async_compile_player_leaderboard.delay(game_id)
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             # game/user-level assets
@@ -254,9 +254,9 @@ def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_da
     calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
 
 
-@celery.task(name="async_compile_player_sidebar_stats", bind=True, base=BaseTask)
-def async_compile_player_sidebar_stats(self, game_id):
-    compile_and_pack_player_sidebar_stats(game_id)
+@celery.task(name="async_compile_player_leaderboard", bind=True, base=BaseTask)
+def async_compile_player_leaderboard(self, game_id):
+    compile_and_pack_player_leaderboard(game_id)
 
 
 @celery.task(name="async_update_player_stats", bind=True, base=BaseTask)
@@ -265,7 +265,7 @@ def async_update_player_stats(self):
     """
     active_game_ids = get_active_game_ids()
     for game_id in active_game_ids:
-        async_compile_player_sidebar_stats.delay(game_id)
+        async_compile_player_leaderboard.delay(game_id)
         user_ids = get_all_game_users(game_id)
         for user_id in user_ids:
             async_calculate_game_metrics.delay(game_id, user_id)

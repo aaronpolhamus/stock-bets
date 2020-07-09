@@ -56,8 +56,8 @@ const entryBuilder = (data) => {
           </p>
           <p>
             <AuxiliarText>
-              {row.total_return &&
-                `${parseFloat(row.total_return).toFixed(3)}%`}
+              {row.return_ratio &&
+                `${parseFloat(row.return_ratio).toFixed(3)}%`}
               <span> | </span>
               {row.sharpe_ratio && `${parseFloat(row.sharpe_ratio).toFixed(3)}`}
             </AuxiliarText>
@@ -72,7 +72,7 @@ const PlayGameStats = ({ gameId }) => {
   const [statData, setStatData] = useState({})
 
   const getGameData = async () => {
-    const data = await fetchGameData(gameId, 'get_sidebar_stats')
+    const data = await fetchGameData(gameId, 'get_leaderboard')
     setStatData(data)
   }
 

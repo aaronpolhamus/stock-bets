@@ -41,7 +41,7 @@ from backend.logic.visuals import (
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
-    SIDEBAR_STATS_PREFIX,
+    LEADERBOARD_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX,
@@ -50,7 +50,7 @@ from backend.logic.visuals import (
 )
 from backend.tasks.definitions import (
     async_calculate_game_metrics,
-    async_compile_player_sidebar_stats
+    async_compile_player_leaderboard
 )
 from backend.tasks.redis import (
     rds,
@@ -303,10 +303,10 @@ class TestCreateGame(BaseTestCase):
 
         # since all players have responded to the game invite it should have kicked off automatically. Check that the
         # three players who are participating have the starting balances that we expect and that  initializations for
-        # (a) game stats sidebar, (b) current balances, (c) open orders, (d) balances chart, and (e) the field chart all
+        # (a) game leaderboard, (b) current balances, (c) open orders, (d) balances chart, and (e) the field chart all
         # look good.
 
-        res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", json={"game_id": game_id},
+        res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
         self.assertEqual(res.json()["days_left"], game_duation - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
@@ -321,7 +321,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
-        side_bar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
+        side_bar_stats = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duation - 1)
@@ -525,18 +525,18 @@ class TestPlayGame(BaseTestCase):
 
 class TestGetGameStats(BaseTestCase):
 
-    def test_sidebar_stats(self):
+    def test_leaderboard(self):
         game_id = 3
         async_calculate_game_metrics.apply(args=(game_id, 1))
         async_calculate_game_metrics.apply(args=(game_id, 3))
         async_calculate_game_metrics.apply(args=(game_id, 4))
 
-        res = async_compile_player_sidebar_stats.delay(game_id)
+        res = async_compile_player_leaderboard.delay(game_id)
         while not res.ready():
             continue
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        res = self.requests_session.post(f"{HOST_URL}/get_sidebar_stats", cookies={"session_token": session_token},
+        res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
         self.assertEqual(len(res.json()), 2)

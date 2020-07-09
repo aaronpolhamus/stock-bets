@@ -37,10 +37,10 @@ from backend.logic.visuals import (
     serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
-    compile_and_pack_player_sidebar_stats,
+    compile_and_pack_player_leaderboard,
     serialize_and_pack_order_performance_chart,
     make_balances_chart_data,
-    SIDEBAR_STATS_PREFIX,
+    LEADERBOARD_PREFIX,
     ORDER_DETAILS_PREFIX,
     ORDER_PERF_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -104,7 +104,7 @@ class TestGameKickoff(BaseTestCase):
         # each user, (3) an empty field chart for each user, (4) an empty field chart, and (5) an initial game stats
         # list
         cache_keys = rds.keys()
-        self.assertIn(f"{SIDEBAR_STATS_PREFIX}_{game_id}", cache_keys)
+        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", cache_keys)
         self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
         for user_id in all_ids:
             self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
@@ -118,9 +118,9 @@ class TestGameKickoff(BaseTestCase):
         chart_colors = [x["backgroundColor"] for x in field_chart["datasets"]]
         self.assertTrue(all([x == NULL_RGBA for x in chart_colors]))
 
-        sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-        self.assertEqual(len(sidebar_stats["records"]), len(all_ids))
-        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"]]))
+        leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        self.assertEqual(len(leaderboard["records"]), len(all_ids))
+        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
@@ -186,9 +186,9 @@ class TestGameKickoff(BaseTestCase):
             self.assertEqual(balances_chart["datasets"][0]["label"], "Cash")
             self.assertEqual(balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
-            compile_and_pack_player_sidebar_stats(game_id)
-            sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"]]))
+            compile_and_pack_player_leaderboard(game_id)
+            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         # The number of cached transactions that we expect an order to refresh
         self.assertEqual(len(rds.keys()), 4)
@@ -228,11 +228,11 @@ class TestGameKickoff(BaseTestCase):
             self.assertEqual(stocks, {"Cash", self.stock_pick})
             self.assertNotIn(NULL_RGBA, [x["backgroundColor"] for x in balances_chart["datasets"]])
 
-            compile_and_pack_player_sidebar_stats(game_id)
-            sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-            user_stat_entry = [x for x in sidebar_stats["records"] if x["id"] == self.user_id][0]
+            compile_and_pack_player_leaderboard(game_id)
+            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            user_stat_entry = [x for x in leaderboard["records"] if x["id"] == self.user_id][0]
             self.assertEqual(user_stat_entry["cash_balance"], DEFAULT_VIRTUAL_CASH - self.market_price)
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"] if
+            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
         # The number of cached transactions that we expect an order to refresh

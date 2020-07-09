@@ -10,7 +10,7 @@ from backend.logic.base import (
 from backend.tasks.definitions import (
     async_update_play_game_visuals,
     async_update_player_stats,
-    async_compile_player_sidebar_stats
+    async_compile_player_leaderboard
 )
 from config import Config
 
@@ -344,10 +344,12 @@ def make_mock_data():
 
 def make_redis_mocks():
     test_game_id = 3
+    res = async_compile_player_leaderboard.delay(test_game_id)
+    while not res.ready():
+        continue
     res = async_update_player_stats.delay()
     while not res.ready():
         continue
-    async_compile_player_sidebar_stats.delay(test_game_id)
     async_update_play_game_visuals.delay()
 
 
