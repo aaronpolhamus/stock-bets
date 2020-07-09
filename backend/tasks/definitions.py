@@ -18,7 +18,6 @@ from backend.logic.friends import (
     get_friend_invite_ids
 )
 from backend.logic.games import (
-    get_user_invite_statuses_for_pending_game,
     get_all_open_orders,
     process_order,
     get_open_game_invite_ids,
@@ -26,7 +25,6 @@ from backend.logic.games import (
     respond_to_invite,
     service_open_game,
     start_game_if_all_invites_responded,
-    get_user_invite_status_for_game
 )
 from backend.logic.payouts import (
     calculate_and_pack_metrics,
@@ -37,7 +35,6 @@ from logic.base import (
     get_symbols_table,
     fetch_price,
     get_all_active_symbols,
-    get_game_info
 )
 from backend.logic.visuals import (
     update_order_details_table,
