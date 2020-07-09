@@ -188,6 +188,9 @@ def make_stat_entry(user_id: int, color: str, cash_balance: float, portfolio_val
     if sharpe_ratio is None:
         sharpe_ratio = 1
 
+    return_ratio = float(return_ratio)
+    sharpe_ratio = float(sharpe_ratio)
+
     entry = get_user_information(user_id)
     entry["return_ratio"] = return_ratio
     entry["sharpe_ratio"] = sharpe_ratio
@@ -211,8 +214,8 @@ def compile_and_pack_player_leaderboard(game_id: int):
                                  cash_balance=cash_balance,
                                  portfolio_value=get_portfolio_value(game_id, user_id),
                                  stocks_held=stocks_held,
-                                 return_ratio=float(rds.get(f"return_ratio_{game_id}_{user_id}")),
-                                 sharpe_ratio=float(rds.get(f"sharpe_ratio_{game_id}_{user_id}")))
+                                 return_ratio=rds.get(f"return_ratio_{game_id}_{user_id}"),
+                                 sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
         records.append(record)
 
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
@@ -446,7 +449,7 @@ def make_order_performance_table(game_id: int, user_id: int):
     order_df = order_df.reset_index()
     del order_df["level_0"]
 
-    # we'll now ensure that resampled orders are properly sorte and compute cumulative purchases
+    # we'll now ensure that resampled orders are properly sorted and compute cumulative purchases
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
     tmp_array = []
     for symbol in order_df["symbol"].unique():
@@ -725,3 +728,20 @@ def serialize_and_pack_winners_table(game_id: int):
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))
     rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict))
+
+
+def seed_visual_assets(game_id: int, user_id_list: List[int]):
+    # initialize a blank leaderboard entry
+    compile_and_pack_player_leaderboard(game_id)
+
+    # initialize a blank payouts table
+    serialize_and_pack_winners_table(game_id)
+
+    # initialize current balances, open orders, and order performance chart
+    for user_id in user_id_list:
+        serialize_and_pack_portfolio_details(game_id, user_id)
+        init_order_details(game_id, user_id)
+        serialize_and_pack_order_performance_chart(game_id, user_id)
+
+    # build the balances and portfolio performance charts together
+    make_the_field_charts(game_id)

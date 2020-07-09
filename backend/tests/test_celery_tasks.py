@@ -4,11 +4,12 @@ from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
+from backend.database.fixtures.mock_data import close_of_simulation_time
 from backend.logic.base import (
     during_trading_day
 )
 from backend.logic.games import (
-    seed_visual_assets,
+    respond_to_game_invite,
     get_open_game_invite_ids,
     service_open_game,
     process_order,
@@ -20,18 +21,19 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
+from logic.visuals import compile_and_pack_player_leaderboard
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_respond_to_game_invite,
-    async_make_the_field_charts,
     async_serialize_current_balances,
     async_serialize_order_details,
     async_calculate_game_metrics,
-    async_get_friends_details,
-    async_get_friend_invites,
-    async_suggest_friends,
     async_cache_price
+)
+from backend.logic.friends import (
+    suggest_friends,
+    get_friend_invites_list,
+    get_friend_details
 )
 from backend.tasks.redis import (
     rds,
@@ -192,8 +194,8 @@ class TestGameIntegration(BaseTestCase):
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
         for user_id in [3, 4]:
-            async_respond_to_game_invite.apply(args=[game_id, user_id, "joined"])
-        async_respond_to_game_invite.apply(args=[game_id, 5, "declined"])
+            respond_to_game_invite(game_id, user_id, "joined", time.time())
+        respond_to_game_invite(game_id, 5, "declined", time.time())
 
         # So far so good. Pretend that we're now past the invite open window and it's time to play
         # ----------------------------------------------------------------------------------------
@@ -540,11 +542,12 @@ class TestVisualAssetsTasks(BaseTestCase):
         # since game #3 is our realistic test case, but could be worth going back and debugging later.
         game_id = 3
         user_ids = [1, 3, 4]
-        seed_visual_assets(game_id, user_ids)
+        compile_and_pack_player_leaderboard(game_id)
+        with patch("backend.logic.base.time") as mock_base_time:
+            mock_base_time.time.return_value = close_of_simulation_time
+            make_the_field_charts(game_id)
 
         # this is basically the internals of async_update_play_game_visuals for one game
-        make_the_field_charts(game_id)
-        async_make_the_field_charts.apply(args=[game_id])
         for user_id in user_ids:
             async_serialize_order_details.apply(args=[game_id, user_id])
             async_serialize_current_balances.apply(args=[game_id, user_id])
@@ -584,17 +587,17 @@ class TestFriendManagement(BaseTestCase):
     def test_friend_management(self):
         user_id = 1
         # check out who the tests user's friends are currently:
-        res = async_get_friends_details.apply(args=[user_id])
+        friend_details = get_friend_details(user_id)
         expected_friends = {"toofast", "miguel"}
-        self.assertEqual(set([x["username"] for x in res.get()]), expected_friends)
+        self.assertEqual(set([x["username"] for x in friend_details]), expected_friends)
 
         # what friend invites does the test user have pending?
-        res = async_get_friend_invites.apply(args=[user_id])
-        self.assertEqual(res.get(), ["murcitdev"])
+        friend_list = get_friend_invites_list(user_id)
+        self.assertEqual(friend_list, ["murcitdev"])
 
         # if the test user wants to invite some friends, who's available? We shouldn't see the invite from murcitdev,
         # and we shouldn't the original dummy user, who hasn't picked a username yet
-        result = async_suggest_friends.apply(args=[user_id, "d"]).result
+        result = suggest_friends(user_id, "d")
         dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
         self.assertEqual(dummy_match, ["dummy2"])
 

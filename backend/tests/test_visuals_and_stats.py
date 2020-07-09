@@ -16,11 +16,10 @@ from backend.logic.base import (
     get_user_id,
 )
 from backend.logic.games import (
+    respond_to_game_invite,
     get_current_game_cash_balance,
     get_current_stock_holding,
-    respond_to_invite,
     get_user_invite_statuses_for_pending_game,
-    start_game_if_all_invites_responded,
     place_order,
     DEFAULT_VIRTUAL_CASH
 )
@@ -75,24 +74,19 @@ class TestGameKickoff(BaseTestCase):
         all_ids = [x[0] for x in result]
         self.user_id = all_ids[0]
 
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        for user_id in pending_user_ids:
-            respond_to_invite(game_id, user_id, "joined", start_time)
+        # all users accept their game invite
+        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
+            game_time_mock.time.return_value = start_time
+            time = Mock()
+            time.time.side_effect = base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
+            for user_id in pending_user_ids:
+                respond_to_game_invite(game_id, user_id, "joined", time.time())
 
         # check that we have the balances that we expect
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:
             df = pd.read_sql(sql, conn, params=[game_id])
         self.assertTrue(df.shape, (0, 2))
-
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = start_time
-            base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
-            for user_id in pending_user_ids:
-                respond_to_invite(game_id, user_id, "joined", start_time)
-
-            start_game_if_all_invites_responded(game_id)
 
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:

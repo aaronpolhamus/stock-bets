@@ -6,25 +6,16 @@ from backend.database.helpers import (
 )
 from backend.logic.base import (
     during_trading_day,
-    get_user_id,
     get_all_game_users,
     get_cache_price,
     set_cache_price
-)
-from backend.logic.friends import (
-    suggest_friends,
-    get_user_details_from_ids,
-    get_friend_ids,
-    get_friend_invite_ids
 )
 from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_invite_ids,
     get_active_game_ids,
-    respond_to_invite,
-    service_open_game,
-    start_game_if_all_invites_responded,
+    service_open_game
 )
 from backend.logic.payouts import (
     calculate_and_pack_metrics,
@@ -89,15 +80,6 @@ def async_fetch_active_symbol_prices(self):
 # --------------- #
 
 
-@celery.task(name="async_respond_to_game_invite", bind=True, base=BaseTask)
-def async_respond_to_game_invite(self, game_id, user_id, status):
-    assert status in ["joined", "declined"]
-    response_time = time.time()
-    respond_to_invite(game_id, user_id, status, response_time)
-    # Check to see if we everyone has either joined or declined and whether we can start the game early
-    start_game_if_all_invites_responded(game_id)
-
-
 @celery.task(name="async_service_open_games", bind=True, base=BaseTask)
 def async_service_open_games(self):
     open_game_ids = get_open_game_invite_ids()
@@ -142,49 +124,6 @@ def async_process_all_open_orders(self):
 @celery.task(name="async_update_order_details_table", bind=True, base=BaseTask)
 def async_update_order_details_table(self, game_id, user_id, order_id, action):
     update_order_details_table(game_id, user_id, order_id, action)
-
-
-# ------- #
-# Friends #
-# ------- #
-
-
-@celery.task(name="async_invite_friend", bind=True, base=BaseTask)
-def async_invite_friend(self, requester_id, invited_username):
-    """Since the user is sending the request, we'll know their user ID via their web token. We don't post this
-    information to the frontend for other users, though, so we'll look up their ID based on username
-    """
-    invited_id = get_user_id(invited_username)
-    add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
-
-
-@celery.task(name="async_respond_to_friend_invite", bind=True, base=BaseTask)
-def async_respond_to_friend_invite(self, requester_username, invited_id, decision):
-    """Since the user is responding to the request, we'll know their user ID via their web token. We don't post this
-    information to the frontend for other users, though, so we'll look up the request ID based on the username
-    """
-    requester_id = get_user_id(requester_username)
-    add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
-
-
-@celery.task(name="async_get_friends_details", bind=True, base=BaseTask)
-def async_get_friends_details(self, user_id):
-    friend_ids = get_friend_ids(user_id)
-    return get_user_details_from_ids(friend_ids)
-
-
-@celery.task(name="async_suggest_friends", bind=True, base=BaseTask)
-def async_suggest_friends(self, user_id, text):
-    return suggest_friends(user_id, text)
-
-
-@celery.task(name="async_get_friend_invites", bind=True, base=BaseTask)
-def async_get_friend_invites(self, user_id):
-    invite_ids = get_friend_invite_ids(user_id)
-    if not invite_ids:
-        return []
-    details = get_user_details_from_ids(invite_ids)
-    return [x["username"] for x in details]
 
 
 # ------------- #

@@ -1,29 +1,14 @@
 import json
-import os
 from datetime import datetime as dt, timedelta
 
 import pandas as pd
 import pytz
-import requests
 
 from backend.logic.base import (
     TIMEZONE,
     datetime_to_posix,
     nyse
 )
-from logic.base import IEX_BASE_PROD_URL
-
-DOWNLOAD = False
-IEX_KEY = os.getenv("IEX_API_SECRET_PROD")
-STOCKS_TO_PULL = [
-    "AMZN",
-    "TSLA",
-    "LYFT",
-    "SPXU",
-    "NVDA",
-    "NKE",
-    "MELI"
-]
 
 
 def make_stock_data_records():
@@ -48,14 +33,3 @@ def make_stock_data_records():
                 posix_time = datetime_to_posix(localized_date)
                 price_records.append(dict(symbol=stock_symbol, price=record["average"], timestamp=posix_time))
     return price_records
-
-
-if __name__ == '__main__':
-    if DOWNLOAD:
-        data = dict()
-        for symbol in STOCKS_TO_PULL:
-            res = requests.get(f"{IEX_BASE_PROD_URL}/stable/stock/{symbol}/chart/5dm?token={IEX_KEY}")
-            data[symbol] = res.json()
-
-        with open("./database/fixtures/stock_data.json", 'w') as outfile:
-            json.dump(data, outfile)
