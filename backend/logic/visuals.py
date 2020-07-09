@@ -12,7 +12,6 @@ from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     add_bookends,
     fetch_price,
-    make_date_offset,
     n_sidebets_in_game,
     get_order_details,
     get_schedule_start_and_end,
