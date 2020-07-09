@@ -582,4 +582,5 @@ def get_payouts_meta_data(game_id: int):
     side_bets_period = game_info.get("side_bets_period")
     if side_bets_perc is None:
         side_bets_perc = 0
-    return pot_size, start_time, end_time, side_bets_period, side_bets_perc, game_info["benchmark"]
+    offset = make_date_offset(side_bets_period)
+    return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]

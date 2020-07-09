@@ -10,7 +10,6 @@ from backend.logic.base import (
     get_all_game_users,
     get_payouts_meta_data,
     n_sidebets_in_game,
-    make_date_offset,
     posix_to_datetime,
     datetime_to_posix,
     make_historical_balances_and_prices_table
@@ -19,7 +18,6 @@ from backend.tasks.redis import rds
 from logic.visuals import get_expected_sidebets_payout_dates
 
 RISK_FREE_RATE_DEFAULT = 0
-
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -54,7 +52,7 @@ def calculate_sharpe_ratio(returns: pd.Series, rf: float, days: int) -> float:
     return (returns.mean() - rf) / volatility
 
 
-def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float) -> float:
+def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
     n_days = df["timestamp"].apply(lambda x: x.replace(hour=12, minute=0)).nunique()
     df["returns"] = df["value"] - df.iloc[0]["value"]
     return calculate_sharpe_ratio(df["returns"], rf, n_days)
@@ -123,13 +121,11 @@ def get_payouts_to_date(game_id: int):
 
 def log_winners(game_id: int, current_time: float):
     update_performed = False
-    pot_size, game_start_time, game_end_time, side_bets_period, side_bets_perc, benchmark = get_payouts_meta_data(
-        game_id)
+    pot_size, game_start_time, game_end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
     game_start_posix = datetime_to_posix(game_start_time)
     game_end_posix = datetime_to_posix(game_end_time)
 
     # what are the expected sidebet payouts?
-    offset = make_date_offset(side_bets_period)
     expected_sidebet_dates = get_expected_sidebets_payout_dates(game_start_time, game_end_time, side_bets_perc, offset)
 
     # If we have sidebets to monitor, see if we have a winner
@@ -138,7 +134,6 @@ def log_winners(game_id: int, current_time: float):
         if not last_interval_end:
             last_interval_end = game_start_posix
         last_interval_dt = posix_to_datetime(last_interval_end)
-        offset = make_date_offset(side_bets_period)
         payout_time = datetime_to_posix(last_interval_dt + offset)
         if current_time >= payout_time:
             curr_time_dt = posix_to_datetime(current_time)

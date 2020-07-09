@@ -611,7 +611,7 @@ def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: f
 
 
 def serialize_and_pack_winners_table(game_id: int):
-    pot_size, start_time, end_time, side_bets_period, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
+    pot_size, start_time, end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
 
     # pull winners data from DB
     with engine.connect() as conn:
@@ -626,7 +626,6 @@ def serialize_and_pack_winners_table(game_id: int):
 
     data = []
     if side_bets_perc:
-        offset = make_date_offset(side_bets_period)
         n_sidebets = n_sidebets_in_game(datetime_to_posix(start_time), datetime_to_posix(end_time), offset)
         payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
         expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
