@@ -331,16 +331,17 @@ def get_price_histories(symbols: List[str], min_time: float, max_time: float):
     return df.sort_values("timestamp")
 
 
-def resample_balances(symbol_subset):
+def resample_balances(symbol_subset: pd.DataFrame, resampling_interval: int) -> pd.DataFrame:
     # first, take the last balance entry from each timestamp
     df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
-    return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
+    return df.resample(f"{resampling_interval}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
-    resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
+    resampling_interval = calculate_resampling_interval(balances_df)
+    resampled_balances = balances_df.groupby("symbol").apply(lambda x: resample_balances(x, resampling_interval))
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
     max_time = datetime_to_posix(resampled_balances["timestamp"].max())
@@ -363,6 +364,13 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
     df = pd.concat(price_subsets, axis=0)
     df["value"] = df["balance"] * df["price"]
     return df
+
+
+def calculate_resampling_interval(df: pd.DataFrame, screen_width=29) -> int:
+    max_timestamp = posix_to_datetime(max(df['timestamp']))
+    min_timestamp = posix_to_datetime(min(df['timestamp']))
+    time_delta_in_minutes = (max_timestamp - min_timestamp).total_seconds() / 60
+    return max(time_delta_in_minutes // screen_width, 1)
 
 
 def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
@@ -433,11 +441,12 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     """
     balance_history = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if (balance_history["symbol"].nunique() == 1) and (balance_history["symbol"].unique() == ["Cash"]):
+    if set(balance_history["symbol"].unique()) == {"Cash"}:
         row = balance_history.iloc[0]
         row["timestamp"] = time.time()
         balance_history = balance_history.append([row], ignore_index=True)
-        df = resample_balances(balance_history)
+        resampling_interval = calculate_resampling_interval(balance_history)
+        df = resample_balances(balance_history, resampling_interval)
         df = df.reset_index().rename(columns={"index": "timestamp"})
         df["price"] = 1
         df["value"] = df["balance"] * df["price"]

@@ -456,7 +456,7 @@ def suggest_friend_invites():
 @routes.route("/api/get_balances_chart", methods=["POST"])
 @authenticate
 def balances_chart():
-    """Be default, the frontend will load with username = null for the chart selector dropdown, and we'll show them
+    """By default, the frontend will load with username = null for the chart selector dropdown, and we'll show them
     their own chart. When the user proactively picks a username to checkout, this will be sent in the POST request to
     this endpoint and used to pull up the appropriate chart
     """
