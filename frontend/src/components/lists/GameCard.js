@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Button } from 'react-bootstrap'
 import { Header } from 'components/layout/Layout'
-import { PlayCircle } from 'react-feather'
+import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { numberToOrdinal } from 'components/functions/formattingHelpers'
@@ -40,17 +40,17 @@ const currentUserLeaderboardPosition = (leaderboard, currentUser) => {
   return numberToOrdinal(parseInt(position) + 1)
 }
 
-const GameCard = ({ gameId, currentUser }) => {
+const GameCard = ({ gameId, currentUser}) => {
   const [gameInfo, setGameInfo] = useState({})
 
-  useEffect(() => {
-    const getGameData = async () => {
-      const data = await fetchGameData(gameId, 'game_info')
-      setGameInfo(data)
-    }
+  const getGameData = async () => {
+    const data = await fetchGameData(gameId, 'game_info')
+    setGameInfo(data)
+  }
 
+  useEffect(() => {
     getGameData()
-  }, [gameId])
+  }, [])
 
   if (Object.keys(gameInfo).length === 0) return null
 
@@ -83,6 +83,37 @@ const GameCard = ({ gameId, currentUser }) => {
             </small>
             <Button href={`/play/${gameId}`} size='sm' variant='light'>
               <PlayCircle
+                color='var(--color-success)'
+                size={14}
+                style={{ marginTop: '-3px', marginRight: '4px' }}
+              />
+            </Button>
+          </div>
+        </Header>
+      </CardMainColumn>
+    </GameCardWrapper>
+  )
+}
+
+const GameCardPending = ({ gameData }) => {
+  return (
+    <GameCardWrapper href={`/join/${gameData.game_id}`}>
+      <CardMainColumn>
+        <Header alignItems='flex-start'>
+          <div>
+            <h3>
+              { gameData.title }
+            </h3>
+            <SmallCaps
+              color='var(--color-text-gray)'
+            >
+              Created by:
+              { gameData.creator_username }
+            </SmallCaps>
+          </div>
+          <div>
+            <Button href={`/join/${gameData.game_id}`} size='sm' variant='light'>
+              <Eye
                 color='var(--color-primary-darken)'
                 size={14}
                 style={{ marginTop: '-3px', marginRight: '4px' }}
@@ -100,4 +131,8 @@ GameCard.propTypes = {
   currentUser: PropTypes.string
 }
 
-export { GameCard }
+GameCardPending.propTypes = {
+  gameData: PropTypes.object
+}
+
+export { GameCard, GameCardPending }

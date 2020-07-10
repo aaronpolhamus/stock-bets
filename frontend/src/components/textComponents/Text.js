@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { simplifyCurrency } from 'components/functions/currencyHelpers'
+import { simplifyCurrency } from 'components/functions/formattingHelpers'
 
 const SimplifiedCurrency = ({ value }) => (
   <span title={value.toLocaleString()}>{simplifyCurrency(value)}</span>
