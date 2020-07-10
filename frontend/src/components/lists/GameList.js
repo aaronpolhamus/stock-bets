@@ -18,8 +18,11 @@ const gameListBuilder = (props) => {
 }
 
 const GameList = (props) => {
+  console.log(props.games)
+  if (props.games.length === 0) return null
   return (
     <div>
+      <h2>{props.title}</h2>
       {gameListBuilder(props)}
     </div>
   )
