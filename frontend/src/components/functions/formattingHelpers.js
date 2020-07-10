@@ -21,4 +21,13 @@ const simplifyCurrency = (value) => {
   return amount
 }
 
-export { simplifyCurrency }
+const numberToOrdinal = number => {
+  const suffixes = ['th', 'st', 'nd', 'rd']
+  const suffixIndex = number % 100
+  const suffix = suffixes[(suffixIndex - 20) % 10] ||
+    suffixes[suffixIndex] || suffixes[0]
+
+  return `${number}${suffix}`
+}
+
+export { simplifyCurrency, numberToOrdinal }

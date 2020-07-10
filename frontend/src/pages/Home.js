@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { Link, Redirect } from 'react-router-dom'
-import { Button, Col } from 'react-bootstrap'
+import { Button, Col, Row } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
@@ -14,8 +14,9 @@ import {
   Sidebar
 } from 'components/layout/Layout'
 import { UserMiniCard } from 'components/users/UserMiniCard'
+import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
-import { GameCard } from 'pages/game/GameCard'
+import { GameList } from 'components/lists/GameList'
 import * as Icon from 'react-feather'
 import LogRocket from 'logrocket'
 
@@ -24,15 +25,6 @@ const Logout = async () => {
   await api.post('/api/logout')
   window.location.assign('/login')
 }
-
-const GameList = styled.div`
-  margin-top: var(--space-400);
-`
-
-const Invitation = styled(Link)`
-  color: ${(props) => props.color || 'var(--color-text-primary)'};
-  font-size: var(--font-size-small);
-`
 
 const StyledMiniCard = styled(UserMiniCard)`
   padding-bottom: var(--space-400);
@@ -68,62 +60,20 @@ const Home = () => {
     return <Redirect to='/welcome' />
   }
 
-  const gameListBuilder = (data) => {
-    return data.map((entry, index) => {
-      if (entry.game_status === 'active') {
-        return <GameCard gameId={entry.game_id} key={index} />
-      }
-      return ''
-    })
-  }
+  // console.log(data.game_info)
+  const gamesActive = filterEntries(data.game_info, {
+    game_status: 'active'
+  })
 
-  const pendingListBuilder = (data, inviteStatus) => {
-    return data.map((entry, index) => {
-      if (
-        entry.game_status === 'pending' &&
-        entry.invite_status === inviteStatus &&
-        entry.invite_status === 'invited'
-      ) {
-        return (
-          <div key={index}>
-            <Invitation to={{ pathname: `join/${entry.game_id}` }}>
-              <span>
-                <Icon.PlusCircle
-                  color='var(--color-terciary)'
-                  size={16}
-                  style={{ marginTop: '-2px' }}
-                />
-              </span>
-              <span> {`${entry.creator_username} invited you to `}</span>
-              <strong> {entry.title}</strong>
-            </Invitation>
-          </div>
-        )
-      } else if (
-        entry.game_status === 'pending' &&
-        entry.invite_status === inviteStatus &&
-        entry.invite_status === 'joined'
-      ) {
-        return (
-          <div key={index}>
-            <Invitation
-              to={{ pathname: `join/${entry.game_id}` }}
-              color='var(--color-text-gray)'
-            >
-              <Icon.CheckCircle color='var(--color-success)' size={16} />
-              <span>
-                {' '}
-                You joined
-                <strong> {entry.title}</strong>. The Game will start once all
-                participants respond to their invitations.
-              </span>
-            </Invitation>
-          </div>
-        )
-      }
-      return null
-    })
-  }
+  const gamesPending = filterEntries(data.game_info, {
+    game_status: 'pending',
+    invite_status: 'joined'
+  })
+
+  const gamesInvited = filterEntries(data.game_info, {
+    game_status: 'pending',
+    invite_status: 'invited'
+  })
 
   return (
     <Layout>
@@ -157,13 +107,29 @@ const Home = () => {
             </Button>
           </Header>
         </PageSection>
-        <GameList>
-          {data.game_info && pendingListBuilder(data.game_info, 'invited')}
-        </GameList>
-        <GameList>{data.game_info && gameListBuilder(data.game_info)}</GameList>
-        <GameList>
-          {data.game_info && pendingListBuilder(data.game_info, 'joined')}
-        </GameList>
+        <Row>
+          <Col>
+          Active
+            <GameList
+              games={gamesActive}
+              currentUser={data.username}
+            />
+          </Col>
+          <Col>
+            Pending
+            <GameList
+              games={gamesPending}
+              currentUser={data.username}
+              cardType={'pending'}
+            />
+            Invitations
+            <GameList
+              games={gamesInvited}
+              currentUser={data.username}
+              cardType={'pending'}
+            />
+          </Col>
+        </Row>
       </Column>
     </Layout>
   )
