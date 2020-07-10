@@ -299,7 +299,8 @@ def api_game_info():
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
-    game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
+    if game_info["game_status"] == "active":
+        game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
 
