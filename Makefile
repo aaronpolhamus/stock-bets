@@ -83,6 +83,7 @@ backend-build:
 
 backend-test:
 	rm -f backend/test_times.csv
+	printf "test,time\n" >> backend/test_times.csv
 	make worker-restart
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
