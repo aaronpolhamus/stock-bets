@@ -16,11 +16,10 @@ from backend.logic.base import (
     get_user_id,
 )
 from backend.logic.games import (
+    respond_to_game_invite,
     get_current_game_cash_balance,
     get_current_stock_holding,
-    respond_to_invite,
     get_user_invite_statuses_for_pending_game,
-    start_game_if_all_invites_responded,
     place_order,
     DEFAULT_VIRTUAL_CASH
 )
@@ -75,24 +74,19 @@ class TestGameKickoff(BaseTestCase):
         all_ids = [x[0] for x in result]
         self.user_id = all_ids[0]
 
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        for user_id in pending_user_ids:
-            respond_to_invite(game_id, user_id, "joined", start_time)
+        # all users accept their game invite
+        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
+            game_time_mock.time.return_value = start_time
+            time = Mock()
+            time.time.side_effect = base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
+            for user_id in pending_user_ids:
+                respond_to_game_invite(game_id, user_id, "joined", time.time())
 
         # check that we have the balances that we expect
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:
             df = pd.read_sql(sql, conn, params=[game_id])
         self.assertTrue(df.shape, (0, 2))
-
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = start_time
-            base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
-            for user_id in pending_user_ids:
-                respond_to_invite(game_id, user_id, "joined", start_time)
-
-            start_game_if_all_invites_responded(game_id)
 
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:
@@ -270,7 +264,6 @@ class TestWinnerPayouts(BaseTestCase):
         """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
         have a week of test data, we'll effectively recycle the same information via mocks
         """
-        # simulation_start_time
         game_id = 3
         user_ids = get_all_game_users(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
@@ -287,12 +280,11 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(offset, DateOffset(days=7))
 
         start_time = game_info["start_time"]
+        self.assertEqual(start_time, simulation_start_time)
+
         end_time = start_time + game_info["duration"] * 60 * 60 * 24
         n_sidebets = n_sidebets_in_game(start_time, end_time, offset)
         self.assertEqual(n_sidebets, 2)
-
-        # since we haven't calculated any winners, yet, our init winners table should be blank
-        # TODO: test winners table serialize and pack for game start here
 
         # we'll mock in daily portfolio values to speed up the time this test takes
         start_dt = posix_to_datetime(start_time)
@@ -305,16 +297,15 @@ class TestWinnerPayouts(BaseTestCase):
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 
-        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks, patch(
+                "backend.logic.base.time") as base_time_mock:
             time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
             time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
 
-            time.time.side_effect = [time_1, time_2]
+            time.time.side_effect = base_time_mock.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
 
-            # TODO: there's time-related randomness in who the winner is right now based on how the test data is built.
-            # clean this up later
             winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])
             log_winners(game_id, time.time())
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")

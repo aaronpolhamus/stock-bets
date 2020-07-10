@@ -82,13 +82,13 @@ backend-build:
 	docker-compose build backend
 
 backend-test:
+	rm -f backend/test_times.csv
 	make worker-restart
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
 
 # API
 # ---
-
 api-up:
 	docker-compose up -d api
 

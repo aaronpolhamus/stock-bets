@@ -50,17 +50,14 @@ celery.conf.beat_schedule = {
         "task": "async_fetch_active_symbol_prices",
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
     },
-    "update_play_game_visuals": {
-        "task": "async_update_play_game_visuals",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
-    },
     "update_player_stats": {
-        "task": "async_update_player_stats",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
+        "task": "async_update_game_data",
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-15", day_of_week="1-5")
     },
-    "calculate_winners": {
-        "task": "async_calculate_winners",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
+    # final EOD check 5 mins after close just to make sure that everything is up and running
+    "update_player_stats_eod": {
+        "task": "async_update_game_data",
+        "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
     }
 }
 

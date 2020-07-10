@@ -45,21 +45,23 @@ nyse = mcal.get_calendar('NYSE')
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-def datetime_to_posix(localized_date):
+def datetime_to_posix(localized_date: dt) -> float:
     return calendar.timegm(localized_date.utctimetuple())
 
 
-def get_schedule_start_and_end(schedule):
+def get_schedule_start_and_end(schedule) -> List[float]:
     return [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
 
 
-def posix_to_datetime(ts, divide_by=1, timezone=TIMEZONE):
+def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
     utc_dt = dt.utcfromtimestamp(ts / divide_by).replace(tzinfo=pytz.utc)
     tz = pytz.timezone(timezone)
     return utc_dt.astimezone(tz)
 
 
-def get_end_of_last_trading_day():
+def get_end_of_last_trading_day() -> float:
+    """Note, if we're in the middle of a trading day, this will return the end of the current day
+    """
     current_day = posix_to_datetime(time.time())
     schedule = nyse.schedule(current_day, current_day)
     while schedule.empty:
@@ -69,7 +71,7 @@ def get_end_of_last_trading_day():
     return end_day
 
 
-def during_trading_day():
+def during_trading_day() -> bool:
     posix_time = time.time()
     nyc_time = posix_to_datetime(posix_time)
     schedule = nyse.schedule(nyc_time, nyc_time)
@@ -79,13 +81,14 @@ def during_trading_day():
     return start_day <= posix_time < end_day
 
 
-def get_next_trading_day_schedule(current_day: dt):
-    """For day orders we need to know when the next trading day happens if the order is placed after hours.
+def get_next_trading_day_schedule(reference_day: dt):
+    """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
+    if we are inside of trading hours this will return the schedule for the current day
     """
-    schedule = nyse.schedule(current_day, current_day)
+    schedule = nyse.schedule(reference_day, reference_day)
     while schedule.empty:
-        current_day += timedelta(days=1)
-        schedule = nyse.schedule(current_day, current_day)
+        reference_day += timedelta(days=1)
+        schedule = nyse.schedule(reference_day, reference_day)
     return schedule
 
 
@@ -99,7 +102,7 @@ def make_date_offset(side_bets_period):
     return offset
 
 
-def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset):
+def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset) -> int:
     game_start = posix_to_datetime(game_start)
     game_end = posix_to_datetime(game_end)
     count = 0

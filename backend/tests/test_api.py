@@ -37,6 +37,7 @@ from backend.logic.games import (
     LimitError
 )
 from backend.logic.visuals import (
+    compile_and_pack_player_leaderboard,
     make_balances_chart_data,
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
@@ -48,10 +49,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.tasks.definitions import (
-    async_calculate_game_metrics,
-    async_compile_player_leaderboard
-)
+from backend.logic.payouts import calculate_and_pack_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
@@ -305,7 +303,6 @@ class TestCreateGame(BaseTestCase):
         # three players who are participating have the starting balances that we expect and that  initializations for
         # (a) game leaderboard, (b) current balances, (c) open orders, (d) balances chart, and (e) the field chart all
         # look good.
-
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
         self.assertEqual(res.json()["days_left"], game_duation - 1)
@@ -527,13 +524,10 @@ class TestGetGameStats(BaseTestCase):
 
     def test_leaderboard(self):
         game_id = 3
-        async_calculate_game_metrics.apply(args=(game_id, 1))
-        async_calculate_game_metrics.apply(args=(game_id, 3))
-        async_calculate_game_metrics.apply(args=(game_id, 4))
-
-        res = async_compile_player_leaderboard.delay(game_id)
-        while not res.ready():
-            continue
+        calculate_and_pack_metrics(game_id, 1)
+        calculate_and_pack_metrics(game_id, 3)
+        calculate_and_pack_metrics(game_id, 4)
+        compile_and_pack_player_leaderboard(game_id)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", cookies={"session_token": session_token},
@@ -549,6 +543,7 @@ class TestGetGameStats(BaseTestCase):
     def test_get_game_info(self):
         game_id = 3
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        compile_and_pack_player_leaderboard(game_id)
 
         res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -557,7 +552,7 @@ class TestGetGameStats(BaseTestCase):
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
             if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
-                     "benchmark_formatted"]:
+                     "benchmark_formatted", "leaderboard"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
