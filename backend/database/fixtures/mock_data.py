@@ -1,23 +1,30 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    get_all_game_users,
     get_schedule_start_and_end,
     nyse,
     posix_to_datetime
 )
-from backend.tasks.definitions import (
-    async_update_play_game_visuals,
-    async_update_player_stats,
-    async_compile_player_leaderboard
+from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.visuals import (
+    compile_and_pack_player_leaderboard,
+    make_the_field_charts,
+    serialize_and_pack_order_details,
+    serialize_and_pack_portfolio_details,
+    serialize_and_pack_order_performance_chart,
+    serialize_and_pack_winners_table
 )
+
 from config import Config
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
 price_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
-close_of_simulation_time = max([record["timestamp"] for record in price_records])
+simulation_end_time = max([record["timestamp"] for record in price_records])
 
 
 def get_beginning_of_next_trading_day(ref_time):
@@ -35,7 +42,7 @@ def get_stock_start_price(symbol, records=price_records, order_time=simulation_s
     return stock_record["price"]
 
 
-def get_stock_finish_price(symbol, records=price_records, order_time=close_of_simulation_time):
+def get_stock_finish_price(symbol, records=price_records, order_time=simulation_end_time):
     stock_record = [item for item in records if item["symbol"] == symbol and item["timestamp"] == order_time][-1]
     return stock_record["price"]
 
@@ -188,7 +195,8 @@ MOCK_DATA = {
         {"user_id": 1, "game_id": 3, "symbol": "MELI", "buy_or_sell": "buy", "quantity": 2,
          "price": get_stock_finish_price("MELI") * 0.9, "order_type": "limit", "time_in_force": "until_cancelled"},  # 9
         {"user_id": 1, "game_id": 3, "symbol": "SPXU", "buy_or_sell": "sell", "quantity": 300,
-         "price": get_stock_finish_price("SPXU") * 0.75, "order_type": "stop", "time_in_force": "until_cancelled"}, # 10
+         "price": get_stock_finish_price("SPXU") * 0.75, "order_type": "stop", "time_in_force": "until_cancelled"},
+        # 10
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "sell", "quantity": 4,
          "price": get_stock_finish_price("AMZN"), "order_type": "market", "time_in_force": "day"},  # 11
 
@@ -226,10 +234,10 @@ MOCK_DATA = {
         {"order_id": 8, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 15
         {"order_id": 8, "timestamp": get_beginning_of_next_trading_day(simulation_start_time + SECONDS_IN_A_DAY),
          "status": "fulfilled", "clear_price": get_stock_start_price("NVDA") * 1.05},  # 16
-        {"order_id": 9, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},  # 17
-        {"order_id": 10, "timestamp": close_of_simulation_time, "status": "pending", "clear_price": None},  # 18
-        {"order_id": 11, "timestamp": close_of_simulation_time, "status": "pending"},  # 19
-        {"order_id": 11, "timestamp": close_of_simulation_time, "status": "fulfilled",  # 20
+        {"order_id": 9, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 17
+        {"order_id": 10, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 18
+        {"order_id": 11, "timestamp": simulation_end_time, "status": "pending"},  # 19
+        {"order_id": 11, "timestamp": simulation_end_time, "status": "fulfilled",  # 20
          "clear_price": get_stock_finish_price("AMZN")},
         {"order_id": 12, "timestamp": simulation_start_time, "status": "pending"},  # 21
         {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled"},  # 22
@@ -296,13 +304,13 @@ MOCK_DATA = {
          "timestamp": get_beginning_of_next_trading_day(simulation_start_time + SECONDS_IN_A_DAY),
          "balance_type": "virtual_stock", "balance": 8, "symbol": "NVDA"},
 
-        {"user_id": 1, "game_id": 3, "order_status_id": 20, "timestamp": close_of_simulation_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 20, "timestamp": simulation_end_time,
          "balance_type": "virtual_cash",
          "balance": 100_000 - get_stock_start_price("AMZN") * 10 - get_stock_start_price(
              "TSLA") * 35 - get_stock_start_price("LYFT") * 700 - get_stock_start_price(
              "SPXU") * 1200 - get_stock_start_price("NVDA") * 1.05 * 8 + get_stock_finish_price("AMZN") * 4,
          "symbol": None},
-        {"user_id": 1, "game_id": 3, "order_status_id": 20, "timestamp": close_of_simulation_time,
+        {"user_id": 1, "game_id": 3, "order_status_id": 20, "timestamp": simulation_end_time,
          "balance_type": "virtual_stock", "balance": 6, "symbol": "AMZN"},
 
         # Game 4, setup
@@ -343,14 +351,30 @@ def make_mock_data():
 
 
 def make_redis_mocks():
-    test_game_id = 3
-    res = async_compile_player_leaderboard.delay(test_game_id)
-    while not res.ready():
-        continue
-    res = async_update_player_stats.delay()
-    while not res.ready():
-        continue
-    async_update_play_game_visuals.delay()
+    game_id = 3
+    with patch("backend.logic.base.time") as mock_base_time:
+        mock_base_time.time.return_value = simulation_end_time
+
+        # performance metrics
+        user_ids = get_all_game_users(game_id)
+        for user_id in user_ids:
+            calculate_and_pack_metrics(game_id, user_id, None, None)
+
+        # leaderboard
+        compile_and_pack_player_leaderboard(game_id)
+
+        # the field and balance charts
+        make_the_field_charts(game_id)
+
+        # tables and performance breakout charts
+        for user_id in user_ids:
+            # game/user-level assets
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
+            serialize_and_pack_order_performance_chart(game_id, user_id)
+
+        # winners/payouts table
+        serialize_and_pack_winners_table(game_id)
 
 
 if __name__ == '__main__':

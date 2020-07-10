@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
-from backend.database.fixtures.mock_data import close_of_simulation_time
+from backend.database.fixtures.mock_data import simulation_end_time
 from backend.logic.base import (
     during_trading_day
 )
@@ -544,7 +544,7 @@ class TestVisualAssetsTasks(BaseTestCase):
         user_ids = [1, 3, 4]
         compile_and_pack_player_leaderboard(game_id)
         with patch("backend.logic.base.time") as mock_base_time:
-            mock_base_time.time.return_value = close_of_simulation_time
+            mock_base_time.time.return_value = simulation_end_time
             make_the_field_charts(game_id)
 
         # this is basically the internals of async_update_play_game_visuals for one game

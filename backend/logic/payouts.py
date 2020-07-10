@@ -7,6 +7,7 @@ import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    during_trading_day,
     get_all_game_users,
     get_payouts_meta_data,
     n_sidebets_in_game,
@@ -35,7 +36,7 @@ def get_data_and_clip_time(game_id: int, user_id: int, start_date: dt = None, en
     return df[(df["timestamp"] >= start_date) & (df["timestamp"] <= end_date)]
 
 
-def portfolio_value_by_day(game_id, user_id, start_date, end_date) -> pd.DataFrame:
+def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date: dt) -> pd.DataFrame:
     df = get_data_and_clip_time(game_id, user_id, start_date, end_date)
     df = df.groupby(["symbol", "timestamp"], as_index=False)["value"].agg("last")
     return df.groupby("timestamp", as_index=False)["value"].sum()
@@ -47,15 +48,10 @@ def porfolio_return_ratio(df: pd.DataFrame):
     return 100 * (end_val - start_val) / start_val
 
 
-def calculate_sharpe_ratio(returns: pd.Series, rf: float, days: int) -> float:
-    volatility = returns.std() * np.sqrt(days)
-    return (returns.mean() - rf) / volatility
-
-
 def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
-    n_days = df["timestamp"].apply(lambda x: x.replace(hour=12, minute=0)).nunique()
-    df["returns"] = df["value"] - df.iloc[0]["value"]
-    return calculate_sharpe_ratio(df["returns"], rf, n_days)
+    # TODO: risk-free rate may need to vary in time at some point
+    df["returns"] = (df["value"] - df.iloc[0]["value"]) / df.iloc[0]["value"]
+    return (df["returns"].mean() - rf) / df["returns"].std()
 
 
 def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None,
@@ -75,7 +71,6 @@ def calculate_and_pack_metrics(game_id, user_id, start_date=None, end_date=None)
         sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}"
     rds.set(return_ratio_label, return_ratio)
     rds.set(sharpe_ratio_label, sharpe_ratio)
-
 
 # ------------------- #
 # Winners and payouts #

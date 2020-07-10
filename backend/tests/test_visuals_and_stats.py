@@ -264,7 +264,6 @@ class TestWinnerPayouts(BaseTestCase):
         """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
         have a week of test data, we'll effectively recycle the same information via mocks
         """
-        # simulation_start_time
         game_id = 3
         user_ids = get_all_game_users(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
@@ -281,12 +280,11 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(offset, DateOffset(days=7))
 
         start_time = game_info["start_time"]
+        self.assertEqual(start_time, simulation_start_time)
+
         end_time = start_time + game_info["duration"] * 60 * 60 * 24
         n_sidebets = n_sidebets_in_game(start_time, end_time, offset)
         self.assertEqual(n_sidebets, 2)
-
-        # since we haven't calculated any winners, yet, our init winners table should be blank
-        # TODO: test winners table serialize and pack for game start here
 
         # we'll mock in daily portfolio values to speed up the time this test takes
         start_dt = posix_to_datetime(start_time)
@@ -307,8 +305,6 @@ class TestWinnerPayouts(BaseTestCase):
             time.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
 
-            # TODO: there's time-related randomness in who the winner is right now based on how the test data is built.
-            # clean this up later
             winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])
             log_winners(game_id, time.time())
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")
