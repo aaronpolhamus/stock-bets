@@ -25,7 +25,10 @@ const SectionTitle = styled.h2`
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
 `
+const TitlePage = styled.h1`
+  font-size: var(--font-size-xlarge)
 
+`
 const TextButton = styled.button`
   background-color: transparent;
   border: none;
@@ -87,5 +90,6 @@ export {
   SmallText,
   Subtext,
   TextButton,
-  TitleCard
+  TitleCard,
+  TitlePage
 }

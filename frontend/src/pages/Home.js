@@ -11,8 +11,10 @@ import {
   Header,
   Layout,
   PageSection,
-  Sidebar
+  Sidebar,
 } from 'components/layout/Layout'
+
+import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
@@ -96,7 +98,7 @@ const Home = () => {
             </Button>
           </Breadcrumb>
           <Header>
-            <h1>Games</h1>
+            <TitlePage>Games</TitlePage>
             <Button variant='primary' href='/new'>
               <Icon.PlusCircle
                 size={16}
@@ -108,25 +110,25 @@ const Home = () => {
           </Header>
         </PageSection>
         <Row>
-          <Col>
-          Active
+          <Col lg={6} xl={8}>
             <GameList
               games={gamesActive}
               currentUser={data.username}
+              title='Active'
             />
           </Col>
-          <Col>
-            Pending
+          <Col lg={6} xl={4}>
             <GameList
               games={gamesPending}
               currentUser={data.username}
               cardType={'pending'}
+              title='Pending'
             />
-            Invitations
             <GameList
               games={gamesInvited}
               currentUser={data.username}
               cardType={'pending'}
+              title='Invited'
             />
           </Col>
         </Row>
