@@ -21,13 +21,11 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
+from backend.logic.payouts import calculate_and_pack_metrics
 from logic.visuals import compile_and_pack_player_leaderboard
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_serialize_current_balances,
-    async_serialize_order_details,
-    async_calculate_game_metrics,
     async_cache_price
 )
 from backend.logic.friends import (
@@ -40,7 +38,11 @@ from backend.tasks.redis import (
     unpack_redis_json,
     TASK_LOCK_MSG
 )
-from backend.logic.visuals import make_the_field_charts
+from backend.logic.visuals import (
+    make_the_field_charts,
+    serialize_and_pack_portfolio_details,
+    serialize_and_pack_order_details
+)
 from backend.tests import BaseTestCase
 from logic.base import fetch_price
 
@@ -547,10 +549,10 @@ class TestVisualAssetsTasks(BaseTestCase):
             mock_base_time.time.return_value = simulation_end_time
             make_the_field_charts(game_id)
 
-        # this is basically the internals of async_update_play_game_visuals for one game
+        # this is basically the internals of async_update_all_games for one game
         for user_id in user_ids:
-            async_serialize_order_details.apply(args=[game_id, user_id])
-            async_serialize_current_balances.apply(args=[game_id, user_id])
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
         self.assertIsNotNone(unpack_redis_json("field_chart_3"))
@@ -563,9 +565,9 @@ class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
         game_id = 3
-        async_calculate_game_metrics.apply(args=(game_id, 1))
-        async_calculate_game_metrics.apply(args=(game_id, 3))
-        async_calculate_game_metrics.apply(args=(game_id, 4))
+        calculate_and_pack_metrics(game_id, 1)
+        calculate_and_pack_metrics(game_id, 3)
+        calculate_and_pack_metrics(game_id, 4)
 
         sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:

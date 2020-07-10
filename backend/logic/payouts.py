@@ -1,12 +1,13 @@
 """Logic for calculating and dispering payouts between invitees
 """
-from datetime import datetime as dt
+from datetime import datetime as dt, timedelta
 
-import numpy as np
 import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    get_schedule_start_and_end,
+    get_next_trading_day_schedule,
     during_trading_day,
     get_all_game_users,
     get_payouts_meta_data,
@@ -114,6 +115,21 @@ def get_payouts_to_date(game_id: int):
     return total_payouts
 
 
+def check_if_payout_time(current_time: float, payout_time: float) -> bool:
+    if current_time >= payout_time:
+        return True
+
+    if during_trading_day():
+        return False
+
+    next_day_schedule = get_next_trading_day_schedule(posix_to_datetime(current_time) + timedelta(days=1))
+    next_trade_day_start, _ = get_schedule_start_and_end(next_day_schedule)
+    if next_trade_day_start > payout_time:
+        return True
+
+    return False
+
+
 def log_winners(game_id: int, current_time: float):
     update_performed = False
     pot_size, game_start_time, game_end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
@@ -130,7 +146,7 @@ def log_winners(game_id: int, current_time: float):
             last_interval_end = game_start_posix
         last_interval_dt = posix_to_datetime(last_interval_end)
         payout_time = datetime_to_posix(last_interval_dt + offset)
-        if current_time >= payout_time:
+        if check_if_payout_time(current_time, payout_time):
             curr_time_dt = posix_to_datetime(current_time)
             curr_interval_end = [date for date in expected_sidebet_dates if last_interval_dt < date <= curr_time_dt][0]
             curr_interval_posix = datetime_to_posix(curr_interval_end)

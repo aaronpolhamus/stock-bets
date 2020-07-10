@@ -297,12 +297,13 @@ class TestWinnerPayouts(BaseTestCase):
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 
-        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks, patch(
+                "backend.logic.base.time") as base_time_mock:
             time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
             time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
 
-            time.time.side_effect = [time_1, time_2]
+            time.time.side_effect = base_time_mock.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
 
             winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])

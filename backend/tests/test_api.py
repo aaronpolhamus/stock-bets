@@ -49,10 +49,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.tasks.definitions import (
-    async_calculate_game_metrics,
-    async_compile_player_leaderboard
-)
+from backend.logic.payouts import calculate_and_pack_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
@@ -527,13 +524,10 @@ class TestGetGameStats(BaseTestCase):
 
     def test_leaderboard(self):
         game_id = 3
-        async_calculate_game_metrics.apply(args=(game_id, 1))
-        async_calculate_game_metrics.apply(args=(game_id, 3))
-        async_calculate_game_metrics.apply(args=(game_id, 4))
-
-        res = async_compile_player_leaderboard.delay(game_id)
-        while not res.ready():
-            continue
+        calculate_and_pack_metrics(game_id, 1)
+        calculate_and_pack_metrics(game_id, 3)
+        calculate_and_pack_metrics(game_id, 4)
+        compile_and_pack_player_leaderboard(game_id)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", cookies={"session_token": session_token},

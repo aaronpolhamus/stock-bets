@@ -685,11 +685,17 @@ def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: f
 
 
 def serialize_and_pack_winners_table(game_id: int):
+    """Key point: this function just serializes winners data that has already been saved to DB and fills in any missing
+    rows. It doesn't actually figure out whether it's time to pick a winner or not. For that, check out the function
+    log_winners.
+    """
     pot_size, start_time, end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
 
     # pull winners data from DB
     with engine.connect() as conn:
         winners_df = pd.read_sql("SELECT * FROM winners WHERE game_id = %s", conn, params=[game_id])
+
+    # Is the game that we're currently looking at finished?
     game_finished = False
     if winners_df.empty:
         last_observed_win = start_time

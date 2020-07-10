@@ -57,20 +57,8 @@ const Admin = () => {
       </Form>
       <br />
       <Row>
-        <Button onClick={async () => api.post('/api/update_player_stats')}>
-          Update player stats
-        </Button>
-      </Row>
-      <br />
-      <Row>
-        <Button onClick={async () => api.post('/api/refresh_visuals')}>
-          Refresh visuals
-        </Button>
-      </Row>
-      <br />
-      <Row>
-        <Button onClick={async () => api.post('/api/calculate_winners')}>
-          Calculate winners
+        <Button onClick={async () => api.post('/api/refresh_game_statuses')}>
+          Refresh all game statuses
         </Button>
       </Row>
     </>

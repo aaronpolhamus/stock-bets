@@ -18,10 +18,6 @@ from backend.database.helpers import query_to_dict, reset_db
 
 from backend.logic.friends import get_user_details_from_ids
 from backend.logic.games import get_invite_list_by_status
-from backend.tasks.definitions import (
-    async_update_play_game_visuals,
-    async_update_player_stats
-)
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
@@ -197,7 +193,7 @@ if __name__ == '__main__':
     # When we invoke functions to update the global game state we shouldn't see any error or change prior to placing
     # orders. Hit any key to continue
     # """)
-    # async_update_play_game_visuals()
+    # async_update_all_games()
     # async_update_player_stats()
 
     input("""

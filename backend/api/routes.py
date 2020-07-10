@@ -72,14 +72,9 @@ from backend.logic.visuals import (
     ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
-    async_update_order_details_table,
-    async_update_player_stats,
-    async_update_play_game_visuals,
-    async_compile_player_leaderboard,
+    async_update_all_games,
     async_cache_price,
-    async_calculate_winners,
-    async_serialize_current_balances,
-    async_serialize_balances_chart
+    async_update_game_data
 )
 from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
@@ -368,10 +363,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_current_balances.delay(game_id, user_id)
-    async_update_order_details_table.apply(args=[game_id, user_id, order_id, "add"])
-    async_serialize_balances_chart.delay(game_id, user_id)
-    async_compile_player_leaderboard.delay(game_id)
+    update_order_details_table(game_id, user_id, order_id, "add")
+    async_update_game_data.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -551,28 +544,13 @@ def verify_admin():
     return make_response("Welcome to admin", 200)
 
 
-@routes.route("/api/update_player_stats", methods=["POST"])
-@authenticate
-@admin
-def update_player_stats():
-    async_update_player_stats.delay()
-    return make_response("updating stats...", 200)
-
-
-@routes.route("/api/refresh_visuals", methods=["POST"])
+@routes.route("/api/refresh_game_statuses", methods=["POST"])
 @authenticate
 @admin
 def refresh_visuals():
-    async_update_play_game_visuals.delay()
+    async_update_all_games.delay()
     return make_response("refreshing visuals...", 200)
 
-
-@routes.route("/api/calculate_winners", methods=["POST"])
-@authenticate
-@admin
-def calculate_winners():
-    async_calculate_winners.delay()
-    return make_response("calculating winners...", 200)
 
 # ------ #
 # DevOps #

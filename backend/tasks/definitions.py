@@ -1,9 +1,7 @@
 import time
 
 from backend.database.db import engine
-from backend.database.helpers import (
-    add_row
-)
+from backend.database.helpers import add_row
 from backend.logic.base import (
     during_trading_day,
     get_all_game_users,
@@ -28,13 +26,10 @@ from logic.base import (
     get_all_active_symbols,
 )
 from backend.logic.visuals import (
-    update_order_details_table,
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
     compile_and_pack_player_leaderboard,
     serialize_and_pack_order_details,
-    make_balances_chart_data,
-    serialize_and_pack_balances_chart,
     make_the_field_charts,
     serialize_and_pack_portfolio_details,
 )
@@ -91,7 +86,6 @@ def async_service_open_games(self):
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
 
-
 # ---------------- #
 # Order management #
 # ---------------- #
@@ -121,109 +115,46 @@ def async_process_all_open_orders(self):
         process_order(order_id)
 
 
-@celery.task(name="async_update_order_details_table", bind=True, base=BaseTask)
-def async_update_order_details_table(self, game_id, user_id, order_id, action):
-    update_order_details_table(game_id, user_id, order_id, action)
-
-
 # ------------- #
 # Visual assets #
 # ------------- #
-"""This gets a little bit dense. async_serialize_order_details and async_serialize_current_balances run at the game-user
-level, and are light, fast tasks that update users' orders and balances tables. async_update_play_game_visuals starts 
-both of these tasks for every user in every open game. It also runs tasks for async_make_the_field_charts, a more
-expensive task that serializes balance histories for all user positions in all open games and, based on that data, 
-creates a "the field" chart for portfolio level comps. 
-
-In addition to being run by async_update_play_game_visuals, these tasks are also run when calling the place_order
-endpoint in order to have user data be as dynamic and responsive as possible:
-* async_serialize_order_details
-* async_serialize_current_balances
-* async_serialize_balances_chart
+"""async_update_game gets a little bit dense, but its logic is actually pretty straightforward:
+1) Update the overall game metrics for each player
+2) Based on those metrics, update the leaderboard 
+3) Now the we have a leaderboard, calculate the field and balances charts. We'll send these along with the leaderboard
+4) For each player, update their orders and balances table, and then update their order performance chart
+5) Finally, check for winners and update the winners table if there are any
 """
 
 
-@celery.task(name="async_serialize_order_details", bind=True, base=BaseTask)
-def async_serialize_order_details(self, game_id, user_id):
-    serialize_and_pack_order_details(game_id, user_id)
-
-
-@celery.task(name="async_serialize_current_balances", bind=True, base=BaseTask)
-def async_serialize_current_balances(self, game_id, user_id):
-    serialize_and_pack_portfolio_details(game_id, user_id)
-
-
-@celery.task(name="async_serialize_balances_chart", bind=True, base=BaseTask)
-def async_serialize_balances_chart(self, game_id, user_id):
-    df = make_balances_chart_data(game_id, user_id)
-    serialize_and_pack_balances_chart(df, game_id, user_id)
-
-
-@celery.task(name="async_make_the_field_charts", bind=True, base=BaseTask)
-def async_make_the_field_charts(self, game_id):
-    make_the_field_charts(game_id)
-
-
-@celery.task(name="async_make_order_performance_chart", bind=True, base=BaseTask)
-def async_make_order_performance_chart(self, game_id, user_id):
-    serialize_and_pack_order_performance_chart(game_id, user_id)
-
-
-@celery.task(name="async_update_play_game_visuals", bind=True, base=BaseTask)
-def async_update_play_game_visuals(self):
+@celery.task(name="async_update_all_games", bind=True, base=BaseTask)
+def async_update_all_games(self):
     open_game_ids = get_active_game_ids()
     for game_id in open_game_ids:
-        # game-level assets
-        async_make_the_field_charts.delay(game_id)
-        async_compile_player_leaderboard.delay(game_id)
-        user_ids = get_all_game_users(game_id)
-        for user_id in user_ids:
-            # game/user-level assets
-            async_serialize_order_details.delay(game_id, user_id)
-            async_serialize_current_balances.delay(game_id, user_id)
-            async_make_order_performance_chart.delay(game_id, user_id)
-
-# ---------------------- #
-# Player stat production #
-# ---------------------- #
+        async_update_game_data.delay(game_id)
 
 
-@celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
-def async_calculate_game_metrics(self, game_id, user_id, start_date=None, end_date=None):
-    calculate_and_pack_metrics(game_id, user_id, start_date, end_date)
+@celery.task(name="async_update_game_data", bind=True, base=BaseTask)
+def async_update_game_data(self, game_id):
+    user_ids = get_all_game_users(game_id)
+    for user_id in user_ids:
+        # calculate overall standings
+        calculate_and_pack_metrics(game_id, user_id)
 
-
-@celery.task(name="async_compile_player_leaderboard", bind=True, base=BaseTask)
-def async_compile_player_leaderboard(self, game_id):
+    # leaderboard
     compile_and_pack_player_leaderboard(game_id)
 
+    # the field and balance charts
+    make_the_field_charts(game_id)
 
-@celery.task(name="async_update_player_stats", bind=True, base=BaseTask)
-def async_update_player_stats(self):
-    """This task calculates game-level metrics for all players in all games, caching those metrics to redis
-    """
-    active_game_ids = get_active_game_ids()
-    for game_id in active_game_ids:
-        async_compile_player_leaderboard.delay(game_id)
-        user_ids = get_all_game_users(game_id)
-        for user_id in user_ids:
-            async_calculate_game_metrics.delay(game_id, user_id)
+    # tables and performance breakout charts
+    for user_id in user_ids:
+        # game/user-level assets
+        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_portfolio_details(game_id, user_id)
+        serialize_and_pack_order_performance_chart(game_id, user_id)
 
-
-@celery.task(name="async_serialize_and_pack_winners_table", bind=True, base=BaseTask)
-def async_serialize_and_pack_winners_table(self, game_id):
-    serialize_and_pack_winners_table(game_id)
-
-
-@celery.task(name="async_calculate_winner", bind=True, base=BaseTask)
-def async_calculate_winner(self, game_id):
+    # winners/payouts table
     update_performed = log_winners(game_id, time.time())
     if update_performed:
         serialize_and_pack_winners_table(game_id)
-
-
-@celery.task(name="async_calculate_winners", bind=True, base=BaseTask)
-def async_calculate_winners(self):
-    open_game_ids = get_active_game_ids()
-    for game_id in open_game_ids:
-        async_calculate_winner.delay(game_id)
