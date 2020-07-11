@@ -30,7 +30,7 @@ class TestMetrics(BaseTestCase):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
 
         self.assertAlmostEqual(return_ratio, -0.61337, 4)
-        self.assertAlmostEqual(sharpe_ratio, -0.54906, 4)
+        self.assertAlmostEqual(sharpe_ratio, -0.54956, 4)
 
 
 class TestCheckPayoutTime(TestCase):

@@ -375,7 +375,7 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     else:
         colors = []
         for user_id in df["id"].unique():
-            df["username"] = get_username(user_id)
+            df.loc[df["id"] == user_id, "username"] = get_username(user_id)
             colors.append(user_colors[user_id])
         chart_json = make_chart_json(df, "username", "value", colors=colors)
 
@@ -522,7 +522,8 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         datasets = []
         for order_label, color in zip(order_labels, colors):
             subset = order_perf[order_perf["order_label"] == order_label]
-            datasets.append(serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return"))
+            datasets.append(
+                serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return", "label"))
         chart_json = dict(labels=chart_labels, datasets=datasets)
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
