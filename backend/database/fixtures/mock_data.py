@@ -4,7 +4,7 @@ from unittest.mock import patch
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    get_all_game_users,
+    get_all_game_users_ids,
     get_schedule_start_and_end,
     nyse,
     posix_to_datetime
@@ -356,7 +356,7 @@ def make_redis_mocks():
         mock_base_time.time.return_value = simulation_end_time
 
         # performance metrics
-        user_ids = get_all_game_users(game_id)
+        user_ids = get_all_game_users_ids(game_id)
         for user_id in user_ids:
             calculate_and_pack_metrics(game_id, user_id, None, None)
 

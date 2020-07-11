@@ -12,7 +12,8 @@ from backend.logic.auth import (
     register_username_with_token,
     register_user_if_first_visit,
     check_against_whitelist,
-    WhiteListException
+    WhiteListException,
+    ADMIN_USERS
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -126,7 +127,7 @@ def admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         user_email = decode_token(request, "email")
-        if user_email not in ["aaron@stockbets.io"]:
+        if user_email not in ADMIN_USERS:
             return make_response(ADMIN_BLOCK_MSG, 401)
         return f(*args, **kwargs)
     return decorated

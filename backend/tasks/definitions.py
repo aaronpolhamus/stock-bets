@@ -4,7 +4,7 @@ from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
     during_trading_day,
-    get_all_game_users,
+    get_all_game_users_ids,
     get_cache_price,
     set_cache_price
 )
@@ -136,7 +136,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id):
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     for user_id in user_ids:
         # calculate overall standings
         calculate_and_pack_metrics(game_id, user_id)

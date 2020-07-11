@@ -160,7 +160,7 @@ def get_game_info(game_id: int):
     return info
 
 
-def get_all_game_users(game_id):
+def get_all_game_users_ids(game_id):
     with engine.connect() as conn:
         result = conn.execute(
             """
@@ -576,7 +576,7 @@ def get_active_balances(game_id: int, user_id: int):
 
 def get_payouts_meta_data(game_id: int):
     game_info = get_game_info(game_id)
-    player_ids = get_all_game_users(game_id)
+    player_ids = get_all_game_users_ids(game_id)
     n_players = len(player_ids)
     pot_size = n_players * game_info["buy_in"]
     side_bets_perc = game_info.get("side_bets_perc")
