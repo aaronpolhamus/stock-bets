@@ -55,6 +55,12 @@ PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 
+# -------- #
+# Defaults #
+# -------- #
+STARTING_SHARPE_RATIO = 0
+STARTING_RETURN_RATIO = 0
+
 # -------------- #
 # Table settings #
 # -------------- #
@@ -184,10 +190,10 @@ def get_portfolio_value(game_id: int, user_id: int) -> float:
 def make_stat_entry(user_id: int, color: str, cash_balance: float, portfolio_value: float, stocks_held: List[str],
                     return_ratio: float = None, sharpe_ratio: float = None):
     if return_ratio is None:
-        return_ratio = 100
+        return_ratio = STARTING_RETURN_RATIO
 
     if sharpe_ratio is None:
-        sharpe_ratio = 1
+        sharpe_ratio = STARTING_SHARPE_RATIO
 
     return_ratio = float(return_ratio)
     sharpe_ratio = float(sharpe_ratio)

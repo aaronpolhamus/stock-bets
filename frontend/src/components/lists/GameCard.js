@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
-import { Button } from 'react-bootstrap'
 import { Header } from 'components/layout/Layout'
 import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
@@ -54,7 +53,8 @@ const GameCardActiveInfo = styled.div`
   }
 `
 
-const currentUserLeaderboardPosition = (leaderboard, currentUser) => {
+const currentUserLeaderboardPosition = (leaderboard, currentUser, gameId) => {
+  console.log(`${gameId} -- ${leaderboard}`)
   const position = leaderboard.findIndex(
     (playerStats, index) => {
       return playerStats.username === currentUser
@@ -78,7 +78,7 @@ const GameCard = ({ gameId, currentUser }) => {
   if (Object.keys(gameInfo).length === 0) return null
 
   const leaderboardPosition = `
-    ${currentUserLeaderboardPosition(gameInfo.leaderboard, currentUser)}
+    ${currentUserLeaderboardPosition(gameInfo.leaderboard, currentUser, gameId)}
     place
   `
   const currentLeader = gameInfo.leaderboard[0].username

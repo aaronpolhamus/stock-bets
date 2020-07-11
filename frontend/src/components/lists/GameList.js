@@ -18,7 +18,6 @@ const gameListBuilder = (props) => {
 }
 
 const GameList = (props) => {
-  console.log(props.games)
   if (props.games.length === 0) return null
   return (
     <div>

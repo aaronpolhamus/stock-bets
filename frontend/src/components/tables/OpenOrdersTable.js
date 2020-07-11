@@ -106,7 +106,6 @@ const OpenOrdersTable = ({ gameId }) => {
   const [show, setShow] = useState(false)
   const handleClose = () => setShow(false)
   const handleCancelOrder = async (gameId, orderId) => {
-    console.log(gameId, orderId)
     await apiPost('cancel_order', {
       game_id: gameId,
       order_id: orderId

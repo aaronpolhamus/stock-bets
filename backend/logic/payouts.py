@@ -3,6 +3,7 @@
 from datetime import datetime as dt, timedelta
 
 import pandas as pd
+import numpy as np
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
@@ -17,7 +18,10 @@ from backend.logic.base import (
     make_historical_balances_and_prices_table
 )
 from backend.tasks.redis import rds
-from logic.visuals import get_expected_sidebets_payout_dates
+from backend.logic.visuals import (
+    STARTING_SHARPE_RATIO,
+    get_expected_sidebets_payout_dates
+)
 
 RISK_FREE_RATE_DEFAULT = 0
 
@@ -52,7 +56,12 @@ def porfolio_return_ratio(df: pd.DataFrame):
 def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
     # TODO: risk-free rate may need to vary in time at some point
     df["returns"] = (df["value"] - df.iloc[0]["value"]) / df.iloc[0]["value"]
-    return (df["returns"].mean() - rf) / df["returns"].std()
+    value = (df["returns"].mean() - rf) / df["returns"].std()
+    if np.isnan(value):
+        # When a user has not trade and is in cash only, the calculation above produces np.nan. We need to be on the
+        # lookout for any other situations that might cause this to happen other than this one
+        return STARTING_SHARPE_RATIO
+    return value
 
 
 def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None,
