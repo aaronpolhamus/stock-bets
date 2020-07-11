@@ -2,6 +2,7 @@ import json
 import time
 from unittest.mock import patch
 
+from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.database.fixtures.mock_data import simulation_end_time
@@ -26,7 +27,9 @@ from logic.visuals import compile_and_pack_player_leaderboard
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_cache_price
+    async_cache_price,
+    PROCESS_ORDERS_LOCK_KEY,
+    PROCESS_ORDERS_LOCK_TIMEOUT
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -533,9 +536,7 @@ class TestVisualAssetsTasks(BaseTestCase):
             open_orders = get_all_open_orders()
             starting_open_orders = len(open_orders)
             self.assertEqual(starting_open_orders, 6)
-            res = async_process_all_open_orders.delay()
-            while not res.ready():
-                continue
+            async_process_all_open_orders.apply()
             new_open_orders = get_all_open_orders()
             self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
 
@@ -624,12 +625,21 @@ class TestDataAccess(BaseTestCase):
 class TestTaskBlocking(BaseTestCase):
 
     def test_process_open_orders(self):
-        """This test simulates a situation where multiple process open orders tasks are queued simulatenously. We don't
+        """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
+        lock = dlm.lock(PROCESS_ORDERS_LOCK_KEY, PROCESS_ORDERS_LOCK_TIMEOUT)
+        if lock:
+            dlm.unlock(lock)
         res1 = async_process_all_open_orders.delay()
         res2 = async_process_all_open_orders.delay()
         res3 = async_process_all_open_orders.delay()
+        res4 = async_process_all_open_orders.delay()
+        res5 = async_process_all_open_orders.delay()
+        while not res1.ready():
+            continue
         self.assertIsNone(res1.get())
         self.assertEqual(res2.get(), TASK_LOCK_MSG)
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
+        self.assertEqual(res4.get(), TASK_LOCK_MSG)
+        self.assertEqual(res5.get(), TASK_LOCK_MSG)

@@ -39,6 +39,9 @@ from backend.tasks.celery import (
 )
 from backend.tasks.redis import task_lock
 
+PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
+PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 3 * 1000
+
 # -------------------------- #
 # Price fetching and caching #
 # -------------------------- #
@@ -106,7 +109,7 @@ def async_update_symbols_table(self, n_rows=None):
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
-@task_lock(key="process_all_open_orders", timeout=60 * 5)
+@task_lock(key=PROCESS_ORDERS_LOCK_KEY, timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """

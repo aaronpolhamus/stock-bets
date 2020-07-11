@@ -9,6 +9,7 @@ from backend.tasks.redis import rds
 
 
 GAMES_PER_USER_PREFIX = "game_per_user"
+ORDERS_PER_ACTIVE_USER_PREFIX = "orders_per_active_user"
 
 # n games per user by cohort
 # --------------------------
@@ -80,7 +81,7 @@ def make_orders_per_active_user():
     game_status["users"] = game_status["users"].apply(lambda x: json.loads(x))
     game_status["user_count"] = game_status["users"].apply(lambda x: len(x))
 
-    # get total number of trades per day
+    # get total number of active users per day
     complete_counts_array = []
     for game_id in game_status["game_id"].unique():
         game_subset = game_status[game_status["game_id"] == game_id]
@@ -111,4 +112,4 @@ def serialize_and_pack_orders_per_active_user():
     df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df["series_label"] = "Orders per active user"
     chart_json = make_chart_json(df, "series_label", "orders_per_users", "timestamp")
-    rds.set(f"{GAMES_PER_USER_PREFIX}", json.dumps(chart_json))
+    rds.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
