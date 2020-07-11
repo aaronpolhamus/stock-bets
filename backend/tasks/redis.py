@@ -1,32 +1,25 @@
 import json
 from redis import Redis
+from redlock import Redlock
 
 from backend.config import Config
 
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
+dlm = Redlock([{"host": Config.REDIS_HOST}])
 
 
 def task_lock(function=None, key="", timeout=None):
-    """Enforce only one celery task at a time."""
-
+    """Enforce only one celery task at a time. timeout is in milliseconds"""
     def _dec(run_func):
-
         def _caller(*args, **kwargs):
             ret_value = TASK_LOCK_MSG
-            have_lock = False
-            lock = rds.lock(key, timeout=timeout)
-            try:
-                have_lock = lock.acquire(blocking=False)
-                if have_lock:
-                    ret_value = run_func(*args, **kwargs)
-            finally:
-                if have_lock:
-                    lock.release()
-
+            lock = dlm.lock(key, timeout)
+            if lock:
+                ret_value = run_func(*args, **kwargs)
+                dlm.unlock(lock)
             return ret_value
-
         return _caller
 
     return _dec(function) if function is not None else _dec

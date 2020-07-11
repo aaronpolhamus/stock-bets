@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { simplifyCurrency } from 'components/functions/currencyHelpers'
+import { simplifyCurrency } from 'components/functions/formattingHelpers'
 
 const SimplifiedCurrency = ({ value }) => (
   <span title={value.toLocaleString()}>{simplifyCurrency(value)}</span>
@@ -19,26 +19,29 @@ const SmallText = styled.span`
 `
 
 const SectionTitle = styled.h2`
-  font-size: var(--font-size-small);
   color: ${(props) => props.color || 'var(--color-text-primary)'};
-  text-transform: uppercase;
+  font-size: var(--font-size-small);
   font-weight: bold;
   letter-spacing: var(--letter-spacing-smallcaps);
+  text-transform: uppercase;
 `
+const TitlePage = styled.h1`
+  font-size: var(--font-size-xlarge)
 
+`
 const TextButton = styled.button`
-  font-size: ${(props) => props.size || 'var(--font-size-min)'};
-  color: ${(props) => props.color || 'var(--text-primary)'};
   background-color: transparent;
   border: none;
+  color: ${(props) => props.color || 'var(--text-primary)'};
+  font-size: ${(props) => props.size || 'var(--font-size-min)'};
   padding: 0;
 `
 
 const FlexRow = styled.div`
-  display: flex;
-  width: 100%;
-  justify-content: ${(props) => props.justify || 'center'};
   align-items: ${(props) => props.align || 'center'};
+  display: flex;
+  justify-content: ${(props) => props.justify || 'center'};
+  width: 100%;
 `
 
 const AlignText = styled.div`
@@ -51,24 +54,28 @@ const FormFooter = styled.div`
 `
 
 const Label = styled.p`
-  font-size: var(--font-size-min);
-  text-transform: uppercase;
   color: var(--color-text-gray);
-  margin: 0 0 var(--space-50) 0;
+  font-size: var(--font-size-min);
   letter-spacing: var(--letter-spacing-smallcaps);
+  margin: 0 0 var(--space-50) 0;
+  text-transform: uppercase;
 `
 
 const Subtext = styled.small`
-  display: block;
   color: var(--color-text-gray);
+  display: block;
 `
 
 const SmallCaps = styled.small`
+  color: ${(props) => props.color || 'var(--color-text-primary)'};
   font-size: var(--font-size-min);
   font-weight: 400;
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
-  color: ${(props) => props.color || 'var(--color-text-primary)'};
+`
+
+const TitleCard = styled.h3`
+  
 `
 
 export {
@@ -77,10 +84,12 @@ export {
   FlexRow,
   FormFooter,
   Label,
-  SimplifiedCurrency,
   SectionTitle,
+  SimplifiedCurrency,
   SmallCaps,
+  SmallText,
   Subtext,
   TextButton,
-  SmallText
+  TitleCard,
+  TitlePage
 }

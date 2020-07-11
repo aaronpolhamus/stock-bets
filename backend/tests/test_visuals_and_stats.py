@@ -4,23 +4,22 @@ that they are logic-level tests of how what the users do impacts what the users 
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from backend.database.fixtures.mock_data import simulation_start_time
+from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     posix_to_datetime,
     datetime_to_posix,
     n_sidebets_in_game,
     make_date_offset,
-    get_all_game_users,
+    get_all_game_users_ids,
     get_game_info,
     get_user_id,
 )
 from backend.logic.games import (
+    respond_to_game_invite,
     get_current_game_cash_balance,
     get_current_stock_holding,
-    respond_to_invite,
     get_user_invite_statuses_for_pending_game,
-    start_game_if_all_invites_responded,
     place_order,
     DEFAULT_VIRTUAL_CASH
 )
@@ -37,10 +36,11 @@ from backend.logic.visuals import (
     serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
-    compile_and_pack_player_sidebar_stats,
+    compile_and_pack_player_leaderboard,
     serialize_and_pack_order_performance_chart,
     make_balances_chart_data,
-    SIDEBAR_STATS_PREFIX,
+    make_the_field_charts,
+    LEADERBOARD_PREFIX,
     ORDER_DETAILS_PREFIX,
     ORDER_PERF_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -75,24 +75,19 @@ class TestGameKickoff(BaseTestCase):
         all_ids = [x[0] for x in result]
         self.user_id = all_ids[0]
 
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        for user_id in pending_user_ids:
-            respond_to_invite(game_id, user_id, "joined", start_time)
+        # all users accept their game invite
+        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
+            game_time_mock.time.return_value = start_time
+            time = Mock()
+            time.time.side_effect = base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
+            for user_id in pending_user_ids:
+                respond_to_game_invite(game_id, user_id, "joined", time.time())
 
         # check that we have the balances that we expect
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:
             df = pd.read_sql(sql, conn, params=[game_id])
         self.assertTrue(df.shape, (0, 2))
-
-        # this sequence simulates that happens inside async_respond_to_game_invite
-        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = start_time
-            base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
-            for user_id in pending_user_ids:
-                respond_to_invite(game_id, user_id, "joined", start_time)
-
-            start_game_if_all_invites_responded(game_id)
 
         sql = "SELECT balance, user_id from game_balances WHERE game_id = %s;"
         with self.engine.connect() as conn:
@@ -104,7 +99,7 @@ class TestGameKickoff(BaseTestCase):
         # each user, (3) an empty field chart for each user, (4) an empty field chart, and (5) an initial game stats
         # list
         cache_keys = rds.keys()
-        self.assertIn(f"{SIDEBAR_STATS_PREFIX}_{game_id}", cache_keys)
+        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", cache_keys)
         self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
         for user_id in all_ids:
             self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
@@ -118,9 +113,9 @@ class TestGameKickoff(BaseTestCase):
         chart_colors = [x["backgroundColor"] for x in field_chart["datasets"]]
         self.assertTrue(all([x == NULL_RGBA for x in chart_colors]))
 
-        sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-        self.assertEqual(len(sidebar_stats["records"]), len(all_ids))
-        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"]]))
+        leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        self.assertEqual(len(leaderboard["records"]), len(all_ids))
+        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
@@ -186,9 +181,9 @@ class TestGameKickoff(BaseTestCase):
             self.assertEqual(balances_chart["datasets"][0]["label"], "Cash")
             self.assertEqual(balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
-            compile_and_pack_player_sidebar_stats(game_id)
-            sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"]]))
+            compile_and_pack_player_leaderboard(game_id)
+            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         # The number of cached transactions that we expect an order to refresh
         self.assertEqual(len(rds.keys()), 4)
@@ -228,18 +223,44 @@ class TestGameKickoff(BaseTestCase):
             self.assertEqual(stocks, {"Cash", self.stock_pick})
             self.assertNotIn(NULL_RGBA, [x["backgroundColor"] for x in balances_chart["datasets"]])
 
-            compile_and_pack_player_sidebar_stats(game_id)
-            sidebar_stats = unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}")
-            user_stat_entry = [x for x in sidebar_stats["records"] if x["id"] == self.user_id][0]
+            compile_and_pack_player_leaderboard(game_id)
+            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            user_stat_entry = [x for x in leaderboard["records"] if x["id"] == self.user_id][0]
             self.assertEqual(user_stat_entry["cash_balance"], DEFAULT_VIRTUAL_CASH - self.market_price)
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in sidebar_stats["records"] if
+            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
         # The number of cached transactions that we expect an order to refresh
         self.assertEqual(len(rds.keys()), 4)
 
 
-class TestVisualsWithData(BaseTestCase):
+class TestVisuals(BaseTestCase):
+
+    def test_line_charts(self):
+        # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
+        # since game #3 is our realistic test case, but could be worth going back and debugging later.
+        game_id = 3
+        user_ids = [1, 3, 4]
+        compile_and_pack_player_leaderboard(game_id)
+        with patch("backend.logic.base.time") as mock_base_time:
+            mock_base_time.time.return_value = simulation_end_time
+            make_the_field_charts(game_id)
+
+        # this is basically the internals of async_update_all_games for one game
+        for user_id in user_ids:
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
+
+        # Verify that the JSON objects for chart visuals were computed and cached as expected
+        field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(field_chart)
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
+
+        # verify chart information
+        test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
+        self.assertEqual(len(test_user_data["data"]), N_PLOT_POINTS)
 
     def test_visuals_with_data(self):
         game_id = 3
@@ -252,7 +273,7 @@ class TestVisualsWithData(BaseTestCase):
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
 
-        user_ids = get_all_game_users(game_id)
+        user_ids = get_all_game_users_ids(game_id)
         for user_id in user_ids:
             serialize_and_pack_order_performance_chart(game_id, user_id)
 
@@ -270,9 +291,8 @@ class TestWinnerPayouts(BaseTestCase):
         """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
         have a week of test data, we'll effectively recycle the same information via mocks
         """
-        # simulation_start_time
         game_id = 3
-        user_ids = get_all_game_users(game_id)
+        user_ids = get_all_game_users_ids(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
         game_info = get_game_info(game_id)
 
@@ -287,12 +307,11 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(offset, DateOffset(days=7))
 
         start_time = game_info["start_time"]
+        self.assertEqual(start_time, simulation_start_time)
+
         end_time = start_time + game_info["duration"] * 60 * 60 * 24
         n_sidebets = n_sidebets_in_game(start_time, end_time, offset)
         self.assertEqual(n_sidebets, 2)
-
-        # since we haven't calculated any winners, yet, our init winners table should be blank
-        # TODO: test winners table serialize and pack for game start here
 
         # we'll mock in daily portfolio values to speed up the time this test takes
         start_dt = posix_to_datetime(start_time)
@@ -305,16 +324,15 @@ class TestWinnerPayouts(BaseTestCase):
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 
-        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks:
+        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks, patch(
+                "backend.logic.base.time") as base_time_mock:
             time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
             time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
 
-            time.time.side_effect = [time_1, time_2]
+            time.time.side_effect = base_time_mock.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4
 
-            # TODO: there's time-related randomness in who the winner is right now based on how the test data is built.
-            # clean this up later
             winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])
             log_winners(game_id, time.time())
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")

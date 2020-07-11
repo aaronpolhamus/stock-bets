@@ -12,6 +12,7 @@ pymysql==0.9.3
 pyOpenSSL==19.0.0
 pytz==2019.3
 redis==3.5.2
+redlock-py==1.0.8
 requests==2.21.0
 selenium==3.141.0
 

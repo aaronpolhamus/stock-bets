@@ -4,7 +4,7 @@ import { MakeGame } from 'components/forms/MakeGame'
 import {
   Layout,
   Sidebar,
-  Content,
+  Column,
   Breadcrumb,
   PageSection,
   Header
@@ -14,8 +14,8 @@ import * as Icon from 'react-feather'
 const NewGame = () => {
   return (
     <Layout>
-      <Sidebar size='small' />
-      <Content>
+      <Sidebar md={2} />
+      <Column md={10}>
         <PageSection>
           <Breadcrumb>
             <Link to='/'>
@@ -29,7 +29,7 @@ const NewGame = () => {
           </Header>
         </PageSection>
         <MakeGame />
-      </Content>
+      </Column>
     </Layout>
   )
 }

@@ -95,7 +95,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
   const [username, setUsername] = useState(null)
   useEffect(() => {
     const getSidebarStats = async () => {
-      const data = await fetchGameData(gameId, 'get_sidebar_stats')
+      const data = await fetchGameData(gameId, 'get_leaderboard')
       setUsernames(data.records.map((entry) => entry.username))
     }
     getSidebarStats()

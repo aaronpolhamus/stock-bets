@@ -4,7 +4,7 @@ import { fetchGameData, apiPost } from 'components/functions/api'
 import {
   Layout,
   Sidebar,
-  Content,
+  Column,
   Header,
   PageSection,
   Breadcrumb
@@ -84,10 +84,10 @@ const JoinGame = (props) => {
 
   return (
     <Layout>
-      <Sidebar>
+      <Sidebar md={3}>
         <GameSettings gameInfo={gameInfo} />
       </Sidebar>
-      <Content>
+      <Column md={9}>
         <PageSection>
           <Breadcrumb>
             <a href='/'>
@@ -103,7 +103,7 @@ const JoinGame = (props) => {
         <PageSection>
           <PendingGameParticipants participants={gameParticipants} />
         </PageSection>
-      </Content>
+      </Column>
     </Layout>
   )
 }

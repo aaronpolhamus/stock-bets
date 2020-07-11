@@ -6,7 +6,11 @@ import App from './App'
 import * as serviceWorker from './serviceWorker'
 
 import LogRocket from 'logrocket'
-LogRocket.init('r1u4ry/stockbets')
+import ReactGA from 'react-ga'
+
+// User traffic monitoring
+ReactGA.initialize(process.env.REACT_APP_GA_TRACKING_ID)
+LogRocket.init(process.env.REACT_APP_LOG_ROCKET_ID)
 
 ReactDOM.render(
   <React.StrictMode>

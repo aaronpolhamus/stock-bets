@@ -1,4 +1,5 @@
 import unittest
+import time
 
 import requests
 
@@ -16,6 +17,7 @@ class BaseTestCase(unittest.TestCase):
     """
 
     def setUp(self):
+        self.start_time = time.time()
         # Establish data base API and setup mock data
         self.engine = engine
         self.requests_session = requests.Session()
@@ -25,6 +27,10 @@ class BaseTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.requests_session.close()
+        t = time.time() - self.start_time
+        print('%s: ran in %.3f seconds' % (self.id(), t))
+        with open("test_times.csv", "a") as outfile:
+            outfile.write(f"{self.id()},{t}\n")
 
     def make_test_token_from_email(self, user_email: str):
         with self.engine.connect() as conn:

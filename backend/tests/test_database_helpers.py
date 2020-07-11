@@ -1,12 +1,18 @@
+import json
 import time
 
-from tests import BaseTestCase
+import pandas as pd
 
-from logic.base import get_game_info
+from backend.tests import BaseTestCase
+from backend.logic.base import get_game_info
 from backend.logic.base import get_user_information
 from backend.database.helpers import (
     add_row,
     query_to_dict
+)
+from backend.database.fixtures.mock_data import (
+    simulation_start_time,
+    simulation_end_time
 )
 
 
@@ -51,3 +57,20 @@ class TestDBHelpers(BaseTestCase):
                 timestamp=time.time())
         new_entry = get_game_info(game_id)
         self.assertEqual(new_entry["title"], "db test")
+
+    def test_mock_price_data(self):
+        with open("./database/fixtures/stock_data.json") as json_file:
+            stock_data = json.load(json_file)
+
+        with self.engine.connect() as conn:
+            df = pd.read_sql("SELECT * FROM prices;", conn)
+
+        df.sort_values(["symbol", "timestamp"])
+        amzn_subset = df[df["symbol"] == "AMZN"]
+        self.assertEqual(amzn_subset.iloc[0]["price"], stock_data["AMZN"][0]["average"])
+
+        nvda_subset = df[df["symbol"] == "NVDA"]
+        self.assertEqual(nvda_subset.iloc[-1]["price"], stock_data["NVDA"][-1]["average"])
+
+        self.assertEqual(df["timestamp"].min(), simulation_start_time)
+        self.assertEqual(df["timestamp"].max(), simulation_end_time)

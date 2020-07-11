@@ -1,35 +1,29 @@
 import React from 'react'
 import styled from 'styled-components'
-import { Container } from 'react-bootstrap'
-
+import { Container, Col, Row } from 'react-bootstrap'
+import { breakpoints } from 'components/layout/Breakpoints'
 // Global Layout Component
 const StyledContainer = styled(Container)`
   padding: 0;
 `
 
 // Sidebar Component
-const SidebarWrapper = styled.div`
+const SidebarWrapper = styled(Col)`
   background-color: var(--color-secondary);
   color: var(--color-lightest);
-  padding: 2rem;
-  flex-basis: ${(props) => (props.size === 'small' ? '170px' : '320px')};
-  flex-shrink: 0;
-  flex-grow: 0;
   box-sizing: border-box;
-  min-height: 100vh;
-  border-radius: 0 1rem 0 0;
   box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
+
+  @media screen and (min-width: ${breakpoints.md}){
+    border-radius: 0 1rem 0 0;
+    min-height: 100vh;
+  }
 `
 
-const SmallColumnWrapper = styled.div`
+const SmallColumnWrapper = styled(Col)`
   background-color: var(--color-light-gray);
-  padding: var(--space-400);
-  width: 280px;
-  flex-shrink: 0;
-  box-sizing: border-box;
   min-height: 100vh;
-  border-radius: 0 1rem 0 0;
 `
 
 const Logo = styled.a`
@@ -46,7 +40,6 @@ const Logo = styled.a`
 
 const Content = styled.div`
   padding: ${(props) => props.padding || 'var(--space-400)'};
-  flex-grow: 1;
   display: ${(props) => props.display || 'block'};
   height: ${(props) => props.height || 'auto'};
   align-items: ${(props) => props.alignItems || 'flex-start'};
@@ -74,40 +67,58 @@ const SidebarSection = styled.div`
   margin-bottom: var(--space-500);
 `
 
-const FlexContainer = styled.div`
-  display: flex;
-`
-
 // Section Component
 const PageSection = styled.section`
   margin-bottom: var(--space-600);
 `
 
-const Sidebar = ({ children, size }) => (
-  <SidebarWrapper size={size}>
-    <Logo href='/'>Stockbets</Logo>
+const ColContent = styled.div`
+  padding: var(--space-200);
+  @media screen and (min-width: ${breakpoints.md}){
+    padding: var(--space-400);
+  }
+`
 
-    {children}
+const Column = ({ children, ...props }) => (
+  <Col {...props}>
+    <ColContent>
+      {children}
+    </ColContent>
+  </Col>
+)
+
+const Sidebar = ({ children, size, ...props }) => (
+  <SidebarWrapper size={size} {...props}>
+    <ColContent>
+      <Logo href='/'>Stockbets</Logo>
+
+      {children}
+    </ColContent>
   </SidebarWrapper>
 )
 
-const SmallColumn = ({ children }) => (
-  <SmallColumnWrapper>{children}</SmallColumnWrapper>
+const SmallColumn = ({ children, ...props }) => (
+  <SmallColumnWrapper {...props}>
+    <ColContent>
+      {children}
+    </ColContent>
+  </SmallColumnWrapper>
 )
 
 const Layout = ({ children }) => (
   <StyledContainer fluid>
-    <FlexContainer noGutters>{children}</FlexContainer>
+    <Row noGutters>{children}</Row>
   </StyledContainer>
 )
 
 export {
-  Layout,
-  Sidebar,
-  PageSection,
-  Content,
-  SmallColumn,
-  Header,
   Breadcrumb,
-  SidebarSection
+  Column,
+  Content,
+  Header,
+  Layout,
+  PageSection,
+  Sidebar,
+  SidebarSection,
+  SmallColumn
 }

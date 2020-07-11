@@ -32,18 +32,15 @@ from backend.logic.base import (
     get_active_balances
 )
 from backend.logic.visuals import (
-    serialize_and_pack_order_performance_chart,
-    serialize_and_pack_winners_table,
-    init_order_details,
     update_order_details_table,
     serialize_and_pack_portfolio_details,
-    compile_and_pack_player_sidebar_stats,
-    make_the_field_charts,
 )
 from funkybob import RandomNameGenerator
 
 # Default make game settings
 # --------------------------
+from logic.visuals import seed_visual_assets
+
 DEFAULT_GAME_MODE = "return_weighted"
 DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
@@ -134,6 +131,13 @@ def add_game(creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, sid
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 
 
+def respond_to_game_invite(game_id, user_id, decision, response_time):
+    # respond_to_invite
+    assert decision in ["joined", "declined"]
+    add_row("game_invites", game_id=game_id, user_id=user_id, status=decision, timestamp=response_time)
+    start_game_if_all_invites_responded(game_id)
+
+
 def get_open_game_invite_ids():
     """This function returns game IDs for the subset of games that are both open and past their invite window. We pass
     the resulting IDs to service_open_game to figure out whether to activate or close the game, and identify who's
@@ -219,23 +223,6 @@ def get_invite_list_by_status(game_id, status="joined"):
               gi.game_id = %s AND 
               status = %s;""", game_id, status).fetchall()
     return [x[0] for x in result]
-
-
-def seed_visual_assets(game_id: int, user_id_list: List[int]):
-    # initialize a blank sidebar stats entry
-    compile_and_pack_player_sidebar_stats(game_id)
-
-    # initialize a blank payouts table
-    serialize_and_pack_winners_table(game_id)
-
-    # initialize current balances, open orders, and order performance chart
-    for user_id in user_id_list:
-        serialize_and_pack_portfolio_details(game_id, user_id)
-        init_order_details(game_id, user_id)
-        serialize_and_pack_order_performance_chart(game_id, user_id)
-
-    # build the balances and portfolio performance charts together
-    make_the_field_charts(game_id)
 
 
 def kick_off_game(game_id: int, user_id_list: List[int], update_time):
@@ -348,10 +335,6 @@ def get_game_info_for_user(user_id):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[str(user_id)]).to_dict(orient="records")
-
-
-def respond_to_invite(game_id, user_id, status, response_time):
-    add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=response_time)
 
 
 def get_user_invite_statuses_for_pending_game(game_id):

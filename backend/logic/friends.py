@@ -1,8 +1,11 @@
+import time
 from typing import List
 
 import pandas as pd
 
+from backend.database.helpers import add_row
 from backend.database.db import engine
+from backend.logic.base import get_user_id
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -127,3 +130,33 @@ def suggest_friends(user_id, text):
     suggested_friend_ids = get_suggested_friend_ids(text, excluded_ids)
     suggest_friend_details = get_user_details_from_ids(suggested_friend_ids, "suggested")
     return invited_you_details + you_invited_details + suggest_friend_details
+
+
+def get_friend_invites_list(user_id: int):
+    invite_ids = get_friend_invite_ids(user_id)
+    if not invite_ids:
+        return []
+    details = get_user_details_from_ids(invite_ids)
+    return [x["username"] for x in details]
+
+
+def get_friend_details(user_id: int):
+    friend_ids = get_friend_ids(user_id)
+    return get_user_details_from_ids(friend_ids)
+
+
+def respond_to_friend_invite(requester_username, invited_id, decision):
+    requester_id = get_user_id(requester_username)
+    add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
+
+# ------- #
+# Friends #
+# ------- #
+
+
+def invite_friend(requester_id, invited_username):
+    """Since the user is sending the request, we'll know their user ID via their web token. We don't post this
+    information to the frontend for other users, though, so we'll look up their ID based on username
+    """
+    invited_id = get_user_id(invited_username)
+    add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())

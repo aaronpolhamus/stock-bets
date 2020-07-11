@@ -1,4 +1,5 @@
 from functools import wraps
+import time
 
 import jwt
 from backend.config import Config
@@ -11,9 +12,11 @@ from backend.logic.auth import (
     register_username_with_token,
     register_user_if_first_visit,
     check_against_whitelist,
-    WhiteListException
+    WhiteListException,
+    ADMIN_USERS
 )
 from backend.logic.games import (
+    respond_to_game_invite,
     get_user_invite_statuses_for_pending_game,
     get_user_invite_status_for_game,
     suggest_symbols,
@@ -43,12 +46,19 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
-from logic.base import (
+from backend.logic.base import (
     get_game_info,
     get_user_id,
     get_pending_buy_order_value,
     fetch_price,
     get_user_information
+)
+from backend.logic.friends import (
+    get_friend_invites_list,
+    suggest_friends,
+    get_friend_details,
+    respond_to_friend_invite,
+    invite_friend
 )
 from backend.logic.visuals import (
     format_time_for_response,
@@ -57,26 +67,20 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
-    SIDEBAR_STATS_PREFIX,
+    LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
     USD_FORMAT,
     ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
-    async_update_order_details_table,
-    async_update_player_stats,
-    async_update_play_game_visuals,
-    async_compile_player_sidebar_stats,
+    async_update_all_games,
     async_cache_price,
-    async_calculate_winners,
-    async_serialize_current_balances,
-    async_invite_friend,
-    async_respond_to_friend_invite,
-    async_suggest_friends,
-    async_get_friends_details,
-    async_get_friend_invites,
-    async_serialize_balances_chart,
-    async_respond_to_game_invite
+    async_update_game_data,
+    async_calculate_metrics
+)
+from backend.bi.report_logic import (
+    GAMES_PER_USER_PREFIX,
+    ORDERS_PER_ACTIVE_USER_PREFIX
 )
 from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
@@ -128,7 +132,7 @@ def admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         user_email = decode_token(request, "email")
-        if user_email not in ["aaron@stockbets.io"]:
+        if user_email not in ADMIN_USERS:
             return make_response(ADMIN_BLOCK_MSG, 401)
         return f(*args, **kwargs)
     return decorated
@@ -234,8 +238,8 @@ def game_defaults():
     """
     user_id = decode_token(request)
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    res = async_get_friends_details.apply(args=[user_id])
-    available_invitees = [x["username"] for x in res.get()]
+    friend_details = get_friend_details(user_id)
+    available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
         mode=DEFAULT_GAME_MODE,
@@ -275,11 +279,11 @@ def create_game():
 
 @routes.route("/api/respond_to_game_invite", methods=["POST"])
 @authenticate
-def respond_to_game_invite():
+def api_respond_to_game_invite():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     decision = request.json.get("decision")
-    async_respond_to_game_invite.apply(args=[game_id, user_id, decision])
+    respond_to_game_invite(game_id, user_id, decision, time.time())
     return make_response(GAME_RESPONSE_MSG, 200)
 
 
@@ -301,6 +305,8 @@ def api_game_info():
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
+    if game_info["game_status"] == "active":
+        game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
 
@@ -364,10 +370,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    async_serialize_current_balances.delay(game_id, user_id)
-    async_update_order_details_table.apply(args=[game_id, user_id, order_id, "add"])
-    async_serialize_balances_chart.delay(game_id, user_id)
-    async_compile_player_sidebar_stats.delay(game_id)
+    update_order_details_table(game_id, user_id, order_id, "add")
+    async_update_game_data.delay(game_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
@@ -410,7 +414,7 @@ def api_suggest_symbols():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    async_invite_friend.apply(args=[user_id, invited_username])
+    invite_friend(user_id, invited_username)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
 
 
@@ -423,7 +427,7 @@ def respond_to_friend_request():
     user_id = decode_token(request)
     requester_username = request.json.get("requester_username")
     decision = request.json.get("decision")
-    async_respond_to_friend_invite.apply(args=[requester_username, user_id, decision])
+    respond_to_friend_invite(requester_username, user_id, decision)
     return make_response(FRIEND_INVITE_RESPONSE_MSG, 200)
 
 
@@ -431,14 +435,14 @@ def respond_to_friend_request():
 @authenticate
 def get_list_of_friends():
     user_id = decode_token(request)
-    return jsonify(async_get_friends_details.apply(args=[user_id]).get())
+    return jsonify(get_friend_details(user_id))
 
 
 @routes.route("/api/get_list_of_friend_invites", methods=["POST"])
 @authenticate
 def get_list_of_friend_invites():
     user_id = decode_token(request)
-    return jsonify(async_get_friend_invites.apply(args=[user_id]).get())
+    return jsonify(get_friend_invites_list(user_id))
 
 
 @routes.route("/api/suggest_friend_invites", methods=["POST"])
@@ -446,7 +450,7 @@ def get_list_of_friend_invites():
 def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
-    return jsonify(async_suggest_friends.apply(args=[user_id, text]).get())
+    return jsonify(suggest_friends(user_id, text))
 
 # ------- #
 # Visuals #
@@ -518,11 +522,11 @@ def get_payouts_table():
 # ----- #
 
 
-@routes.route("/api/get_sidebar_stats", methods=["POST"])
+@routes.route("/api/get_leaderboard", methods=["POST"])
 @authenticate
-def get_sidebar_stats():
+def get_leaderboard():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{SIDEBAR_STATS_PREFIX}_{game_id}"))
+    return jsonify(unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_cash_balances", methods=["POST"])
@@ -547,28 +551,35 @@ def verify_admin():
     return make_response("Welcome to admin", 200)
 
 
-@routes.route("/api/update_player_stats", methods=["POST"])
-@authenticate
-@admin
-def update_player_stats():
-    async_update_player_stats.delay()
-    return make_response("updating stats...", 200)
-
-
-@routes.route("/api/refresh_visuals", methods=["POST"])
+@routes.route("/api/refresh_game_statuses", methods=["POST"])
 @authenticate
 @admin
 def refresh_visuals():
-    async_update_play_game_visuals.delay()
+    async_update_all_games.delay()
     return make_response("refreshing visuals...", 200)
 
 
-@routes.route("/api/calculate_winners", methods=["POST"])
+@routes.route("/api/refresh_metrics", methods=["POST"])
 @authenticate
 @admin
-def calculate_winners():
-    async_calculate_winners.delay()
-    return make_response("calculating winners...", 200)
+def refresh_metrics():
+    async_calculate_metrics.delay()
+    return make_response("refreshing metrics...", 200)
+
+
+@routes.route("/api/games_per_users", methods=["POST"])
+@authenticate
+@admin
+def api_games_per_users():
+    return jsonify(unpack_redis_json(GAMES_PER_USER_PREFIX))
+
+
+@routes.route("/api/orders_per_active_user", methods=["POST"])
+@authenticate
+@admin
+def api_orders_per_active_user():
+    return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
+
 
 # ------ #
 # DevOps #

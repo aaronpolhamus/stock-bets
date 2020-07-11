@@ -31,6 +31,9 @@ $color-success: #3fa46d;
   --font-size-small: 0.875rem;
   --font-size-normal: 1rem;
   --font-size-medium: 1.5rem;
+  --font-size-large: 2rem;
+  --font-size-xlarge: 3rem;
+
   --letter-spacing-smallcaps: 0.03em;
 
   --space-50: 0.25rem;
@@ -65,6 +68,7 @@ $headings-font-weight: 100;
 $table-hover-bg: $color-light-gray;
 $table-border-color: $color-cool-gray;
 $badge-pill-padding-x: 0.75em;
+
 
 /* import bootstrap to set changes */
 @import "../node_modules/bootstrap/scss/bootstrap";
