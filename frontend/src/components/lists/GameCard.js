@@ -63,7 +63,7 @@ const currentUserLeaderboardPosition = (leaderboard, currentUser) => {
   return numberToOrdinal(parseInt(position) + 1)
 }
 
-const GameCard = ({ gameId, currentUser}) => {
+const GameCard = ({ gameId, currentUser }) => {
   const [gameInfo, setGameInfo] = useState({})
 
   const getGameData = async () => {
@@ -89,19 +89,19 @@ const GameCard = ({ gameId, currentUser}) => {
         <Header alignItems='center'>
           <div>
             <h3>
-              { gameInfo.title }
+              {gameInfo.title}
             </h3>
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              { gameInfo.mode }
+              {gameInfo.mode}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
             <p>
-              { leaderboardPosition }
+              {leaderboardPosition}
               <small>
-                1st: { currentLeader }
+                1st: {currentLeader}
               </small>
             </p>
             <PlayCircle
@@ -123,12 +123,12 @@ const GameCardPending = ({ gameData }) => {
         <Header alignItems='center'>
           <div>
             <h3>
-              { gameData.title }
+              {gameData.title}
             </h3>
             <small
               color='var(--color-text-gray)'
             >
-              { `Created by: ${gameData.creator_username}` }
+              {`Created by: ${gameData.creator_username}`}
             </small>
           </div>
           <Eye

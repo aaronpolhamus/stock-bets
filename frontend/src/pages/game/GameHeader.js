@@ -80,8 +80,7 @@ const GameHeader = ({ gameId }) => {
               {cashData.buying_power}
             </small>
           </p>
-        </CashInfoWrapper>
-      }
+        </CashInfoWrapper>}
     </Header>
   )
 }

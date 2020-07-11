@@ -11,7 +11,7 @@ import {
   Header,
   Layout,
   PageSection,
-  Sidebar,
+  Sidebar
 } from 'components/layout/Layout'
 
 import { TitlePage } from 'components/textComponents/Text'
@@ -60,6 +60,8 @@ const Home = () => {
   }
   if (data.username === null) {
     return <Redirect to='/welcome' />
+  } else {
+    window.heap.identify(data.username)
   }
 
   // console.log(data.game_info)
@@ -121,13 +123,13 @@ const Home = () => {
             <GameList
               games={gamesPending}
               currentUser={data.username}
-              cardType={'pending'}
+              cardType='pending'
               title='Pending'
             />
             <GameList
               games={gamesInvited}
               currentUser={data.username}
-              cardType={'pending'}
+              cardType='pending'
               title='Invited'
             />
           </Col>
