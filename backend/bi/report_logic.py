@@ -48,8 +48,8 @@ def make_games_per_user_data():
         for game_count in range(int(cohort_df["game_count"].max() + 1)):
             entry = dict(
                 cohort=cohort,
-                game_count=game_count,
-                percentage=(cohort_df["game_count"] >= game_count).sum() / population
+                game_count=float(game_count),
+                percentage=float((cohort_df["game_count"] >= game_count).sum() / population)
             )
             cohort_data_array.append(entry)
 
@@ -104,6 +104,7 @@ def make_orders_per_active_user():
 
     df = pd.concat([daily_active_users, order_totals], axis=1)
     df["orders_per_users"] = df["id"] / df["user_count"]
+    df.fillna(0)
     return df.reset_index()
 
 

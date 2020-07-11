@@ -1,3 +1,4 @@
+import json
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from backend.logic.base import (
 )
 from backend.logic.payouts import calculate_and_pack_metrics
 from backend.logic.visuals import (
+    make_chart_json,
     compile_and_pack_player_leaderboard,
     make_the_field_charts,
     serialize_and_pack_order_details,
@@ -18,7 +20,12 @@ from backend.logic.visuals import (
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table
 )
-
+from backend.bi.report_logic import (
+    serialize_and_pack_games_per_user_chart,
+    make_games_per_user_data,
+    ORDERS_PER_ACTIVE_USER_PREFIX
+)
+from backend.tasks.redis import rds
 from config import Config
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
@@ -375,6 +382,13 @@ def make_redis_mocks():
 
         # winners/payouts table
         serialize_and_pack_winners_table(game_id)
+
+    # key metrics for the admin panel
+    serialize_and_pack_games_per_user_chart()
+    # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
+    df = make_games_per_user_data()
+    chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
+    rds.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
 
 
 if __name__ == '__main__':

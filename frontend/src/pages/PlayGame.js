@@ -6,7 +6,6 @@ import {
   Layout,
   Sidebar,
   PageSection,
-  Content,
   Column,
   SmallColumn,
   Breadcrumb

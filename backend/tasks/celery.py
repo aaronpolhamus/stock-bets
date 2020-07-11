@@ -31,6 +31,16 @@ celery = celery.Celery('tasks',
                        include=['tasks.definitions'],
                        result_expires=RESULT_EXPIRE_TIME)
 
+
+class BaseTask(celery.Task):
+    """An abstract Celery Task that ensures that the connection the the database is closed on task completion. Every
+    task that interacts with the DB should use this class as a base"""
+    abstract = True
+    autoretry_for = RETRY_INVENTORY
+    default_retry_delay = DEFAULT_RETRY_DELAY
+    max_retries = MAX_RETRIES
+
+
 # Setup regularly scheduled events
 celery.conf.timezone = TIMEZONE
 celery.conf.beat_schedule = {
@@ -58,14 +68,10 @@ celery.conf.beat_schedule = {
     "update_player_stats_eod": {
         "task": "async_update_game_data",
         "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
+    },
+    # we'll also refresh platform KPIs at the end of each day
+    "calculate_metrics": {
+        "task": "async_calculate_metrics",
+        "schedule": crontab(minute="59", hour="23")
     }
 }
-
-
-class BaseTask(celery.Task):
-    """An abstract Celery Task that ensures that the connection the the database is closed on task completion. Every
-    task that interacts with the DB should use this class as a base"""
-    abstract = True
-    autoretry_for = RETRY_INVENTORY
-    default_retry_delay = DEFAULT_RETRY_DELAY
-    max_retries = MAX_RETRIES

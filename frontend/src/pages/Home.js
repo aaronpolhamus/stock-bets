@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { Link, Redirect } from 'react-router-dom'
+import { Redirect } from 'react-router-dom'
 import { Button, Col, Row } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
@@ -7,7 +7,6 @@ import styled from 'styled-components'
 import {
   Breadcrumb,
   Column,
-  Content,
   Header,
   Layout,
   PageSection,

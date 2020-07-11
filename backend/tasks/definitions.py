@@ -37,6 +37,10 @@ from backend.tasks.celery import (
     celery,
     BaseTask
 )
+from backend.bi.report_logic import (
+    serialize_and_pack_games_per_user_chart,
+    serialize_and_pack_orders_per_active_user
+)
 from backend.tasks.redis import task_lock
 
 PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
@@ -161,3 +165,12 @@ def async_update_game_data(self, game_id):
     update_performed = log_winners(game_id, time.time())
     if update_performed:
         serialize_and_pack_winners_table(game_id)
+
+
+# ----------- #
+# Key metrics #
+# ----------- #
+@celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
+def async_calculate_metrics(self):
+    serialize_and_pack_games_per_user_chart()
+    serialize_and_pack_orders_per_active_user()
