@@ -47,7 +47,7 @@ def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date:
     return df.groupby("timestamp", as_index=False)["value"].sum()
 
 
-def porfolio_return_ratio(df: pd.DataFrame):
+def portfolio_return_ratio(df: pd.DataFrame):
     start_val = df.iloc[0]["value"]
     end_val = df.iloc[-1]["value"]
     return 100 * (end_val - start_val) / start_val
@@ -67,7 +67,7 @@ def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
 def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None,
                       rf: float = RISK_FREE_RATE_DEFAULT):
     df = portfolio_value_by_day(game_id, user_id, start_date, end_date)
-    return_ratio = porfolio_return_ratio(df)
+    return_ratio = portfolio_return_ratio(df)
     sharpe_ratio = portfolio_sharpe_ratio(df, rf)
     return return_ratio, sharpe_ratio
 
