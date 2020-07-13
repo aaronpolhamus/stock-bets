@@ -228,6 +228,7 @@ def compile_and_pack_player_leaderboard(game_id: int):
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
     records = sorted(records, key=lambda x: -x[benchmark])
     output = make_side_bar_output(game_id, records)
+    import ipdb;ipdb.set_trace()
     rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output))
 
 
