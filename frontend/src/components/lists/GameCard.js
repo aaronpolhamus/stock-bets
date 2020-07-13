@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
-import { Button } from 'react-bootstrap'
 import { Header } from 'components/layout/Layout'
 import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { numberToOrdinal } from 'components/functions/formattingHelpers'
+import { UserContext } from 'UserContext'
 
 const CardMainColumn = styled.div`
   padding: var(--space-200);
@@ -54,16 +54,18 @@ const GameCardActiveInfo = styled.div`
   }
 `
 
-const currentUserLeaderboardPosition = (leaderboard, currentUser) => {
-  const position = leaderboard.findIndex(
-    (playerStats, index) => {
-      return playerStats.username === currentUser
-    }
-  )
-  return numberToOrdinal(parseInt(position) + 1)
-}
+const GameCard = ({ gameId }) => {
+  const { user } = useContext(UserContext)
 
-const GameCard = ({ gameId, currentUser}) => {
+  const currentUserLeaderboardPosition = (leaderboard) => {
+    const position = leaderboard.findIndex(
+      (playerStats, index) => {
+        return playerStats.username === user.username
+      }
+    )
+    return numberToOrdinal(parseInt(position) + 1)
+  }
+
   const [gameInfo, setGameInfo] = useState({})
 
   const getGameData = async () => {
@@ -78,7 +80,7 @@ const GameCard = ({ gameId, currentUser}) => {
   if (Object.keys(gameInfo).length === 0) return null
 
   const leaderboardPosition = `
-    ${currentUserLeaderboardPosition(gameInfo.leaderboard, currentUser)}
+    ${currentUserLeaderboardPosition(gameInfo.leaderboard)}
     place
   `
   const currentLeader = gameInfo.leaderboard[0].username

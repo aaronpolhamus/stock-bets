@@ -3,10 +3,13 @@ import styled from 'styled-components'
 
 const handleSize = (size) => {
   switch (size) {
+    case 'xsmall':
+      return '1rem'
     case 'small':
       return '1.5rem'
     default:
-      return '3rem'
+      if (size === undefined) return '3rem'
+      return size
   }
 }
 

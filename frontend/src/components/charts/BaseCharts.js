@@ -2,18 +2,21 @@ import React, { useEffect, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Form } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
+import { simplifyCurrency } from 'components/functions/formattingHelpers'
 
-const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
+const BaseChart = ({ data, height, yScaleType = 'dollar', legends = true }) => {
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <Line
       data={data}
       options={{
         legend: {
-          position: 'right',
+          position: 'bottom',
+          align: 'left',
           labels: {
             usePointStyle: true
-          }
+          },
+          display: legends
         },
         elements: {
           point: {
@@ -31,10 +34,7 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
                 callback: function (value, index, values, yScale = yScaleType) {
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
-                      return (
-                        '$' +
-                        value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                      )
+                      return simplifyCurrency(value)
                     } else {
                       return '$' + value
                     }

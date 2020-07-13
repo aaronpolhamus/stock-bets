@@ -65,6 +65,8 @@ const GameHeader = ({ gameId }) => {
           {gameInfo.mode}
           <TextDivider> | </TextDivider>
           Sidebet: {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
+          <TextDivider> | </TextDivider>
+          {gameInfo.days_left && gameInfo.days_left} days left
         </GameDetails>
       </h1>
       {cashData.cash_balance &&

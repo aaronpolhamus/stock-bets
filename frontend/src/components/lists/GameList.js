@@ -18,7 +18,6 @@ const gameListBuilder = (props) => {
 }
 
 const GameList = (props) => {
-  console.log(props.games)
   if (props.games.length === 0) return null
   return (
     <div>
@@ -30,7 +29,7 @@ const GameList = (props) => {
 
 GameList.propTypes = {
   games: PropTypes.array,
-  currentUser: PropTypes.string
+  title: PropTypes.string
 }
 
 export { GameList }
