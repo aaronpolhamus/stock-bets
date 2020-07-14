@@ -4,7 +4,7 @@ import { Button, Col, Row } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
-import { UserContext } from 'UserContext'
+import { UserContext } from 'Contexts'
 import {
   Breadcrumb,
   Column,
@@ -25,7 +25,7 @@ import LogRocket from 'logrocket'
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
   await api.post('/api/logout')
-  window.location.assign('/login')
+  window.location.assign('/')
 }
 
 const StyledMiniCard = styled(UserMiniCard)`
@@ -59,7 +59,8 @@ const Home = () => {
     setUser({
       username: data.username,
       name: data.name,
-      email: data.email
+      email: data.email,
+      profile_pic: data.profile_pic
     })
   }, [data])
 
@@ -70,7 +71,6 @@ const Home = () => {
     return <Redirect to='/welcome' />
   }
 
-  // console.log(data.game_info)
   const gamesActive = filterEntries(data.game_info, {
     game_status: 'active'
   })

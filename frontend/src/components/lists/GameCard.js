@@ -6,14 +6,15 @@ import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { numberToOrdinal } from 'components/functions/formattingHelpers'
-import { UserContext } from 'UserContext'
+import { Link } from 'react-router-dom'
+import { UserContext } from 'Contexts'
 
 const CardMainColumn = styled.div`
   padding: var(--space-200);
   flex-grow: 1;
 `
 
-const GameCardWrapper = styled.a`
+const GameCardWrapper = styled(Link)`
   display: flex;
   border-radius: 10px;
   overflow: hidden;
@@ -45,7 +46,7 @@ const GameCardActiveInfo = styled.div`
   color: var(--color-text-gray);
   font-weight: bold;
   p {
-    margin-right: var(--space-200)
+    margin-right: var(--space-200);
   }
   small {
     font-weight: regular;
@@ -56,7 +57,6 @@ const GameCardActiveInfo = styled.div`
 
 const GameCard = ({ gameId }) => {
   const { user } = useContext(UserContext)
-
   const currentUserLeaderboardPosition = (leaderboard) => {
     const position = leaderboard.findIndex(
       (playerStats, index) => {
@@ -86,7 +86,7 @@ const GameCard = ({ gameId }) => {
   const currentLeader = gameInfo.leaderboard[0].username
 
   return (
-    <GameCardWrapper href={`/play/${gameId}`}>
+    <GameCardWrapper to={`/play/${gameId}`}>
       <CardMainColumn>
         <Header alignItems='center'>
           <div>
@@ -120,7 +120,7 @@ const GameCard = ({ gameId }) => {
 
 const GameCardPending = ({ gameData }) => {
   return (
-    <GameCardWrapper href={`/join/${gameData.game_id}`}>
+    <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>
         <Header alignItems='center'>
           <div>
@@ -145,7 +145,7 @@ const GameCardPending = ({ gameData }) => {
 }
 
 GameCard.propTypes = {
-  gameId: PropTypes.number,
+  gameId: PropTypes.string,
   currentUser: PropTypes.string
 }
 

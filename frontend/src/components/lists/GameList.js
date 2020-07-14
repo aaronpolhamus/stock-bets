@@ -10,7 +10,6 @@ const gameListBuilder = (props) => {
       default:
         return <GameCard
           gameId={entry.game_id}
-          currentUser={props.currentUser}
           key={index}
         />
     }

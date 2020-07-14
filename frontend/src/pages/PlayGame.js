@@ -1,6 +1,6 @@
 import React from 'react'
 import { Tabs, Tab } from 'react-bootstrap'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Layout,
@@ -28,9 +28,9 @@ const PlayGame = (props) => {
       <Column md={9}>
         <PageSection>
           <Breadcrumb>
-            <a href='/'>
+            <Link to='/'>
               <ChevronLeft size={14} style={{ marginTop: '-3px' }} /> Dashboard
-            </a>
+            </Link>
           </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>
