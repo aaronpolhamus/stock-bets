@@ -24,7 +24,7 @@ class TestConfig(unittest.TestCase):
         self.assertIsNotNone(DB_PORT)
         DB_NAME = getenv("MYSQL_DATABASE")
         self.assertIsNotNone(DB_NAME)
-        db_uri = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8"
+        db_uri = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
         self.assertEqual(Config.SQLALCHEMY_DATABASE_URI, db_uri)
         self.assertIsNotNone(Config.SQLALCHEMY_DATABASE_URI)
         self.assertEqual(Config.SQLALCHEMY_TRACK_MODIFICATIONS, getenv("SQLALCHEMY_TRACK_MODIFICATIONS"))

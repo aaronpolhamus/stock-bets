@@ -36,7 +36,7 @@ class Config:
     DB_HOST = getenv("MYSQL_HOST")
     DB_PORT = getenv("MYSQL_PORT")
     DB_NAME = getenv("MYSQL_DATABASE")
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8"
+    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
     SQLALCHEMY_TRACK_MODIFICATIONS = getenv("SQLALCHEMY_TRACK_MODIFICATIONS")
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO") == "True")
     MIGRATIONS_DIRECTORY = "/home/backend/database/migrations"

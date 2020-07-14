@@ -37,7 +37,7 @@ IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 TIMEZONE = 'America/New_York'
 RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
-
+pd.options.mode.chained_assignment = None
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -347,7 +347,6 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
     max_time = datetime_to_posix(resampled_balances["timestamp"].max())
-
     # Now add price data
     symbols = balances_df["symbol"].unique()
     price_df = get_price_histories(symbols, min_time, max_time)
