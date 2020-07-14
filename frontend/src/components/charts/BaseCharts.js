@@ -15,8 +15,8 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
       data={data}
       options={{
         legend: {
-          position: 'bottom',
-          align: 'left',
+          position: 'left',
+          align: 'right',
           labels: {
             usePointStyle: true
           },
