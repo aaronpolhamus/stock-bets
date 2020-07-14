@@ -1,41 +1,43 @@
+import PropTypes from 'prop-types'
 import React, { useEffect, useState, useContext } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Header } from 'components/layout/Layout'
+import { Link } from 'react-router-dom'
+import { numberToOrdinal } from 'components/functions/formattingHelpers'
 import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
-import PropTypes from 'prop-types'
-import { numberToOrdinal } from 'components/functions/formattingHelpers'
-import { Link } from 'react-router-dom'
 import { UserContext } from 'Contexts'
 
 const CardMainColumn = styled.div`
-  padding: var(--space-200);
   flex-grow: 1;
+  padding: var(--space-200);
 `
 
 const GameCardWrapper = styled(Link)`
-  display: flex;
   border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: var(--space-400);
-  box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15),
-    0px 1px 4px rgba(31, 47, 102, 0.15);
+  box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15), 0px 1px 4px rgba(31, 47, 102, 0.15);
   color: inherit;
+  display: flex;
+  line-height: 1;
+  margin-bottom: var(--space-400);
+  overflow: hidden;
   position: relative;
   top: 0;
   transition: all .2s;
-  line-height: 1;
+
   h3 {
     margin: 0
   }
+
   p {
     margin: 0
   }
+  
   &:hover{
-    top: -5px;
     color: inherit;
     text-decoration: none;
+    top: -5px;
   }
 `
 
