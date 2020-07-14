@@ -8,6 +8,7 @@ from backend.logic.payouts import (
 )
 from backend.logic.base import (
     posix_to_datetime,
+    datetime_to_posix,
     get_game_info
 )
 from backend.logic.base import make_date_offset
@@ -16,7 +17,8 @@ from backend.database.fixtures.mock_data import simulation_start_time
 
 class TestMetrics(BaseTestCase):
 
-    def test_metrics(self):
+    @patch("backend.logic.base.time")
+    def test_metrics(self, base_time_mock):
         """The canonical game #3 has 5 days worth of stock data in it. We'll use that data here to test canonical values
         for the game winning metrics
         """
@@ -27,10 +29,11 @@ class TestMetrics(BaseTestCase):
         offset = make_date_offset(game_info["side_bets_period"])
         start_date = posix_to_datetime(simulation_start_time)
         end_date = posix_to_datetime(simulation_start_time) + offset
+        base_time_mock.time.return_value = datetime_to_posix(end_date)
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
 
-        self.assertAlmostEqual(return_ratio, -0.61337, 4)
-        self.assertAlmostEqual(sharpe_ratio, -0.54956, 4)
+        self.assertAlmostEqual(return_ratio, -1.2563, 4)
+        self.assertAlmostEqual(sharpe_ratio, -0.5267, 4)
 
 
 class TestCheckPayoutTime(TestCase):

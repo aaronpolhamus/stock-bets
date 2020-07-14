@@ -60,7 +60,6 @@ const Admin = () => {
   }
   if (redirect) return <Redirect to='/' />
   if (!validated) return <></>
-  console.log(ordersPerUserData)
   return (
     <>
       <Form onSubmit={handleSubmit}>
