@@ -2,9 +2,9 @@ import json
 import time
 from unittest.mock import patch
 
+from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
-from backend.database.fixtures.mock_data import simulation_end_time
 from backend.logic.base import (
     during_trading_day
 )
@@ -22,11 +22,12 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.logic.payouts import calculate_and_pack_metrics
-from logic.visuals import compile_and_pack_player_leaderboard
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
-    async_cache_price
+    async_cache_price,
+    PROCESS_ORDERS_LOCK_KEY,
+    PROCESS_ORDERS_LOCK_TIMEOUT
 )
 from backend.logic.friends import (
     suggest_friends,
@@ -35,13 +36,7 @@ from backend.logic.friends import (
 )
 from backend.tasks.redis import (
     rds,
-    unpack_redis_json,
     TASK_LOCK_MSG
-)
-from backend.logic.visuals import (
-    make_the_field_charts,
-    serialize_and_pack_portfolio_details,
-    serialize_and_pack_order_details
 )
 from backend.tests import BaseTestCase
 from logic.base import fetch_price
@@ -533,32 +528,9 @@ class TestVisualAssetsTasks(BaseTestCase):
             open_orders = get_all_open_orders()
             starting_open_orders = len(open_orders)
             self.assertEqual(starting_open_orders, 6)
-            res = async_process_all_open_orders.delay()
-            while not res.ready():
-                continue
+            async_process_all_open_orders.apply()
             new_open_orders = get_all_open_orders()
             self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
-
-    def test_line_charts(self):
-        # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
-        # since game #3 is our realistic test case, but could be worth going back and debugging later.
-        game_id = 3
-        user_ids = [1, 3, 4]
-        compile_and_pack_player_leaderboard(game_id)
-        with patch("backend.logic.base.time") as mock_base_time:
-            mock_base_time.time.return_value = simulation_end_time
-            make_the_field_charts(game_id)
-
-        # this is basically the internals of async_update_all_games for one game
-        for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
-            serialize_and_pack_portfolio_details(game_id, user_id)
-
-        # Verify that the JSON objects for chart visuals were computed and cached as expected
-        self.assertIsNotNone(unpack_redis_json("field_chart_3"))
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
 
 
 class TestStatsProduction(BaseTestCase):
@@ -624,12 +596,21 @@ class TestDataAccess(BaseTestCase):
 class TestTaskBlocking(BaseTestCase):
 
     def test_process_open_orders(self):
-        """This test simulates a situation where multiple process open orders tasks are queued simulatenously. We don't
+        """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
+        lock = dlm.lock(PROCESS_ORDERS_LOCK_KEY, PROCESS_ORDERS_LOCK_TIMEOUT)
+        if lock:
+            dlm.unlock(lock)
         res1 = async_process_all_open_orders.delay()
         res2 = async_process_all_open_orders.delay()
         res3 = async_process_all_open_orders.delay()
+        res4 = async_process_all_open_orders.delay()
+        res5 = async_process_all_open_orders.delay()
+        while not res1.ready():
+            continue
         self.assertIsNone(res1.get())
         self.assertEqual(res2.get(), TASK_LOCK_MSG)
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
+        self.assertEqual(res4.get(), TASK_LOCK_MSG)
+        self.assertEqual(res5.get(), TASK_LOCK_MSG)

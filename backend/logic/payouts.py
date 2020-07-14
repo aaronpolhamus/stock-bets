@@ -9,7 +9,7 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     during_trading_day,
-    get_all_game_users,
+    get_all_game_users_ids,
     get_payouts_meta_data,
     n_sidebets_in_game,
     posix_to_datetime,
@@ -97,7 +97,7 @@ def get_winner(game_id: int, start_time: float, end_time: float, benchmark: str)
     end_date = posix_to_datetime(end_time)
     ids_and_scores = []
 
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     for user_id in user_ids:
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
         metric = return_ratio
@@ -166,5 +166,10 @@ def log_winners(game_id: int, current_time: float):
                 start_time=game_start_posix, end_time=game_end_posix, payout=payout, type="overall",
                 timestamp=current_time)
         update_performed = True
+
+        # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
+        # completed
+        user_ids = get_all_game_users_ids(game_id)
+        add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
 
     return update_performed

@@ -17,7 +17,7 @@ from backend.logic.base import (
     get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    get_all_game_users,
+    get_all_game_users_ids,
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
     get_user_information,
@@ -150,9 +150,10 @@ def percent_formatter(val):
 
 
 def assign_user_colors(game_id: int):
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     colors = palette_generator(len(user_ids))
     return {user_id: color for user_id, color in zip(user_ids, colors)}
+
 
 # ----- #
 # Lists #
@@ -202,7 +203,7 @@ def make_stat_entry(user_id: int, color: str, cash_balance: float, portfolio_val
 
 
 def compile_and_pack_player_leaderboard(game_id: int):
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     user_colors = assign_user_colors(game_id)
     records = []
     for user_id in user_ids:
@@ -222,6 +223,7 @@ def compile_and_pack_player_leaderboard(game_id: int):
     records = sorted(records, key=lambda x: -x[benchmark])
     output = make_side_bar_output(game_id, records)
     rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output))
+
 
 # ------------------ #
 # Time series charts #
@@ -284,7 +286,7 @@ def make_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
 
 
 def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, dataset_color: str, labels: List[str],
-                                     data_column: str, label_column: str = "label"):
+                                     data_column: str, label_column: str):
     """The serializer requires a list of "global" labels that it can use to decide when to make null assignments, along
     with an identification of the column that contains the data mapping. We also pass in a label and color for the
     dataset
@@ -303,6 +305,41 @@ def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, datas
     return dataset
 
 
+def make_chart_json(df: pd.DataFrame, series_var: str, data_var, labels_var: str = "label",
+                    colors: List[str] = None) -> dict:
+    """
+    :param df: A data with columns corresponding to each of the required variables
+    :param series_var: What is the column that defines a unique data set entry?
+    :param labels_var: What is the column that defines the x-axis?
+    :param data_var: What is the column that defines the y-axis
+    :param colors: A passed-in array if you want to override the default color scheme
+    :return: A json-serializable chart dictionary
+
+    Target schema is:
+    data = {
+        labels = [ ... ],
+        datasets = [
+            {
+             "label": "<symbol>",
+             "data": [x1, x2, ..., xn],
+             "borderColor: "rgba(r, g, b, a)"
+            },
+            ...
+        ]
+    }
+    """
+    labels = df[labels_var].unique()
+    datasets = []
+    series = df[series_var].unique()
+    if colors is None:
+        colors = palette_generator(len(series))
+    for series_entry, color in zip(series, colors):
+        subset = df[df[series_var] == series_entry]
+        entry = serialize_pandas_rows_to_dataset(subset, series_entry, color, labels, data_var, labels_var)
+        datasets.append(entry)
+    return dict(labels=list(labels), datasets=datasets)
+
+
 def make_null_chart(null_label: str):
     """Null chart function for when a game has just barely gotten going / has started after hours and there's no data.
     For now this function is a bit unnecessary, but the idea here is to be really explicit about what's happening so
@@ -318,42 +355,14 @@ def make_null_chart(null_label: str):
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
-    """Serialize a pandas dataframe to the appropriate json format and then "pack" it to redis. The dataframe is the
-    result of calling make_balances_chart_data. Target schema is:
-    data = {
-        labels = [ ... ],
-        datasets = [
-            {
-             "label": "<symbol>",
-             "data": [x1, x2, ..., xn],
-             "borderColor: "rgba(r, g, b, a)"
-            },
-            ...
-        ]
-    }
-
-    Labels can have values of None for where we do want to have a tick, but not a label so as to avoid overcrowding.
-    Similarly, the data array for each dataset should have None values corresponding to where no data is observed for a
-    given label.
-    """
     chart_json = make_null_chart("Cash")
     if not df.empty:
         df.sort_values("timestamp", inplace=True)
-        labels = df["label"].unique()
-        datasets = []
-        symbols = df["symbol"].unique()
-        colors = palette_generator(len(symbols))
-        for symbol, color in zip(symbols, colors):
-            subset = df[df["symbol"] == symbol]
-            entry = serialize_pandas_rows_to_dataset(subset, symbol, color, labels, "value")
-            datasets.append(entry)
-        chart_json = dict(labels=list(labels), datasets=datasets)
+        chart_json = make_chart_json(df, "symbol", "value")
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
-    """This shares the same schema with the balances chart. See doc string for serialize_and_pack_balances_chart
-    """
     user_colors = assign_user_colors(game_id)
     datasets = []
     if df.empty:
@@ -362,16 +371,16 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
             null_chart = make_null_chart(username)
             datasets.append(null_chart["datasets"][0])
         labels = null_chart["labels"]
+        chart_json = dict(labels=list(labels), datasets=datasets)
     else:
-        labels = df["label"].unique()
-        for user_id, color in user_colors.items():
-            username = get_username(user_id)
-            subset = df[df["id"] == user_id]
-            entry = serialize_pandas_rows_to_dataset(subset, username, color, labels, "value")
-            datasets.append(entry)
+        colors = []
+        for user_id in df["id"].unique():
+            df.loc[df["id"] == user_id, "username"] = get_username(user_id)
+            colors.append(user_colors[user_id])
+        chart_json = make_chart_json(df, "username", "value", colors=colors)
 
     leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
-    chart_json = dict(labels=list(labels), datasets=datasets, leaderboard=leaderboard["records"])
+    chart_json["leaderboard"] = leaderboard["records"]
     rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
 
 
@@ -406,7 +415,7 @@ def make_the_field_charts(game_id: int):
     """This function wraps a loop that produces the balances chart for each user and the field chart for the game. This
     will run every time a user places and order, and periodically as prices are collected
     """
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     portfolio_values = {}
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
@@ -498,6 +507,7 @@ def make_order_performance_table(game_id: int, user_id: int):
 
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
+    # TODO: clean this up a bit with make_chart_json
     order_perf = make_order_performance_table(game_id, user_id)
     if order_perf.empty:
         chart_json = make_null_chart("Waiting for orders...")
@@ -512,7 +522,8 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         datasets = []
         for order_label, color in zip(order_labels, colors):
             subset = order_perf[order_perf["order_label"] == order_label]
-            datasets.append(serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return"))
+            datasets.append(
+                serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return", "label"))
         chart_json = dict(labels=chart_labels, datasets=datasets)
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 

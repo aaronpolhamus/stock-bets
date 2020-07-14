@@ -69,6 +69,8 @@ const Home = () => {
   }
   if (data.username === null) {
     return <Redirect to='/welcome' />
+  } else {
+    window.heap.identify(data.username)
   }
 
   const gamesActive = filterEntries(data.game_info, {

@@ -4,7 +4,7 @@ from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
     during_trading_day,
-    get_all_game_users,
+    get_all_game_users_ids,
     get_cache_price,
     set_cache_price
 )
@@ -37,7 +37,14 @@ from backend.tasks.celery import (
     celery,
     BaseTask
 )
+from backend.bi.report_logic import (
+    serialize_and_pack_games_per_user_chart,
+    serialize_and_pack_orders_per_active_user
+)
 from backend.tasks.redis import task_lock
+
+PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
+PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 3 * 1000
 
 # -------------------------- #
 # Price fetching and caching #
@@ -106,7 +113,7 @@ def async_update_symbols_table(self, n_rows=None):
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
-@task_lock(key="process_all_open_orders", timeout=60 * 5)
+@task_lock(key=PROCESS_ORDERS_LOCK_KEY, timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
@@ -136,7 +143,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id):
-    user_ids = get_all_game_users(game_id)
+    user_ids = get_all_game_users_ids(game_id)
     for user_id in user_ids:
         # calculate overall standings
         calculate_and_pack_metrics(game_id, user_id)
@@ -158,3 +165,12 @@ def async_update_game_data(self, game_id):
     update_performed = log_winners(game_id, time.time())
     if update_performed:
         serialize_and_pack_winners_table(game_id)
+
+
+# ----------- #
+# Key metrics #
+# ----------- #
+@celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
+def async_calculate_metrics(self):
+    serialize_and_pack_games_per_user_chart()
+    serialize_and_pack_orders_per_active_user()

@@ -66,20 +66,20 @@ const GameCard = ({ gameId, currentUser }) => {
         <Header alignItems='flex-start'>
           <div>
             <h3>
-              { gameInfo.title }
+              {gameInfo.title}
             </h3>
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              { gameInfo.mode }
+              {gameInfo.mode}
             </SmallCaps>
           </div>
           <div>
             <p>
-              { leaderboardPosition }
+              {leaderboardPosition}
             </p>
             <small>
-              1st: { currentLeader }
+              1st: {currentLeader}
             </small>
             <Button href={`/play/${gameId}`} size='sm' variant='light'>
               <PlayCircle

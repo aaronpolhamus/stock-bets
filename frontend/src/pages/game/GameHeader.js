@@ -88,6 +88,7 @@ const GameHeader = ({ gameId }) => {
           </small>
         </p>
       </CashInfoWrapper>
+
     </Header>
   )
 }

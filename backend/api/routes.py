@@ -12,7 +12,8 @@ from backend.logic.auth import (
     register_username_with_token,
     register_user_if_first_visit,
     check_against_whitelist,
-    WhiteListException
+    WhiteListException,
+    ADMIN_USERS
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -74,7 +75,12 @@ from backend.logic.visuals import (
 from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
-    async_update_game_data
+    async_update_game_data,
+    async_calculate_metrics
+)
+from backend.bi.report_logic import (
+    GAMES_PER_USER_PREFIX,
+    ORDERS_PER_ACTIVE_USER_PREFIX
 )
 from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
@@ -126,7 +132,7 @@ def admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         user_email = decode_token(request, "email")
-        if user_email not in ["aaron@stockbets.io"]:
+        if user_email not in ADMIN_USERS:
             return make_response(ADMIN_BLOCK_MSG, 401)
         return f(*args, **kwargs)
     return decorated
@@ -551,6 +557,28 @@ def verify_admin():
 def refresh_visuals():
     async_update_all_games.delay()
     return make_response("refreshing visuals...", 200)
+
+
+@routes.route("/api/refresh_metrics", methods=["POST"])
+@authenticate
+@admin
+def refresh_metrics():
+    async_calculate_metrics.delay()
+    return make_response("refreshing metrics...", 200)
+
+
+@routes.route("/api/games_per_users", methods=["POST"])
+@authenticate
+@admin
+def api_games_per_users():
+    return jsonify(unpack_redis_json(GAMES_PER_USER_PREFIX))
+
+
+@routes.route("/api/orders_per_active_user", methods=["POST"])
+@authenticate
+@admin
+def api_orders_per_active_user():
+    return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
 
 
 # ------ #

@@ -65,6 +65,9 @@ WHITE_LIST = [
 ]
 
 
+ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
+
+
 class WhiteListException(Exception):
 
     def __init__(self, message="The product is still in it's early beta and we're whitelisting. You'll get on soon!"):

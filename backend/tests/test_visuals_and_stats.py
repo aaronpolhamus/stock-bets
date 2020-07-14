@@ -4,14 +4,14 @@ that they are logic-level tests of how what the users do impacts what the users 
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from backend.database.fixtures.mock_data import simulation_start_time
+from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     posix_to_datetime,
     datetime_to_posix,
     n_sidebets_in_game,
     make_date_offset,
-    get_all_game_users,
+    get_all_game_users_ids,
     get_game_info,
     get_user_id,
 )
@@ -39,6 +39,7 @@ from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
     serialize_and_pack_order_performance_chart,
     make_balances_chart_data,
+    make_the_field_charts,
     LEADERBOARD_PREFIX,
     ORDER_DETAILS_PREFIX,
     ORDER_PERF_CHART_PREFIX,
@@ -233,7 +234,33 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(rds.keys()), 4)
 
 
-class TestVisualsWithData(BaseTestCase):
+class TestVisuals(BaseTestCase):
+
+    def test_line_charts(self):
+        # TODO: This test throws errors related to missing data in games 1 and 4. For now we're not worried about this,
+        # since game #3 is our realistic test case, but could be worth going back and debugging later.
+        game_id = 3
+        user_ids = [1, 3, 4]
+        compile_and_pack_player_leaderboard(game_id)
+        with patch("backend.logic.base.time") as mock_base_time:
+            mock_base_time.time.return_value = simulation_end_time
+            make_the_field_charts(game_id)
+
+        # this is basically the internals of async_update_all_games for one game
+        for user_id in user_ids:
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
+
+        # Verify that the JSON objects for chart visuals were computed and cached as expected
+        field_chart = unpack_redis_json("field_chart_3")
+        self.assertIsNotNone(field_chart)
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
+        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
+
+        # verify chart information
+        test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
+        self.assertEqual(len(test_user_data["data"]), N_PLOT_POINTS)
 
     def test_visuals_with_data(self):
         game_id = 3
@@ -246,7 +273,7 @@ class TestVisualsWithData(BaseTestCase):
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
 
-        user_ids = get_all_game_users(game_id)
+        user_ids = get_all_game_users_ids(game_id)
         for user_id in user_ids:
             serialize_and_pack_order_performance_chart(game_id, user_id)
 
@@ -265,7 +292,7 @@ class TestWinnerPayouts(BaseTestCase):
         have a week of test data, we'll effectively recycle the same information via mocks
         """
         game_id = 3
-        user_ids = get_all_game_users(game_id)
+        user_ids = get_all_game_users_ids(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
         game_info = get_game_info(game_id)
 
