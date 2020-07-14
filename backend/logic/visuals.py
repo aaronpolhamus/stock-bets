@@ -453,10 +453,10 @@ def make_order_performance_table(game_id: int, user_id: int):
     order_df["order_label"] = order_df["symbol"] + order_df["timestamp_fulfilled"].astype(str)
     order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
     order_df["order_label"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize(
-        'UTC').tz_convert(RETURN_TIME_FORMAT)
+        'UTC').tz_convert('America/New_York')
     order_df['order_label'] = order_df['order_label'].dt.strftime(DATE_LABEL_FORMAT)
     order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
-        "clear_price_fulfilled"].apply(lambda x: number_to_currency(x)) + "/" + order_df["order_label"]
+        "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
 
     # add bookend times and resample
     order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
