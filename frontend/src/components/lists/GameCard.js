@@ -147,7 +147,7 @@ const GameCardPending = ({ gameData }) => {
 }
 
 GameCard.propTypes = {
-  gameId: PropTypes.string,
+  gameId: PropTypes.number,
   currentUser: PropTypes.string
 }
 

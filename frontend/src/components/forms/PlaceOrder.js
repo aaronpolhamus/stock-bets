@@ -130,12 +130,12 @@ const PlaceOrder = ({ gameId }) => {
           <TabbedRadioButtons
             mode='tabbed'
             name='buy_or_sell'
-            defaultValue={orderTicket.buy_or_sell}
+            defaultChecked={orderTicket.buy_or_sell}
             onChange={handleChange}
             className=''
             options={gameInfo.buy_sell_options}
             color='var(--color-text-light-gray)'
-            colorChecked='var(--color-lightest)'
+            $colorChecked='var(--color-lightest)'
           />
         </Form.Group>
         <Form.Group>
@@ -209,11 +209,11 @@ const PlaceOrder = ({ gameId }) => {
               </Form.Label>
               <RadioButtons
                 name='order_type'
-                defaultValue={orderTicket.order_type}
+                defaultChecked={orderTicket.order_type}
                 onChange={handleChange}
                 options={gameInfo.order_type_options}
                 color='var(--color-text-light-gray)'
-                colorChecked='var(--color-lightest)'
+                $colorChecked='var(--color-lightest)'
               />
             </Form.Group>
           </Col>

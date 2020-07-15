@@ -111,7 +111,7 @@ const MakeGame = () => {
                 options={defaults.game_modes}
                 name='mode'
                 onChange={handleChange}
-                defaultValue={formValues.mode}
+                defaultChecked={formValues.mode}
               />
             </Form.Group>
             <Row>
@@ -156,7 +156,7 @@ const MakeGame = () => {
                 options={defaults.benchmarks}
                 name='benchmark'
                 onChange={handleChange}
-                defaultValue={formValues.benchmark}
+                defaultChecked={formValues.benchmark}
               />
             </Form.Group>
           </Col>

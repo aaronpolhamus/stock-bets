@@ -145,7 +145,7 @@ const PlayerCardStyled = styled(PlayerCard)`
   left: 200%;
   opacity: 0;
   z-index: 2;
-  transition: left .3s, opacity .3s;
+  transition: top 0s .5s, left .3s .1s, opacity .3s .1s;
   transform: translateY(-20%);
   header {
     display: flex;
@@ -166,6 +166,7 @@ const PlayerCardStyled = styled(PlayerCard)`
     top: 0;
     left: 100%;
     opacity: 1;
+    transition: left .3s .1s, opacity .3s .1s;
   }
 `
 

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
-import { Form } from 'react-bootstrap'
+import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { SectionTitle } from 'components/textComponents/Text'
+import { Header } from 'components/layout/Layout'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
@@ -16,10 +18,11 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
       options={{
         spanGaps: true,
         legend: {
-          position: 'bottom',
-          align: 'left',
+          position: 'left',
+          align: 'start',
           labels: {
-            usePointStyle: true
+            usePointStyle: true,
+            padding: 10
           },
           display: legends
         },
@@ -102,11 +105,11 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
   )
 })
 
-const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) => {
-  const [data, setData] = useState([])
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
-  const { user, setUser } = useContext(UserContext)
+  const { user } = useContext(UserContext)
 
   useEffect(() => {
     const getSidebarStats = async () => {
@@ -114,19 +117,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
       setUsernames(data.records.map((entry) => entry.username))
     }
     getSidebarStats()
-
-    if (Object.keys(user).length === 0) {
-      const getUserInfo = async () => {
-        const data = await apiPost('get_user_info', { withCredentials: true })
-        setUser({
-          username: data.username,
-          name: data.name,
-          email: data.email,
-          profile_pic: data.profile_pic
-        })
-      }
-      getUserInfo()
-    }
 
     const getGameData = async () => {
       const data = await apiPost(endpoint, {
@@ -137,39 +127,54 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
       setData(data)
     }
     getGameData()
-  }, [gameId, username, endpoint, setUser, user])
+
+    if (username === null) {
+      setUsername(user.username)
+    }
+  }, [gameId, username, endpoint])
 
   return (
     <>
-      <Form.Control
-        name='username'
-        as='select'
-        defaultValue={null}
-        onChange={(e) => setUsername(e.target.value)}
-        defalutValue={user.username}
-      >
-        {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
-      </Form.Control>
+      <Row>
+        <Col xs={6} sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>
+          }
+        </Col>
+        <Col xs={6} sm={3}>
+          <Form.Control
+            name='username'
+            as='select'
+            size='sm'
+            onChange={(e) => setUsername(e.target.value)}
+            value={username || user.username}
+          >
+            {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
+          </Form.Control>
+        </Col>
+      </Row>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )
 }
 
 BaseChart.propTypes = {
-  data: PropTypes.array,
+  data: PropTypes.object,
   height: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool,
+  maxXticks: PropTypes.number
 }
 
-BaseChart.displayName = 'BaseChartComponent'
+BaseChart.displayName = 'BaseChart'
 
 UserDropDownChart.propTypes = {
   gameId: PropTypes.string,
   height: PropTypes.string,
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool,
+  title: PropTypes.string
 }
 
 export { BaseChart, UserDropDownChart }
