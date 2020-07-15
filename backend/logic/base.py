@@ -343,6 +343,7 @@ def resample_balances(symbol_subset):
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
+    import ipdb; ipdb.set_trace()
     resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
@@ -371,7 +372,8 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
-    days = df["timestamp"].apply(lambda x: x.replace(hour=12, minute=0)).unique()
+    import ipdb; ipdb.set_trace()
+    days = df["timestamp"].dt.normalize().unique()
     df["mask"] = False
     for day in days:
         schedule = nyse.schedule(day, day)
@@ -403,13 +405,12 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    symbols = balances[group_var].unique()
-    for symbol in symbols:
-        row = balances[balances[group_var] == symbol].tail(1)
-        if row.iloc[0][condition_var] > 0 and row.iloc[0][time_var] < bookend_time:
-            row[time_var] = bookend_time
-            balances = balances.append([row], ignore_index=True)
-    return balances
+    to_append = balances[balances[time_var] < bookend_time][balances[condition_var] > 0]
+    groups = to_append.groupby(group_var)[time_var].nth(-1).to_frame()
+    groups.reset_index(inplace=True)
+    groups = groups.merge(to_append)
+    groups[time_var] = bookend_time
+    return pd.concat([balances, groups]).reset_index(drop=True)
 
 
 def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
@@ -435,7 +436,7 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     """
     balance_history = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if (balance_history["symbol"].nunique() == 1) and (balance_history["symbol"].unique() == ["Cash"]):
+    if set(balance_history["symbol"].unique()) == {'Cash'}:
         row = balance_history.iloc[0]
         row["timestamp"] = time.time()
         balance_history = balance_history.append([row], ignore_index=True)
