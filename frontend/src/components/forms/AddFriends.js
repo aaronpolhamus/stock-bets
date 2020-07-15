@@ -11,6 +11,7 @@ import { apiPost } from 'components/functions/api'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 
 const AddFriends = (props) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [friendSuggestions, setFriendSuggestions] = useState([])
 
   const [friendInvitee, setFriendInvitee] = useState('')
@@ -36,8 +37,12 @@ const AddFriends = (props) => {
   }
 
   const handleSuggestions = async (query) => {
-    const friends = await apiPost('suggest_friend_invites', { text: query })
-    setFriendSuggestions(friends)
+    setIsLoading(true)
+
+    await apiPost('suggest_friend_invites', { text: query }).then((friends) => {
+      setIsLoading(false)
+      setFriendSuggestions(friends)
+    })
   }
 
   const friendLabel = (label) => {
@@ -66,6 +71,7 @@ const AddFriends = (props) => {
               id='typeahead-particpants'
               name='invitees'
               labelKey='username'
+              isLoading={isLoading}
               options={friendSuggestions}
               placeholder="Type your friend's username"
               onSearch={handleSuggestions}
