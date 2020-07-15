@@ -49,7 +49,7 @@ PAYOUTS_PREFIX = "payouts"
 CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
-N_PLOT_POINTS = 30
+N_PLOT_POINTS = 100
 USD_FORMAT = "${:,.2f}"
 PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
@@ -311,8 +311,8 @@ def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, datas
     return dataset
 
 
-def make_chart_json(df: pd.DataFrame, series_var: str, data_var, labels_var: str = "label",
-                    colors: List[str] = None) -> dict:
+def make_chart_json(df: pd.DataFrame, series_var: str, data_var: str, labels_var: str = "label",
+                    colors: List[str] = None, interpolate: bool = True) -> dict:
     """
     :param df: A data with columns corresponding to each of the required variables
     :param series_var: What is the column that defines a unique data set entry?
@@ -334,7 +334,15 @@ def make_chart_json(df: pd.DataFrame, series_var: str, data_var, labels_var: str
         ]
     }
     """
-    labels = df[labels_var].unique()
+
+    if interpolate:
+        # if the sampling interval is fine=grained enough we may have missing valus. interpolate those here
+        def _interpolate(mini_df):
+            mini_df[data_var] = mini_df[data_var].interpolate(method='akima')
+            return mini_df
+        df = df.groupby(series_var).apply(lambda x: _interpolate(x))
+
+    labels = list(df[labels_var].unique())
     datasets = []
     series = df[series_var].unique()
     if colors is None:
@@ -343,7 +351,7 @@ def make_chart_json(df: pd.DataFrame, series_var: str, data_var, labels_var: str
         subset = df[df[series_var] == series_entry]
         entry = serialize_pandas_rows_to_dataset(subset, series_entry, color, labels, data_var, labels_var)
         datasets.append(entry)
-    return dict(labels=list(labels), datasets=datasets)
+    return dict(labels=labels, datasets=datasets)
 
 
 def make_null_chart(null_label: str):
@@ -522,15 +530,8 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         order_perf = order_perf.groupby(["order_label", "t_index"], as_index=False)[
             ["label", "return", "timestamp"]].last()
         order_perf.sort_values("t_index", inplace=True)
-        chart_labels = list(order_perf["label"].unique())
-        order_labels = order_perf["order_label"].unique()
-        colors = palette_generator(len(order_labels))
-        datasets = []
-        for order_label, color in zip(order_labels, colors):
-            subset = order_perf[order_perf["order_label"] == order_label]
-            datasets.append(
-                serialize_pandas_rows_to_dataset(subset, order_label, color, chart_labels, "return", "label"))
-        chart_json = dict(labels=chart_labels, datasets=datasets)
+        chart_json = make_chart_json(order_perf, "order_label", "return", "label")
+
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
 
 

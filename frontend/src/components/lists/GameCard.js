@@ -98,7 +98,7 @@ const GameCard = ({ gameId }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameInfo.mode}
+              {gameInfo.benchmark_formatted}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>

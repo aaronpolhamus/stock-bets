@@ -436,7 +436,7 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     """
     balance_history = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if (balance_history["symbol"].nunique() == 1) and (balance_history["symbol"].unique() == ["Cash"]):
+    if set(balance_history["symbol"].unique()) == {"Cash"}:
         row = balance_history.iloc[0]
         row["timestamp"] = time.time()
         balance_history = balance_history.append([row], ignore_index=True)

@@ -164,7 +164,7 @@ const PlaceOrder = ({ gameId }) => {
               <small>Last updated: {priceData.last_updated}</small>
               <br />
               <small>
-                <a href='https://iexcloud.io' target='_blank' rel="noopener noreferrer">
+                <a href='https://iexcloud.io' target='_blank' rel='noopener noreferrer'>
                   Data provided by IEX Cloud
                 </a>
               </small>
