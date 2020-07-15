@@ -112,13 +112,13 @@ const PlayerCard = ({ player, className }) => {
       </header>
       <PlayerReturn>
         <li>
-          { 'Simple Return ' }
+          {'Simple Return '}
           <strong>
             {player.return_ratio.toFixed(2)}%
           </strong>
         </li>
         <li>
-          { 'Sharpe Ratio ' }
+          {'Sharpe Ratio '}
           <strong>
             {player.sharpe_ratio.toFixed(4)}
           </strong>
@@ -128,7 +128,7 @@ const PlayerCard = ({ player, className }) => {
         <p>
           Stocks held:
         </p>
-        <span>{ player.stocks_held.join(', ')}</span>
+        <span>{player.stocks_held.join(', ')}</span>
       </PlayerStocks>
     </div>
   )
@@ -208,11 +208,11 @@ const Leaderboard = ({ data, onSelect }) => {
             </p>
             <PlayerTooltip>
               <small>{player.return_ratio.toFixed(2)}%</small>
-              <Info 
+              <Info
                 size={14}
-                color="var(--color-text-gray)"
+                color='var(--color-text-gray)'
               />
-              <PlayerCardStyled player={player}/>
+              <PlayerCardStyled player={player} />
             </PlayerTooltip>
           </PlayerRow>
         </PlayerLi>

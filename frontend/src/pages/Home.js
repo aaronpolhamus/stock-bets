@@ -131,12 +131,12 @@ const Home = () => {
           <Col lg={6} xl={4}>
             <GameList
               games={gamesPending}
-              cardType={'pending'}
+              cardType='pending'
               title='Pending'
             />
             <GameList
               games={gamesInvited}
-              cardType={'pending'}
+              cardType='pending'
               title='Invited'
             />
           </Col>

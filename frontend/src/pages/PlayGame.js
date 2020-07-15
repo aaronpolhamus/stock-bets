@@ -45,7 +45,7 @@ const PlayGame = (props) => {
               </PageSection>
             </Tab>
             <Tab eventKey='balances-chart' title='Orders and Balances'>
-              <UserDropDownChart gameId={gameId} endpoint='get_balances_chart' />
+              <UserDropDownChart gameId={gameId} endpoint='get_balances_chart' yScaleType='dollar' />
               <BalancesTable gameId={gameId} />
               <UserDropDownChart gameId={gameId} endpoint='get_order_performance_chart' yScaleType='percent' />
               <OpenOrdersTable gameId={gameId} />

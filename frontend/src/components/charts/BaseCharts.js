@@ -6,7 +6,7 @@ import { simplifyCurrency } from 'components/functions/formattingHelpers'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
-const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, ref) => {
+const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
   // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
 
   return (
@@ -14,6 +14,7 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
       ref={ref}
       data={data}
       options={{
+        spanGaps: true,
         legend: {
           position: 'left',
           align: 'right',
@@ -36,6 +37,9 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
             {
               ticks: {
                 callback: function (value, index, values, yScale = yScaleType) {
+                  if (yScaleType === 'count') {
+                    return value
+                  }
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
                       return simplifyCurrency(value)
@@ -50,7 +54,13 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
                 }
               }
             }
-          ]
+          ],
+          xAxes: [{
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: maxXticks
+            }
+          }]
         },
         // see zoom settings at https://github.com/chartjs/chartjs-plugin-zoom
         plugins: {

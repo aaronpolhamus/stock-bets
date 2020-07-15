@@ -68,7 +68,7 @@ const GameHeader = ({ gameId }) => {
       <h1>
         <GameName>{gameInfo.title}</GameName>
         <GameDetails>
-          {gameInfo.mode}
+          {gameInfo.benchmark_formatted}
           <TextDivider> | </TextDivider>
           Sidebet: {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
           <TextDivider> | </TextDivider>

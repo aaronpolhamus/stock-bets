@@ -80,11 +80,12 @@ const FieldChart = ({ gameId, height }) => {
   return (
     <Row>
       <Col md={3}>
-        <Leaderboard data={data.leaderboard} onSelect={handleSelectUser}
+        <Leaderboard
+          data={data.leaderboard} onSelect={handleSelectUser}
         />
       </Col>
       <Col md={9}>
-        <BaseChart ref={chartRef} data={dataCopy} height={height} legends={false}/>
+        <BaseChart ref={chartRef} data={dataCopy} height={height} yScaleType='dollar' legends={false} />
       </Col>
     </Row>
   )
