@@ -61,12 +61,6 @@ const MakeGame = () => {
     setFormValues(formValuesCopy)
   }
 
-  const handleRadio = (e) => {
-    const formValuesCopy = { ...formValues }
-    // formValuesCopy['mode'] =
-    setFormValues(formValuesCopy)
-  }
-
   // necessary because this field has a special change action whereby the
   const handleSideBetChange = (e) => {
     setSidePotPct(e.target.value)
@@ -100,18 +94,6 @@ const MakeGame = () => {
                 type='input'
                 defaultValue={defaults.title}
                 onChange={handleChange}
-              />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>
-                Game mode
-                <Tooltip message='In a "consolation prize" game second place gets their money back. In a return weighted game, the pot is divided up proportionally based on game scores.' />
-              </Form.Label>
-              <RadioButtons
-                options={defaults.game_modes}
-                name='mode'
-                onChange={handleChange}
-                defaultValue={formValues.mode}
               />
             </Form.Group>
             <Row>
@@ -157,6 +139,19 @@ const MakeGame = () => {
                 name='benchmark'
                 onChange={handleChange}
                 defaultValue={formValues.benchmark}
+              />
+            </Form.Group>
+            <Form.Group>
+              <Form.Label>
+                Stakes
+                <Tooltip message="You can have 1 'just for fun' game going at any time. For real stakes games, you'll stake the buy-in right away via PayPal. We'll refund you immediately and in full if your game doesn't get started for any reason." />
+              </Form.Label>
+
+              <RadioButtons
+                options={defaults.stakes}
+                name='stakes'
+                onChange={handleChange}
+                defaultValue={formValues.default_stakes}
               />
             </Form.Group>
           </Col>

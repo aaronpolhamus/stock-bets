@@ -45,6 +45,11 @@ class SideBetPeriods(Enum):
     monthly = "Monthly"
 
 
+class GameStakes(Enum):
+    real = "Real money"
+    fun = "For fun / honor system"
+
+
 class Games(db.Model):
     __tablename__ = "games"
 
@@ -59,6 +64,7 @@ class Games(db.Model):
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
     invite_window = db.Column(db.Float(precision=32))
+    stakes = db.Column(db.Enum(GameStakes), default="fun")
 
 
 class GameStatusTypes(Enum):
@@ -214,4 +220,37 @@ class Winners(db.Model):
     end_time = db.Column(db.Float(precision=32))
     payout = db.Column(db.Float(precision=32))
     type = db.Column(db.Enum(PayoutType))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class PaymentTypes(Enum):
+    start = "start"
+    refund = "refund"
+    sidebet = "sidebet"
+    overall = "overall"
+
+
+class PaymentDirection(Enum):
+    inflow = "inflow"
+    outflow = "outflow"
+
+
+class Processors(Enum):
+    paypal = "paypal"
+
+
+class Payments(db.Model):
+    """This table handles real payments -- this isn't virtual currency, but an actual record of cash liabilities vis-a-
+    vis the platform=
+    """
+    __tablename__ = "payments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    processor = db.Column(db.Enum(Processors))
+    uuid = db.Column(db.Text)
+    winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"))
+    type = db.Column(db.Enum(PaymentTypes))
+    direction = db.Column(db.Enum(PaymentDirection))
     timestamp = db.Column(db.Float(precision=32))

@@ -20,7 +20,9 @@ from backend.database.models import (
     SideBetPeriods,
     OrderTypes,
     BuyOrSell,
-    TimeInForce)
+    TimeInForce,
+    GameStakes
+)
 from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     fetch_price,
@@ -41,7 +43,7 @@ from funkybob import RandomNameGenerator
 # --------------------------
 from logic.visuals import seed_visual_assets
 
-DEFAULT_GAME_MODE = "return_weighted"
+DEFAULT_GAME_MODE = "winner_takes_all"
 DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
 DEFAULT_REBUYS = 0  # How many rebuys are allowed
@@ -50,6 +52,8 @@ DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 48 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
+DEFAULT_GAME_STAKES = "real"
+MAX_FUN_GAMES = 3  # The total number of just-for-fun games that you're allowed to have open at a time
 
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
@@ -61,6 +65,7 @@ in javascript. We handle value-label mapping concerns on the frontend.
 GAME_MODES = unpack_enumerated_field_mappings(GameModes)
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
+GAME_STAKES = unpack_enumerated_field_mappings(GameStakes)
 
 # Default play game settings
 # --------------------------
@@ -100,6 +105,12 @@ class NoNegativeOrders(Exception):
 
     def __str__(self):
         return "You can't transact a zero or negative quantity -- did you mean to change the buy/sell option? Support for short orders coming soon."
+
+
+class FunGamesLimit(Exception):
+
+    def __str__(self):
+        return f"The maximum number of just-for-fun games that you're allowed to have a time if {MAX_FUN_GAMES}"
 
 
 def make_random_game_title():
@@ -182,9 +193,9 @@ def get_active_game_ids():
           ON
             gs.id = grouped_gs.max_id
           WHERE gs.status = 'active'
-        ) pending_game_ids
+        ) active_game_ids
         ON
-          g.id = pending_game_ids.game_id;""").fetchall()
+          g.id = active_game_ids.game_id;""").fetchall()
     return [x[0] for x in result]
 
 
@@ -305,6 +316,7 @@ def get_game_info_for_user(user_id):
             gs.game_id, 
             g.title,
             g.creator_id,
+            g.stakes,
             creator_info.profile_pic AS creator_avatar,
             creator_info.username AS creator_username,
             gs.users,
@@ -362,6 +374,14 @@ def get_user_invite_statuses_for_pending_game(game_id):
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
 
+
+def check_open_games_by_stakes(user_id: int, stakes: str):
+    """We only allow users to have a certain number of "just for fun" games open at a time before forcing them to play
+    for real stakes. This function checks that.
+    """
+    user_game_info = get_game_info_for_user(user_id)
+    if len([x for x in user_game_info if x["stakes"] == "fun"]) > MAX_FUN_GAMES:
+        raise FunGamesLimit
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------

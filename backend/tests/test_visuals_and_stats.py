@@ -23,7 +23,7 @@ from backend.logic.games import (
     place_order,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.payouts import (
+from backend.logic.winners import (
     get_winner,
     get_last_sidebet_payout,
     portfolio_value_by_day,

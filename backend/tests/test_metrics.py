@@ -2,7 +2,7 @@ from backend.tests import BaseTestCase
 from unittest import TestCase
 from unittest.mock import patch
 
-from backend.logic.payouts import (
+from backend.logic.winners import (
     calculate_metrics,
     check_if_payout_time
 )

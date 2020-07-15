@@ -44,7 +44,9 @@ from backend.logic.games import (
     ORDER_TYPES,
     TIME_IN_FORCE_TYPES,
     QUANTITY_DEFAULT,
-    QUANTITY_OPTIONS
+    QUANTITY_OPTIONS,
+    GAME_STAKES,
+    DEFAULT_GAME_STAKES
 )
 from backend.logic.base import (
     get_game_info,
@@ -252,7 +254,9 @@ def game_defaults():
         side_bets_period=DEFAULT_SIDEBET_PERIOD,
         sidebet_periods=SIDE_BET_PERIODS,
         benchmarks=BENCHMARKS,
-        available_invitees=available_invitees
+        available_invitees=available_invitees,
+        stakes=GAME_STAKES,
+        default_stakes=DEFAULT_GAME_STAKES
     )
     return jsonify(resp)
 

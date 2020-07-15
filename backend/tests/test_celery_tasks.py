@@ -21,7 +21,7 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,

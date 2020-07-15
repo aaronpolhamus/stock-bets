@@ -65,3 +65,8 @@ class Config:
     IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
     IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
     IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
+
+    # Payments
+    # --------
+    PAYPAL_CLIENT_ID = getenv("PAYPAL_CLIENT_ID")
+    PAYPAL_SECRET = getenv("PAYPAL_SECRET")

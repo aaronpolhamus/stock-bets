@@ -49,7 +49,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)

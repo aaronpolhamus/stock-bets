@@ -10,7 +10,7 @@ from backend.logic.base import (
     nyse,
     posix_to_datetime
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_metrics
 from backend.logic.visuals import (
     make_chart_json,
     compile_and_pack_player_leaderboard,
@@ -98,19 +98,19 @@ MOCK_DATA = {
     "games": [
         {"title": "fervent swartz", "mode": "consolation_prize", "duration": 365, "buy_in": 100, "n_rebuys": 2,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0, "stakes": "fun"},
         {"title": "max aggression", "mode": "winner_takes_all", "duration": 1, "buy_in": 100_000, "n_rebuys": 0,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0, "stakes": "fun"},
         {"title": "test game", "mode": "return_weighted", "duration": 14, "buy_in": 100, "n_rebuys": 3,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0, "stakes": "fun"},
         {"title": "test user excluded", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0},
+         "invite_window": 1580630520.0, "stakes": "fun"},
         {"title": "valiant roset", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0}
+         "invite_window": 1580630520.0, "stakes": "fun"}
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},

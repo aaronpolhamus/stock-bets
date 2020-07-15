@@ -15,7 +15,7 @@ from backend.logic.games import (
     get_active_game_ids,
     service_open_game
 )
-from backend.logic.payouts import (
+from backend.logic.winners import (
     calculate_and_pack_metrics,
     log_winners
 )
