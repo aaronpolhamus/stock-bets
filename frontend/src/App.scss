@@ -63,7 +63,7 @@ label {
 }
 
 .tab-pane{
-  padding: var(--space-400) 0;
+  padding: var(--space-400) var(--space-100);
 }
 
 //Buttons
@@ -92,7 +92,6 @@ label {
 
 //Table
 .table {
-  margin-top: var(--space-400);
   thead th {
     font-size: var(--font-size-min);
     text-transform: uppercase;

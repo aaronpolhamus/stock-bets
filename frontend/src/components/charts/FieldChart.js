@@ -76,7 +76,7 @@ const FieldChart = ({ gameId, height }) => {
 
     dataCopy.datasets = newDatasets
   }
-  console.log(typeof dataCopy)
+
   return (
     <Row>
       <Col md={3}>
@@ -85,7 +85,7 @@ const FieldChart = ({ gameId, height }) => {
         />
       </Col>
       <Col md={9}>
-        <BaseChart ref={chartRef} data={dataCopy} height={height} yScaleType='dollar' legends={false} />
+        <BaseChart ref={chartRef} data={dataCopy} yScaleType='dollar' legends={false} />
       </Col>
     </Row>
   )

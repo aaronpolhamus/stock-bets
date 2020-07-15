@@ -3,6 +3,8 @@ import { Line } from 'react-chartjs-2'
 import { Form } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { SmallCaps } from 'components/textComponents/Text'
+import { Header } from 'components/layout/Layout'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
@@ -18,9 +20,9 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
         legend: {
           position: 'left',
           align: 'start',
-          padding: 40,
           labels: {
-            usePointStyle: true
+            usePointStyle: true,
+            padding: 10
           },
           display: legends
         },
@@ -107,7 +109,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
   const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
-  const { user, setUser } = useContext(UserContext)
+  const { user } = useContext(UserContext)
 
   useEffect(() => {
     const getSidebarStats = async () => {
@@ -115,19 +117,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
       setUsernames(data.records.map((entry) => entry.username))
     }
     getSidebarStats()
-
-    if (Object.keys(user).length === 0) {
-      const getUserInfo = async () => {
-        const data = await apiPost('get_user_info', { withCredentials: true })
-        setUser({
-          username: data.username,
-          name: data.name,
-          email: data.email,
-          profile_pic: data.profile_pic
-        })
-      }
-      getUserInfo()
-    }
 
     const getGameData = async () => {
       const data = await apiPost(endpoint, {
@@ -138,24 +127,29 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
       setData(data)
     }
     getGameData()
-  }, [gameId, username, endpoint, setUser, user])
+
+    if (username === null) {
+      setUsername(user.username)
+    }
+  }, [gameId, username, endpoint])
 
   return (
     <>
-      <header>
-        {title && 
-          <>
-          </>
+      <Header marginBottom='var(--space-400)'>
+        {title &&
+          <h2>
+            <SmallCaps>{title}</SmallCaps>
+          </h2>
         }
         <Form.Control
           name='username'
           as='select'
           onChange={(e) => setUsername(e.target.value)}
-          value={user.username}
+          value={username || user.username}
         >
           {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
         </Form.Control>
-      </header>
+      </Header>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )
@@ -165,7 +159,8 @@ BaseChart.propTypes = {
   data: PropTypes.object,
   height: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool,
+  maxXticks: PropTypes.number
 }
 
 BaseChart.displayName = 'BaseChart'
@@ -175,7 +170,7 @@ UserDropDownChart.propTypes = {
   height: PropTypes.string,
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool, 
+  legends: PropTypes.bool,
   title: PropTypes.string
 }
 
