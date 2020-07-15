@@ -70,7 +70,7 @@ const tableHeaders = {
 const renderFulfilledRows = (rows) => {
   return rows.map((row, index) => {
     return (
-      <RowStyled title={`${row['Buy/Sell']} order`}>
+      <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
         <td>
           <OrderTypeIcon size={18} type={row['Buy/Sell']} />
         </td>
@@ -117,7 +117,7 @@ const OpenOrdersTable = ({ gameId }) => {
   const renderRows = (rows) => {
     return rows.map((row, index) => {
       return (
-        <RowStyled title={`${row['Buy/Sell']} order`}>
+        <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
           <td>
             <OrderTypeIcon size={20} type={row['Buy/Sell']} />
             <SmallCaps color='var(--color-text-gray)'>

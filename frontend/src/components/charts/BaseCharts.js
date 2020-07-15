@@ -16,7 +16,8 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
       options={{
         legend: {
           position: 'left',
-          align: 'right',
+          align: 'start',
+          padding: 40,
           labels: {
             usePointStyle: true
           },
@@ -92,8 +93,8 @@ const BaseChart = forwardRef(({ data, yScaleType = 'dollar', legends = true }, r
   )
 })
 
-const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) => {
-  const [data, setData] = useState([])
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
   const { user, setUser } = useContext(UserContext)
@@ -131,35 +132,41 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
 
   return (
     <>
-      <Form.Control
-        name='username'
-        as='select'
-        defaultValue={null}
-        onChange={(e) => setUsername(e.target.value)}
-        defalutValue={user.username}
-      >
-        {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
-      </Form.Control>
+      <header>
+        {title && 
+          <>
+          </>
+        }
+        <Form.Control
+          name='username'
+          as='select'
+          onChange={(e) => setUsername(e.target.value)}
+          value={user.username}
+        >
+          {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
+        </Form.Control>
+      </header>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )
 }
 
 BaseChart.propTypes = {
-  data: PropTypes.array,
+  data: PropTypes.object,
   height: PropTypes.string,
   yScaleType: PropTypes.string,
   legends: PropTypes.bool
 }
 
-BaseChart.displayName = 'BaseChartComponent'
+BaseChart.displayName = 'BaseChart'
 
 UserDropDownChart.propTypes = {
   gameId: PropTypes.string,
   height: PropTypes.string,
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool, 
+  title: PropTypes.string
 }
 
 export { BaseChart, UserDropDownChart }
