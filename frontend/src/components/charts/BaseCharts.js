@@ -3,12 +3,13 @@ import { Line } from 'react-chartjs-2'
 import { Form } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 
-const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
+const BaseChart = ({ data, height, yScaleType = 'count', maxXticks = 25 }) => {
   // See here for interactive documentation: https://nivo.rocks/line/
   return (
     <Line
       data={data}
       options={{
+        spanGaps: true,
         legend: {
           position: 'right',
           labels: {
@@ -29,6 +30,9 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
             {
               ticks: {
                 callback: function (value, index, values, yScale = yScaleType) {
+                  if (yScaleType === 'count') {
+                    return value
+                  }
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
                       return (
@@ -46,7 +50,13 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
                 }
               }
             }
-          ]
+          ],
+          xAxes: [{
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: maxXticks
+            }
+          }]
         },
         // see zoom settings at https://github.com/chartjs/chartjs-plugin-zoom
         plugins: {

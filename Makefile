@@ -131,6 +131,10 @@ destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you
 
 # e2e testing
 # -----------
+make mock-data:
+	make db-mock-data
+	make redis-mock-data
+
 make e2e-test:
 	docker-compose exec api python -m tests.e2e_scenario_test
 

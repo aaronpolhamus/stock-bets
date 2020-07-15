@@ -12,7 +12,7 @@ const FieldChart = ({ gameId, height }) => {
     }
     getGameData()
   }, [gameId])
-  return <BaseChart data={data} height={height} />
+  return <BaseChart data={data} height={height} yScaleType='dollar' />
 }
 
 export { FieldChart }

@@ -44,7 +44,7 @@ from backend.bi.report_logic import (
 from backend.tasks.redis import task_lock
 
 PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
-PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 3 * 1000
+PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 15 * 1000
 
 # -------------------------- #
 # Price fetching and caching #

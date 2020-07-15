@@ -71,7 +71,7 @@ const GameCard = ({ gameId, currentUser }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameInfo.mode}
+              {gameInfo.benchmark_formatted}
             </SmallCaps>
           </div>
           <div>

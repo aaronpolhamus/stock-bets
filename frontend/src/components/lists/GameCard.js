@@ -54,7 +54,6 @@ const GameCardActiveInfo = styled.div`
 `
 
 const currentUserLeaderboardPosition = (leaderboard, currentUser, gameId) => {
-  console.log(`${gameId} -- ${leaderboard}`)
   const position = leaderboard.findIndex(
     (playerStats, index) => {
       return playerStats.username === currentUser
@@ -94,7 +93,7 @@ const GameCard = ({ gameId, currentUser }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameInfo.mode}
+              {gameInfo.benchmark_formatted}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
