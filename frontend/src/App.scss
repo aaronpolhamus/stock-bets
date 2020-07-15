@@ -39,13 +39,13 @@ label {
 
 //Tabs
 .nav-tabs {
-  border: none;
+  border-bottom: 1px solid var(--color-light-gray);
   .nav-link {
-    text-transform: uppercase;
-
-    font-size: var(--font-size-small);
     border: none;
+    font-size: var(--font-size-small);
+    font-weight: bold;
     line-height: 1rem;
+    text-transform: uppercase;
     letter-spacing: var(--letter-spacing-smallcaps);
     color: var(--color-text-gray);
     border-bottom: 2px solid transparent;
@@ -58,9 +58,12 @@ label {
   .nav-link.active,
   .nav-item.show .nav-link {
     line-height: 1rem;
-    font-weight: bold;
     border-bottom: 2px solid var(--color-primary-darken);
   }
+}
+
+.tab-pane{
+  padding: var(--space-400) var(--space-200);
 }
 
 //Buttons
@@ -69,7 +72,7 @@ label {
     margin-left: 0.5em;
   }
   &-link {
-    color: inherit;
+    color: var(--color-text-gray);
     font-size: inherit;
     padding: 0;
     &:hover {
@@ -89,7 +92,7 @@ label {
 
 //Table
 .table {
-  margin-top: var(--space-400);
+  margin: 0 -0.75rem;
   thead th {
     font-size: var(--font-size-min);
     text-transform: uppercase;

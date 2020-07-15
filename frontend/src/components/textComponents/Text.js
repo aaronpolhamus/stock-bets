@@ -20,15 +20,15 @@ const SmallText = styled.span`
 
 const SectionTitle = styled.h2`
   color: ${(props) => props.color || 'var(--color-text-primary)'};
-  font-size: var(--font-size-small);
-  font-weight: bold;
-  letter-spacing: var(--letter-spacing-smallcaps);
-  text-transform: uppercase;
+  font-size: var(--font-size-medium);
+
+
 `
 const TitlePage = styled.h1`
   font-size: var(--font-size-xlarge)
 
 `
+
 const TextButton = styled.button`
   background-color: transparent;
   border: none;

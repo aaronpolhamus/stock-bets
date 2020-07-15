@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useMemo } from 'react'
 import { BrowserRouter as Router, Route } from 'react-router-dom'
 import Home from 'pages/Home'
 import Login from 'pages/Login'
@@ -8,20 +8,25 @@ import { JoinGame } from 'pages/JoinGame'
 import { NewGame } from 'pages/NewGame'
 import { Admin } from 'pages/Admin'
 import { PrivacyPolicy } from 'pages/PrivacyPolicy'
+import { UserContext } from 'Contexts'
 
 export default function App () {
+  const [user, setUser] = useState({})
+  const userProviderValue = useMemo(() => ({ user, setUser }), [user, setUser])
+
   return (
-    <div className='App'>
-      <Router>
+    <Router>
+      <UserContext.Provider value={userProviderValue}>
         <Route exact path='/' component={Home} />
-        <Route exact path='/login' component={Login} />
-        <Route exact path='/welcome' component={Welcome} />
-        <Route exact path='/new' component={NewGame} />
-        <Route exact path='/play/:gameId' component={PlayGame} />
-        <Route exact path='/join/:gameId' component={JoinGame} />
-        <Route exact path='/privacy' component={PrivacyPolicy} />
-        <Route exact path='/admin' component={Admin} />
-      </Router>
-    </div>
+        <Route exact path='/play/:gameId/' component={PlayGame} />
+        <Route exact path='/join/:gameId/' component={JoinGame} />
+        <Route path='/new/' component={NewGame} />
+      </UserContext.Provider>
+      <Route path='/welcome/' component={Welcome} />
+      <Route path='/login/' component={Login} />
+      <Route path='/privacy/' component={PrivacyPolicy} />
+      <Route path='/admin/' component={Admin} />
+
+    </Router>
   )
 }

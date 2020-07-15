@@ -2,16 +2,13 @@ import React, { useEffect, useState } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
-import { SmallCaps, Subtext, SectionTitle } from 'components/textComponents/Text'
-import { PageSection } from 'components/layout/Layout'
+import { SectionTitle, SmallCaps } from 'components/textComponents/Text'
 import {
   RowStyled,
   CellStyled,
   CancelButton
 } from 'components/tables/TableStyledComponents'
-
 import { makeCustomHeader } from 'components/functions/tables'
-
 import PropTypes from 'prop-types'
 
 const OrderTypeIcon = ({ type, ...props }) => {
@@ -23,76 +20,31 @@ const OrderTypeIcon = ({ type, ...props }) => {
   }
 }
 
-const tableHeaders = {
-  pending: [
-    {
-      value: 'Type'
-    },
-    {
-      value: 'Symbol'
-    },
-    {
-      value: 'Quantity',
-      align: 'right'
-    },
-    {
-      value: 'Price',
-      align: 'right'
-    },
-    {
-      value: 'Time in force'
-    },
-    {
-      value: 'Date Placed',
-      align: 'right'
-    }
-  ],
-  fulfilled: [
-    {
-      value: 'Type'
-    },
-    {
-      value: 'Symbol'
-    },
-    {
-      value: 'Quantity',
-      align: 'right'
-    },
-    {
-      value: 'Price',
-      align: 'right'
-    },
-    {
-      value: 'Date Placed',
-      align: 'right'
-    }
-  ]
-}
+const tableHeaders = [
+  {
+    value: 'Type'
+  },
+  {
+    value: 'Symbol'
+  },
+  {
+    value: 'Quantity',
+    align: 'right'
+  },
+  {
+    value: 'Price',
+    align: 'right'
+  },
+  {
+    value: 'Time in force'
+  },
+  {
+    value: 'Date Placed',
+    align: 'right'
+  }
+]
 
-const renderFulfilledRows = (rows) => {
-  return rows.map((row, index) => {
-    return (
-      <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
-        <td>
-          <OrderTypeIcon size={18} type={row['Buy/Sell']} />
-        </td>
-        <td>
-          <strong>{row.Symbol}</strong>
-        </td>
-        <CellStyled>
-          <strong>{row.Quantity}</strong>
-        </CellStyled>
-        <CellStyled>
-          <strong>{row['Clear price']}</strong>
-          <Subtext>{row['Hypothetical % return']}</Subtext>
-        </CellStyled>
-        <CellStyled>{row['Placed on']}</CellStyled>
-      </RowStyled>
-    )
-  })
-}
-
-const OpenOrdersTable = ({ gameId }) => {
+const PendingOrdersTable = ({ gameId, title }) => {
   const [tableData, setTableData] = useState({})
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -104,6 +56,7 @@ const OpenOrdersTable = ({ gameId }) => {
   }, [])
 
   const [cancelableOrder, setCancelableOrder] = useState(null)
+
   // Methods and settings for modal component
   const [show, setShow] = useState(false)
   const handleClose = () => setShow(false)
@@ -155,29 +108,15 @@ const OpenOrdersTable = ({ gameId }) => {
   if (tableData.orders) {
     return (
       <>
-        <PageSection>
-          <SectionTitle>Pending orders</SectionTitle>
-
-          <Table hover>
-            <thead>
-              <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
-            </thead>
-            <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
-          </Table>
-        </PageSection>
-
-        <PageSection>
-          <SectionTitle>Fulfilled orders</SectionTitle>
-          <Table hover>
-            <thead>
-              <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
-            </thead>
-            <tbody>
-              {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
-            </tbody>
-          </Table>
-        </PageSection>
-
+        {title &&
+          <SectionTitle>{title}</SectionTitle>
+        }
+        <Table hover>
+          <thead>
+            <tr>{makeCustomHeader(tableHeaders)}</tr>
+          </thead>
+          <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
+        </Table>
         <Modal centered show={show} onHide={handleClose}>
           <Modal.Header>
             <Modal.Title className='text-center'>
@@ -211,11 +150,13 @@ const OpenOrdersTable = ({ gameId }) => {
   return null
 }
 
+PendingOrdersTable.propTypes = {
+  gameId: PropTypes.number,
+  title: PropTypes.string
+}
+
 OrderTypeIcon.propTypes = {
   type: PropTypes.string
 }
 
-OpenOrdersTable.propTypes = {
-  gameId: PropTypes.number
-}
-export { OpenOrdersTable }
+export { PendingOrdersTable }

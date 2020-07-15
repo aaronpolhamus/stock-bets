@@ -1,39 +1,43 @@
-import React, { useEffect, useState } from 'react'
+import PropTypes from 'prop-types'
+import React, { useEffect, useState, useContext } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Header } from 'components/layout/Layout'
+import { Link } from 'react-router-dom'
+import { numberToOrdinal } from 'components/functions/formattingHelpers'
 import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
-import PropTypes from 'prop-types'
-import { numberToOrdinal } from 'components/functions/formattingHelpers'
+import { UserContext } from 'Contexts'
 
 const CardMainColumn = styled.div`
-  padding: var(--space-200);
   flex-grow: 1;
+  padding: var(--space-200);
 `
 
-const GameCardWrapper = styled.a`
-  display: flex;
+const GameCardWrapper = styled(Link)`
   border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: var(--space-400);
-  box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15),
-    0px 1px 4px rgba(31, 47, 102, 0.15);
+  box-shadow: 0px 5px 11px rgba(53, 52, 120, 0.15), 0px 1px 4px rgba(31, 47, 102, 0.15);
   color: inherit;
+  display: flex;
+  line-height: 1;
+  margin-bottom: var(--space-400);
+  overflow: hidden;
   position: relative;
   top: 0;
   transition: all .2s;
-  line-height: 1;
+
   h3 {
     margin: 0
   }
+
   p {
     margin: 0
   }
+  
   &:hover{
-    top: -5px;
     color: inherit;
     text-decoration: none;
+    top: -5px;
   }
 `
 
@@ -44,7 +48,7 @@ const GameCardActiveInfo = styled.div`
   color: var(--color-text-gray);
   font-weight: bold;
   p {
-    margin-right: var(--space-200)
+    margin-right: var(--space-200);
   }
   small {
     font-weight: regular;
@@ -53,17 +57,17 @@ const GameCardActiveInfo = styled.div`
   }
 `
 
-const currentUserLeaderboardPosition = (leaderboard, currentUser, gameId) => {
-  console.log(`${gameId} -- ${leaderboard}`)
-  const position = leaderboard.findIndex(
-    (playerStats, index) => {
-      return playerStats.username === currentUser
-    }
-  )
-  return numberToOrdinal(parseInt(position) + 1)
-}
+const GameCard = ({ gameId }) => {
+  const { user } = useContext(UserContext)
+  const currentUserLeaderboardPosition = (leaderboard) => {
+    const position = leaderboard.findIndex(
+      (playerStats, index) => {
+        return playerStats.username === user.username
+      }
+    )
+    return numberToOrdinal(parseInt(position) + 1)
+  }
 
-const GameCard = ({ gameId, currentUser }) => {
   const [gameInfo, setGameInfo] = useState({})
 
   const getGameData = async () => {
@@ -78,13 +82,13 @@ const GameCard = ({ gameId, currentUser }) => {
   if (Object.keys(gameInfo).length === 0) return null
 
   const leaderboardPosition = `
-    ${currentUserLeaderboardPosition(gameInfo.leaderboard, currentUser, gameId)}
+    ${currentUserLeaderboardPosition(gameInfo.leaderboard)}
     place
   `
   const currentLeader = gameInfo.leaderboard[0].username
 
   return (
-    <GameCardWrapper href={`/play/${gameId}`}>
+    <GameCardWrapper to={`/play/${gameId}`}>
       <CardMainColumn>
         <Header alignItems='center'>
           <div>
@@ -94,7 +98,7 @@ const GameCard = ({ gameId, currentUser }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameInfo.mode}
+              {gameInfo.benchmark_formatted}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
@@ -118,7 +122,7 @@ const GameCard = ({ gameId, currentUser }) => {
 
 const GameCardPending = ({ gameData }) => {
   return (
-    <GameCardWrapper href={`/join/${gameData.game_id}`}>
+    <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>
         <Header alignItems='center'>
           <div>

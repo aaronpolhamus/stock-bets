@@ -33,7 +33,7 @@ const StyledRadio = styled(Form.Check)`
   }
 
   input:checked + label {
-    color: ${(props) => props.colorChecked || 'var(--color-text-primary)'};
+    color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
     &::before {
       border-color: var(--color-primary-darken);
       background: radial-gradient(
@@ -71,7 +71,7 @@ const TabbedRadio = styled(Form.Check)`
   }
 
   input:checked + label {
-    color: ${(props) => props.colorChecked || 'var(--color-text-primary)'};
+    color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
     border-bottom-color: ${(props) => props.colorTab || 'var(--color-primary)'};
   }
 `
@@ -85,7 +85,7 @@ const buildRadios = (props, mode) => {
       value: key,
       key: index,
       id: `${props.name}-${index}`,
-      checked: props.defaultValue === key,
+      checked: props.defaultChecked === key,
       ...props
     }
 

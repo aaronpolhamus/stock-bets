@@ -593,7 +593,7 @@ class TestDataAccess(BaseTestCase):
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
 
-class TestTaskBlocking(BaseTestCase):
+class TestTaskLocking(BaseTestCase):
 
     def test_process_open_orders(self):
         """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
