@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Tooltip } from 'components/forms/Tooltips'
+import PropTypes from 'prop-types'
 
 const GameDetails = styled.small`
   display: block;
@@ -41,6 +42,11 @@ const Header = styled.header`
   }
 `
 
+const GameName = styled.span`
+  height: var(--space-400);
+  display: inline-block;
+`
+
 const GameHeader = ({ gameId }) => {
   const [gameInfo, setGameInfo] = useState([])
   const [cashData, setCashData] = useState({})
@@ -60,29 +66,35 @@ const GameHeader = ({ gameId }) => {
   return (
     <Header>
       <h1>
-        {gameInfo.title}
+        <GameName>{gameInfo.title}</GameName>
         <GameDetails>
           {gameInfo.benchmark_formatted}
           <TextDivider> | </TextDivider>
           Sidebet: {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
+          <TextDivider> | </TextDivider>
+          {gameInfo.days_left && gameInfo.days_left} days left
         </GameDetails>
       </h1>
-      {cashData.cash_balance &&
-        <CashInfoWrapper>
-          <Tooltip message='Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few.' />
-          <p>
-            <strong>Cash Balance: </strong>
-            {cashData.cash_balance}
-          </p>
-          <p>
-            <small>
-              <strong>Buying power: </strong>
-              {cashData.buying_power}
-            </small>
-          </p>
-        </CashInfoWrapper>}
+      <CashInfoWrapper>
+        <Tooltip message='Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few.' />
+        <p>
+          <strong>Cash Balance: </strong>
+          {cashData.cash_balance && cashData.cash_balance}
+        </p>
+        <p>
+          <small>
+            <strong>Buying power: </strong>
+            {cashData.buying_power && cashData.buying_power}
+          </small>
+        </p>
+      </CashInfoWrapper>
+
     </Header>
   )
+}
+
+GameHeader.propTypes = {
+  gameId: PropTypes.string
 }
 
 export { GameHeader }
