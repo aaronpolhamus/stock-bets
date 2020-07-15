@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
-import { Form } from 'react-bootstrap'
+import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
-import { SmallCaps } from 'components/textComponents/Text'
+import { SectionTitle } from 'components/textComponents/Text'
 import { Header } from 'components/layout/Layout'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
@@ -135,21 +135,24 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
 
   return (
     <>
-      <Header marginBottom='var(--space-400)'>
-        {title &&
-          <h2>
-            <SmallCaps>{title}</SmallCaps>
-          </h2>
-        }
-        <Form.Control
-          name='username'
-          as='select'
-          onChange={(e) => setUsername(e.target.value)}
-          value={username || user.username}
-        >
-          {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
-        </Form.Control>
-      </Header>
+      <Row>
+        <Col xs={6} sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>
+          }
+        </Col>
+        <Col xs={6} sm={3}>
+          <Form.Control
+            name='username'
+            as='select'
+            size='sm'
+            onChange={(e) => setUsername(e.target.value)}
+            value={username || user.username}
+          >
+            {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
+          </Form.Control>
+        </Col>
+      </Row>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )

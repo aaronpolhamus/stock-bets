@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
-import { SmallCaps } from 'components/textComponents/Text'
+import { SectionTitle, SmallCaps } from 'components/textComponents/Text'
 import {
   RowStyled,
   CellStyled,
@@ -109,9 +109,7 @@ const PendingOrdersTable = ({ gameId, title }) => {
     return (
       <>
         {title &&
-          <h2>
-            <SmallCaps>{title}</SmallCaps>
-          </h2>
+          <SectionTitle>{title}</SectionTitle>
         }
         <Table hover>
           <thead>

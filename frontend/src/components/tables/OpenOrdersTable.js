@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
-import { SmallCaps, Subtext } from 'components/textComponents/Text'
-
+import { SmallCaps, Subtext, SectionTitle } from 'components/textComponents/Text'
+import { PageSection } from 'components/layout/Layout'
 import {
   RowStyled,
   CellStyled,
@@ -11,6 +11,8 @@ import {
 } from 'components/tables/TableStyledComponents'
 
 import { makeCustomHeader } from 'components/functions/tables'
+
+import PropTypes from 'prop-types'
 
 const OrderTypeIcon = ({ type, ...props }) => {
   switch (type) {
@@ -153,26 +155,29 @@ const OpenOrdersTable = ({ gameId }) => {
   if (tableData.orders) {
     return (
       <>
-        <h2>
-          <SmallCaps>Pending orders</SmallCaps>
-        </h2>
-        <Table hover>
-          <thead>
-            <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
-          </thead>
-          <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
-        </Table>
-        <h2>
-          <SmallCaps>Fulfilled orders</SmallCaps>
-        </h2>
-        <Table hover>
-          <thead>
-            <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
-          </thead>
-          <tbody>
-            {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
-          </tbody>
-        </Table>
+        <PageSection>
+          <SectionTitle>Pending orders</SectionTitle>
+
+          <Table hover>
+            <thead>
+              <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
+            </thead>
+            <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
+          </Table>
+        </PageSection>
+
+        <PageSection>
+          <SectionTitle>Fulfilled orders</SectionTitle>
+          <Table hover>
+            <thead>
+              <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
+            </thead>
+            <tbody>
+              {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
+            </tbody>
+          </Table>
+        </PageSection>
+
         <Modal centered show={show} onHide={handleClose}>
           <Modal.Header>
             <Modal.Title className='text-center'>
@@ -187,7 +192,7 @@ const OpenOrdersTable = ({ gameId }) => {
           </Modal.Body>
           <Modal.Footer className='centered'>
             <Button variant='info' onClick={handleClose}>
-              I'll think about it
+              I&apos;ll think about it
             </Button>
             <Button
               type='submit'
@@ -206,4 +211,11 @@ const OpenOrdersTable = ({ gameId }) => {
   return null
 }
 
+OrderTypeIcon.propTypes = {
+  type: PropTypes.string
+}
+
+OpenOrdersTable.propTypes = {
+  gameId: PropTypes.number
+}
 export { OpenOrdersTable }
