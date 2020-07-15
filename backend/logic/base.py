@@ -343,7 +343,6 @@ def resample_balances(symbol_subset):
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
-    import ipdb; ipdb.set_trace()
     resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
@@ -372,7 +371,6 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
-    import ipdb; ipdb.set_trace()
     days = df["timestamp"].dt.normalize().unique()
     df["mask"] = False
     for day in days:
