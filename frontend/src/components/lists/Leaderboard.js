@@ -190,15 +190,15 @@ const Leaderboard = ({ data, onSelect }) => {
       return (
         <PlayerLi key={index}>
           <PlayerRow
-            onClick={() => {
-              onSelect(player)
-            }}
             style={{ '--player-color': player.color }}
           >
             <input
               type='checkbox'
               value={player.username}
               color={player.color}
+              onInput={() => {
+                onSelect(player)
+              }}
               defaultChecked={isCurrentUser}
             />
             <p>

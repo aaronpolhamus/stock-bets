@@ -42,7 +42,6 @@ const FieldChart = ({ gameId, height }) => {
     Object.keys(selectedCheckboxes).map((index) => {
       // Shortcut for the checkbox value in which the username is stored
       const selectedUsername = selectedCheckboxes[index].value
-
       // We grab the corresponding user color from the color attribute
       const selectedUsernameColor = selectedCheckboxes[index].getAttribute('color')
 
