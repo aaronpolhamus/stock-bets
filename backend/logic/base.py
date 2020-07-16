@@ -410,13 +410,10 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    to_append = balances[balances[time_var] < bookend_time]
-    to_append = to_append[to_append[condition_var] > 0]
-    groups = to_append.groupby(group_var)[time_var].nth(-1).to_frame()
-    groups.reset_index(inplace=True)
-    groups = groups.merge(to_append)
-    groups[time_var] = bookend_time
-    return pd.concat([balances, groups]).reset_index(drop=True)
+    last_entry_df = balances.groupby("symbol", as_index=False).last()
+    to_append = last_entry_df[(last_entry_df[condition_var] > 0) & (last_entry_df[time_var] < bookend_time)]
+    to_append[time_var] = bookend_time
+    return pd.concat([balances, to_append]).reset_index(drop=True)
 
 
 def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
@@ -432,8 +429,7 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
     with engine.connect() as conn:
         balances = pd.read_sql(sql, conn, params=[game_id, user_id])
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
-    balances = add_bookends(balances)
-    return balances
+    return add_bookends(balances)
 
 
 def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
