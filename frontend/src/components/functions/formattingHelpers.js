@@ -34,12 +34,23 @@ const msToDays = milliseconds => {
   return Math.floor(milliseconds / 86400000)
 }
 
-const daysLeft = milliseconds => {
-  const days = msToDays(milliseconds)
-  if (days <= 0) {
-    return 'Ends today'
-  } else {
-    return `${days} days left`
+const daysLeft = seconds => {
+  const endMilliseconds = seconds * 1000
+  const today = new Date().getTime()
+
+  const timeleft = endMilliseconds - today
+
+  const days = msToDays(timeleft)
+
+  if (days < 0) return 'Game ended'
+
+  switch (days) {
+    case 0:
+      return 'Ends today'
+    case 1:
+      return 'Ends tomorrow'
+    default:
+      return `${days} days left`
   }
 }
 

@@ -60,7 +60,6 @@ const GameHeader = ({ gameId }) => {
     getGameData()
   }, [])
 
-  console.log(gameInfo)
   return (
     <Header>
       <h1>
