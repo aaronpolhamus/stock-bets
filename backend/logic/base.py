@@ -39,6 +39,7 @@ RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series o
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 
+
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
@@ -367,19 +368,25 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
     return df
 
 
+def mask_time_creator(df: pd.DataFrame, start: int, end: int) -> pd.Series:
+    mask_up = df['timestamp_epoch'] >= start
+    mask_down = df['timestamp_epoch'] <= end
+    return mask_up & mask_down
+
+
 def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
     days = df["timestamp"].dt.normalize().unique()
+    schedule_df = nyse.schedule(min(days), max(days))
+    schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
+    schedule_df['end'] = schedule_df['market_close'].apply(datetime_to_posix)
+    df['timestamp_utc'] = df['timestamp'].dt.tz_convert("UTC")
+    df['timestamp_epoch'] = df['timestamp_utc'].astype('int64') // 1e9
     df["mask"] = False
-    for day in days:
-        schedule = nyse.schedule(day, day)
-        if schedule.empty:
-            continue
-        posix_times = get_schedule_start_and_end(schedule)
-        start, end = [posix_to_datetime(x) for x in posix_times]
-        df["mask"] = df["mask"] | (df["timestamp"] >= start) & (df["timestamp"] <= end)
+    for start, end in zip(schedule_df['start'], schedule_df['end']):
+        df["mask"] = df["mask"] | mask_time_creator(df, start, end)
     return df[df["mask"]]
 
 
@@ -403,7 +410,8 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    to_append = balances[balances[time_var] < bookend_time][balances[condition_var] > 0]
+    to_append = balances[balances[time_var] < bookend_time]
+    to_append = to_append[to_append[condition_var] > 0]
     groups = to_append.groupby(group_var)[time_var].nth(-1).to_frame()
     groups.reset_index(inplace=True)
     groups = groups.merge(to_append)
@@ -445,7 +453,6 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
         df = filter_for_trade_time(df)
         df["symbol"] = "Cash"
         return df
-
     # ...otherwise we'll append price data for the more detailed breakout
     df = append_price_data_to_balance_histories(balance_history)
     return filter_for_trade_time(df)
