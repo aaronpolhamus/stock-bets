@@ -1,6 +1,7 @@
 import json
 from datetime import datetime as dt, timedelta
 
+import numpy as np
 import pandas as pd
 import pytz
 
@@ -9,6 +10,8 @@ from backend.logic.base import (
     datetime_to_posix,
     nyse
 )
+
+np.random.seed(123)
 
 
 def make_stock_data_records():
@@ -22,7 +25,12 @@ def make_stock_data_records():
     trading_days = []
     for i in range(5):
         trading_days.append(schedule.iloc[i]["market_open"])
+
+    ixic_value = 10_473.83
+    gspc_value = 3_215.57
+    dji_value = 27_734.71
     price_records = []
+    index_records = []
     for sample_day, simulated_day in zip(sample_days, trading_days):
         for stock_symbol in stock_data.keys():
             sample_day_subset = [entry for entry in stock_data[stock_symbol] if entry["date"] == sample_day]
@@ -33,4 +41,19 @@ def make_stock_data_records():
                 localized_date = timezone.localize(base_date)
                 posix_time = datetime_to_posix(localized_date)
                 price_records.append(dict(symbol=stock_symbol, price=record["average"], timestamp=posix_time))
-    return price_records
+
+        # add synthetic index data as well
+        for index in ["^IXIC", "^GSPC", "^DJI"]:
+            if index == "^IXIC":
+                ixic_value += np.random.normal(ixic_value, 0.03 * ixic_value)
+                value = ixic_value
+            if index == "^GSPC":
+                gspc_value += np.random.normal(gspc_value, 0.03 * ixic_value)
+                value = gspc_value
+            if index == "^DJI":
+                dji_value += np.random.normal(dji_value, 0.03 * ixic_value)
+                value = dji_value
+
+            index_records.append(dict(symbol=index, value=value, timestamp=posix_time))
+
+    return price_records, index_records

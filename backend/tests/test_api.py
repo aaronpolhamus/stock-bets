@@ -47,7 +47,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
@@ -517,9 +517,7 @@ class TestGetGameStats(BaseTestCase):
 
     def test_leaderboard(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
         compile_and_pack_player_leaderboard(game_id)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)

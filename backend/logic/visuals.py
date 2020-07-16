@@ -3,13 +3,13 @@
 import json
 import time
 from datetime import datetime as dt
-from typing import List
 
 import numpy as np
 import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_all_game_usernames,
     get_game_info,
     add_bookends,
     fetch_price,
@@ -21,18 +21,19 @@ from backend.logic.base import (
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
     get_user_information,
-    get_game_end_date,
-    get_username,
+    get_game_start_and_end,
+    get_usernames,
     posix_to_datetime,
     datetime_to_posix,
     DEFAULT_VIRTUAL_CASH,
-    RESAMPLING_INTERVAL
+    RESAMPLING_INTERVAL,
+    TRACKED_INDEXES
 )
 from backend.tasks.redis import rds, unpack_redis_json
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-from logic.base import get_active_balances, get_payouts_meta_data
+from logic.base import get_active_balances, get_payouts_meta_data, check_game_mode
 
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
@@ -146,9 +147,9 @@ def palette_generator(n):
 # --------------- #
 
 
-def format_time_for_response(timestamp: dt) -> str:
+def format_time_for_response(timestamp: float) -> str:
     return_time = posix_to_datetime(timestamp).replace(tzinfo=None)
-    return f"{return_time.strftime(format=RETURN_TIME_FORMAT)}"
+    return f"{return_time.strftime(RETURN_TIME_FORMAT)}"
 
 
 def percent_formatter(val):
@@ -156,9 +157,16 @@ def percent_formatter(val):
 
 
 def assign_user_colors(game_id: int):
-    user_ids = get_all_game_users_ids(game_id)
-    colors = palette_generator(len(user_ids))
-    return {user_id: color for user_id, color in zip(user_ids, colors)}
+    """We break this out as a separate function because we need the leaderboard and the field charts to share the same
+    color mappings. This makes sure that there's no drift between the function
+    """
+    game_mode = check_game_mode(game_id)
+    assert game_mode in ["single_player", "multi_player"]
+    usernames = get_all_game_usernames(game_id)
+    if game_mode == "single_player":
+        usernames += TRACKED_INDEXES
+    colors = palette_generator(len(usernames))
+    return {usernames: color for usernames, color in zip(usernames, colors)}
 
 
 # ----- #
@@ -167,7 +175,8 @@ def assign_user_colors(game_id: int):
 
 
 def _days_left(game_id: int):
-    seconds_left = get_game_end_date(game_id) - time.time()
+    _, end = get_game_start_and_end(game_id)
+    seconds_left = end - time.time()
     return seconds_left // (24 * 60 * 60)
 
 
@@ -340,6 +349,7 @@ def make_chart_json(df: pd.DataFrame, series_var: str, data_var: str, labels_var
         def _interpolate(mini_df):
             mini_df[data_var] = mini_df[data_var].interpolate(method='akima')
             return mini_df
+
         df = df.groupby(series_var).apply(lambda x: _interpolate(x))
 
     labels = list(df[labels_var].unique())
@@ -380,17 +390,15 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     user_colors = assign_user_colors(game_id)
     datasets = []
     if df.empty:
-        for user_id in user_colors.keys():
-            username = get_username(user_id)
+        for username, color in user_colors.items():
             null_chart = make_null_chart(username)
             datasets.append(null_chart["datasets"][0])
         labels = null_chart["labels"]
         chart_json = dict(labels=list(labels), datasets=datasets)
     else:
         colors = []
-        for user_id in df["id"].unique():
-            df.loc[df["id"] == user_id, "username"] = get_username(user_id)
-            colors.append(user_colors[user_id])
+        for username in df["username"].unique():
+            colors.append(user_colors[username])
         chart_json = make_chart_json(df, "username", "value", colors=colors)
 
     leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
@@ -410,19 +418,13 @@ def aggregate_portfolio_value(df: pd.DataFrame):
         {"label": "first", "value": "sum", "timestamp": "first"})
 
 
-def aggregate_all_portfolios(portfolios_dict: dict) -> pd.DataFrame:
-    if all([df.empty for k, df in portfolios_dict.items()]):
-        return list(portfolios_dict.values())[0]
-
-    ls = []
-    for _id, df in portfolios_dict.items():
-        df["id"] = _id
-        ls.append(df)
-    df = pd.concat(ls)
+def relabel_aggregated_portfolios(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
     del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
     df = build_labels(df)
     df.sort_values("timestamp", inplace=True)
-    return df.groupby(["id", "t_index"], as_index=False)[["label", "value"]].agg("last")
+    return df.groupby(["username", "t_index"], as_index=False)[["label", "value"]].agg("last")
 
 
 def make_the_field_charts(game_id: int):
@@ -430,24 +432,25 @@ def make_the_field_charts(game_id: int):
     will run every time a user places and order, and periodically as prices are collected
     """
     user_ids = get_all_game_users_ids(game_id)
-    portfolio_values = {}
+    portfolios = []
     for user_id in user_ids:
         df = make_balances_chart_data(game_id, user_id)
         serialize_and_pack_balances_chart(df, game_id, user_id)
-        portfolio_values[user_id] = aggregate_portfolio_value(df)
+        portfolio = aggregate_portfolio_value(df)
+        portfolio["username"] = get_usernames([user_id])
+        portfolios.append(portfolio)
+    portfolios_df = pd.concat(portfolios)
 
     # when a game has just started during trading day no one will have placed an order. We'll do one more pass here to
     # see if this is the case, and if it is we'll make null chart assignments so that we can have an empty grid
     # until someone orders
-    init_state = all([balances.shape[0] == 1 for _, balances in portfolio_values.items()])
-    if init_state:
-        blank_df = pd.DataFrame(columns=df.columns)
+    if set(portfolios_df["symbol"].unique()) == {"Cash"}:
+        blank_df = pd.DataFrame(columns=portfolios_df.columns)
         for user_id in user_ids:
             serialize_and_pack_balances_chart(blank_df, game_id, user_id)
-            portfolio_values[user_id] = aggregate_portfolio_value(blank_df)
 
-    aggregated_df = aggregate_all_portfolios(portfolio_values)
-    serialize_and_pack_portfolio_comps_chart(aggregated_df, game_id)
+    relabelled_df = relabel_aggregated_portfolios(portfolios_df)
+    serialize_and_pack_portfolio_comps_chart(relabelled_df, game_id)
 
 
 def make_order_performance_table(game_id: int, user_id: int):
@@ -486,6 +489,7 @@ def make_order_performance_table(game_id: int, user_id: int):
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
+
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
@@ -721,7 +725,7 @@ def serialize_and_pack_winners_table(game_id: int):
         expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
         for _, row in winners_df.iterrows():
             if row["type"] == "sidebet":
-                winner = get_username(row["winner_id"])
+                winner = get_usernames([row["winner_id"]])
                 data.append(
                     make_payout_table_entry(posix_to_datetime(row["start_time"]), posix_to_datetime(row["end_time"]),
                                             winner, payout, "Sidebet", benchmark, row["score"]))
@@ -737,7 +741,7 @@ def serialize_and_pack_winners_table(game_id: int):
         final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
     else:
         winner_row = winners_df.loc[winners_df["type"] == "overall"].iloc[0]
-        winner = get_username(winner_row["winner_id"])
+        winner = get_usernames([winner_row["winner_id"]])
         final_entry = make_payout_table_entry(start_time, end_time, winner, payout, "Overall", benchmark,
                                               winner_row["score"])
 

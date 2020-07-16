@@ -2,11 +2,11 @@
 as we build out the logic library.
 """
 import calendar
-from re import sub
 import sys
 import time
 from datetime import datetime as dt, timedelta
-from typing import List
+from re import sub
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 # Defaults #
 # -------- #
 
-
+TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
@@ -153,7 +153,7 @@ def get_game_start_time(game_id: int):
 def get_game_info(game_id: int):
     sql_query = "SELECT * FROM games WHERE id = %s;"
     info = query_to_dict(sql_query, game_id)
-    info["creator_username"] = get_username(info["creator_id"])
+    info["creator_username"] = get_usernames([info["creator_id"]])
     info["mode"] = info["mode"].upper().replace("_", " ")
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
@@ -280,7 +280,7 @@ def get_pending_buy_order_value(user_id, game_id):
     return open_value
 
 
-def get_game_end_date(game_id: int):
+def get_game_start_and_end(game_id: int):
     with engine.connect() as conn:
         start_time, duration = conn.execute("""
             SELECT timestamp as start_time, duration
@@ -293,7 +293,12 @@ def get_game_end_date(game_id: int):
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
-    return start_time + duration * 24 * 60 * 60
+    return start_time, start_time + duration * 24 * 60 * 60
+
+
+def get_all_game_usernames(game_id: int):
+    user_ids = get_all_game_users_ids(game_id)
+    return get_usernames(user_ids)
 
 
 # --------- #
@@ -313,12 +318,18 @@ def get_user_id(username: str):
     return user_id
 
 
-def get_username(user_id: int):
+def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
+    """If a single user_id is passed the function will return a single username. If an array is passed, it will
+    return an array of names
+    """
     with engine.connect() as conn:
-        username = conn.execute("""
-        SELECT username FROM users WHERE id = %s
-        """, int(user_id)).fetchone()[0]
-    return username
+        usernames = conn.execute(f"""
+        SELECT username FROM users WHERE id IN ({', '.join(['%s'] * len(user_ids))})
+        """, user_ids).fetchall()
+
+    if len(usernames) == 1:
+        return usernames[0]
+    return [x[0] for x in usernames]
 
 
 # --------------- #
@@ -522,7 +533,6 @@ def get_index_value(symbol, timeout=20):
 
 
 def update_index_value(symbol):
-
     value = get_index_value(symbol)
     if during_trading_day():
         add_row("indexes", symbol=symbol, value=value, timestamp=time.time())
@@ -628,3 +638,44 @@ def get_payouts_meta_data(game_id: int):
         side_bets_perc = 0
     offset = make_date_offset(side_bets_period)
     return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]
+
+
+def check_game_mode(game_id: int):
+    with engine.connect() as conn:
+        return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id)[0]
+
+
+# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode #
+# -------------------------------------------------- #
+
+
+def get_index_reference(symbol: str, ref_time: float) -> float:
+    with engine.connect() as conn:
+        ref_val = conn.execute("""
+            SELECT value FROM indexes 
+            WHERE symbol = %s AND timestamp <= %s
+            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()[0]
+    return ref_val
+
+
+def index_portfolio_value_by_day(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
+    """In single-player mode a player competes against the indexes. This function just normalizes a dataframe of index
+    values by the starting value for when the game began
+    """
+    game_start, _ = get_game_start_and_end(game_id)
+    base_value = get_index_reference(symbol, game_start)
+    if start is None:
+        start = game_start
+
+    if end is None:
+        end = time.time()
+
+    with engine.connect() as conn:
+        df = pd.read_sql("""
+            SELECT * FROM indexes 
+            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start, end])
+
+    # normalizes index to the same starting scale as the user
+    df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
+    return df

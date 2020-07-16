@@ -22,7 +22,7 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_game_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
@@ -562,9 +562,7 @@ class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
 
         sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:

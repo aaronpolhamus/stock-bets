@@ -72,16 +72,11 @@ def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_dat
     return return_ratio, sharpe_ratio
 
 
-def calculate_and_pack_metrics(game_id, user_id, start_date=None, end_date=None):
-    return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
-    if start_date is None and end_date is None:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}"
-    else:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-    rds.set(return_ratio_label, return_ratio)
-    rds.set(sharpe_ratio_label, sharpe_ratio)
+def calculate_and_pack_game_metrics(game_id):
+    for user_id in get_all_game_users_ids(game_id):
+        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
+        rds.set(f"return_ratio_{game_id}_{user_id}", return_ratio)
+        rds.set(f"sharpe_ratio_{game_id}_{user_id}", sharpe_ratio)
 
 # ------------------- #
 # Winners and payouts #

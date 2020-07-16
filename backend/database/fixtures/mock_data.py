@@ -10,7 +10,7 @@ from backend.logic.base import (
     nyse,
     posix_to_datetime
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from backend.logic.winners import calculate_and_pack_game_metrics
 from backend.logic.visuals import (
     make_chart_json,
     compile_and_pack_player_leaderboard,
@@ -29,7 +29,7 @@ from backend.tasks.redis import rds
 from config import Config
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
-price_records = make_stock_data_records()
+price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
 simulation_end_time = max([record["timestamp"] for record in price_records])
 
@@ -175,6 +175,7 @@ MOCK_DATA = {
         {"symbol": "NKE", "name": "NIKE"},
     ],
     "prices": price_records,
+    "indexes": index_records,
     "orders": [
         # game 3, user id #1
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "buy", "quantity": 10,
@@ -363,9 +364,7 @@ def make_redis_mocks():
         mock_base_time.time.return_value = simulation_end_time
 
         # performance metrics
-        user_ids = get_all_game_users_ids(game_id)
-        for user_id in user_ids:
-            calculate_and_pack_metrics(game_id, user_id, None, None)
+        calculate_and_pack_game_metrics(game_id)
 
         # leaderboard
         compile_and_pack_player_leaderboard(game_id)
@@ -374,6 +373,7 @@ def make_redis_mocks():
         make_the_field_charts(game_id)
 
         # tables and performance breakout charts
+        user_ids = get_all_game_users_ids(game_id)
         for user_id in user_ids:
             # game/user-level assets
             serialize_and_pack_order_details(game_id, user_id)

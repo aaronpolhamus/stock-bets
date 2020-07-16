@@ -3,6 +3,7 @@ import time
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    TRACKED_INDEXES,
     during_trading_day,
     get_all_game_users_ids,
     get_cache_price,
@@ -20,8 +21,8 @@ from backend.logic.games import (
     get_active_game_ids,
     service_open_game
 )
-from backend.logic.payouts import (
-    calculate_and_pack_metrics,
+from backend.logic.winners import (
+    calculate_and_pack_game_metrics,
     log_winners
 )
 from backend.logic.visuals import (
@@ -79,22 +80,12 @@ def async_fetch_active_symbol_prices(self):
 
 @celery.task(name="async_update_index_value", bind=True, base=BaseTask)
 def async_update_index_value(self, index):
-    assert index in ["nasdaq", "sp500", "dow"]
-    if index == "nasdaq":
-        symbol = "^IXIC"
-
-    if index == "sp500":
-        symbol = "^GSPC"
-
-    if index == "dow":
-        symbol = "^DJI"
-
-    update_index_value(symbol)
+    update_index_value(index)
 
 
 @celery.task(name="async_update_all_index_values", bind=True, base=BaseTask)
 def async_update_all_index_values(self):
-    for index in ["nasdaq", "sp500", "dow"]:
+    for index in TRACKED_INDEXES:
         async_update_index_value.delay(index)
 
 
@@ -164,10 +155,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id):
-    user_ids = get_all_game_users_ids(game_id)
-    for user_id in user_ids:
-        # calculate overall standings
-        calculate_and_pack_metrics(game_id, user_id)
+    calculate_and_pack_game_metrics(game_id)
 
     # leaderboard
     compile_and_pack_player_leaderboard(game_id)
@@ -176,6 +164,7 @@ def async_update_game_data(self, game_id):
     make_the_field_charts(game_id)
 
     # tables and performance breakout charts
+    user_ids = get_all_game_users_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
         serialize_and_pack_order_details(game_id, user_id)
