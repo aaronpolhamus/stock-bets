@@ -138,8 +138,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
       <Row>
         <Col xs={6} sm={9}>
           {title &&
-            <SectionTitle>{title}</SectionTitle>
-          }
+            <SectionTitle>{title}</SectionTitle>}
         </Col>
         <Col xs={6} sm={3}>
           <Form.Control

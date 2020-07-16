@@ -6,7 +6,7 @@ const gameListBuilder = (props) => {
   return props.games.map((entry, index) => {
     switch (props.cardType) {
       case 'pending':
-        return <GameCardPending gameData={entry} key={index}/>
+        return <GameCardPending gameData={entry} key={index} />
       default:
         return <GameCard
           gameId={entry.game_id}
