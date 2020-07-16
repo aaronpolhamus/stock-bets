@@ -519,13 +519,6 @@ def get_index_value(symbol, timeout=20):
     return currency_string_to_float(header.text)
 
 
-def get_cache_price(symbol):
-    data = rds.get(symbol)
-    if data is None:
-        return None, None
-    return [float(x) for x in data.split("_")]
-
-
 def update_index_value(symbol):
 
     value = get_index_value(symbol)
@@ -545,6 +538,13 @@ def update_index_value(symbol):
         return True
 
     return False
+
+
+def get_cache_price(symbol):
+    data = rds.get(symbol)
+    if data is None:
+        return None, None
+    return [float(x) for x in data.split("_")]
 
 
 def fetch_price_iex(symbol):
