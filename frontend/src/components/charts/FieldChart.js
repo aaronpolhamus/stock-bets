@@ -32,33 +32,38 @@ const FieldChart = ({ gameId, height }) => {
     // Shortcut for the chart datasets which is the part that we are going to update in the chart
     const fieldChartDatasets = fieldChartInstance.data.datasets
 
-    // Reset every line to gray
+    const selectedUsers = Object.keys(selectedCheckboxes).reduce((agg, index) => {
+      const user = {
+        name: selectedCheckboxes[index].value,
+        color: selectedCheckboxes[index].getAttribute('color')
+      }
+
+      agg.push(user)
+      return agg
+    }, [])
+
     fieldChartDatasets.map((dataset, datasetIndex) => {
-      dataset.borderColor = 'ABAAC6'
-      dataset.borderWidth = 1
-    })
-
-    // Go through all the selected players (checkboxes)
-    Object.keys(selectedCheckboxes).map((index) => {
-      // Shortcut for the checkbox value in which the username is stored
-      const selectedUsername = selectedCheckboxes[index].value
-
-      // We grab the corresponding user color from the color attribute
-      const selectedUsernameColor = selectedCheckboxes[index].getAttribute('color')
-
-      // We go to the dataset which contains the username of the selected player and change it's color and borderWidth
-      fieldChartDatasets.findIndex((dataset, datasetIndex) => {
-        if (dataset.label === selectedUsername) {
-          dataset.borderColor = selectedUsernameColor
-          dataset.borderWidth = 2
-        }
+      // Check if the current user is in the list of selected users
+      const selectedIndex = selectedUsers.findIndex((user, index) => {
+        return user.name === dataset.label
       })
+
+      if (selectedIndex === -1) {
+        // if the selected index is -1 the user is not in the selected users list so we paint it gray
+        dataset.borderColor = '#ABAAC6'
+        dataset.borderWidth = 1
+      } else {
+        // if it is in the list we assign a color
+        dataset.borderColor = selectedUsers[selectedIndex].color
+        dataset.borderWidth = 2
+      }
     })
 
     // Update the chart with the corresponging colors according to the selectedUsers (the 0 is to avoid an animation everytime the data is changed)
     fieldChartInstance.update(0)
   }
 
+  // We make a copy of data to keep the original reference
   const dataCopy = { ...data }
 
   // I had the option to invoke handleSelectUser here, but with this method we avoid a flash of color and then changing to gray
@@ -68,7 +73,7 @@ const FieldChart = ({ gameId, height }) => {
     const newDatasets = dataCopy.datasets.map((dataset, index) => {
       const newDataset = { ...dataset }
       if (dataset.label !== user.username) {
-        newDataset.borderColor = 'ABAAC6'
+        newDataset.borderColor = '#ABAAC6'
         newDataset.borderWidth = 1
       }
       return newDataset
