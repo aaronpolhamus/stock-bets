@@ -44,10 +44,6 @@ const GameSettings = ({ gameInfo }) => {
           <StyledDd>
             {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
           </StyledDd>
-          <dt>
-            <Label>Number of rebuys</Label>
-          </dt>
-          <StyledDd>{gameInfo.n_rebuys}</StyledDd>
         </dl>
       </SidebarSection>
     </div>

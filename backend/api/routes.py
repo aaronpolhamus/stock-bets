@@ -27,11 +27,9 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
-    DEFAULT_GAME_MODE,
     GAME_MODES,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -242,11 +240,8 @@ def game_defaults():
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
-        mode=DEFAULT_GAME_MODE,
-        game_modes=GAME_MODES,
         duration=DEFAULT_GAME_DURATION,
         buy_in=DEFAULT_BUYIN,
-        n_rebuys=DEFAULT_REBUYS,
         benchmark=DEFAULT_BENCHMARK,
         side_bets_perc=DEFAULT_SIDEBET_PERCENT,
         side_bets_period=DEFAULT_SIDEBET_PERIOD,
@@ -262,18 +257,17 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    n_rebuys = 0  # this is not a popular user feature, and it  adds a lot of complexity.
     add_game(
         user_id,
         game_settings["title"],
-        game_settings["mode"],
+        game_settings["game_mode"],
         game_settings["duration"],
-        game_settings["buy_in"],
-        n_rebuys,
-        game_settings["benchmark"],
-        game_settings["side_bets_perc"],
-        game_settings["side_bets_period"],
-        game_settings["invitees"])
+        game_settings.get("buy_in"),
+        game_settings.get("benchmark"),
+        game_settings.get("side_bets_perc"),
+        game_settings.get("side_bets_period"),
+        game_settings.get("invitees")
+    )
     return make_response(GAME_CREATED_MSG, 200)
 
 

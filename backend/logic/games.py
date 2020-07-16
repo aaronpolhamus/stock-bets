@@ -41,10 +41,8 @@ from funkybob import RandomNameGenerator
 # --------------------------
 from logic.visuals import seed_visual_assets
 
-DEFAULT_GAME_MODE = "return_weighted"
 DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
-DEFAULT_REBUYS = 0  # How many rebuys are allowed
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
@@ -109,17 +107,16 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def add_game(creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc, side_bets_period,
+def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bets_perc, side_bets_period,
              invitees):
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,
-                      mode=mode,
+                      game_mode=game_mode,
                       duration=duration,
                       buy_in=buy_in,
-                      n_rebuys=n_rebuys,
                       benchmark=benchmark,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,

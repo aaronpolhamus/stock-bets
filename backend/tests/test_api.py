@@ -23,10 +23,8 @@ from backend.logic.base import (
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
-    DEFAULT_GAME_MODE,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -171,11 +169,8 @@ class TestCreateGame(BaseTestCase):
 
         expected_keys = [
             "title",
-            "mode",
-            "game_modes",
             "duration",
             "buy_in",
-            "n_rebuys",
             "benchmark",
             "side_bets_perc",
             "side_bets_period",
@@ -214,10 +209,8 @@ class TestCreateGame(BaseTestCase):
                 self.assertIn(value, frontend_labels)
 
         self.assertIsNotNone(game_defaults["title"])
-        self.assertEqual(game_defaults["mode"], DEFAULT_GAME_MODE)
         self.assertEqual(game_defaults["duration"], DEFAULT_GAME_DURATION)
         self.assertEqual(game_defaults["buy_in"], DEFAULT_BUYIN)
-        self.assertEqual(game_defaults["n_rebuys"], DEFAULT_REBUYS)
         self.assertEqual(game_defaults["benchmark"], DEFAULT_BENCHMARK)
         self.assertEqual(game_defaults["side_bets_perc"], DEFAULT_SIDEBET_PERCENT)
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
@@ -233,7 +226,7 @@ class TestCreateGame(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": buy_in,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
@@ -259,7 +252,7 @@ class TestCreateGame(BaseTestCase):
             self.assertIsNotNone(field)
         self.assertEqual(game_settings["buy_in"], games_entry[5])
         self.assertEqual(game_settings["duration"], games_entry[4])
-        self.assertEqual(game_settings["mode"], games_entry[3])
+        self.assertEqual(game_settings["game_mode"], games_entry[3])
         self.assertEqual(game_settings["n_rebuys"], games_entry[6])
         self.assertEqual(game_settings["benchmark"], games_entry[7])
         self.assertEqual(game_settings["side_bets_perc"], games_entry[8])
@@ -551,7 +544,7 @@ class TestGetGameStats(BaseTestCase):
 
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
+            if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
                      "benchmark_formatted", "leaderboard"]:
                 continue
             self.assertEqual(db_dict[k], v)
@@ -561,7 +554,6 @@ class TestGetGameStats(BaseTestCase):
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark_formatted"], "RETURN RATIO")
-        self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")
 
 
 class TestFriendManagement(BaseTestCase):
@@ -720,7 +712,7 @@ class TestHomePage(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 3,
             "invitees": game_invitees,
             "side_bets_perc": 50,
