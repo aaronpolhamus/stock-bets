@@ -10,7 +10,7 @@ from backend.logic.auth import (
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user_if_first_visit,
+    register_user,
     check_against_whitelist,
     WhiteListException,
     ADMIN_USERS
@@ -27,7 +27,6 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
-    GAME_MODES,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
     DEFAULT_BENCHMARK,
@@ -165,7 +164,7 @@ def login():
         except WhiteListException as err:
             return make_response(str(err), 401)
 
-    register_user_if_first_visit(user_entry)
+    register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)

@@ -56,7 +56,6 @@ QUANTITY_OPTIONS = ["Shares", "USD"]
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
 in javascript. We handle value-label mapping concerns on the frontend.
 """
-GAME_MODES = unpack_enumerated_field_mappings(GameModes)
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
 

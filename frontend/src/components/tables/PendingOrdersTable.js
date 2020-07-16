@@ -109,8 +109,7 @@ const PendingOrdersTable = ({ gameId, title }) => {
     return (
       <>
         {title &&
-          <SectionTitle>{title}</SectionTitle>
-        }
+          <SectionTitle>{title}</SectionTitle>}
         <Table hover>
           <thead>
             <tr>{makeCustomHeader(tableHeaders)}</tr>

@@ -6,7 +6,12 @@ from backend.logic.base import (
     during_trading_day,
     get_all_game_users_ids,
     get_cache_price,
-    set_cache_price
+    set_cache_price,
+    SeleniumDriverError,
+    get_symbols_table,
+    fetch_price,
+    get_all_active_symbols,
+    update_index_value
 )
 from backend.logic.games import (
     get_all_open_orders,
@@ -18,12 +23,6 @@ from backend.logic.games import (
 from backend.logic.payouts import (
     calculate_and_pack_metrics,
     log_winners
-)
-from logic.base import (
-    SeleniumDriverError,
-    get_symbols_table,
-    fetch_price,
-    get_all_active_symbols,
 )
 from backend.logic.visuals import (
     serialize_and_pack_order_performance_chart,
@@ -76,6 +75,28 @@ def async_fetch_active_symbol_prices(self):
     active_symbols = get_all_active_symbols()
     for symbol in active_symbols:
         async_fetch_and_cache_prices.delay(symbol)
+
+
+@celery.task(name="async_update_index_value", bind=True, base=BaseTask)
+def async_update_index_value(self, index):
+    assert index in ["nasdaq", "sp500", "dow"]
+    if index == "nasdaq":
+        symbol = "^IXIC"
+
+    if index == "sp500":
+        symbol = "^GSPC"
+
+    if index == "dow":
+        symbol = "^DJI"
+
+    update_index_value(symbol)
+
+
+@celery.task(name="async_update_all_index_values", bind=True, base=BaseTask)
+def async_update_all_index_values(self):
+    for index in ["nasdaq", "sp500", "dow"]:
+        async_update_index_value.delay(index)
+
 
 # --------------- #
 # Game management #

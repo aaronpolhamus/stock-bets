@@ -6,7 +6,8 @@ from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
-    during_trading_day
+    during_trading_day,
+    get_end_of_last_trading_day
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -26,6 +27,7 @@ from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
     async_cache_price,
+    async_update_all_index_values,
     PROCESS_ORDERS_LOCK_KEY,
     PROCESS_ORDERS_LOCK_TIMEOUT
 )
@@ -99,6 +101,29 @@ class TestStockDataTasks(BaseTestCase):
         self.assertEqual(stored_df["id"].to_list(), [1, 2])
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
+
+    def test_index_scrapers(self):
+        """This test make sure that our external integration with yahoo finance via the celery workers is running
+        properly, as well as that new indexes that get added to our inventory will be properly intitialized, as well as
+        that close of day index values will be stored
+        """
+
+        with self.engine.connect() as conn:
+            conn.execute("TRUNCATE indexes;")
+            async_update_all_index_values.delay()
+            df = pd.read_sql("SELECT * FROM indexes;", conn)
+
+        iteration = 0
+        while df.shape != (3, 4) and iteration < 30:
+            time.sleep(1)
+            with self.engine.connect() as conn:
+                df = pd.read_sql("SELECT * FROM indexes;", conn)
+            iteration += 1
+
+        self.assertEqual(df.shape, (3, 4))
+        if not during_trading_day():
+            eod = get_end_of_last_trading_day()
+            [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]
 
 
 class TestGameIntegration(BaseTestCase):

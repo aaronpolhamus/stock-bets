@@ -2,6 +2,7 @@
 as we build out the logic library.
 """
 import calendar
+from re import sub
 import sys
 import time
 from datetime import datetime as dt, timedelta
@@ -13,7 +14,10 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.database.helpers import query_to_dict
+from backend.database.helpers import (
+    query_to_dict,
+    add_row
+)
 from backend.tasks.redis import rds
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
@@ -461,15 +465,19 @@ class SeleniumDriverError(Exception):
         return "It looks like the selenium web driver failed to instantiate properly"
 
 
-def get_web_table_object(timeout=20):
+def currency_string_to_float(money_string):
+    if type(money_string) == str:
+        return float(sub(r'[^\d.]', '', money_string))
+    return money_string
+
+
+def get_web_table_object():
     print("starting selenium web driver...")
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(chrome_options=options)
-    driver.get(Config.SYMBOLS_TABLE_URL)
-    return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
+    return webdriver.Chrome(chrome_options=options)
 
 
 def extract_row_data(row):
@@ -480,8 +488,10 @@ def extract_row_data(row):
     return list_entry
 
 
-def get_symbols_table(n_rows=None):
-    table = get_web_table_object()
+def get_symbols_table(n_rows=None, timeout=20):
+    driver = get_web_table_object()
+    driver.get(Config.SYMBOLS_TABLE_URL)
+    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
     rows = table.find_elements_by_tag_name("tr")
     row_list = list()
     n = len(rows)
@@ -500,6 +510,43 @@ def get_symbols_table(n_rows=None):
     return pd.DataFrame(row_list)
 
 
+def get_index_value(symbol, timeout=20):
+    quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
+    driver = get_web_table_object()
+    driver.get(quote_url)
+    header = WebDriverWait(driver, timeout).until(
+        EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
+    return currency_string_to_float(header.text)
+
+
+def get_cache_price(symbol):
+    data = rds.get(symbol)
+    if data is None:
+        return None, None
+    return [float(x) for x in data.split("_")]
+
+
+def update_index_value(symbol):
+
+    value = get_index_value(symbol)
+    if during_trading_day():
+        add_row("indexes", symbol=symbol, value=value, timestamp=time.time())
+        return True
+
+    # a bit of logic to get the close of day price
+    with engine.connect() as conn:
+        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", "^IXIC").fetchone()[0]
+        if max_time is None:
+            max_time = 0
+
+    eod = get_end_of_last_trading_day()
+    if max_time < eod:
+        add_row("indexes", symbol=symbol, value=value, timestamp=eod)
+        return True
+
+    return False
+
+
 def fetch_price_iex(symbol):
     secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
     base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
@@ -516,13 +563,6 @@ def fetch_price_iex(symbol):
 def fetch_price(symbol, provider="iex"):
     if provider == "iex":
         return fetch_price_iex(symbol)
-
-
-def get_cache_price(symbol):
-    data = rds.get(symbol)
-    if data is None:
-        return None, None
-    return [float(x) for x in data.split("_")]
 
 
 def set_cache_price(symbol, price, timestamp):

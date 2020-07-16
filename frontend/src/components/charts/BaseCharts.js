@@ -4,7 +4,6 @@ import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
 import { SectionTitle } from 'components/textComponents/Text'
-import { Header } from 'components/layout/Layout'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
@@ -138,8 +137,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
       <Row>
         <Col xs={6} sm={9}>
           {title &&
-            <SectionTitle>{title}</SectionTitle>
-          }
+            <SectionTitle>{title}</SectionTitle>}
         </Col>
         <Col xs={6} sm={3}>
           <Form.Control

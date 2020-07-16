@@ -6,6 +6,7 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
+from backend.logic.base import query_to_dict
 
 WHITE_LIST = [
     "aaron@stockbets.io",
@@ -145,11 +146,16 @@ def make_user_entry_from_facebook(oauth_data):
     return None, None, response.status_code
 
 
-def register_user_if_first_visit(user_entry):
-    with engine.connect() as conn:
-        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"]).fetchone()
+def register_user(user_entry):
+    user = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"])
     if user is None:
         add_row("users", **user_entry)
+        return
+
+    # update an existing user's profile pic if it's changed
+    if user_entry["profile_pic"] != user["profile_pic"]:
+        with engine.connect() as conn:
+            conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", user["profile_pic"], user["id"])
 
 
 def make_session_token_from_uuid(resource_uuid):

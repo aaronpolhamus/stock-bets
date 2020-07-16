@@ -6,6 +6,7 @@ from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
 from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
 from sqlalchemy.exc import ResourceClosedError, StatementError
+from selenium.common.exceptions import TimeoutException
 
 # task execution defaults
 PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
@@ -22,7 +23,9 @@ RETRY_INVENTORY = (
     StatementError,
     InvalidRequestError,
     ProgrammingError,
-    SeleniumDriverError)
+    SeleniumDriverError,
+    TimeoutException
+)
 
 
 celery = celery.Celery('tasks',
@@ -59,6 +62,14 @@ celery.conf.beat_schedule = {
     "fetch_active_symbol_prices": {
         "task": "async_fetch_active_symbol_prices",
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
+    },
+    "update_index_values": {
+        "task": "async_update_index_value",
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
+    },
+    "update_index_values_eod": {
+        "task": "async_update_index_value",
+        "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
     },
     "update_all_games": {
         "task": "async_update_all_games",
