@@ -3,6 +3,8 @@ import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Tooltip } from 'components/forms/Tooltips'
 import PropTypes from 'prop-types'
+import { daysLeft } from 'components/functions/formattingHelpers'
+import { TextDivider } from 'components/textComponents/Text'
 
 const GameDetails = styled.small`
   display: block;
@@ -11,11 +13,6 @@ const GameDetails = styled.small`
   text-transform: uppercase;
   color: var(--color-text-gray);
   margin-top: var(--space-100);
-`
-
-const TextDivider = styled.span`
-  font-weight: bold;
-  color: var(--color-primary-darken);
 `
 
 const CashInfoWrapper = styled.div`
@@ -63,6 +60,7 @@ const GameHeader = ({ gameId }) => {
     getGameData()
   }, [])
 
+  console.log(gameInfo)
   return (
     <Header>
       <h1>
@@ -71,8 +69,14 @@ const GameHeader = ({ gameId }) => {
           {gameInfo.benchmark_formatted}
           <TextDivider> | </TextDivider>
           Sidebet: {gameInfo.side_bets_perc}% {gameInfo.side_bets_period}
-          <TextDivider> | </TextDivider>
-          {gameInfo.days_left && gameInfo.days_left} days left
+          {gameInfo.end_time &&
+            (
+              <>
+                <TextDivider> | </TextDivider>
+                {daysLeft(gameInfo.end_time)}
+              </>
+            )
+          }
         </GameDetails>
       </h1>
       <CashInfoWrapper>

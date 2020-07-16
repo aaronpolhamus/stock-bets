@@ -30,4 +30,17 @@ const numberToOrdinal = number => {
   return `${number}${suffix}`
 }
 
-export { simplifyCurrency, numberToOrdinal }
+const msToDays = milliseconds => {
+  return Math.floor(milliseconds / 86400000)
+}
+
+const daysLeft = milliseconds => {
+  const days = msToDays(milliseconds)
+  if (days <= 0) {
+    return 'Ends today'
+  } else {
+    return `${days} days left`
+  }
+}
+
+export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft }
