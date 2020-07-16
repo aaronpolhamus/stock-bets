@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { AutoTable } from 'components/functions/tables'
 import { fetchGameData } from 'components/functions/api'
+import PropTypes from 'prop-types'
 
 const PayoutsTable = ({ gameId }) => {
   const [tableData, setTableData] = useState({})
@@ -12,7 +13,12 @@ const PayoutsTable = ({ gameId }) => {
     getGameData()
   }, [gameId])
 
+  if (!tableData) return null
   return <AutoTable hover tabledata={tableData} />
+}
+
+PayoutsTable.propTypes = {
+  gameId: PropTypes.string
 }
 
 export { PayoutsTable }

@@ -1,19 +1,30 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
-import { Form } from 'react-bootstrap'
+import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
+import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { SectionTitle } from 'components/textComponents/Text'
+import { Header } from 'components/layout/Layout'
+import PropTypes from 'prop-types'
+import { UserContext } from 'Contexts'
 
-const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
-  // See here for interactive documentation: https://nivo.rocks/line/
+const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
+  // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
+
   return (
     <Line
+      ref={ref}
       data={data}
       options={{
+        spanGaps: true,
         legend: {
-          position: 'right',
+          position: 'left',
+          align: 'start',
           labels: {
-            usePointStyle: true
-          }
+            usePointStyle: true,
+            padding: 10
+          },
+          display: legends
         },
         elements: {
           point: {
@@ -29,12 +40,12 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
             {
               ticks: {
                 callback: function (value, index, values, yScale = yScaleType) {
+                  if (yScaleType === 'count') {
+                    return value
+                  }
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
-                      return (
-                        '$' +
-                        value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-                      )
+                      return simplifyCurrency(value)
                     } else {
                       return '$' + value
                     }
@@ -46,7 +57,13 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
                 }
               }
             }
-          ]
+          ],
+          xAxes: [{
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: maxXticks
+            }
+          }]
         },
         // see zoom settings at https://github.com/chartjs/chartjs-plugin-zoom
         plugins: {
@@ -86,13 +103,14 @@ const BaseChart = ({ data, height, yScaleType = 'dollar' }) => {
       }}
     />
   )
-}
+})
 
-const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) => {
-  const [data, setData] = useState([])
-  const [myUsername, setMyUsername] = useState(null)
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
+  const { user } = useContext(UserContext)
+
   useEffect(() => {
     const getSidebarStats = async () => {
       const data = await fetchGameData(gameId, 'get_leaderboard')
@@ -100,14 +118,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
     }
     getSidebarStats()
 
-    const getUserInfo = async () => {
-      const data = await apiPost('get_user_info', { withCredentials: true })
-      setMyUsername(data.username)
-    }
-    getUserInfo()
-  }, [])
-
-  useEffect(() => {
     const getGameData = async () => {
       const data = await apiPost(endpoint, {
         game_id: gameId,
@@ -117,20 +127,53 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
       setData(data)
     }
     getGameData()
-  }, [gameId, username])
+
+    if (username === null) {
+      setUsername(user.username)
+    }
+  }, [gameId, username, endpoint])
+
   return (
     <>
-      <Form.Control
-        name='username'
-        as='select'
-        defaultValue={null}
-        onChange={(e) => setUsername(e.target.value)}
-        defalutValue={myUsername}
-      >
-        {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
-      </Form.Control>
+      <Row>
+        <Col xs={6} sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>}
+        </Col>
+        <Col xs={6} sm={3}>
+          <Form.Control
+            name='username'
+            as='select'
+            size='sm'
+            onChange={(e) => setUsername(e.target.value)}
+            value={username || user.username}
+          >
+            {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
+          </Form.Control>
+        </Col>
+      </Row>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
     </ >
   )
 }
+
+BaseChart.propTypes = {
+  data: PropTypes.object,
+  height: PropTypes.string,
+  yScaleType: PropTypes.string,
+  legends: PropTypes.bool,
+  maxXticks: PropTypes.number
+}
+
+BaseChart.displayName = 'BaseChart'
+
+UserDropDownChart.propTypes = {
+  gameId: PropTypes.string,
+  height: PropTypes.string,
+  endpoint: PropTypes.string,
+  yScaleType: PropTypes.string,
+  legends: PropTypes.bool,
+  title: PropTypes.string
+}
+
 export { BaseChart, UserDropDownChart }

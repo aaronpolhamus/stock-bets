@@ -18,6 +18,9 @@ const SidebarWrapper = styled(Col)`
   @media screen and (min-width: ${breakpoints.md}){
     border-radius: 0 1rem 0 0;
     min-height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
   }
 `
 
@@ -50,6 +53,11 @@ const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: ${(props) => props.alignItems || 'center'};
+  margin-bottom: ${(props) => props.marginBottom || 0};
+  h2{
+    flex-shrink: 0;
+    margin-right: var(--space-200)
+  }
 `
 
 const Breadcrumb = styled.div`

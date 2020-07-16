@@ -6,11 +6,10 @@ const gameListBuilder = (props) => {
   return props.games.map((entry, index) => {
     switch (props.cardType) {
       case 'pending':
-        return <GameCardPending gameData={entry} />
+        return <GameCardPending gameData={entry} key={index} />
       default:
         return <GameCard
           gameId={entry.game_id}
-          currentUser={props.currentUser}
           key={index}
         />
     }
@@ -29,7 +28,7 @@ const GameList = (props) => {
 
 GameList.propTypes = {
   games: PropTypes.array,
-  currentUser: PropTypes.string
+  title: PropTypes.string
 }
 
 export { GameList }

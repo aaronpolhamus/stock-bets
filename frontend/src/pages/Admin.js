@@ -89,9 +89,9 @@ const Admin = () => {
         </Button>
       </Row>
       <br />
-      <BaseChart data={gamesPerUserData} />
+      {gamesPerUserData && <BaseChart data={gamesPerUserData} />}
       <br />
-      {/* <BaseChart data={ordersPerUserData} /> */}
+      {ordersPerUserData && <BaseChart data={ordersPerUserData} />}
     </>
   )
 }

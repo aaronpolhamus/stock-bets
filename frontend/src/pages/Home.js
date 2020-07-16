@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useContext } from 'react'
 import { Redirect } from 'react-router-dom'
 import { Button, Col, Row } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
+import { UserContext } from 'Contexts'
 import {
   Breadcrumb,
   Column,
@@ -24,7 +25,7 @@ import LogRocket from 'logrocket'
 // Left in un-used for now: we'll almost certainly get to this later
 const Logout = async () => {
   await api.post('/api/logout')
-  window.location.assign('/login')
+  window.location.assign('/')
 }
 
 const StyledMiniCard = styled(UserMiniCard)`
@@ -45,12 +46,21 @@ const StyledMiniCard = styled(UserMiniCard)`
 
 const Home = () => {
   const { data, loading } = usePostRequest('/api/home')
+  const { setUser } = useContext(UserContext)
 
   useEffect(() => {
     // identify user once they've hit the homepage
     LogRocket.identify(data.id, {
       name: data.name,
       email: data.email
+    })
+
+    // Set user info to persist in all app while the session is active.
+    setUser({
+      username: data.username,
+      name: data.name,
+      email: data.email,
+      profile_pic: data.profile_pic
     })
   }, [data])
 
@@ -63,7 +73,6 @@ const Home = () => {
     window.heap.identify(data.username)
   }
 
-  // console.log(data.game_info)
   const gamesActive = filterEntries(data.game_info, {
     game_status: 'active'
   })
@@ -85,7 +94,7 @@ const Home = () => {
           avatarSrc={data.profile_pic}
           username={data.username}
           email={data.email}
-          nameColor='var(--color-lighter)'
+          nameColor='var(--cotlor-lighter)'
           dataColor='var(--color-text-light-gray)'
           info={['Return: 50%', 'Sharpe: 0.324']}
         />
@@ -99,7 +108,9 @@ const Home = () => {
             </Button>
           </Breadcrumb>
           <Header>
-            <TitlePage>Games</TitlePage>
+            <TitlePage>
+              Games
+            </TitlePage>
             <Button variant='primary' href='/new'>
               <Icon.PlusCircle
                 size={16}
@@ -114,20 +125,17 @@ const Home = () => {
           <Col lg={6} xl={8}>
             <GameList
               games={gamesActive}
-              currentUser={data.username}
               title='Active'
             />
           </Col>
           <Col lg={6} xl={4}>
             <GameList
               games={gamesPending}
-              currentUser={data.username}
               cardType='pending'
               title='Pending'
             />
             <GameList
               games={gamesInvited}
-              currentUser={data.username}
               cardType='pending'
               title='Invited'
             />
