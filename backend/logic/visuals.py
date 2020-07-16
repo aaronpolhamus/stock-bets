@@ -478,7 +478,6 @@ def make_order_performance_table(game_id: int, user_id: int):
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
-
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
@@ -499,9 +498,9 @@ def make_order_performance_table(game_id: int, user_id: int):
 
         df_slice = df_slice.iloc[true_index]
         slices.append(df_slice)
-
     df = pd.concat(slices)
-    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100).apply(lambda x: round(x, 2))
+    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
+    df["return"] = df["return"].round(2)
     return df
 
 
