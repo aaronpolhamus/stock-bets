@@ -82,7 +82,7 @@ celery.conf.beat_schedule = {
     },
     # we'll also refresh platform KPIs at the end of each day
     "calculate_metrics": {
-        "task": "async_calculate_metrics",
+        "task": "async_calculate_key_metrics",
         "schedule": crontab(minute="59", hour="23")
     }
 }

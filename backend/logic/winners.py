@@ -7,6 +7,9 @@ import numpy as np
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    index_portfolio_value_by_day,
+    TRACKED_INDEXES,
+    check_game_mode,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     during_trading_day,
@@ -77,6 +80,12 @@ def calculate_and_pack_game_metrics(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
         rds.set(f"return_ratio_{game_id}_{user_id}", return_ratio)
         rds.set(f"sharpe_ratio_{game_id}_{user_id}", sharpe_ratio)
+
+    if check_game_mode(game_id) == "single_player":
+        for index in TRACKED_INDEXES:
+            df = index_portfolio_value_by_day(game_id, index)
+            index_return_ratio = portfolio_return_ratio(df)
+            index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
 
 # ------------------- #
 # Winners and payouts #

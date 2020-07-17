@@ -3,6 +3,7 @@
 import json
 import time
 from datetime import datetime as dt
+from typing import List
 
 import numpy as np
 import pandas as pd

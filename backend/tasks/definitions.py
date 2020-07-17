@@ -180,7 +180,7 @@ def async_update_game_data(self, game_id):
 # ----------- #
 # Key metrics #
 # ----------- #
-@celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
-def async_calculate_metrics(self):
+@celery.task(name="async_calculate_key_metrics", bind=True, base=BaseTask)
+def async_calculate_key_metrics(self):
     serialize_and_pack_games_per_user_chart()
     serialize_and_pack_orders_per_active_user()

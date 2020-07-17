@@ -73,7 +73,7 @@ from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
     async_update_game_data,
-    async_calculate_metrics
+    async_calculate_key_metrics
 )
 from backend.bi.report_logic import (
     GAMES_PER_USER_PREFIX,
@@ -556,7 +556,7 @@ def refresh_visuals():
 @authenticate
 @admin
 def refresh_metrics():
-    async_calculate_metrics.delay()
+    async_calculate_key_metrics.delay()
     return make_response("refreshing metrics...", 200)
 
 
