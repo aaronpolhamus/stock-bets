@@ -22,6 +22,7 @@ from backend.database.models import (
     BuyOrSell,
     TimeInForce)
 from backend.logic.base import (
+    get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
     fetch_price,
     get_current_game_cash_balance,

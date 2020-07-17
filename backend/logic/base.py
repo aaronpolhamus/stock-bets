@@ -14,7 +14,11 @@ import pytz
 import requests
 from backend.config import Config
 from backend.database.helpers import query_to_dict
-from backend.tasks.redis import rds, redis_cache
+from backend.tasks.redis import (
+    rds,
+    redis_cache,
+    GLOBAL_CACHE_NAMESPACE
+)
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
@@ -45,7 +49,7 @@ pd.options.mode.chained_assignment = None
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
 # ----------------------------------------------------------------------------------------------------------------- #
 
-@redis_cache.cache()
+@redis_cache.cache(namespace=GLOBAL_CACHE_NAMESPACE)
 def get_trading_calendar(start_date: dt, end_date: dt) -> pd.DataFrame:
     return nyse.schedule(start_date, end_date)
 
