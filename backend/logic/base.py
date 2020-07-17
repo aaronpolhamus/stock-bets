@@ -20,7 +20,8 @@ from backend.database.helpers import (
 )
 from backend.tasks.redis import (
     rds,
-    redis_cache
+    redis_cache,
+    DEFAULT_CACHE_EXPIRATION
 )
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
@@ -52,7 +53,7 @@ pd.options.mode.chained_assignment = None
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-@redis_cache.cache(namespace="get_trading_calendar")
+@redis_cache.cache(namespace="get_trading_calendar", ttl=DEFAULT_CACHE_EXPIRATION)
 def get_trading_calendar(start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
     """In order to speed up functions related to the trading calendar we'll wrap nyse in a redis-cached function.
     Important use note: to get the benefit of caching, don't passed in time/tz information -- convert datetime-like

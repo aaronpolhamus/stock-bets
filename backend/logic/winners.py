@@ -20,13 +20,18 @@ from backend.logic.base import (
     datetime_to_posix,
     make_historical_balances_and_prices_table
 )
-from backend.tasks.redis import rds
+from backend.tasks.redis import (
+    rds,
+    DEFAULT_ASSET_EXPIRATION
+)
 from backend.logic.visuals import (
     STARTING_SHARPE_RATIO,
     get_expected_sidebets_payout_dates
 )
 
 RISK_FREE_RATE_DEFAULT = 0
+RETURN_RATIO_PREFIX = "return_ratio"
+SHARPE_RATIO_PREFIX = "sharpe_ratio"
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -78,14 +83,16 @@ def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_dat
 def calculate_and_pack_game_metrics(game_id):
     for user_id in get_all_game_users_ids(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
-        rds.set(f"return_ratio_{game_id}_{user_id}", return_ratio)
-        rds.set(f"sharpe_ratio_{game_id}_{user_id}", sharpe_ratio)
+        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
 
     if check_game_mode(game_id) == "single_player":
         for index in TRACKED_INDEXES:
             df = index_portfolio_value_by_day(game_id, index)
             index_return_ratio = portfolio_return_ratio(df)
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
+            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
 
 # ------------------- #
 # Winners and payouts #

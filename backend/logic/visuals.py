@@ -30,11 +30,13 @@ from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     RESAMPLING_INTERVAL,
     TRACKED_INDEXES,
-    get_active_balances,
-    get_payouts_meta_data,
     check_game_mode
 )
-from backend.tasks.redis import rds, unpack_redis_json
+from backend.tasks.redis import (
+    rds,
+    unpack_redis_json,
+    DEFAULT_ASSET_EXPIRATION
+)
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -242,7 +244,7 @@ def compile_and_pack_player_leaderboard(game_id: int):
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
     records = sorted(records, key=lambda x: -x[benchmark])
     output = make_side_bar_output(game_id, records)
-    rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output))
+    rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 # ------------------ #
@@ -392,7 +394,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     if not df.empty:
         df.sort_values("timestamp", inplace=True)
         chart_json = make_chart_json(df, "symbol", "value")
-    rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
+    rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
@@ -412,7 +414,7 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
 
     leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
     chart_json["leaderboard"] = leaderboard["records"]
-    rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json))
+    rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def aggregate_portfolio_value(df: pd.DataFrame):
@@ -537,7 +539,7 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         order_perf.sort_values("t_index", inplace=True)
         chart_json = make_chart_json(order_perf, "order_label", "return", "label")
 
-    rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
+    rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 # ------ #
 # Tables #
@@ -584,7 +586,7 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     orders_json = dict(pending=[x for x in records if x["Status"] == "pending"],
                        fulfilled=[x for x in records if x["Status"] == "fulfilled"])
     out_dict = dict(orders=orders_json, headers=[x for x in list(df.columns) if x != "order_id"])
-    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def init_order_details(game_id: int, user_id: int):
@@ -592,7 +594,7 @@ def init_order_details(game_id: int, user_id: int):
     """
     headers = list(ORDER_DETAIL_MAPPINGS.values())
     rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}",
-            json.dumps(dict(orders=dict(pending=[], fulfilled=[]), headers=headers)))
+            json.dumps(dict(orders=dict(pending=[], fulfilled=[]), headers=headers)), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def update_order_details_table(game_id: int, user_id: int, order_id: int, action: str):
@@ -637,7 +639,7 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
         order_details["orders"]["pending"] = [entry for entry in order_details["orders"]["pending"] if
                                               entry["order_id"] != order_id]
 
-    rds.set(fn, json.dumps(order_details))
+    rds.set(fn, json.dumps(order_details), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def get_most_recent_prices(symbols):
@@ -673,7 +675,7 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
         df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
         df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
         out_dict["data"] = df.to_dict(orient="records")
-    rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict))
+    rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
@@ -755,7 +757,7 @@ def serialize_and_pack_winners_table(game_id: int):
 
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))
-    rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict))
+    rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def seed_visual_assets(game_id: int, user_id_list: List[int]):

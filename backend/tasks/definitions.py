@@ -88,7 +88,6 @@ def async_update_all_index_values(self):
     for index in TRACKED_INDEXES:
         async_update_index_value.delay(index)
 
-
 # --------------- #
 # Game management #
 # --------------- #

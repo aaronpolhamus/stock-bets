@@ -9,7 +9,6 @@ from sqlalchemy import MetaData
 
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import add_row
 from backend.logic.base import (
     get_all_game_users_ids,
     get_schedule_start_and_end,
