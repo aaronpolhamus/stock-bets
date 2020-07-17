@@ -10,6 +10,7 @@ RUN apt-get update \
   gnupg \
   libev-dev \
   firefox \
+  mysql-client \
   chromium-chromedriver \
   netcat \
   python3.7 \
