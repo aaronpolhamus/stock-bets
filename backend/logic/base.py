@@ -5,7 +5,6 @@ import calendar
 import sys
 import time
 from datetime import datetime as dt, timedelta
-from functools import lru_cache
 from typing import List
 
 import numpy as np
@@ -15,7 +14,7 @@ import pytz
 import requests
 from backend.config import Config
 from backend.database.helpers import query_to_dict
-from backend.tasks.redis import rds
+from backend.tasks.redis import rds, redis_cache
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
@@ -83,7 +82,7 @@ def during_trading_day() -> bool:
     return start_day <= posix_time < end_day
 
 
-@lru_cache(maxsize=256)
+@redis_cache.cache()
 def get_next_trading_day_schedule(reference_day: dt):
     """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
     if we are inside of trading hours this will return the schedule for the current day

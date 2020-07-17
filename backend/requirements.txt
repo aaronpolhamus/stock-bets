@@ -10,6 +10,7 @@ pandas-market-calendars==1.3.5
 pyjwt==1.7.1
 pymysql==0.9.3
 pyOpenSSL==19.0.0
+python-redis-cache==1.1.1
 pytz==2019.3
 redis==3.5.2
 redlock-py==1.0.8

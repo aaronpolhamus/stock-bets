@@ -1,6 +1,8 @@
 import json
+import pickle as pkl
 from redis import Redis
 from redlock import Redlock
+from redis_cache import RedisCache
 
 from backend.config import Config
 
@@ -8,6 +10,7 @@ TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
 dlm = Redlock([{"host": Config.REDIS_HOST}])
+redis_cache = RedisCache(redis_client=rds, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
 
 
 def task_lock(function=None, key="", timeout=None):
