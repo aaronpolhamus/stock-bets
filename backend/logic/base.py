@@ -45,6 +45,10 @@ pd.options.mode.chained_assignment = None
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
 # ----------------------------------------------------------------------------------------------------------------- #
 
+@redis_cache.cache()
+def get_trading_calendar(start_date: dt, end_date: dt) -> pd.DataFrame:
+    return nyse.schedule(start_date, end_date)
+
 
 def datetime_to_posix(localized_date: dt) -> float:
     return calendar.timegm(localized_date.utctimetuple())
@@ -64,10 +68,10 @@ def get_end_of_last_trading_day() -> float:
     """Note, if we're in the middle of a trading day, this will return the end of the current day
     """
     current_day = posix_to_datetime(time.time())
-    schedule = nyse.schedule(current_day, current_day)
+    schedule = get_trading_calendar(current_day, current_day)
     while schedule.empty:
         current_day -= timedelta(days=1)
-        schedule = nyse.schedule(current_day, current_day)
+        schedule = get_trading_calendar(current_day, current_day)
     _, end_day = get_schedule_start_and_end(schedule)
     return end_day
 
@@ -75,22 +79,21 @@ def get_end_of_last_trading_day() -> float:
 def during_trading_day() -> bool:
     posix_time = time.time()
     nyc_time = posix_to_datetime(posix_time)
-    schedule = nyse.schedule(nyc_time, nyc_time)
+    schedule = get_trading_calendar(nyc_time, nyc_time)
     if schedule.empty:
         return False
     start_day, end_day = get_schedule_start_and_end(schedule)
     return start_day <= posix_time < end_day
 
 
-@redis_cache.cache()
 def get_next_trading_day_schedule(reference_day: dt):
     """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
     if we are inside of trading hours this will return the schedule for the current day
     """
-    schedule = nyse.schedule(reference_day, reference_day)
+    schedule = get_trading_calendar(reference_day, reference_day)
     while schedule.empty:
         reference_day += timedelta(days=1)
-        schedule = nyse.schedule(reference_day, reference_day)
+        schedule = get_trading_calendar(reference_day, reference_day)
     return schedule
 
 
@@ -380,7 +383,7 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     lot of non-trading time to the series. We'll clean that out here.
     """
     days = df["timestamp"].dt.normalize().unique()
-    schedule_df = nyse.schedule(min(days), max(days))
+    schedule_df = get_trading_calendar(min(days), max(days))
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
     schedule_df['end'] = schedule_df['market_close'].apply(datetime_to_posix)
     df['timestamp_utc'] = df['timestamp'].dt.tz_convert("UTC")

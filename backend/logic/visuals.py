@@ -10,7 +10,7 @@ import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
-    nyse,
+    get_trading_calendar,
     get_game_info,
     add_bookends,
     fetch_price,
@@ -265,7 +265,7 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     df.index = df.index.to_period("D")
     del df["anchor_time"]
 
-    trade_times_df = nyse.schedule(start_time, end_time)
+    trade_times_df = get_trading_calendar(start_time, end_time)
     trade_times_df["last_close"] = trade_times_df["market_close"].shift(1)
     trade_times_df["non_trading_seconds"] = (
                 trade_times_df["market_open"] - trade_times_df["last_close"]).dt.total_seconds().fillna(0)

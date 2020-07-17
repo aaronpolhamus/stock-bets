@@ -9,8 +9,9 @@ from backend.config import Config
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
+rds_cache = Redis(Config.REDIS_HOST, decode_responses=False, charset="utf-8")
 dlm = Redlock([{"host": Config.REDIS_HOST}])
-redis_cache = RedisCache(redis_client=rds, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
+redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
 
 
 def task_lock(function=None, key="", timeout=None):
