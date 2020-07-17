@@ -631,7 +631,8 @@ def get_order_expiration_status(order_id):
 
     time_placed_nyc = posix_to_datetime(time_placed)
 
-    schedule = get_trading_calendar(time_placed_nyc, time_placed_nyc)
+    cal_ref_time = time_placed_nyc.date()
+    schedule = get_trading_calendar(cal_ref_time, cal_ref_time)
     if schedule.empty:
         next_day_schedule = get_next_trading_day_schedule(time_placed_nyc)
         _, cutoff_time = get_schedule_start_and_end(next_day_schedule)

@@ -7,7 +7,6 @@ from redis_cache import RedisCache
 from redlock import Redlock
 
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
-GLOBAL_CACHE_NAMESPACE = "global"
 
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
 rds_cache = Redis(Config.REDIS_HOST, decode_responses=False, charset="utf-8")

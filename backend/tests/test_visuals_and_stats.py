@@ -231,7 +231,7 @@ class TestGameKickoff(BaseTestCase):
                                  x["id"] != self.user_id]))
 
         # The number of cached transactions that we expect an order to refresh
-        self.assertEqual(len(rds.keys()), 8)
+        self.assertEqual(len(rds.keys()), 7)
 
 
 class TestVisuals(BaseTestCase):

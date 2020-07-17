@@ -1,11 +1,14 @@
 import json
 import time
+from unittest import TestCase
 from unittest.mock import patch
 
 from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    posix_to_datetime,
+    get_trading_calendar,
     during_trading_day
 )
 from backend.logic.games import (
@@ -614,3 +617,16 @@ class TestTaskLocking(BaseTestCase):
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
         self.assertEqual(res5.get(), TASK_LOCK_MSG)
+
+    def test_task_caching(self):
+        test_time = posix_to_datetime(time.time()).date()
+        start = time.time()
+        _ = get_trading_calendar(test_time, test_time)
+        time1 = time.time() - start
+
+        start = time.time()
+        _ = get_trading_calendar(test_time, test_time)
+        time2 = time.time() - start
+
+        self.assertLess(time2, time1 / 4)  # "4" is a hueristic for 'substantial performance improvement'
+        self.assertIn("rc:get_trading_calendar", rds.keys()[0])

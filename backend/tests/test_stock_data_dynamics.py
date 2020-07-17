@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytz
 
 from backend.logic.base import (
-get_trading_calendar,
+    get_trading_calendar,
     posix_to_datetime,
     during_trading_day,
     datetime_to_posix,

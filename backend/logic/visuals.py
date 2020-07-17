@@ -256,8 +256,6 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     ls = timestamp_sr.to_list()
     assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))  # enforces that timestamps are strictly sorted
 
-    start_time = timestamp_sr.min()
-    end_time = timestamp_sr.max()
     df = timestamp_sr.to_frame()
     df["anchor_time"] = timestamp_sr.min()
     df["time_diff"] = (df["timestamp"] - df["anchor_time"]).dt.total_seconds()
@@ -265,6 +263,8 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     df.index = df.index.to_period("D")
     del df["anchor_time"]
 
+    start_time = timestamp_sr.min().date()
+    end_time = timestamp_sr.max().date()
     trade_times_df = get_trading_calendar(start_time, end_time)
     trade_times_df["last_close"] = trade_times_df["market_close"].shift(1)
     trade_times_df["non_trading_seconds"] = (

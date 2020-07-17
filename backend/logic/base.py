@@ -16,8 +16,7 @@ from backend.config import Config
 from backend.database.helpers import query_to_dict
 from backend.tasks.redis import (
     rds,
-    redis_cache,
-    GLOBAL_CACHE_NAMESPACE
+    redis_cache
 )
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
@@ -43,14 +42,18 @@ RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series o
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 
-
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
 # ----------------------------------------------------------------------------------------------------------------- #
 
-@redis_cache.cache(namespace=GLOBAL_CACHE_NAMESPACE)
-def get_trading_calendar(start_date: dt, end_date: dt) -> pd.DataFrame:
+
+@redis_cache.cache(namespace="get_trading_calendar")
+def get_trading_calendar(start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
+    """In order to speed up functions related to the trading calendar we'll wrap nyse in a redis-cached function.
+    Important use note: to get the benefit of caching, don't passed in time/tz information -- convert datetime-like
+    arguments with datetime.date()
+    """
     return nyse.schedule(start_date, end_date)
 
 
@@ -71,19 +74,19 @@ def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
 def get_end_of_last_trading_day() -> float:
     """Note, if we're in the middle of a trading day, this will return the end of the current day
     """
-    current_day = posix_to_datetime(time.time())
-    schedule = get_trading_calendar(current_day, current_day)
+    ref_day = posix_to_datetime(time.time()).date()
+    schedule = get_trading_calendar(ref_day, ref_day)
     while schedule.empty:
-        current_day -= timedelta(days=1)
-        schedule = get_trading_calendar(current_day, current_day)
+        ref_day -= timedelta(days=1)
+        schedule = get_trading_calendar(ref_day, ref_day)
     _, end_day = get_schedule_start_and_end(schedule)
     return end_day
 
 
 def during_trading_day() -> bool:
     posix_time = time.time()
-    nyc_time = posix_to_datetime(posix_time)
-    schedule = get_trading_calendar(nyc_time, nyc_time)
+    ref_time = posix_to_datetime(posix_time).date()
+    schedule = get_trading_calendar(ref_time, ref_time)
     if schedule.empty:
         return False
     start_day, end_day = get_schedule_start_and_end(schedule)
@@ -94,6 +97,7 @@ def get_next_trading_day_schedule(reference_day: dt):
     """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
     if we are inside of trading hours this will return the schedule for the current day
     """
+    reference_day = reference_day.date()
     schedule = get_trading_calendar(reference_day, reference_day)
     while schedule.empty:
         reference_day += timedelta(days=1)
@@ -387,7 +391,7 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     lot of non-trading time to the series. We'll clean that out here.
     """
     days = df["timestamp"].dt.normalize().unique()
-    schedule_df = get_trading_calendar(min(days), max(days))
+    schedule_df = get_trading_calendar(min(days).date(), max(days).date())
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
     schedule_df['end'] = schedule_df['market_close'].apply(datetime_to_posix)
     df['timestamp_utc'] = df['timestamp'].dt.tz_convert("UTC")
