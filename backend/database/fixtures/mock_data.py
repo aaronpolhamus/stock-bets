@@ -5,12 +5,11 @@ test runner to construct a .sql data dump that we can quickly scan into the DB.
 import json
 from datetime import timedelta
 from unittest.mock import patch
+from sqlalchemy import MetaData
 
+from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import (
-    add_row,
-    reset_db
-)
+from backend.database.helpers import add_row
 from backend.logic.base import (
     get_all_game_users_ids,
     get_schedule_start_and_end,
@@ -59,12 +58,6 @@ def get_stock_start_price(symbol, records=price_records, order_time=simulation_s
 def get_stock_finish_price(symbol, records=price_records, order_time=simulation_end_time):
     stock_record = [item for item in records if item["symbol"] == symbol and item["timestamp"] == order_time][-1]
     return stock_record["price"]
-
-
-def refresh_table(table_name):
-    mock_entry = MOCK_DATA.get(table_name)
-    for entry in mock_entry:
-        add_row(table_name, **entry)
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
@@ -361,8 +354,14 @@ MOCK_DATA = {
 
 def make_mock_data():
     table_names = MOCK_DATA.keys()
-    for table in table_names:
-        refresh_table(table)
+    db_metadata = MetaData(bind=engine)
+    db_metadata.reflect()
+    with engine.connect() as conn:
+        for table in table_names:
+            mock_table_data = MOCK_DATA.get(table)
+            if mock_table_data:
+                table_meta = db_metadata.tables[table]
+                conn.execute(table_meta.insert(), mock_table_data)
 
 
 def make_redis_mocks():
@@ -399,5 +398,4 @@ def make_redis_mocks():
 
 
 if __name__ == '__main__':
-    reset_db()
     make_mock_data()
