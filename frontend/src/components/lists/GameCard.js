@@ -4,9 +4,9 @@ import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Header } from 'components/layout/Layout'
 import { Link } from 'react-router-dom'
-import { numberToOrdinal } from 'components/functions/formattingHelpers'
+import { numberToOrdinal, daysLeft } from 'components/functions/formattingHelpers'
 import { PlayCircle, Eye } from 'react-feather'
-import { SmallCaps } from 'components/textComponents/Text'
+import { SmallCaps, TextDivider } from 'components/textComponents/Text'
 import { UserContext } from 'Contexts'
 
 const CardMainColumn = styled.div`
@@ -68,37 +68,44 @@ const GameCard = ({ gameId }) => {
     return numberToOrdinal(parseInt(position) + 1)
   }
 
-  const [gameInfo, setGameInfo] = useState({})
+  const [gameData, setGameData] = useState({})
 
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'game_info')
-    setGameInfo(data)
+    setGameData(data)
   }
 
   useEffect(() => {
     getGameData()
   }, [])
 
-  if (Object.keys(gameInfo).length === 0) return null
+  if (Object.keys(gameData).length === 0) return null
 
   const leaderboardPosition = `
-    ${currentUserLeaderboardPosition(gameInfo.leaderboard)}
+    ${currentUserLeaderboardPosition(gameData.leaderboard)}
     place
   `
-  const currentLeader = gameInfo.leaderboard[0].username
-
+  const currentLeader = gameData.leaderboard[0].username
   return (
     <GameCardWrapper to={`/play/${gameId}`}>
       <CardMainColumn>
         <Header alignItems='center'>
           <div>
             <h3>
-              {gameInfo.title}
+              {gameData.title}
             </h3>
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameInfo.benchmark_formatted}
+              {gameData.benchmark_formatted}
+              {gameData.end_time &&
+                (
+                  <>
+                    <TextDivider> | </TextDivider>
+                    {daysLeft(gameData.end_time)}
+                  </>
+                )
+              }
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
@@ -121,6 +128,7 @@ const GameCard = ({ gameId }) => {
 }
 
 const GameCardPending = ({ gameData }) => {
+  console.log(gameData)
   return (
     <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>
@@ -129,11 +137,11 @@ const GameCardPending = ({ gameData }) => {
             <h3>
               {gameData.title}
             </h3>
-            <small
+            <SmallCaps
               color='var(--color-text-gray)'
             >
-              {`Created by: ${gameData.creator_username}`}
-            </small>
+              {`By: ${gameData.creator_username}`}
+            </SmallCaps>
           </div>
           <Eye
             color='var(--color-primary-darken)'
