@@ -78,6 +78,11 @@ const TitleCard = styled.h3`
   
 `
 
+const TextDivider = styled.span`
+  font-weight: bold;
+  color: var(--color-primary-darken);
+`
+
 export {
   AlignText,
   AuxiliarText,
@@ -90,6 +95,7 @@ export {
   SmallText,
   Subtext,
   TextButton,
+  TextDivider,
   TitleCard,
   TitlePage
 }
