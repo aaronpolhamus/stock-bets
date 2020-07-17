@@ -3,10 +3,10 @@ import time
 import unittest
 from unittest.mock import patch
 
-import pandas_market_calendars as mcal
 import pytz
 
 from backend.logic.base import (
+    get_trading_calendar,
     posix_to_datetime,
     during_trading_day,
     datetime_to_posix,
@@ -39,8 +39,7 @@ class TestStockDataLogic(unittest.TestCase):
         # ----------------------------------------------------------------------------------------------------
         with patch('backend.logic.base.time') as current_time_mock:
             # Check during trading day just one second before and after open/close
-            nyse = mcal.get_calendar('NYSE')
-            schedule = nyse.schedule(actual_date, actual_date)
+            schedule = get_trading_calendar(actual_date, actual_date)
             start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]
 
             current_time_mock.time.side_effect = [
@@ -62,7 +61,7 @@ class TestStockDataLogic(unittest.TestCase):
         # Finally, just double-check that the real-time, default invocation works as expected
         posix_now = time.time()
         nyc_now = posix_to_datetime(posix_now)
-        schedule = nyse.schedule(nyc_now, nyc_now)
+        schedule = get_trading_calendar(nyc_now, nyc_now)
         during_trading = False
         if not schedule.empty:
             start_day, end_day = [datetime_to_posix(x) for x in schedule.iloc[0][["market_open", "market_close"]]]

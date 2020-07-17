@@ -7,7 +7,7 @@ from backend.database.helpers import add_row
 from backend.logic.base import (
     get_all_game_users_ids,
     get_schedule_start_and_end,
-    nyse,
+    get_trading_calendar,
     posix_to_datetime
 )
 from backend.logic.winners import calculate_and_pack_game_metrics
@@ -35,11 +35,11 @@ simulation_end_time = max([record["timestamp"] for record in price_records])
 
 
 def get_beginning_of_next_trading_day(ref_time):
-    current_day = posix_to_datetime(ref_time)
-    schedule = nyse.schedule(current_day, current_day)
+    ref_day = posix_to_datetime(ref_time).date()
+    schedule = get_trading_calendar(ref_day, ref_day)
     while schedule.empty:
-        current_day += timedelta(days=1)
-        schedule = nyse.schedule(current_day, current_day)
+        ref_day += timedelta(days=1)
+        schedule = get_trading_calendar(ref_day, ref_day)
     start_day, _ = get_schedule_start_and_end(schedule)
     return start_day
 

@@ -186,7 +186,7 @@ class TestGameKickoff(BaseTestCase):
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         # The number of cached transactions that we expect an order to refresh
-        self.assertEqual(len(rds.keys()), 4)
+        self.assertEqual(len(rds.keys()), 7)
 
     def test_visuals_during_trading(self):
         # TODO: Add a canonical test with fully populated data
@@ -231,7 +231,7 @@ class TestGameKickoff(BaseTestCase):
                                  x["id"] != self.user_id]))
 
         # The number of cached transactions that we expect an order to refresh
-        self.assertEqual(len(rds.keys()), 4)
+        self.assertEqual(len(rds.keys()), 7)
 
 
 class TestVisuals(BaseTestCase):

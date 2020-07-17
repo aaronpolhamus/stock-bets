@@ -10,6 +10,7 @@ import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_trading_calendar,
     get_all_game_usernames,
     get_game_info,
     add_bookends,
@@ -28,13 +29,16 @@ from backend.logic.base import (
     datetime_to_posix,
     DEFAULT_VIRTUAL_CASH,
     RESAMPLING_INTERVAL,
-    TRACKED_INDEXES
+    TRACKED_INDEXES,
+    get_active_balances,
+    get_payouts_meta_data,
+    check_game_mode
 )
 from backend.tasks.redis import rds, unpack_redis_json
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-from logic.base import get_active_balances, get_payouts_meta_data, check_game_mode
+from logic.base import get_active_balances, get_payouts_meta_data
 
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
@@ -265,23 +269,27 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     ls = timestamp_sr.to_list()
     assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))  # enforces that timestamps are strictly sorted
 
-    anchor_time = last_time = timestamp_sr.min()
-    adjustment = 0  # the adjustment differences out the seconds attributable to "no event" space
-    trade_time_array = []
-    for t in timestamp_sr.to_list():
-        # if we crossed a boundary between days, increase the adjustment factor to account for the "no event" space
-        if t.day is not last_time.day:
-            current_schedule = get_next_trading_day_schedule(t)
-            current_start, _ = get_schedule_start_and_end(current_schedule)
-            last_schedule = get_next_trading_day_schedule(last_time)
-            _, last_end = get_schedule_start_and_end(last_schedule)
-            adjustment += current_start - last_end
+    df = timestamp_sr.to_frame()
+    df["anchor_time"] = timestamp_sr.min()
+    df["time_diff"] = (df["timestamp"] - df["anchor_time"]).dt.total_seconds()
+    df.set_index("timestamp", inplace=True)
+    df.index = df.index.to_period("D")
+    del df["anchor_time"]
 
-        trade_seconds = (t - anchor_time).total_seconds() - adjustment
-        trade_time_array.append(trade_seconds)
-        last_time = t
+    start_time = timestamp_sr.min().date()
+    end_time = timestamp_sr.max().date()
+    trade_times_df = get_trading_calendar(start_time, end_time)
+    trade_times_df["last_close"] = trade_times_df["market_close"].shift(1)
+    trade_times_df["non_trading_seconds"] = (
+                trade_times_df["market_open"] - trade_times_df["last_close"]).dt.total_seconds().fillna(0)
+    trade_times_df["adjustment"] = trade_times_df["non_trading_seconds"].cumsum()
+    trade_times_df.set_index("market_open", inplace=True)
+    trade_times_df.index = trade_times_df.index.to_period("D")
+    adjustment_df = trade_times_df["adjustment"]
 
-    return pd.cut(pd.Series(trade_time_array), N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
+    tt_df = pd.concat([df, adjustment_df], axis=1)
+    tt_df["trade_time"] = tt_df["time_diff"] - tt_df["adjustment"]
+    return pd.cut(tt_df["trade_time"], N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
 
 def build_labels(df: pd.DataFrame, time_col="timestamp") -> pd.DataFrame:
@@ -530,7 +538,6 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         chart_json = make_chart_json(order_perf, "order_label", "return", "label")
 
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json))
-
 
 # ------ #
 # Tables #

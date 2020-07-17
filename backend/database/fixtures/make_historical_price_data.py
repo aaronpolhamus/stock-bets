@@ -8,7 +8,7 @@ import pytz
 from backend.logic.base import (
     TIMEZONE,
     datetime_to_posix,
-    nyse
+    get_trading_calendar
 )
 
 np.random.seed(123)
@@ -21,7 +21,7 @@ def make_stock_data_records():
     timezone = pytz.timezone(TIMEZONE)
     sample_days = list(set([x["date"] for x in stock_data["AMZN"]]))
     sample_days.sort()
-    schedule = nyse.schedule(start_date=dt.utcnow() - timedelta(days=15), end_date=dt.utcnow() + timedelta(days=15))
+    schedule = get_trading_calendar(start_date=dt.utcnow() - timedelta(days=15), end_date=dt.utcnow() + timedelta(days=15))
     trading_days = []
     for i in range(5):
         trading_days.append(schedule.iloc[i]["market_open"])
