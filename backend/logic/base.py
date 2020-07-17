@@ -5,6 +5,7 @@ import calendar
 import sys
 import time
 from datetime import datetime as dt, timedelta
+from functools import lru_cache
 from typing import List
 
 import numpy as np
@@ -82,6 +83,7 @@ def during_trading_day() -> bool:
     return start_day <= posix_time < end_day
 
 
+@lru_cache(maxsize=256)
 def get_next_trading_day_schedule(reference_day: dt):
     """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
     if we are inside of trading hours this will return the schedule for the current day
