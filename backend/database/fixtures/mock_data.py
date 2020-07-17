@@ -1,9 +1,16 @@
+"""mock_data.py is our test data factory. running it for ever test is expensive, so we use it at the very beginning of
+test runner to construct a .sql data dump that we can quickly scan into the DB.
+"""
+
 import json
 from datetime import timedelta
 from unittest.mock import patch
 
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import add_row
+from backend.database.helpers import (
+    add_row,
+    reset_db
+)
 from backend.logic.base import (
     get_all_game_users_ids,
     get_schedule_start_and_end,
@@ -392,4 +399,5 @@ def make_redis_mocks():
 
 
 if __name__ == '__main__':
+    reset_db()
     make_mock_data()

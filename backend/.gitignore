@@ -139,3 +139,4 @@ celerybeat-schedule.db
 *csv
 *ipynb
 .env.prod
+*sql

@@ -7,11 +7,7 @@ db-stop:
 	docker-compose stop db
 
 db-mysql:
-	docker-compose exec db mysql -uroot -p
-
-db-restart:
-	make db-stop
-	make db-up
+	docker-compose exec db mysql -uroot
 
 db-reset:
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
@@ -84,7 +80,10 @@ backend-build:
 backend-test:
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
-	make worker-restart
+	rm -f backend/mockdata.sql
+	make db-reset
+	make db-mock-data
+	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
 
