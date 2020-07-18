@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import api from 'services/api'
-import { Row, Col, Button, Form, Modal } from 'react-bootstrap'
+import { Row, Col, Button, Form } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
 import { optionBuilder } from 'components/functions/forms'
 import { AuxiliarText, FormFooter } from 'components/textComponents/Text'
@@ -11,7 +11,7 @@ import PropTypes from 'prop-types'
 
 // request -> guardar datos -> actualizar form -> limpiar datos -> request submit
 
-const PlaceOrder = ({ gameId }) => {
+const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [gameInfo, setGameInfo] = useState({})
   const [orderTicket, setOrderTicket] = useState({})
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
@@ -41,15 +41,14 @@ const PlaceOrder = ({ gameId }) => {
     const orderTicketCopy = { ...orderTicket }
     orderTicketCopy.symbol = symbolValue
     setOrderTicket(orderTicketCopy)
-    try {
-      await api.post('/api/place_order', orderTicketCopy)
-      setSubmitted(true)
-    } catch (e) {
-      if (e.response.status === 400) {
-        window && window.alert(e.response.data)
-      }
-      setSubmitted(false)
-    }
+
+    await api.post('/api/place_order', orderTicketCopy)
+      .then(request => {
+        onPlaceOrder()
+      })
+      .catch(error => {
+        console.log(error.response.data)
+      })
   }
 
   const getSuggestionValue = (suggestion) => {
@@ -245,29 +244,13 @@ const PlaceOrder = ({ gameId }) => {
           </Button>
         </FormFooter>
       </Form>
-      <Modal show={submitted} onHide={handleClose}>
-        <Modal.Body>
-          <div className='text-center'>
-            We got your order in!
-            <div>
-              <small>
-                Hit refresh in about 20 seconds to see your updated orders and balances -- we'll make this more responsive shortly
-              </small>
-            </div>
-          </div>
-        </Modal.Body>
-        <Modal.Footer className='centered'>
-          <Button variant='primary' onClick={handleClose}>
-            Awesome!
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </>
   )
 }
 
 PlaceOrder.propTypes = {
-  gameId: PropTypes.string
+  gameId: PropTypes.string, 
+  onPlaceOrder: PropTypes.func
 }
 
 export { PlaceOrder }
