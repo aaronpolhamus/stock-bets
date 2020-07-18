@@ -11,7 +11,7 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
@@ -36,7 +36,7 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
-    make_balances_chart_data,
+    make_user_balances_chart_data,
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
@@ -47,7 +47,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.logic.winners import calculate_and_pack_game_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
@@ -215,7 +215,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(game_defaults["side_bets_perc"], DEFAULT_SIDEBET_PERCENT)
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
 
-    def test_create_game(self):
+    def test_create_and_play_multiplayer_game(self):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -368,6 +368,22 @@ class TestCreateGame(BaseTestCase):
             else:
                 self.assertEqual(user_entry["status"], "invited")
 
+    def test_create_single_player_game(self):
+        user_id = 1
+        user_name = "cheetos"
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duation = 365
+        game_settings = {
+            "duration": game_duation,
+            "game_mode": "multi_player",
+            "title": "jugando solo",
+        }
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False, json=game_settings)
+        self.assertEqual(res.status_code, 200)
+
+        import ipdb;ipdb.set_trace()
+        print("hi")
+
 
 class TestPlayGame(BaseTestCase):
 
@@ -431,7 +447,7 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # check a different user's balance information
-        df = make_balances_chart_data(game_id, 3)
+        df = make_user_balances_chart_data(game_id, 3)
         serialize_and_pack_balances_chart(df, game_id, 3)
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id, "username": "toofast"})
@@ -687,9 +703,9 @@ class TestHomePage(BaseTestCase):
         #
         rds.flushall()
         reset_db()
-        refresh_table("users")
-        refresh_table("symbols")
-        refresh_table("friends")
+        populate_table("users")
+        populate_table("symbols")
+        populate_table("friends")
 
         user_id = 1
         user_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -766,7 +782,7 @@ class TestPriceFetching(BaseTestCase):
 
     def test_api_price_fetching(self):
         reset_db()
-        refresh_table("users")
+        populate_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},

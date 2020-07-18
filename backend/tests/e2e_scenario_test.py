@@ -13,7 +13,7 @@ A few important things about this test:
 import json
 
 from backend.config import Config
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import query_to_dict, reset_db
 
 from backend.logic.friends import get_user_details_from_ids
@@ -27,8 +27,8 @@ if __name__ == '__main__':
     btc.setUp()
     rds.flushall()
     reset_db()
-    refresh_table("users")
-    refresh_table("symbols")
+    populate_table("users")
+    populate_table("symbols")
 
     # setup user tokens
     user_id = 1

@@ -53,7 +53,6 @@ class Games(db.Model):
     game_mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
     buy_in = db.Column(db.Float(precision=32))
-    n_rebuys = db.Column(db.Integer)
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))

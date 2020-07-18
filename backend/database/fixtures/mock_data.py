@@ -15,7 +15,7 @@ from backend.logic.base import (
     get_trading_calendar,
     posix_to_datetime
 )
-from backend.logic.winners import calculate_and_pack_game_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.logic.visuals import (
     make_chart_json,
     compile_and_pack_player_leaderboard,
@@ -95,19 +95,19 @@ MOCK_DATA = {
     ],
 
     "games": [
-        {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100, "n_rebuys": 2,
+        {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
          "invite_window": 1589368380.0},
-        {"title": "max aggression", "game_mode": "multi_player", "duration": 1, "buy_in": 100_000, "n_rebuys": 0,
+        {"title": "max aggression", "game_mode": "multi_player", "duration": 1, "buy_in": 100_000,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
          "invite_window": 1589368380.0},
-        {"title": "test game", "game_mode": "multi_player", "duration": 14, "buy_in": 100, "n_rebuys": 3,
+        {"title": "test game", "game_mode": "multi_player", "duration": 14, "buy_in": 100,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
          "invite_window": 1589368380.0},
-        {"title": "test user excluded", "game_mode": "multi_player", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+        {"title": "test user excluded", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0},
-        {"title": "valiant roset", "game_mode": "multi_player", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+        {"title": "valiant roset", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0}
     ],
@@ -351,16 +351,23 @@ MOCK_DATA = {
 }
 
 
+def populate_table(table_name):
+    db_metadata = MetaData(bind=engine)
+    db_metadata.reflect()
+    with engine.connect() as conn:
+        mock_table_data = MOCK_DATA.get(table_name)
+        table_meta = db_metadata.tables[table_name]
+        conn.execute(table_meta.insert(), mock_table_data)
+
+
 def make_mock_data():
     table_names = MOCK_DATA.keys()
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
-    with engine.connect() as conn:
-        for table in table_names:
-            mock_table_data = MOCK_DATA.get(table)
-            if mock_table_data:
-                table_meta = db_metadata.tables[table]
-                conn.execute(table_meta.insert(), mock_table_data)
+    for table in table_names:
+        mock_table_data = MOCK_DATA.get(table)
+        if mock_table_data:
+            populate_table(table)
 
 
 def make_redis_mocks():

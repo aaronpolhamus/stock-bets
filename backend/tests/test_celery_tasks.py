@@ -24,7 +24,7 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.winners import calculate_and_pack_game_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
@@ -137,10 +137,9 @@ class TestGameIntegration(BaseTestCase):
         mock_game = {
             "creator_id": creator_id,
             "title": game_title,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "duration": 180,
             "buy_in": 100,
-            "n_rebuys": 0,
             "benchmark": "return_ratio",
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
@@ -150,10 +149,9 @@ class TestGameIntegration(BaseTestCase):
         add_game(
             mock_game["creator_id"],
             mock_game["title"],
-            mock_game["mode"],
+            mock_game["game_mode"],
             mock_game["duration"],
             mock_game["buy_in"],
-            mock_game["n_rebuys"],
             mock_game["benchmark"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
@@ -178,7 +176,7 @@ class TestGameIntegration(BaseTestCase):
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
-        self.assertEqual(users_from_db, [3, 4, 5, 1])
+        self.assertEqual(set(users_from_db), {3, 4, 5, 1})
 
         # and that the game invites table is working as well
         # --------------------------------------------------

@@ -3,6 +3,7 @@ import time
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    check_single_player_mode,
     TRACKED_INDEXES,
     during_trading_day,
     get_all_game_users_ids,
@@ -21,10 +22,10 @@ from backend.logic.games import (
     get_active_game_ids,
     service_open_game
 )
-from backend.logic.winners import (
-    calculate_and_pack_game_metrics,
+from backend.logic.metrics import (
     log_winners
 )
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.logic.visuals import (
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
@@ -170,10 +171,11 @@ def async_update_game_data(self, game_id):
         serialize_and_pack_portfolio_details(game_id, user_id)
         serialize_and_pack_order_performance_chart(game_id, user_id)
 
-    # winners/payouts table
-    update_performed = log_winners(game_id, time.time())
-    if update_performed:
-        serialize_and_pack_winners_table(game_id)
+    if not check_single_player_mode(game_id):
+        # winners/payouts table
+        update_performed = log_winners(game_id, time.time())
+        if update_performed:
+            serialize_and_pack_winners_table(game_id)
 
 
 # ----------- #

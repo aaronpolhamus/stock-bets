@@ -167,7 +167,7 @@ def get_game_info(game_id: int):
     sql_query = "SELECT * FROM games WHERE id = %s;"
     info = query_to_dict(sql_query, game_id)
     info["creator_username"] = get_usernames([info["creator_id"]])
-    info["mode"] = info["mode"].upper().replace("_", " ")
+    info["mode"] = info["game_mode"].upper().replace("_", " ")
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
     start_time = get_game_start_time(game_id)
@@ -474,7 +474,9 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
         df = df.reset_index().rename(columns={"index": "timestamp"})
         df["price"] = 1
         df["value"] = df["balance"] * df["price"]
-        df = filter_for_trade_time(df)
+        candidate_df = filter_for_trade_time(df)
+        if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
+            df = candidate_df
         df["symbol"] = "Cash"
         return df
     # ...otherwise we'll append price data for the more detailed breakout
@@ -653,9 +655,9 @@ def get_payouts_meta_data(game_id: int):
     return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]
 
 
-def check_game_mode(game_id: int):
+def check_single_player_mode(game_id: int):
     with engine.connect() as conn:
-        return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id)[0]
+        return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()[0] == "single_player"
 
 
 # -------------------------------------------------- #
@@ -672,7 +674,7 @@ def get_index_reference(symbol: str, ref_time: float) -> float:
     return ref_val
 
 
-def index_portfolio_value_by_day(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
+def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
     """In single-player mode a player competes against the indexes. This function just normalizes a dataframe of index
     values by the starting value for when the game began
     """
@@ -692,3 +694,13 @@ def index_portfolio_value_by_day(game_id: int, symbol: str, start: float = None,
     # normalizes index to the same starting scale as the user
     df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
     return df
+
+
+def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
+    expected_sidebet_dates = []
+    if side_bets_perc:
+        payout_time = start_time + offset
+        while payout_time <= end_time:
+            expected_sidebet_dates.append(payout_time)
+            payout_time += offset
+    return expected_sidebet_dates

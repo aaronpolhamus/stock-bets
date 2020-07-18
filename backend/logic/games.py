@@ -15,7 +15,6 @@ from backend.database.helpers import (
     unpack_enumerated_field_mappings,
 )
 from backend.database.models import (
-    GameModes,
     Benchmarks,
     SideBetPeriods,
     OrderTypes,
@@ -35,12 +34,12 @@ from backend.logic.base import (
 from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_portfolio_details,
+    refresh_game_data
 )
 from funkybob import RandomNameGenerator
 
 # Default make game settings
 # --------------------------
-from logic.visuals import seed_visual_assets
 
 DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
@@ -107,8 +106,8 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bets_perc, side_bets_period,
-             invitees):
+def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bets_perc, side_bets_period, invitees):
+    assert game_mode in ["single_player", "multi_player"]
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
     game_id = add_row("games",
@@ -121,10 +120,15 @@ def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bet
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
                       invite_window=invite_window)
-    invited_ids = translate_usernames_to_ids(tuple(invitees))
-    user_ids = invited_ids + [creator_id]
 
-    create_pending_game_status_entry(game_id, user_ids, opened_at)
+    user_ids = [creator_id]
+    if game_mode == "multi_player":
+        user_ids += translate_usernames_to_ids(tuple(invitees))
+        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
+    else:
+        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
+        kick_off_game(game_id, user_ids, opened_at)
+
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 
 
@@ -193,10 +197,6 @@ def translate_usernames_to_ids(usernames: tuple):
     return [x[0] for x in res]
 
 
-def create_pending_game_status_entry(game_id, user_ids, opened_at):
-    add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
-
-
 def create_game_invites_entries(game_id, creator_id, user_ids, opened_at):
     for user_id in user_ids:
         status = "invited"
@@ -225,8 +225,7 @@ def get_invite_list_by_status(game_id, status="joined"):
 def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     """Mark a game as active and seed users' virtual cash balances
     """
-    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_status_entry["game_id"], status="active", users=user_id_list,
+    add_row("game_status", game_id=game_id, status="active", users=user_id_list,
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
@@ -234,13 +233,12 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
-
-    seed_visual_assets(game_id, user_id_list)
+    refresh_game_data(game_id)
 
 
 def close_game(game_id, update_time):
     game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_status_entry["game_id"], status="expired",
+    add_row("game_status", game_id=game_id, status="expired",
             users=json.loads(game_status_entry["users"]), timestamp=update_time)
     mark_invites_expired(game_id, ["invited", "joined"], update_time)
 

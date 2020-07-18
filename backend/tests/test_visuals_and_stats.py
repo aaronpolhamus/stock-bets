@@ -23,14 +23,13 @@ from backend.logic.games import (
     place_order,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.winners import (
+from backend.logic.metrics import (
     get_winner,
     get_last_sidebet_payout,
     portfolio_value_by_day,
     log_winners,
 )
 from backend.logic.visuals import (
-    get_expected_sidebets_payout_dates,
     trade_time_index,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
@@ -38,7 +37,7 @@ from backend.logic.visuals import (
     serialize_and_pack_balances_chart,
     compile_and_pack_player_leaderboard,
     serialize_and_pack_order_performance_chart,
-    make_balances_chart_data,
+    make_user_balances_chart_data,
     make_the_field_charts,
     LEADERBOARD_PREFIX,
     ORDER_DETAILS_PREFIX,
@@ -51,6 +50,7 @@ from backend.logic.visuals import (
     N_PLOT_POINTS,
     NA_TEXT_SYMBOL
 )
+from logic.base import get_expected_sidebets_payout_dates
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
@@ -174,7 +174,7 @@ class TestGameKickoff(BaseTestCase):
 
         with patch("backend.logic.base.time") as base_time_mock:
             base_time_mock.time.side_effect = [start_time] * 2 * 2
-            df = make_balances_chart_data(game_id, self.user_id)
+            df = make_user_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
             balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
             self.assertEqual(len(balances_chart["datasets"]), 1)
@@ -214,7 +214,7 @@ class TestGameKickoff(BaseTestCase):
 
         with patch("backend.logic.base.time") as base_time_mock:
             base_time_mock.time.side_effect = [start_time] * 2 * 2
-            df = make_balances_chart_data(game_id, self.user_id)
+            df = make_user_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
             balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
 

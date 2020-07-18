@@ -7,9 +7,6 @@ import numpy as np
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    index_portfolio_value_by_day,
-    TRACKED_INDEXES,
-    check_game_mode,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     during_trading_day,
@@ -18,20 +15,18 @@ from backend.logic.base import (
     n_sidebets_in_game,
     posix_to_datetime,
     datetime_to_posix,
-    make_historical_balances_and_prices_table
-)
-from backend.tasks.redis import (
-    rds,
-    DEFAULT_ASSET_EXPIRATION
-)
-from backend.logic.visuals import (
-    STARTING_SHARPE_RATIO,
+    make_historical_balances_and_prices_table,
     get_expected_sidebets_payout_dates
 )
 
+
+# -------- #
+# Defaults #
+# -------- #
+STARTING_SHARPE_RATIO = 0
+STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
-RETURN_RATIO_PREFIX = "return_ratio"
-SHARPE_RATIO_PREFIX = "sharpe_ratio"
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -79,20 +74,6 @@ def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_dat
     sharpe_ratio = portfolio_sharpe_ratio(df, rf)
     return return_ratio, sharpe_ratio
 
-
-def calculate_and_pack_game_metrics(game_id):
-    for user_id in get_all_game_users_ids(game_id):
-        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
-        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-
-    if check_game_mode(game_id) == "single_player":
-        for index in TRACKED_INDEXES:
-            df = index_portfolio_value_by_day(game_id, index)
-            index_return_ratio = portfolio_return_ratio(df)
-            index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
-            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
 
 # ------------------- #
 # Winners and payouts #
