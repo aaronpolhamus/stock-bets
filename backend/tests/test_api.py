@@ -382,9 +382,6 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False, json=game_settings)
         self.assertEqual(res.status_code, 200)
 
-        import ipdb;ipdb.set_trace()
-        print("hi")
-
 
 class TestPlayGame(BaseTestCase):
 

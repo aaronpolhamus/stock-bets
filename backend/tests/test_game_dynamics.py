@@ -2,6 +2,7 @@
 """
 import json
 import unittest
+from datetime import datetime as dt
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -13,7 +14,6 @@ from backend.logic.base import (
     get_all_active_symbols
 )
 from backend.logic.games import (
-    add_game,
     suggest_symbols,
     get_order_ticket,
     process_order,
@@ -42,7 +42,8 @@ from backend.logic.schemas import (
     apply_validation,
     FailedValidation
 )
-from backend.logic.visuals import init_order_details
+from backend.logic.visuals import (
+    init_order_details)
 from backend.tests import BaseTestCase
 
 
@@ -689,17 +690,21 @@ class TestSchemaValidation(TestCase):
     def test_schema_validators(self):
         # all data is proper
         df = pd.DataFrame(
-            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"]))
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
         result = apply_validation(df, balances_chart_schema)
         self.assertTrue(result)
 
         # columns are there but data has a bad type
         df = pd.DataFrame(
-            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"]))
+            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
-        df = pd.DataFrame(dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"]))
+        df = pd.DataFrame(
+            dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
@@ -711,19 +716,3 @@ class TestSchemaValidation(TestCase):
         df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
-
-
-class TestSinglePlayerLogic(BaseTestCase):
-
-    def test_single_player_start(self):
-        user_id = 1
-        add_game(
-            user_id,
-            "jugando solo",
-            "single_player",
-            365,
-            "return_ratio"
-        )
-        import ipdb;
-        ipdb.set_trace()
-        print("hi")

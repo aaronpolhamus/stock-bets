@@ -360,16 +360,16 @@ def get_price_histories(symbols: List[str], min_time: float, max_time: float):
     return df.sort_values("timestamp")
 
 
-def resample_balances(symbol_subset):
+def resample_values(symbol_subset, value_col="balance"):
     # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
+    df = symbol_subset.groupby(["timestamp"]).aggregate({value_col: "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
     return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
-    resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
+    resampled_balances = balances_df.groupby("symbol").apply(resample_values)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
     max_time = datetime_to_posix(resampled_balances["timestamp"].max())
@@ -467,7 +467,7 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
         row = balance_history.iloc[0]
         row["timestamp"] = time.time()
         balance_history = balance_history.append([row], ignore_index=True)
-        df = resample_balances(balance_history)
+        df = resample_values(balance_history)
         df = df.reset_index().rename(columns={"index": "timestamp"})
         df["price"] = 1
         df["value"] = df["balance"] * df["price"]

@@ -45,16 +45,17 @@ from backend.logic.metrics import (
     RISK_FREE_RATE_DEFAULT,
     log_winners
 )
-from backend.tasks.redis import (
-    unpack_redis_json,
-    rds,
-    DEFAULT_ASSET_EXPIRATION
-)
 from backend.logic.schemas import (
     balances_chart_schema,
     portfolio_comps_schema,
     apply_validation
 )
+from backend.tasks.redis import (
+    unpack_redis_json,
+    rds,
+    DEFAULT_ASSET_EXPIRATION
+)
+
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -82,7 +83,6 @@ USD_FORMAT = "${:,.2f}"
 PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
-
 
 # -------------- #
 # Table settings #
@@ -428,6 +428,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
     chart_json = make_null_chart("Cash")
     if not df.empty:
         df.sort_values("timestamp", inplace=True)
+        apply_validation(df, balances_chart_schema)
         chart_json = make_chart_json(df, "symbol", "value")
     rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
@@ -479,24 +480,24 @@ def make_the_field_charts(game_id: int):
     """
     user_ids = get_all_game_users_ids(game_id)
     portfolios = []
+    portfolio_table_keys = list(portfolio_comps_schema.keys())
     for user_id in user_ids:
         df = make_user_balances_chart_data(game_id, user_id)
-        plot_data = df[["symbol", "value", "label"]]
-        apply_validation(plot_data, balances_chart_schema)
-        serialize_and_pack_balances_chart(plot_data, game_id, user_id)
+        serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])
         apply_validation(portfolio, portfolio_comps_schema)
-        portfolios.append(portfolio)
+        portfolios.append(portfolio[portfolio_table_keys])
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index)
             df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
             df = build_labels(df)
-            df = df.groupby("t_index", as_index=False).agg({"label": "last", "value": "last", "timestamp": "last"})
+            df = df.groupby("t_index", as_index=False).agg(
+                {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
             apply_validation(df, portfolio_comps_schema)
-            portfolios.append(df)
+            portfolios.append(df[portfolio_table_keys])
 
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
@@ -614,6 +615,9 @@ def add_market_prices_to_order_details(df):
 
 def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = get_order_details(game_id, user_id)
+    if df.empty:
+        init_order_details(game_id, user_id)
+        return
     df["timestamp_pending"] = df["timestamp_pending"].apply(lambda x: format_posix_time(x))
     df["timestamp_fulfilled"] = df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
     df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
@@ -703,9 +707,8 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     out_dict = dict(data=[], headers=list(PORTFOLIO_DETAIL_MAPPINGS.values()))
     balances = get_active_balances(game_id, user_id)
     if balances.empty:
-        init_order_details(game_id, user_id)
+        rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
         return
-
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     symbols = balances["symbol"].unique()
     prices = get_most_recent_prices(symbols)

@@ -4,9 +4,14 @@ that they are logic-level tests of how what the users do impacts what the users 
 from unittest.mock import patch, Mock
 
 import pandas as pd
+from pandas.tseries.offsets import DateOffset
+from backend.tests import BaseTestCase
+
 from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_expected_sidebets_payout_dates,
+    TRACKED_INDEXES,
     posix_to_datetime,
     datetime_to_posix,
     n_sidebets_in_game,
@@ -16,6 +21,7 @@ from backend.logic.base import (
     get_user_id,
 )
 from backend.logic.games import (
+    add_game,
     respond_to_game_invite,
     get_current_game_cash_balance,
     get_current_stock_holding,
@@ -46,17 +52,16 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
+    SHARPE_RATIO_PREFIX,
+    RETURN_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
     NA_TEXT_SYMBOL
 )
-from logic.base import get_expected_sidebets_payout_dates
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
-from backend.tests import BaseTestCase
-from pandas.tseries.offsets import DateOffset
 
 
 class TestGameKickoff(BaseTestCase):
@@ -389,3 +394,42 @@ class TestTradeTimeIndex(BaseTestCase):
         prices.sort_values("timestamp", inplace=True)
         prices["t_index"] = trade_time_index(prices["timestamp"])
         self.assertEqual(prices["t_index"].nunique(), N_PLOT_POINTS)
+
+
+class TestSinglePlayerLogic(BaseTestCase):
+
+    def test_single_player_start(self):
+        user_id = 1
+        title = "jugando solit@"
+        add_game(
+            user_id,
+            title,
+            "single_player",
+            365,
+            "return_ratio"
+        )
+
+        # confirm that a single player game was registered successfully
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s;", title)
+        game_id = game_entry["id"]
+        self.assertEqual(game_entry["game_mode"], "single_player")
+        self.assertEqual(game_entry["duration"], 365)
+        self.assertEqual(game_entry["benchmark"], "return_ratio")
+
+        # confirm that user is registered as joined
+        invite_entry = query_to_dict("SELECT * FROM game_invites WHERE game_id = %s", game_id)
+        self.assertEqual(invite_entry["status"], "joined")
+
+        # confirm that all expected redis cache assets exist
+        # --------------------------------------------------
+
+        # these assets are specific to the user
+        for prefix in [CURRENT_BALANCES_PREFIX, ORDER_DETAILS_PREFIX, BALANCES_CHART_PREFIX, ORDER_PERF_CHART_PREFIX]:
+            self.assertIn(f"{prefix}_{game_id}_{user_id}", rds.keys())
+
+        # these assets exist for both the user and the index users
+        for _id in [user_id] + TRACKED_INDEXES:
+            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", rds.keys())
+
+        # and check that the leaderboard exists on the game level
+        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", rds.keys())

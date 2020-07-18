@@ -261,8 +261,8 @@ def create_game():
         game_settings["title"],
         game_settings["game_mode"],
         game_settings["duration"],
+        game_settings["benchmark"],
         game_settings.get("buy_in"),
-        game_settings.get("benchmark"),
         game_settings.get("side_bets_perc"),
         game_settings.get("side_bets_period"),
         game_settings.get("invitees")
