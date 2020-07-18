@@ -339,9 +339,6 @@ def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
         usernames = conn.execute(f"""
         SELECT username FROM users WHERE id IN ({', '.join(['%s'] * len(user_ids))})
         """, user_ids).fetchall()
-
-    if len(usernames) == 1:
-        return usernames[0]
     return [x[0] for x in usernames]
 
 
@@ -658,7 +655,6 @@ def get_payouts_meta_data(game_id: int):
 def check_single_player_mode(game_id: int):
     with engine.connect() as conn:
         return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()[0] == "single_player"
-
 
 # -------------------------------------------------- #
 # Methods for handling indexes in single-player mode #

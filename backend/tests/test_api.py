@@ -375,8 +375,9 @@ class TestCreateGame(BaseTestCase):
         game_duation = 365
         game_settings = {
             "duration": game_duation,
-            "game_mode": "multi_player",
+            "game_mode": "single_player",
             "title": "jugando solo",
+            "benchmark": "return_ratio"
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False, json=game_settings)
         self.assertEqual(res.status_code, 200)
@@ -696,7 +697,7 @@ class TestHomePage(BaseTestCase):
             self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
-        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the creategame
+        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the create_game
         test. Rhis functionality is already tested. Want to do a bit testing of the order placing functionality via the
         API and how that impacts the database.
         """

@@ -48,6 +48,6 @@ def make_stock_data_records():
                 dji_value += np.random.normal(0, 0.005 * dji_value_0)
                 index_records.append(dict(symbol="^IXIC", value=ixic_value, timestamp=posix_time))
                 index_records.append(dict(symbol="^GSPC", value=gspc_value, timestamp=posix_time))
-                index_records.append(dict(symbol="^GSPC", value=dji_value, timestamp=posix_time))
+                index_records.append(dict(symbol="^DJI", value=dji_value, timestamp=posix_time))
 
     return price_records, index_records

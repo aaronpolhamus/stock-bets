@@ -151,8 +151,8 @@ class TestGameIntegration(BaseTestCase):
             mock_game["title"],
             mock_game["game_mode"],
             mock_game["duration"],
-            mock_game["buy_in"],
             mock_game["benchmark"],
+            mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
             mock_game["invitees"]

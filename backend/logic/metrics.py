@@ -51,13 +51,16 @@ def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date:
 
 
 def portfolio_return_ratio(df: pd.DataFrame):
+    if df.empty:
+        return STARTING_RETURN_RATIO
     start_val = df.iloc[0]["value"]
     end_val = df.iloc[-1]["value"]
     return 100 * (end_val - start_val) / start_val
 
 
 def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
-    # TODO: risk-free rate may need to vary in time at some point
+    if df.empty:
+        return STARTING_SHARPE_RATIO
     df["returns"] = (df["value"] - df.iloc[0]["value"]) / df.iloc[0]["value"]
     value = (df["returns"].mean() - rf) / df["returns"].std()
     if np.isnan(value):

@@ -106,8 +106,12 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bets_perc, side_bets_period, invitees):
+def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
+             invitees=None):
     assert game_mode in ["single_player", "multi_player"]
+    if invitees is None:
+        invitees = []
+
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
     game_id = add_row("games",
@@ -115,8 +119,8 @@ def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bet
                       title=title,
                       game_mode=game_mode,
                       duration=duration,
-                      buy_in=buy_in,
                       benchmark=benchmark,
+                      buy_in=buy_in,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
                       invite_window=invite_window)
@@ -127,9 +131,10 @@ def add_game(creator_id, title, game_mode, duration, buy_in, benchmark, side_bet
         add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
     else:
         add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
-        kick_off_game(game_id, user_ids, opened_at)
-
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
+
+    if game_mode == "single_player":
+        kick_off_game(game_id, user_ids, opened_at)
 
 
 def respond_to_game_invite(game_id, user_id, decision, response_time):

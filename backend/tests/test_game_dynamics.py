@@ -8,6 +8,7 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import get_pending_buy_order_value
 from backend.logic.games import (
+    add_game,
     suggest_symbols,
     get_order_ticket,
     process_order,
@@ -672,3 +673,18 @@ class TestSymbolSuggestion(BaseTestCase):
         expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)"}]
         result = suggest_symbols(game_id, user_id, text, buy_or_sell)
         self.assertEqual(result, expected_suggestions)
+
+
+class TestSinglePlayerLogic(BaseTestCase):
+
+    def test_single_player_start(self):
+        user_id = 1
+        add_game(
+            user_id,
+            "jugando solo",
+            "single_player",
+            365,
+            "return_ratio"
+        )
+        import ipdb;ipdb.set_trace()
+        print("hi")

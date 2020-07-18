@@ -229,6 +229,13 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
     )
 
 
+def get_index_portfolio_value(game_id: int, index: str):
+    df = get_index_portfolio_value_data(game_id, index)
+    if df.empty:
+        return DEFAULT_VIRTUAL_CASH
+    return df.iloc[-1]["value"]
+
+
 def compile_and_pack_player_leaderboard(game_id: int):
     user_ids = get_all_game_users_ids(game_id)
     user_colors = assign_user_colors(game_id)
@@ -248,10 +255,10 @@ def compile_and_pack_player_leaderboard(game_id: int):
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
-            index_portfolio_value = get_index_portfolio_value_data(game_id, index)
+            portfolio_value = get_index_portfolio_value(game_id, index)
             stat_info = make_stat_entry(color=user_colors[index],
                                         cash_balance=None,
-                                        portfolio_value=index_portfolio_value.iloc[-1]["values"],
+                                        portfolio_value=portfolio_value,
                                         stocks_held=[],
                                         return_ratio=rds.get(f"return_ratio_{game_id}_{index}"),
                                         sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{index}"))
@@ -471,6 +478,7 @@ def make_the_field_charts(game_id: int):
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index)
+            import ipdb;ipdb.set_trace()
             df = build_labels(df)
             df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
                 {"label": "last", "value": "last", "timestamp": "last"})
