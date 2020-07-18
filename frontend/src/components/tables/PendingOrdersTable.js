@@ -45,15 +45,6 @@ const tableHeaders = [
 ]
 
 const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
-  // const [tableData, setTableData] = useState({})
-  // const getGameData = async () => {
-  //   const data = await fetchGameData(gameId, 'get_order_details_table')
-  //   setTableData(data)
-  // }
-
-  // useEffect(() => {
-  //   getGameData()
-  // }, [])
 
   const [cancelableOrder, setCancelableOrder] = useState(null)
 
@@ -106,7 +97,6 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
   }
 
   if (tableData.orders) {
-    if (tableData.orders.pending.length === 0) return null
     return (
       <>
         {title && <SectionTitle>{title}</SectionTitle>}
