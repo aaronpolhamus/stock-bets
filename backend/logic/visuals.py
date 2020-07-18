@@ -50,10 +50,13 @@ from backend.tasks.redis import (
     rds,
     DEFAULT_ASSET_EXPIRATION
 )
+from backend.logic.schemas import (
+    balances_chart_schema,
+    portfolio_comps_schema
+)
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-
 
 
 CURRENT_BALANCES_PREFIX = "current_balances"
@@ -363,6 +366,7 @@ def make_chart_json(df: pd.DataFrame, series_var: str, data_var: str, labels_var
     :param labels_var: What is the column that defines the x-axis?
     :param data_var: What is the column that defines the y-axis
     :param colors: A passed-in array if you want to override the default color scheme
+    :param interpolate: flag controlling whether to implement missing data interpolation
     :return: A json-serializable chart dictionary
 
     Target schema is:
@@ -380,7 +384,7 @@ def make_chart_json(df: pd.DataFrame, series_var: str, data_var: str, labels_var
     """
 
     if interpolate:
-        # if the sampling interval is fine=grained enough we may have missing valus. interpolate those here
+        # if the sampling interval is fine-grained enough we may have missing values. interpolate those here
         def _interpolate(mini_df):
             mini_df[data_var] = mini_df[data_var].interpolate(method='akima')
             return mini_df
@@ -470,20 +474,23 @@ def make_the_field_charts(game_id: int):
     portfolios = []
     for user_id in user_ids:
         df = make_user_balances_chart_data(game_id, user_id)
+        _ = balances_chart_schema.validate(df)
         serialize_and_pack_balances_chart(df, game_id, user_id)
+
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])
+        _ = portfolio_comps_schema.validate(portfolio)
         portfolios.append(portfolio)
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index)
-            import ipdb;ipdb.set_trace()
             df = build_labels(df)
             df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
                 {"label": "last", "value": "last", "timestamp": "last"})
             df = aggregate_portfolio_value(df)
             df["username"] = index
+            _ = portfolio_comps_schema.validate(df)
             portfolios.append(df)
 
     portfolios_df = pd.concat(portfolios)
