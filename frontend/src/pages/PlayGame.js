@@ -1,5 +1,5 @@
-import React, { useEffect, useContext } from 'react'
-import { Tabs, Tab, Accordion, Button } from 'react-bootstrap'
+import React, { useEffect, useContext, useState } from 'react'
+import { Tabs, Tab, Accordion, Button, Toast } from 'react-bootstrap'
 import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
@@ -19,12 +19,24 @@ import { ChevronLeft } from 'react-feather'
 import { BalancesTable } from 'components/tables/BalancesTable'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
-import { apiPost } from 'components/functions/api'
+import { fetchGameData, apiPost } from 'components/functions/api'
 import { AlignText, SectionTitle } from 'components/textComponents/Text'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
   const { user, setUser } = useContext(UserContext)
+  const [ordersData, setOrdersData] = useState({})
+  const [showToast, setShowToast] = useState(false)
+
+  const getOrdersData = async () => {
+    const data = await fetchGameData(gameId, 'get_order_details_table')
+    setOrdersData(data)
+  }
+
+  const handlePlacedOrder = (order) => {
+    setShowToast(true)
+    getOrdersData()
+  }
 
   useEffect(() => {
     // We need to replace this with localstorage, maybe change useContext for redux
@@ -40,12 +52,16 @@ const PlayGame = (props) => {
       }
       getUserInfo()
     }
+    getOrdersData()
   }, [user, setUser])
 
   return (
     <Layout>
       <Sidebar md={3}>
-        <PlaceOrder gameId={gameId} />
+        <PlaceOrder
+          gameId={gameId}
+          onPlaceOrder={handlePlacedOrder}
+        />
       </Sidebar>
       <Column md={9}>
         <PageSection>
@@ -63,16 +79,21 @@ const PlayGame = (props) => {
                 <FieldChart gameId={gameId} />
               </PageSection>
               <PageSection>
+                <PendingOrdersTable
+                  tableData={ordersData}
+                  gameId={gameId}
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
+                />
+
+              </PageSection>
+              <PageSection>
                 <UserDropDownChart
                   gameId={gameId}
                   endpoint='get_order_performance_chart'
                   yScaleType='percent'
                   title='Order Performance'
                 />
-              </PageSection>
-              <PageSection>
-                <PendingOrdersTable gameId={gameId} title='Pending Orders' />
-
               </PageSection>
             </Tab>
             <Tab eventKey='balances-chart' title='Balances and Orders'>
@@ -122,6 +143,26 @@ const PlayGame = (props) => {
           </Tabs>
         </PageSection>
       </Column>
+      <Toast
+        style={{
+          position: 'fixed',
+          top: 'var(--space-400)',
+          right: 'var(--space-100)',
+          minWidth: '300px'
+        }}
+        show={showToast}
+        delay={6000}
+        onClose={() => setShowToast(false)}
+        autohide
+      >
+        <Toast.Header>
+          <strong className="mr-auto">Order placed</strong>
+          <small>Right now</small>
+        </Toast.Header>
+        <Toast.Body>
+          We got your order!
+        </Toast.Body>
+      </Toast>
     </Layout>
   )
 }

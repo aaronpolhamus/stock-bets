@@ -44,16 +44,16 @@ const tableHeaders = [
   }
 ]
 
-const PendingOrdersTable = ({ gameId, title }) => {
-  const [tableData, setTableData] = useState({})
-  const getGameData = async () => {
-    const data = await fetchGameData(gameId, 'get_order_details_table')
-    setTableData(data)
-  }
+const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
+  // const [tableData, setTableData] = useState({})
+  // const getGameData = async () => {
+  //   const data = await fetchGameData(gameId, 'get_order_details_table')
+  //   setTableData(data)
+  // }
 
-  useEffect(() => {
-    getGameData()
-  }, [])
+  // useEffect(() => {
+  //   getGameData()
+  // }, [])
 
   const [cancelableOrder, setCancelableOrder] = useState(null)
 
@@ -65,7 +65,7 @@ const PendingOrdersTable = ({ gameId, title }) => {
       game_id: gameId,
       order_id: orderId
     })
-    getGameData()
+    onCancelOrder()
     setShow(false)
   }
 
@@ -106,10 +106,10 @@ const PendingOrdersTable = ({ gameId, title }) => {
   }
 
   if (tableData.orders) {
+    if (tableData.orders.pending.length === 0) return null
     return (
       <>
-        {title &&
-          <SectionTitle>{title}</SectionTitle>}
+        {title && <SectionTitle>{title}</SectionTitle>}
         <Table hover>
           <thead>
             <tr>{makeCustomHeader(tableHeaders)}</tr>
@@ -150,6 +150,8 @@ const PendingOrdersTable = ({ gameId, title }) => {
 }
 
 PendingOrdersTable.propTypes = {
+  tableData: PropTypes.object,
+  onCancelOrder: PropTypes.func,
   gameId: PropTypes.number,
   title: PropTypes.string
 }
