@@ -684,12 +684,14 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = Non
 
     with engine.connect() as conn:
         df = pd.read_sql("""
-            SELECT * FROM indexes 
+            SELECT symbol as username, timestamp, value FROM indexes 
             WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start, end])
 
     # normalizes index to the same starting scale as the user
     df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
-    return df
+
+    # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
+    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[game_start], value=[DEFAULT_VIRTUAL_CASH])), df])
 
 
 def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):

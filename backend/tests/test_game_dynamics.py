@@ -5,6 +5,7 @@ import unittest
 from unittest import TestCase
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
@@ -699,6 +700,15 @@ class TestSchemaValidation(TestCase):
             apply_validation(df, balances_chart_schema)
 
         df = pd.DataFrame(dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)
+
+        # test throwing flags for null or missing data when this is not allowed
+        df.loc[0, "value"] = None
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)
+
+        df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 

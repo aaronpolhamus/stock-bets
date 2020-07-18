@@ -52,7 +52,8 @@ from backend.tasks.redis import (
 )
 from backend.logic.schemas import (
     balances_chart_schema,
-    portfolio_comps_schema
+    portfolio_comps_schema,
+    apply_validation
 )
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -279,7 +280,7 @@ def compile_and_pack_player_leaderboard(game_id: int):
 # ------------------ #
 
 
-def format_posix_time(ts):
+def format_posix_time(ts: float):
     if np.isnan(ts):
         return ts
     dtime = posix_to_datetime(ts)
@@ -298,6 +299,15 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     ls = timestamp_sr.to_list()
     assert all(ls[i] <= ls[i + 1] for i in range(len(ls) - 1))  # enforces that timestamps are strictly sorted
 
+    start_time = timestamp_sr.min().date()
+    end_time = timestamp_sr.max().date()
+    trade_times_df = get_trading_calendar(start_time, end_time)
+    # when this happens it means that the game is young enough that we don't yet have any observations that occured
+    # during trading hours. In this case we won't worry about filtering our trading hours -- we'll just assign  an index
+    # on the times available
+    if trade_times_df.empty or trade_times_df.iloc[-1]["market_close"] <= start_time:
+        return pd.cut(timestamp_sr, N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
+
     df = timestamp_sr.to_frame()
     df["anchor_time"] = timestamp_sr.min()
     df["time_diff"] = (df["timestamp"] - df["anchor_time"]).dt.total_seconds()
@@ -305,9 +315,6 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     df.index = df.index.to_period("D")
     del df["anchor_time"]
 
-    start_time = timestamp_sr.min().date()
-    end_time = timestamp_sr.max().date()
-    trade_times_df = get_trading_calendar(start_time, end_time)
     trade_times_df["last_close"] = trade_times_df["market_close"].shift(1)
     trade_times_df["non_trading_seconds"] = (
             trade_times_df["market_open"] - trade_times_df["last_close"]).dt.total_seconds().fillna(0)
@@ -321,7 +328,7 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     return pd.cut(tt_df["trade_time"], N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
 
-def build_labels(df: pd.DataFrame, time_col="timestamp") -> pd.DataFrame:
+def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
     df.sort_values(time_col, inplace=True)
     df["t_index"] = trade_time_index(df[time_col])
     labels = df.groupby("t_index", as_index=False)[time_col].max().rename(columns={time_col: "label"})
@@ -474,23 +481,21 @@ def make_the_field_charts(game_id: int):
     portfolios = []
     for user_id in user_ids:
         df = make_user_balances_chart_data(game_id, user_id)
-        _ = balances_chart_schema.validate(df)
-        serialize_and_pack_balances_chart(df, game_id, user_id)
-
+        plot_data = df[["symbol", "value", "label"]]
+        apply_validation(plot_data, balances_chart_schema)
+        serialize_and_pack_balances_chart(plot_data, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])
-        _ = portfolio_comps_schema.validate(portfolio)
+        apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio)
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index)
+            df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
             df = build_labels(df)
-            df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
-                {"label": "last", "value": "last", "timestamp": "last"})
-            df = aggregate_portfolio_value(df)
-            df["username"] = index
-            _ = portfolio_comps_schema.validate(df)
+            df = df.groupby("t_index", as_index=False).agg({"label": "last", "value": "last", "timestamp": "last"})
+            apply_validation(df, portfolio_comps_schema)
             portfolios.append(df)
 
     portfolios_df = pd.concat(portfolios)
