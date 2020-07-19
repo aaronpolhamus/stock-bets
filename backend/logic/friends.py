@@ -143,6 +143,13 @@ def get_friend_invites_list(user_id: int):
     return [x["username"] for x in details]
 
 
+def get_if_invited_by_email(email):
+    with engine.connect() as conn:
+        requester_friend_id = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
+                                           email).fetchone()
+    return requester_friend_id
+
+
 def get_friend_details(user_id: int):
     friend_ids = get_friend_ids(user_id)
     return get_user_details_from_ids(friend_ids)
@@ -166,20 +173,22 @@ def invite_friend(requester_id, invited_username):
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
-def invite_friend_to_stockbets(requester_name, invited_user_email: str):
+def invite_friend_to_stockbets(requester_id, invited_user_email: str):
     """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
     joined
     """
-    requester_id = get_user_id(requester_name)
-    if send_email(requester_id, invited_user_email):
-        add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
-                status="invited", timestamp=time.time())
+    email_response = send_email(requester_id, invited_user_email)
+    status = "invited"
+    if not email_response:
+        status = "error"
+    add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
+            status=status, timestamp=time.time())
 
 
 def send_email(requester_id, email):
     user_information = get_user_information(requester_id)
     name = user_information['name']
-    sender_email = os.getenv('SENDER_EMAIL')
+    sender_email = os.getenv('EMAIL_SENDER')
     sendgrid_key = os.getenv('SENDGRID_API_KEY')
     message = Mail(
         from_email=sender_email,
