@@ -4,17 +4,22 @@ import unittest
 from unittest.mock import patch
 
 import pytz
+import pandas as pd
 
 from backend.logic.base import (
+    TRACKED_INDEXES,
+    update_index_value,
     get_trading_calendar,
     posix_to_datetime,
     during_trading_day,
     datetime_to_posix,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
+    get_end_of_last_trading_day,
     TIMEZONE
 )
 from backend.logic.base import fetch_price
+from backend.tests import BaseTestCase
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -89,3 +94,25 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
+
+
+class TestIndexScrapers(BaseTestCase):
+
+    def test_index_scrapers(self):
+        """This test make sure that our external integration with yahoo finance via the celery workers is running
+        properly, as well as that new indexes that get added to our inventory will be properly intitialized, as well as
+        that close of day index values will be stored
+        """
+
+        with self.engine.connect() as conn:
+            conn.execute("TRUNCATE indexes;")
+            for index in TRACKED_INDEXES:
+                update_index_value(index)
+
+        with self.engine.connect() as conn:
+            df = pd.read_sql("SELECT * FROM indexes;", conn)
+
+        self.assertEqual(df.shape, (3, 4))
+        if not during_trading_day():
+            eod = get_end_of_last_trading_day()
+            [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]

@@ -94,13 +94,19 @@ class TestUserManagement(BaseTestCase):
 
         # check valid output from the /home endpoint. There should be one pending invite for valiant roset, with
         # test game being active
-        self.assertEqual(len(data["game_info"]), 2)
+        self.assertEqual(len(data["game_info"]), 4)
         for game_data in data["game_info"]:
             if game_data["title"] == "valiant roset":
                 self.assertEqual(game_data["game_status"], "pending")
 
             if game_data["title"] == "test game":
                 self.assertEqual(game_data["game_status"], "active")
+
+            if game_data["title"] == "finished game to show":
+                self.assertEqual(game_data["game_status"], "finished")
+
+            if game_data["title"] == "finished game to hide":
+                self.assertEqual(game_data["game_status"], "finished")
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
@@ -667,7 +673,7 @@ class TestHomePage(BaseTestCase):
         # verify that the test page landing looks like we expect it to
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 2)
+        self.assertEqual(len(res.json()["game_info"]), 4)
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
@@ -689,7 +695,7 @@ class TestHomePage(BaseTestCase):
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 2)
+        self.assertEqual(len(res.json()["game_info"]), 4)
         for game_entry in res.json()["game_info"]:
             self.assertEqual(game_entry["invite_status"], "joined")
 

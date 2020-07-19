@@ -74,8 +74,7 @@ const GameHeader = ({ gameId }) => {
                 <TextDivider> | </TextDivider>
                 {daysLeft(gameInfo.end_time)}
               </>
-            )
-          }
+            )}
         </GameDetails>
       </h1>
       <CashInfoWrapper>

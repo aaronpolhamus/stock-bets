@@ -15,7 +15,7 @@ db-reset:
 db-mock-data:
 	rm -f backend/mockdata.sql
 	make db-reset
-	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"
+	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
 db-logs:

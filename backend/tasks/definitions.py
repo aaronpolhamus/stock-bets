@@ -19,8 +19,9 @@ from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_invite_ids,
-    get_active_game_ids,
-    service_open_game
+    get_game_ids_by_status,
+    service_open_game,
+    expire_finished_game
 )
 from backend.logic.metrics import (
     log_winners
@@ -148,9 +149,13 @@ def async_process_all_open_orders(self):
 
 @celery.task(name="async_update_all_games", bind=True, base=BaseTask)
 def async_update_all_games(self):
-    open_game_ids = get_active_game_ids()
-    for game_id in open_game_ids:
+    active_ids = get_game_ids_by_status()
+    for game_id in active_ids:
         async_update_game_data.delay(game_id)
+
+    finished_ids = get_game_ids_by_status("finished")
+    for game_id in finished_ids:
+        expire_finished_game(game_id)
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)

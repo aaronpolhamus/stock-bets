@@ -9,7 +9,6 @@ from backend.logic.base import (
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
-    get_end_of_last_trading_day
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -104,29 +103,6 @@ class TestStockDataTasks(BaseTestCase):
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
 
-    def test_index_scrapers(self):
-        """This test make sure that our external integration with yahoo finance via the celery workers is running
-        properly, as well as that new indexes that get added to our inventory will be properly intitialized, as well as
-        that close of day index values will be stored
-        """
-
-        with self.engine.connect() as conn:
-            conn.execute("TRUNCATE indexes;")
-            async_update_all_index_values.delay()
-            df = pd.read_sql("SELECT * FROM indexes;", conn)
-
-        iteration = 0
-        while df.shape != (3, 4) and iteration < 30:
-            time.sleep(1)
-            with self.engine.connect() as conn:
-                df = pd.read_sql("SELECT * FROM indexes;", conn)
-            iteration += 1
-
-        self.assertEqual(df.shape, (3, 4))
-        if not during_trading_day():
-            eod = get_end_of_last_trading_day()
-            [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]
-
 
 class TestGameIntegration(BaseTestCase):
 
@@ -162,7 +138,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        game_id = 6
+        game_id = 8
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
@@ -172,7 +148,7 @@ class TestGameIntegration(BaseTestCase):
         # Confirm that game status was updated as expected
         # ------------------------------------------------
         game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-        self.assertEqual(game_status_entry["id"], 8)
+        self.assertEqual(game_status_entry["id"], 14)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])

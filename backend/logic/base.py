@@ -39,9 +39,10 @@ DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
-# -------------------------------- #
-# Managing time and trad schedules #
-# -------------------------------- #
+# --------------------------------- #
+# Managing time and trade schedules #
+# --------------------------------- #
+SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
 RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
