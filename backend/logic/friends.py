@@ -185,7 +185,13 @@ def invite_friend_to_stockbets(requester_id, invited_user_email: str):
             status=status, timestamp=time.time())
 
 
+def update_email_invite_status(email):
+    with engine.connect() as conn:
+        conn.execute("UPDATE external_invites SET status = 'accepted' WHERE invited_email = %s;", email)
+
+
 def send_email(requester_id, email):
+    return True
     user_information = get_user_information(requester_id)
     name = user_information['name']
     sender_email = os.getenv('EMAIL_SENDER')
