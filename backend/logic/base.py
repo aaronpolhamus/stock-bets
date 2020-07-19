@@ -503,7 +503,7 @@ def get_web_table_object():
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(chrome_options=options)
+    return webdriver.Chrome(options=options)
 
 
 def extract_row_data(row):
@@ -553,7 +553,7 @@ def update_index_value(symbol):
 
     # a bit of logic to get the close of day price
     with engine.connect() as conn:
-        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", "^IXIC").fetchone()[0]
+        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", symbol).fetchone()[0]
         if max_time is None:
             max_time = 0
 
