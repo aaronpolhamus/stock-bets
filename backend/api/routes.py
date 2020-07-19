@@ -179,15 +179,6 @@ def logout():
     return resp
 
 
-@routes.route("/api/invite_user_by_email", methods=["POST"])
-@authenticate
-def invite_friend_by_email():
-    user_id = decode_token(request)
-    email = request.json.get('friend_email')
-    invite_friend_to_stockbets(user_id, email)
-    return make_response("Email sent to your friend", 200)
-
-
 @routes.route("/api/set_username", methods=["POST"])
 @authenticate
 def set_username():
@@ -416,6 +407,15 @@ def send_friend_request():
     invited_username = request.json.get("friend_invitee")
     invite_friend(user_id, invited_username)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
+
+
+@routes.route("/api/invite_user_by_email", methods=["POST"])
+@authenticate
+def invite_friend_by_email():
+    user_id = decode_token(request)
+    email = request.json.get('friend_email')
+    invite_friend_to_stockbets(user_id, email)
+    return make_response("Email sent to your friend", 200)
 
 
 @routes.route("/api/respond_to_friend_request", methods=["POST"])

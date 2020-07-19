@@ -1,6 +1,8 @@
 import json
 import time
 
+from unittest.mock import patch
+
 import jwt
 import pandas as pd
 from backend.api.routes import (
@@ -55,6 +57,10 @@ from backend.tests import BaseTestCase
 from config import Config
 
 HOST_URL = 'https://localhost:5000/api'
+
+
+def mock_send_email(_requester_id, _email):
+    return True
 
 
 class TestUserManagement(BaseTestCase):
@@ -576,11 +582,13 @@ class TestGetGameStats(BaseTestCase):
 
 class TestFriendManagement(BaseTestCase):
 
+    @patch('logic.friends.send_email', mock_send_email)
     def test_friend_management(self):
         """Integration test of the API's ability to interface with the celery functions tested in
         test_celery_tasks.TestFriendManagement
         """
         test_username = "cheetos"
+        test_friend_email = "test_email@gmail.com"
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
@@ -617,7 +625,9 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-
+        res = self.requests_session.post(f"{HOST_URL}/invite_user_by_email", json={"friend_email": test_friend_email},
+                                         cookies={"session_token": dummy_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
                                          cookies={"session_token": test_user_session_token}, verify=False)
