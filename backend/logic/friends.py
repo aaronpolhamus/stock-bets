@@ -1,11 +1,14 @@
+import os
 import time
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
-from backend.database.helpers import add_row
 from backend.database.db import engine
-from backend.logic.base import get_user_id
+from backend.database.helpers import add_row
+from backend.logic.base import get_user_id, get_user_information
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -149,6 +152,7 @@ def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_id(requester_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
+
 # ------- #
 # Friends #
 # ------- #
@@ -160,3 +164,32 @@ def invite_friend(requester_id, invited_username):
     """
     invited_id = get_user_id(invited_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
+
+
+def invite_friend_to_stockbets(requester_name, invited_user_email: str):
+    """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
+    joined
+    """
+    requester_id = get_user_id(requester_name)
+    if send_email(requester_id, invited_user_email):
+        add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
+                status="invited", timestamp=time.time())
+
+
+def send_email(requester_id, email):
+    user_information = get_user_information(requester_id)
+    name = user_information['name']
+    sender_email = os.getenv('SENDER_EMAIL')
+    sendgrid_key = os.getenv('SENDGRID_API_KEY')
+    message = Mail(
+        from_email=sender_email,
+        to_emails=email,
+        subject=f"Your friend {name} invites you to join Stockbets!",
+        html_content=f"""<strong>Hey there your friend {name} has invited you to 
+                         join stockbets.io,  You can learn about the mechanics of
+                         investing / test different strategies in single player mode, or compete against your
+                         friends.  </strong>""")
+    sg = SendGridAPIClient(sendgrid_key)
+    response = sg.send(message)
+    if response.status_code == 202:
+        return True
