@@ -84,7 +84,7 @@ class TestGameKickoff(BaseTestCase):
         with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
             game_time_mock.time.return_value = start_time
             time = Mock()
-            time.time.side_effect = base_time_mock.time.side_effect = [start_time] * len(all_ids) * 2 * 2
+            time.time.return_value = base_time_mock.time.return_value = start_time
             for user_id in pending_user_ids:
                 respond_to_game_invite(game_id, user_id, "joined", time.time())
 
@@ -191,7 +191,8 @@ class TestGameKickoff(BaseTestCase):
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         # The number of cached transactions that we expect an order to refresh
-        self.assertEqual(len(rds.keys()), 7)
+        asset_cache_keys = [x for x in rds.keys() if "rc:" not in x]
+        self.assertEqual(len(asset_cache_keys), 4)
 
     def test_visuals_during_trading(self):
         # TODO: Add a canonical test with fully populated data
@@ -236,7 +237,8 @@ class TestGameKickoff(BaseTestCase):
                                  x["id"] != self.user_id]))
 
         # The number of cached transactions that we expect an order to refresh
-        self.assertEqual(len(rds.keys()), 7)
+        asset_cache_keys = [x for x in rds.keys() if "rc:" not in x]
+        self.assertEqual(len(asset_cache_keys), 4)
 
 
 class TestVisuals(BaseTestCase):
@@ -329,7 +331,7 @@ class TestWinnerPayouts(BaseTestCase):
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 
-        with patch("backend.logic.payouts.portfolio_value_by_day") as portfolio_mocks, patch(
+        with patch("backend.logic.metrics.portfolio_value_by_day") as portfolio_mocks, patch(
                 "backend.logic.base.time") as base_time_mock:
             time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)

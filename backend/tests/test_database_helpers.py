@@ -42,10 +42,9 @@ class TestDBHelpers(BaseTestCase):
         game_id = add_row("games",
                           creator_id=1,
                           title="db test",
-                          mode="winner_takes_all",
+                          game_mode="multi_player",
                           duration=1_000,
                           buy_in=0,
-                          n_rebuys=0,
                           benchmark="return_ratio",
                           side_bets_perc=0,
                           invite_window=time.time() + 1_000_000_000_000)

@@ -426,7 +426,9 @@ def make_null_chart(null_label: str):
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     chart_json = make_null_chart("Cash")
-    if not df.empty:
+    if df.shape[0] > 1:
+        # see comment for serialize_and_pack_portfolio_comps_chart. a dataframe with a single row means that this user
+        # just got started and is only holding cash in their portfolio
         df.sort_values("timestamp", inplace=True)
         apply_validation(df, balances_chart_schema)
         chart_json = make_chart_json(df, "symbol", "value")
@@ -436,7 +438,9 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
     user_colors = assign_user_colors(game_id)
     datasets = []
-    if df.empty:
+    if df["username"].nunique() == df.shape[0]:
+        # if our portfolio dataframe only has as many rows as there are users in the game, this means that we've just
+        # started the game, and can post a null chart to the field
         for username, color in user_colors.items():
             null_chart = make_null_chart(username)
             datasets.append(null_chart["datasets"][0])
@@ -485,7 +489,7 @@ def make_the_field_charts(game_id: int):
         df = make_user_balances_chart_data(game_id, user_id)
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
-        portfolio["username"] = get_usernames([user_id])
+        portfolio["username"] = get_usernames([user_id])[0]
         apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio[portfolio_table_keys])
 
@@ -787,7 +791,7 @@ def serialize_and_pack_winners_table(game_id: int):
         final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
     else:
         winner_row = winners_df.loc[winners_df["type"] == "overall"].iloc[0]
-        winner = get_usernames([winner_row["winner_id"]])
+        winner = get_usernames([int(winner_row["winner_id"])])[0]
         final_entry = make_payout_table_entry(start_time, end_time, winner, payout, "Overall", benchmark,
                                               winner_row["score"])
 

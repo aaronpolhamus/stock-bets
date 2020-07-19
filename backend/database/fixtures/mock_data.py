@@ -217,25 +217,25 @@ MOCK_DATA = {
          "price": 11.73, "order_type": "market", "time_in_force": "day"},  # 14
     ],
     "order_status": [
-        {"order_id": 1, "timestamp": simulation_start_time, "status": "pending"},  # 1
+        {"order_id": 1, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 1
         {"order_id": 1, "timestamp": simulation_start_time, "status": "fulfilled",  # 2
          "clear_price": get_stock_start_price("AMZN")},
-        {"order_id": 2, "timestamp": simulation_start_time, "status": "pending"},  # 3
+        {"order_id": 2, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 3
         {"order_id": 2, "timestamp": simulation_start_time, "status": "fulfilled",  # 4
          "clear_price": get_stock_start_price("TSLA")},
-        {"order_id": 3, "timestamp": simulation_start_time, "status": "pending"},  # 5
+        {"order_id": 3, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 5
         {"order_id": 3, "timestamp": simulation_start_time, "status": "fulfilled",  # 6
          "clear_price": get_stock_start_price("LYFT")},
-        {"order_id": 4, "timestamp": simulation_start_time, "status": "pending"},  # 7
+        {"order_id": 4, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 7
         {"order_id": 4, "timestamp": simulation_start_time, "status": "fulfilled",  # 8
          "clear_price": get_stock_start_price("SPXU")},
-        {"order_id": 5, "timestamp": simulation_start_time, "status": "pending"},  # 9
+        {"order_id": 5, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 9
         {"order_id": 5, "timestamp": simulation_start_time, "status": "fulfilled",  # 10
          "clear_price": get_stock_start_price("NVDA")},
-        {"order_id": 6, "timestamp": simulation_start_time, "status": "pending"},  # 11
+        {"order_id": 6, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 11
         {"order_id": 6, "timestamp": simulation_start_time, "status": "fulfilled",  # 12
          "clear_price": get_stock_start_price("NKE")},
-        {"order_id": 7, "timestamp": simulation_start_time, "status": "pending"},  # 13
+        {"order_id": 7, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 13
         {"order_id": 7, "timestamp": simulation_start_time, "status": "fulfilled",  # 14
          "clear_price": get_stock_start_price("MELI")},
         {"order_id": 8, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 15
@@ -243,13 +243,13 @@ MOCK_DATA = {
          "status": "fulfilled", "clear_price": get_stock_start_price("NVDA") * 1.05},  # 16
         {"order_id": 9, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 17
         {"order_id": 10, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 18
-        {"order_id": 11, "timestamp": simulation_end_time, "status": "pending"},  # 19
+        {"order_id": 11, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 19
         {"order_id": 11, "timestamp": simulation_end_time, "status": "fulfilled",  # 20
          "clear_price": get_stock_finish_price("AMZN")},
-        {"order_id": 12, "timestamp": simulation_start_time, "status": "pending"},  # 21
-        {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled"},  # 22
-        {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending"},  # 23
-        {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending"},  # 24
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 21
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled", "clear_price": 1_000},  # 22
+        {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 23
+        {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 24
     ],
     "game_balances": [
         # Game 3, user id #1
@@ -355,9 +355,8 @@ def populate_table(table_name):
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     with engine.connect() as conn:
-        mock_table_data = MOCK_DATA.get(table_name)
         table_meta = db_metadata.tables[table_name]
-        conn.execute(table_meta.insert(), mock_table_data)
+        conn.execute(table_meta.insert(), MOCK_DATA[table_name])
 
 
 def make_mock_data():
@@ -365,8 +364,7 @@ def make_mock_data():
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     for table in table_names:
-        mock_table_data = MOCK_DATA.get(table)
-        if mock_table_data:
+        if MOCK_DATA.get(table):
             populate_table(table)
 
 

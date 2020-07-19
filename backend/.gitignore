@@ -140,3 +140,4 @@ celerybeat-schedule.db
 *ipynb
 .env.prod
 *sql
+*RHistory

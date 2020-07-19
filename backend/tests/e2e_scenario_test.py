@@ -93,10 +93,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "test game",
-        "mode": "winner_takes_all",
         "duration": 90,
         "buy_in": 100,
-        "n_rebuys": 3,
+        "game_mode": "multi_player",
         "benchmark": "sharpe_ratio",
         "side_bets_perc": 50,
         "side_bets_period": "weekly",
@@ -158,10 +157,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jadice's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
@@ -177,10 +175,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jack's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",

@@ -188,7 +188,11 @@ class TestCreateGame(BaseTestCase):
             games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
+
         for column in column_names:
+            # we won't set a default for game_mode, since this will be handled on a separate form
+            if column == "game_mode":
+                continue
             self.assertIn(column, game_defaults.keys())
 
         expected_available_invitees = {'toofast', 'miguel'}
@@ -239,40 +243,36 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        with self.engine.connect() as conn:
-            games_entry = conn.execute(
-                "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
-            game_id = games_entry[0]
-
-        with self.engine.connect() as conn:
-            status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])
+        game_id = games_entry["id"]
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)
 
         # games table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in games_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(game_settings["buy_in"], games_entry[5])
-        self.assertEqual(game_settings["duration"], games_entry[4])
-        self.assertEqual(game_settings["game_mode"], games_entry[3])
-        self.assertEqual(game_settings["n_rebuys"], games_entry[6])
-        self.assertEqual(game_settings["benchmark"], games_entry[7])
-        self.assertEqual(game_settings["side_bets_perc"], games_entry[8])
-        self.assertEqual(game_settings["side_bets_period"], games_entry[9])
-        self.assertEqual(game_settings["title"], games_entry[2])
-        self.assertEqual(user_id, games_entry[1])
+
+        self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
+        self.assertEqual(game_settings["duration"], games_entry["duration"])
+        self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
+        self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
+        self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
+        self.assertEqual(game_settings["side_bets_period"], games_entry["side_bets_period"])
+        self.assertEqual(game_settings["title"], games_entry["title"])
+        self.assertEqual(user_id, games_entry["creator_id"])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (current_time - games_entry[10])
-        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 10)
+        window = games_entry["invite_window"] - current_time
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 1)
 
         # game_status table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in status_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(status_entry[1], game_id)
-        self.assertEqual(status_entry[2], "pending")
+        self.assertEqual(status_entry["game_id"], game_id)
+        self.assertEqual(status_entry["status"], "pending")
         # Same as note above about performance issue
-        time_diff = abs((status_entry[4] - current_time))
+        time_diff = abs((status_entry["timestamp"] - current_time))
         self.assertLess(time_diff, 1)
-        invited_users = json.loads(status_entry[3])
+        invited_users = json.loads(status_entry["users"])
         invitees = tuple(game_settings["invitees"] + [user_name])
         with self.engine.connect() as conn:
             res = conn.execute(f"""
