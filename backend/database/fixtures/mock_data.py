@@ -5,19 +5,17 @@ test runner to construct a .sql data dump that we can quickly scan into the DB.
 import json
 from datetime import timedelta
 from unittest.mock import patch
+from sqlalchemy import MetaData
 
+from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import (
-    add_row,
-    reset_db
-)
 from backend.logic.base import (
     get_all_game_users_ids,
     get_schedule_start_and_end,
     get_trading_calendar,
     posix_to_datetime
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.logic.visuals import (
     make_chart_json,
     compile_and_pack_player_leaderboard,
@@ -36,7 +34,7 @@ from backend.tasks.redis import rds
 from config import Config
 
 SECONDS_IN_A_DAY = 60 * 60 * 24
-price_records = make_stock_data_records()
+price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
 simulation_end_time = max([record["timestamp"] for record in price_records])
 
@@ -59,12 +57,6 @@ def get_stock_start_price(symbol, records=price_records, order_time=simulation_s
 def get_stock_finish_price(symbol, records=price_records, order_time=simulation_end_time):
     stock_record = [item for item in records if item["symbol"] == symbol and item["timestamp"] == order_time][-1]
     return stock_record["price"]
-
-
-def refresh_table(table_name):
-    mock_entry = MOCK_DATA.get(table_name)
-    for entry in mock_entry:
-        add_row(table_name, **entry)
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
@@ -103,19 +95,19 @@ MOCK_DATA = {
     ],
 
     "games": [
-        {"title": "fervent swartz", "mode": "consolation_prize", "duration": 365, "buy_in": 100, "n_rebuys": 2,
+        {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
          "invite_window": 1589368380.0},
-        {"title": "max aggression", "mode": "winner_takes_all", "duration": 1, "buy_in": 100_000, "n_rebuys": 0,
+        {"title": "max aggression", "game_mode": "multi_player", "duration": 1, "buy_in": 100_000,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
          "invite_window": 1589368380.0},
-        {"title": "test game", "mode": "return_weighted", "duration": 14, "buy_in": 100, "n_rebuys": 3,
+        {"title": "test game", "game_mode": "multi_player", "duration": 14, "buy_in": 100,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
          "invite_window": 1589368380.0},
-        {"title": "test user excluded", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+        {"title": "test user excluded", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0},
-        {"title": "valiant roset", "mode": "winner_takes_all", "duration": 60, "buy_in": 20, "n_rebuys": 100,
+        {"title": "valiant roset", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
          "invite_window": 1580630520.0}
     ],
@@ -182,6 +174,7 @@ MOCK_DATA = {
         {"symbol": "NKE", "name": "NIKE"},
     ],
     "prices": price_records,
+    "indexes": index_records,
     "orders": [
         # game 3, user id #1
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "buy", "quantity": 10,
@@ -224,25 +217,25 @@ MOCK_DATA = {
          "price": 11.73, "order_type": "market", "time_in_force": "day"},  # 14
     ],
     "order_status": [
-        {"order_id": 1, "timestamp": simulation_start_time, "status": "pending"},  # 1
+        {"order_id": 1, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 1
         {"order_id": 1, "timestamp": simulation_start_time, "status": "fulfilled",  # 2
          "clear_price": get_stock_start_price("AMZN")},
-        {"order_id": 2, "timestamp": simulation_start_time, "status": "pending"},  # 3
+        {"order_id": 2, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 3
         {"order_id": 2, "timestamp": simulation_start_time, "status": "fulfilled",  # 4
          "clear_price": get_stock_start_price("TSLA")},
-        {"order_id": 3, "timestamp": simulation_start_time, "status": "pending"},  # 5
+        {"order_id": 3, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 5
         {"order_id": 3, "timestamp": simulation_start_time, "status": "fulfilled",  # 6
          "clear_price": get_stock_start_price("LYFT")},
-        {"order_id": 4, "timestamp": simulation_start_time, "status": "pending"},  # 7
+        {"order_id": 4, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 7
         {"order_id": 4, "timestamp": simulation_start_time, "status": "fulfilled",  # 8
          "clear_price": get_stock_start_price("SPXU")},
-        {"order_id": 5, "timestamp": simulation_start_time, "status": "pending"},  # 9
+        {"order_id": 5, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 9
         {"order_id": 5, "timestamp": simulation_start_time, "status": "fulfilled",  # 10
          "clear_price": get_stock_start_price("NVDA")},
-        {"order_id": 6, "timestamp": simulation_start_time, "status": "pending"},  # 11
+        {"order_id": 6, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 11
         {"order_id": 6, "timestamp": simulation_start_time, "status": "fulfilled",  # 12
          "clear_price": get_stock_start_price("NKE")},
-        {"order_id": 7, "timestamp": simulation_start_time, "status": "pending"},  # 13
+        {"order_id": 7, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 13
         {"order_id": 7, "timestamp": simulation_start_time, "status": "fulfilled",  # 14
          "clear_price": get_stock_start_price("MELI")},
         {"order_id": 8, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 15
@@ -250,13 +243,13 @@ MOCK_DATA = {
          "status": "fulfilled", "clear_price": get_stock_start_price("NVDA") * 1.05},  # 16
         {"order_id": 9, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 17
         {"order_id": 10, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 18
-        {"order_id": 11, "timestamp": simulation_end_time, "status": "pending"},  # 19
+        {"order_id": 11, "timestamp": simulation_end_time, "status": "pending", "clear_price": None},  # 19
         {"order_id": 11, "timestamp": simulation_end_time, "status": "fulfilled",  # 20
          "clear_price": get_stock_finish_price("AMZN")},
-        {"order_id": 12, "timestamp": simulation_start_time, "status": "pending"},  # 21
-        {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled"},  # 22
-        {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending"},  # 23
-        {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending"},  # 24
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 21
+        {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled", "clear_price": 1_000},  # 22
+        {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 23
+        {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 24
     ],
     "game_balances": [
         # Game 3, user id #1
@@ -358,10 +351,21 @@ MOCK_DATA = {
 }
 
 
+def populate_table(table_name):
+    db_metadata = MetaData(bind=engine)
+    db_metadata.reflect()
+    with engine.connect() as conn:
+        table_meta = db_metadata.tables[table_name]
+        conn.execute(table_meta.insert(), MOCK_DATA[table_name])
+
+
 def make_mock_data():
     table_names = MOCK_DATA.keys()
+    db_metadata = MetaData(bind=engine)
+    db_metadata.reflect()
     for table in table_names:
-        refresh_table(table)
+        if MOCK_DATA.get(table):
+            populate_table(table)
 
 
 def make_redis_mocks():
@@ -370,9 +374,7 @@ def make_redis_mocks():
         mock_base_time.time.return_value = simulation_end_time
 
         # performance metrics
-        user_ids = get_all_game_users_ids(game_id)
-        for user_id in user_ids:
-            calculate_and_pack_metrics(game_id, user_id, None, None)
+        calculate_and_pack_game_metrics(game_id)
 
         # leaderboard
         compile_and_pack_player_leaderboard(game_id)
@@ -381,6 +383,7 @@ def make_redis_mocks():
         make_the_field_charts(game_id)
 
         # tables and performance breakout charts
+        user_ids = get_all_game_users_ids(game_id)
         for user_id in user_ids:
             # game/user-level assets
             serialize_and_pack_order_details(game_id, user_id)
@@ -399,5 +402,4 @@ def make_redis_mocks():
 
 
 if __name__ == '__main__':
-    reset_db()
     make_mock_data()

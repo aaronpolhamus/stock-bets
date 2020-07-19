@@ -30,9 +30,8 @@ class Users(db.Model):
 
 
 class GameModes(Enum):
-    return_weighted = "Return-weighted"
-    consolation_prize = "Consolation prize"
-    winner_takes_all = "Winner takes all"
+    single_player = "single_player"
+    multi_player = "multi_player"
 
 
 class Benchmarks(Enum):
@@ -51,10 +50,9 @@ class Games(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.Text)
-    mode = db.Column(db.Enum(GameModes))
+    game_mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
     buy_in = db.Column(db.Float(precision=32))
-    n_rebuys = db.Column(db.Integer)
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
@@ -180,6 +178,15 @@ class Prices(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.Text)
     price = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class Indexes(db.Model):
+    __tablename__ = "indexes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    value = db.Column(db.Float(precision=32))
     timestamp = db.Column(db.Float(precision=32))
 
 

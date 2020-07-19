@@ -4,7 +4,6 @@ import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
 import { SectionTitle } from 'components/textComponents/Text'
-import { Header } from 'components/layout/Layout'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 

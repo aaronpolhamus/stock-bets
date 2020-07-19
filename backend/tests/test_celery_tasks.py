@@ -1,6 +1,5 @@
 import json
 import time
-from unittest import TestCase
 from unittest.mock import patch
 
 from backend.tasks.redis import dlm
@@ -8,8 +7,9 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     posix_to_datetime,
+    during_trading_day,
     get_trading_calendar,
-    during_trading_day
+    get_end_of_last_trading_day
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -24,11 +24,12 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
     async_cache_price,
+    async_update_all_index_values,
     PROCESS_ORDERS_LOCK_KEY,
     PROCESS_ORDERS_LOCK_TIMEOUT
 )
@@ -103,6 +104,29 @@ class TestStockDataTasks(BaseTestCase):
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
 
+    def test_index_scrapers(self):
+        """This test make sure that our external integration with yahoo finance via the celery workers is running
+        properly, as well as that new indexes that get added to our inventory will be properly intitialized, as well as
+        that close of day index values will be stored
+        """
+
+        with self.engine.connect() as conn:
+            conn.execute("TRUNCATE indexes;")
+            async_update_all_index_values.delay()
+            df = pd.read_sql("SELECT * FROM indexes;", conn)
+
+        iteration = 0
+        while df.shape != (3, 4) and iteration < 30:
+            time.sleep(1)
+            with self.engine.connect() as conn:
+                df = pd.read_sql("SELECT * FROM indexes;", conn)
+            iteration += 1
+
+        self.assertEqual(df.shape, (3, 4))
+        if not during_trading_day():
+            eod = get_end_of_last_trading_day()
+            [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]
+
 
 class TestGameIntegration(BaseTestCase):
 
@@ -113,10 +137,9 @@ class TestGameIntegration(BaseTestCase):
         mock_game = {
             "creator_id": creator_id,
             "title": game_title,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "duration": 180,
             "buy_in": 100,
-            "n_rebuys": 0,
             "benchmark": "return_ratio",
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
@@ -126,11 +149,10 @@ class TestGameIntegration(BaseTestCase):
         add_game(
             mock_game["creator_id"],
             mock_game["title"],
-            mock_game["mode"],
+            mock_game["game_mode"],
             mock_game["duration"],
-            mock_game["buy_in"],
-            mock_game["n_rebuys"],
             mock_game["benchmark"],
+            mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
             mock_game["invitees"]
@@ -154,7 +176,7 @@ class TestGameIntegration(BaseTestCase):
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
-        self.assertEqual(users_from_db, [3, 4, 5, 1])
+        self.assertEqual(set(users_from_db), {3, 4, 5, 1})
 
         # and that the game invites table is working as well
         # --------------------------------------------------
@@ -540,9 +562,7 @@ class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
 
         sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:

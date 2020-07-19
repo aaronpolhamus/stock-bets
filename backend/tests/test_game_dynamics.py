@@ -2,11 +2,17 @@
 """
 import json
 import unittest
+from datetime import datetime as dt
+from unittest import TestCase
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 from backend.database.helpers import query_to_dict
-from backend.logic.base import get_pending_buy_order_value
+from backend.logic.base import (
+    get_pending_buy_order_value,
+    get_all_active_symbols
+)
 from backend.logic.games import (
     suggest_symbols,
     get_order_ticket,
@@ -31,9 +37,14 @@ from backend.logic.games import (
     NoNegativeOrders,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.visuals import init_order_details
+from backend.logic.schemas import (
+    balances_chart_schema,
+    apply_validation,
+    FailedValidation
+)
+from backend.logic.visuals import (
+    init_order_details)
 from backend.tests import BaseTestCase
-from logic.base import get_all_active_symbols
 
 
 class TestGameLogic(BaseTestCase):
@@ -458,7 +469,7 @@ class TestGameLogic(BaseTestCase):
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
                     "backend.logic.games.fetch_price") as fetch_price_mock, patch(
-                    "backend.logic.base.time") as base_time_mock:
+                "backend.logic.base.time") as base_time_mock:
                 base_time_mock.time.side_effect = game_time_mock.time.side_effect = [1592573410.15422] * 2
                 fetch_price_mock.return_value = (market_price, None)
                 process_order(order_id)
@@ -672,3 +683,36 @@ class TestSymbolSuggestion(BaseTestCase):
         expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)"}]
         result = suggest_symbols(game_id, user_id, text, buy_or_sell)
         self.assertEqual(result, expected_suggestions)
+
+
+class TestSchemaValidation(TestCase):
+
+    def test_schema_validators(self):
+        # all data is proper
+        df = pd.DataFrame(
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
+        result = apply_validation(df, balances_chart_schema)
+        self.assertTrue(result)
+
+        # columns are there but data has a bad type
+        df = pd.DataFrame(
+            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)
+
+        df = pd.DataFrame(
+            dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)
+
+        # test throwing flags for null or missing data when this is not allowed
+        df.loc[0, "value"] = None
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)
+
+        df.loc[0, "value"] = np.nan
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema)

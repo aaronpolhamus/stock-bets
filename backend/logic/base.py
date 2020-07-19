@@ -5,7 +5,8 @@ import calendar
 import sys
 import time
 from datetime import datetime as dt, timedelta
-from typing import List
+from re import sub
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -13,10 +14,14 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.database.helpers import query_to_dict
+from backend.database.helpers import (
+    query_to_dict,
+    add_row
+)
 from backend.tasks.redis import (
     rds,
-    redis_cache
+    redis_cache,
+    DEFAULT_CACHE_EXPIRATION
 )
 from database.db import engine
 from pandas.tseries.offsets import DateOffset
@@ -29,7 +34,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 # Defaults #
 # -------- #
 
-
+TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
@@ -48,7 +53,7 @@ pd.options.mode.chained_assignment = None
 # ----------------------------------------------------------------------------------------------------------------- #
 
 
-@redis_cache.cache(namespace="get_trading_calendar")
+@redis_cache.cache(namespace="get_trading_calendar", ttl=DEFAULT_CACHE_EXPIRATION)
 def get_trading_calendar(start_date: dt.date, end_date: dt.date) -> pd.DataFrame:
     """In order to speed up functions related to the trading calendar we'll wrap nyse in a redis-cached function.
     Important use note: to get the benefit of caching, don't passed in time/tz information -- convert datetime-like
@@ -161,8 +166,8 @@ def get_game_start_time(game_id: int):
 def get_game_info(game_id: int):
     sql_query = "SELECT * FROM games WHERE id = %s;"
     info = query_to_dict(sql_query, game_id)
-    info["creator_username"] = get_username(info["creator_id"])
-    info["mode"] = info["mode"].upper().replace("_", " ")
+    info["creator_username"] = get_usernames([info["creator_id"]])[0]
+    info["game_mode"] = info["game_mode"].upper().replace("_", " ")
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
     start_time = get_game_start_time(game_id)
@@ -288,7 +293,7 @@ def get_pending_buy_order_value(user_id, game_id):
     return open_value
 
 
-def get_game_end_date(game_id: int):
+def get_game_start_and_end(game_id: int):
     with engine.connect() as conn:
         start_time, duration = conn.execute("""
             SELECT timestamp as start_time, duration
@@ -301,7 +306,12 @@ def get_game_end_date(game_id: int):
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
-    return start_time + duration * 24 * 60 * 60
+    return start_time, start_time + duration * 24 * 60 * 60
+
+
+def get_all_game_usernames(game_id: int):
+    user_ids = get_all_game_users_ids(game_id)
+    return get_usernames(user_ids)
 
 
 # --------- #
@@ -321,12 +331,15 @@ def get_user_id(username: str):
     return user_id
 
 
-def get_username(user_id: int):
+def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
+    """If a single user_id is passed the function will return a single username. If an array is passed, it will
+    return an array of names
+    """
     with engine.connect() as conn:
-        username = conn.execute("""
-        SELECT username FROM users WHERE id = %s
-        """, int(user_id)).fetchone()[0]
-    return username
+        usernames = conn.execute(f"""
+        SELECT username FROM users WHERE id IN ({', '.join(['%s'] * len(user_ids))})
+        """, user_ids).fetchall()
+    return [x[0] for x in usernames]
 
 
 # --------------- #
@@ -347,16 +360,16 @@ def get_price_histories(symbols: List[str], min_time: float, max_time: float):
     return df.sort_values("timestamp")
 
 
-def resample_balances(symbol_subset):
+def resample_values(symbol_subset, value_col="balance"):
     # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
+    df = symbol_subset.groupby(["timestamp"]).aggregate({value_col: "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
     return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
 
 def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
     # Resample balances over the desired time interval within each symbol
-    resampled_balances = balances_df.groupby("symbol").apply(resample_balances)
+    resampled_balances = balances_df.groupby("symbol").apply(resample_values)
     resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
     min_time = datetime_to_posix(resampled_balances["timestamp"].min())
     max_time = datetime_to_posix(resampled_balances["timestamp"].max())
@@ -454,11 +467,13 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
         row = balance_history.iloc[0]
         row["timestamp"] = time.time()
         balance_history = balance_history.append([row], ignore_index=True)
-        df = resample_balances(balance_history)
+        df = resample_values(balance_history)
         df = df.reset_index().rename(columns={"index": "timestamp"})
         df["price"] = 1
         df["value"] = df["balance"] * df["price"]
-        df = filter_for_trade_time(df)
+        candidate_df = filter_for_trade_time(df)
+        if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
+            df = candidate_df
         df["symbol"] = "Cash"
         return df
     # ...otherwise we'll append price data for the more detailed breakout
@@ -475,15 +490,19 @@ class SeleniumDriverError(Exception):
         return "It looks like the selenium web driver failed to instantiate properly"
 
 
-def get_web_table_object(timeout=20):
+def currency_string_to_float(money_string):
+    if type(money_string) == str:
+        return float(sub(r'[^\d.]', '', money_string))
+    return money_string
+
+
+def get_web_table_object():
     print("starting selenium web driver...")
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(chrome_options=options)
-    driver.get(Config.SYMBOLS_TABLE_URL)
-    return WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
+    return webdriver.Chrome(chrome_options=options)
 
 
 def extract_row_data(row):
@@ -494,8 +513,10 @@ def extract_row_data(row):
     return list_entry
 
 
-def get_symbols_table(n_rows=None):
-    table = get_web_table_object()
+def get_symbols_table(n_rows=None, timeout=20):
+    driver = get_web_table_object()
+    driver.get(Config.SYMBOLS_TABLE_URL)
+    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
     rows = table.find_elements_by_tag_name("tr")
     row_list = list()
     n = len(rows)
@@ -514,6 +535,42 @@ def get_symbols_table(n_rows=None):
     return pd.DataFrame(row_list)
 
 
+def get_index_value(symbol, timeout=20):
+    quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
+    driver = get_web_table_object()
+    driver.get(quote_url)
+    header = WebDriverWait(driver, timeout).until(
+        EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
+    return currency_string_to_float(header.text)
+
+
+def update_index_value(symbol):
+    value = get_index_value(symbol)
+    if during_trading_day():
+        add_row("indexes", symbol=symbol, value=value, timestamp=time.time())
+        return True
+
+    # a bit of logic to get the close of day price
+    with engine.connect() as conn:
+        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", "^IXIC").fetchone()[0]
+        if max_time is None:
+            max_time = 0
+
+    eod = get_end_of_last_trading_day()
+    if max_time < eod:
+        add_row("indexes", symbol=symbol, value=value, timestamp=eod)
+        return True
+
+    return False
+
+
+def get_cache_price(symbol):
+    data = rds.get(symbol)
+    if data is None:
+        return None, None
+    return [float(x) for x in data.split("_")]
+
+
 def fetch_price_iex(symbol):
     secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
     base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
@@ -530,13 +587,6 @@ def fetch_price_iex(symbol):
 def fetch_price(symbol, provider="iex"):
     if provider == "iex":
         return fetch_price_iex(symbol)
-
-
-def get_cache_price(symbol):
-    data = rds.get(symbol)
-    if data is None:
-        return None, None
-    return [float(x) for x in data.split("_")]
 
 
 def set_cache_price(symbol, price, timestamp):
@@ -600,3 +650,55 @@ def get_payouts_meta_data(game_id: int):
         side_bets_perc = 0
     offset = make_date_offset(side_bets_period)
     return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]
+
+
+def check_single_player_mode(game_id: int):
+    with engine.connect() as conn:
+        return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()[0] == "single_player"
+
+# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode #
+# -------------------------------------------------- #
+
+
+def get_index_reference(symbol: str, ref_time: float) -> float:
+    with engine.connect() as conn:
+        ref_val = conn.execute("""
+            SELECT value FROM indexes 
+            WHERE symbol = %s AND timestamp <= %s
+            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()[0]
+    return ref_val
+
+
+def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
+    """In single-player mode a player competes against the indexes. This function just normalizes a dataframe of index
+    values by the starting value for when the game began
+    """
+    game_start, _ = get_game_start_and_end(game_id)
+    base_value = get_index_reference(symbol, game_start)
+    if start is None:
+        start = game_start
+
+    if end is None:
+        end = time.time()
+
+    with engine.connect() as conn:
+        df = pd.read_sql("""
+            SELECT symbol as username, timestamp, value FROM indexes 
+            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start, end])
+
+    # normalizes index to the same starting scale as the user
+    df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
+
+    # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
+    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[game_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+
+
+def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
+    expected_sidebet_dates = []
+    if side_bets_perc:
+        payout_time = start_time + offset
+        while payout_time <= end_time:
+            expected_sidebet_dates.append(payout_time)
+            payout_time += offset
+    return expected_sidebet_dates

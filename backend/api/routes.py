@@ -10,7 +10,7 @@ from backend.logic.auth import (
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user_if_first_visit,
+    register_user,
     check_against_whitelist,
     WhiteListException,
     ADMIN_USERS
@@ -27,11 +27,8 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
-    DEFAULT_GAME_MODE,
-    GAME_MODES,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -76,7 +73,7 @@ from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
     async_update_game_data,
-    async_calculate_metrics
+    async_calculate_key_metrics
 )
 from backend.bi.report_logic import (
     GAMES_PER_USER_PREFIX,
@@ -167,7 +164,7 @@ def login():
         except WhiteListException as err:
             return make_response(str(err), 401)
 
-    register_user_if_first_visit(user_entry)
+    register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
@@ -242,11 +239,8 @@ def game_defaults():
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
-        mode=DEFAULT_GAME_MODE,
-        game_modes=GAME_MODES,
         duration=DEFAULT_GAME_DURATION,
         buy_in=DEFAULT_BUYIN,
-        n_rebuys=DEFAULT_REBUYS,
         benchmark=DEFAULT_BENCHMARK,
         side_bets_perc=DEFAULT_SIDEBET_PERCENT,
         side_bets_period=DEFAULT_SIDEBET_PERIOD,
@@ -262,18 +256,17 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    n_rebuys = 0  # this is not a popular user feature, and it  adds a lot of complexity.
     add_game(
         user_id,
         game_settings["title"],
-        game_settings["mode"],
+        game_settings["game_mode"],
         game_settings["duration"],
-        game_settings["buy_in"],
-        n_rebuys,
         game_settings["benchmark"],
-        game_settings["side_bets_perc"],
-        game_settings["side_bets_period"],
-        game_settings["invitees"])
+        game_settings.get("buy_in"),
+        game_settings.get("side_bets_perc"),
+        game_settings.get("side_bets_period"),
+        game_settings.get("invitees")
+    )
     return make_response(GAME_CREATED_MSG, 200)
 
 
@@ -563,7 +556,7 @@ def refresh_visuals():
 @authenticate
 @admin
 def refresh_metrics():
-    async_calculate_metrics.delay()
+    async_calculate_key_metrics.delay()
     return make_response("refreshing metrics...", 200)
 
 

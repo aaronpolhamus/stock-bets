@@ -15,7 +15,6 @@ from backend.database.helpers import (
     unpack_enumerated_field_mappings,
 )
 from backend.database.models import (
-    GameModes,
     Benchmarks,
     SideBetPeriods,
     OrderTypes,
@@ -35,17 +34,15 @@ from backend.logic.base import (
 from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_portfolio_details,
+    refresh_game_data
 )
 from funkybob import RandomNameGenerator
 
 # Default make game settings
 # --------------------------
-from logic.visuals import seed_visual_assets
 
-DEFAULT_GAME_MODE = "return_weighted"
 DEFAULT_GAME_DURATION = 30  # days
 DEFAULT_BUYIN = 100  # dolllars
-DEFAULT_REBUYS = 0  # How many rebuys are allowed
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
@@ -59,7 +56,6 @@ QUANTITY_OPTIONS = ["Shares", "USD"]
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
 in javascript. We handle value-label mapping concerns on the frontend.
 """
-GAME_MODES = unpack_enumerated_field_mappings(GameModes)
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
 
@@ -110,26 +106,35 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games
 # --------------------------------------------------
-def add_game(creator_id, title, mode, duration, buy_in, n_rebuys, benchmark, side_bets_perc, side_bets_period,
-             invitees):
+def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
+             invitees=None):
+    assert game_mode in ["single_player", "multi_player"]
+    if invitees is None:
+        invitees = []
+
     opened_at = time.time()
     invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,
-                      mode=mode,
+                      game_mode=game_mode,
                       duration=duration,
-                      buy_in=buy_in,
-                      n_rebuys=n_rebuys,
                       benchmark=benchmark,
+                      buy_in=buy_in,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
                       invite_window=invite_window)
-    invited_ids = translate_usernames_to_ids(tuple(invitees))
-    user_ids = invited_ids + [creator_id]
 
-    create_pending_game_status_entry(game_id, user_ids, opened_at)
+    user_ids = [creator_id]
+    if game_mode == "multi_player":
+        user_ids += translate_usernames_to_ids(tuple(invitees))
+        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
+    else:
+        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
+
+    if game_mode == "single_player":
+        kick_off_game(game_id, user_ids, opened_at)
 
 
 def respond_to_game_invite(game_id, user_id, decision, response_time):
@@ -197,10 +202,6 @@ def translate_usernames_to_ids(usernames: tuple):
     return [x[0] for x in res]
 
 
-def create_pending_game_status_entry(game_id, user_ids, opened_at):
-    add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
-
-
 def create_game_invites_entries(game_id, creator_id, user_ids, opened_at):
     for user_id in user_ids:
         status = "invited"
@@ -229,8 +230,7 @@ def get_invite_list_by_status(game_id, status="joined"):
 def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     """Mark a game as active and seed users' virtual cash balances
     """
-    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_status_entry["game_id"], status="active", users=user_id_list,
+    add_row("game_status", game_id=game_id, status="active", users=user_id_list,
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
@@ -238,13 +238,12 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
-
-    seed_visual_assets(game_id, user_id_list)
+    refresh_game_data(game_id)
 
 
 def close_game(game_id, update_time):
     game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_status_entry["game_id"], status="expired",
+    add_row("game_status", game_id=game_id, status="expired",
             users=json.loads(game_status_entry["users"]), timestamp=update_time)
     mark_invites_expired(game_id, ["invited", "joined"], update_time)
 

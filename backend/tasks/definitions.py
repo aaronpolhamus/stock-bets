@@ -3,10 +3,17 @@ import time
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    check_single_player_mode,
+    TRACKED_INDEXES,
     during_trading_day,
     get_all_game_users_ids,
     get_cache_price,
-    set_cache_price
+    set_cache_price,
+    SeleniumDriverError,
+    get_symbols_table,
+    fetch_price,
+    get_all_active_symbols,
+    update_index_value
 )
 from backend.logic.games import (
     get_all_open_orders,
@@ -15,16 +22,10 @@ from backend.logic.games import (
     get_active_game_ids,
     service_open_game
 )
-from backend.logic.payouts import (
-    calculate_and_pack_metrics,
+from backend.logic.metrics import (
     log_winners
 )
-from logic.base import (
-    SeleniumDriverError,
-    get_symbols_table,
-    fetch_price,
-    get_all_active_symbols,
-)
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.logic.visuals import (
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table,
@@ -76,6 +77,17 @@ def async_fetch_active_symbol_prices(self):
     active_symbols = get_all_active_symbols()
     for symbol in active_symbols:
         async_fetch_and_cache_prices.delay(symbol)
+
+
+@celery.task(name="async_update_index_value", bind=True, base=BaseTask)
+def async_update_index_value(self, index):
+    update_index_value(index)
+
+
+@celery.task(name="async_update_all_index_values", bind=True, base=BaseTask)
+def async_update_all_index_values(self):
+    for index in TRACKED_INDEXES:
+        async_update_index_value.delay(index)
 
 # --------------- #
 # Game management #
@@ -143,10 +155,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id):
-    user_ids = get_all_game_users_ids(game_id)
-    for user_id in user_ids:
-        # calculate overall standings
-        calculate_and_pack_metrics(game_id, user_id)
+    calculate_and_pack_game_metrics(game_id)
 
     # leaderboard
     compile_and_pack_player_leaderboard(game_id)
@@ -155,22 +164,24 @@ def async_update_game_data(self, game_id):
     make_the_field_charts(game_id)
 
     # tables and performance breakout charts
+    user_ids = get_all_game_users_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
         serialize_and_pack_order_details(game_id, user_id)
         serialize_and_pack_portfolio_details(game_id, user_id)
         serialize_and_pack_order_performance_chart(game_id, user_id)
 
-    # winners/payouts table
-    update_performed = log_winners(game_id, time.time())
-    if update_performed:
-        serialize_and_pack_winners_table(game_id)
+    if not check_single_player_mode(game_id):
+        # winners/payouts table
+        update_performed = log_winners(game_id, time.time())
+        if update_performed:
+            serialize_and_pack_winners_table(game_id)
 
 
 # ----------- #
 # Key metrics #
 # ----------- #
-@celery.task(name="async_calculate_metrics", bind=True, base=BaseTask)
-def async_calculate_metrics(self):
+@celery.task(name="async_calculate_key_metrics", bind=True, base=BaseTask)
+def async_calculate_key_metrics(self):
     serialize_and_pack_games_per_user_chart()
     serialize_and_pack_orders_per_active_user()

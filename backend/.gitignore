@@ -134,9 +134,9 @@ dmypy.json
 *cert.pem
 *key.pem
 *geckodriver*
-scratch.py
 celerybeat-schedule.db
 *csv
 *ipynb
 .env.prod
 *sql
+*RHistory

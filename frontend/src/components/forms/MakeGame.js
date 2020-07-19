@@ -43,8 +43,10 @@ const MakeGame = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.game_mode = 'multi_player'
     await api
-      .post('/api/create_game', formValues)
+      .post('/api/create_game', formValuesCopy)
       .then()
       .catch((e) => {})
     setShowModal(true)
@@ -58,12 +60,6 @@ const MakeGame = () => {
   const handleChange = (e) => {
     const formValuesCopy = { ...formValues }
     formValuesCopy[e.target.name] = e.target.value
-    setFormValues(formValuesCopy)
-  }
-
-  const handleRadio = (e) => {
-    const formValuesCopy = { ...formValues }
-    // formValuesCopy['mode'] =
     setFormValues(formValuesCopy)
   }
 
@@ -100,18 +96,6 @@ const MakeGame = () => {
                 type='input'
                 defaultValue={defaults.title}
                 onChange={handleChange}
-              />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>
-                Game mode
-                <Tooltip message='In a "consolation prize" game second place gets their money back. In a return weighted game, the pot is divided up proportionally based on game scores.' />
-              </Form.Label>
-              <RadioButtons
-                options={defaults.game_modes}
-                name='mode'
-                onChange={handleChange}
-                defaultChecked={formValues.mode}
               />
             </Form.Group>
             <Row>

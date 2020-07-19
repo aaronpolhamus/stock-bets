@@ -13,7 +13,7 @@ A few important things about this test:
 import json
 
 from backend.config import Config
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import query_to_dict, reset_db
 
 from backend.logic.friends import get_user_details_from_ids
@@ -27,8 +27,8 @@ if __name__ == '__main__':
     btc.setUp()
     rds.flushall()
     reset_db()
-    refresh_table("users")
-    refresh_table("symbols")
+    populate_table("users")
+    populate_table("symbols")
 
     # setup user tokens
     user_id = 1
@@ -93,10 +93,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "test game",
-        "mode": "winner_takes_all",
         "duration": 90,
         "buy_in": 100,
-        "n_rebuys": 3,
+        "game_mode": "multi_player",
         "benchmark": "sharpe_ratio",
         "side_bets_perc": 50,
         "side_bets_period": "weekly",
@@ -158,10 +157,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jadice's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
@@ -177,10 +175,9 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jack's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",

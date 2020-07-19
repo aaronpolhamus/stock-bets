@@ -11,7 +11,7 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
@@ -23,10 +23,8 @@ from backend.logic.base import (
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
-    DEFAULT_GAME_MODE,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -38,7 +36,7 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
-    make_balances_chart_data,
+    make_user_balances_chart_data,
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
@@ -49,7 +47,7 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.logic.payouts import calculate_and_pack_metrics
+from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
@@ -171,11 +169,8 @@ class TestCreateGame(BaseTestCase):
 
         expected_keys = [
             "title",
-            "mode",
-            "game_modes",
             "duration",
             "buy_in",
-            "n_rebuys",
             "benchmark",
             "side_bets_perc",
             "side_bets_period",
@@ -193,7 +188,11 @@ class TestCreateGame(BaseTestCase):
             games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
+
         for column in column_names:
+            # we won't set a default for game_mode, since this will be handled on a separate form
+            if column == "game_mode":
+                continue
             self.assertIn(column, game_defaults.keys())
 
         expected_available_invitees = {'toofast', 'miguel'}
@@ -214,15 +213,13 @@ class TestCreateGame(BaseTestCase):
                 self.assertIn(value, frontend_labels)
 
         self.assertIsNotNone(game_defaults["title"])
-        self.assertEqual(game_defaults["mode"], DEFAULT_GAME_MODE)
         self.assertEqual(game_defaults["duration"], DEFAULT_GAME_DURATION)
         self.assertEqual(game_defaults["buy_in"], DEFAULT_BUYIN)
-        self.assertEqual(game_defaults["n_rebuys"], DEFAULT_REBUYS)
         self.assertEqual(game_defaults["benchmark"], DEFAULT_BENCHMARK)
         self.assertEqual(game_defaults["side_bets_perc"], DEFAULT_SIDEBET_PERCENT)
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
 
-    def test_create_game(self):
+    def test_create_and_play_multiplayer_game(self):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -233,7 +230,7 @@ class TestCreateGame(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": buy_in,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
@@ -246,40 +243,36 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        with self.engine.connect() as conn:
-            games_entry = conn.execute(
-                "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
-            game_id = games_entry[0]
-
-        with self.engine.connect() as conn:
-            status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])
+        game_id = games_entry["id"]
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)
 
         # games table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in games_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(game_settings["buy_in"], games_entry[5])
-        self.assertEqual(game_settings["duration"], games_entry[4])
-        self.assertEqual(game_settings["mode"], games_entry[3])
-        self.assertEqual(game_settings["n_rebuys"], games_entry[6])
-        self.assertEqual(game_settings["benchmark"], games_entry[7])
-        self.assertEqual(game_settings["side_bets_perc"], games_entry[8])
-        self.assertEqual(game_settings["side_bets_period"], games_entry[9])
-        self.assertEqual(game_settings["title"], games_entry[2])
-        self.assertEqual(user_id, games_entry[1])
+
+        self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
+        self.assertEqual(game_settings["duration"], games_entry["duration"])
+        self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
+        self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
+        self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
+        self.assertEqual(game_settings["side_bets_period"], games_entry["side_bets_period"])
+        self.assertEqual(game_settings["title"], games_entry["title"])
+        self.assertEqual(user_id, games_entry["creator_id"])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (current_time - games_entry[10])
-        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 10)
+        window = games_entry["invite_window"] - current_time
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 1)
 
         # game_status table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in status_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(status_entry[1], game_id)
-        self.assertEqual(status_entry[2], "pending")
+        self.assertEqual(status_entry["game_id"], game_id)
+        self.assertEqual(status_entry["status"], "pending")
         # Same as note above about performance issue
-        time_diff = abs((status_entry[4] - current_time))
+        time_diff = abs((status_entry["timestamp"] - current_time))
         self.assertLess(time_diff, 1)
-        invited_users = json.loads(status_entry[3])
+        invited_users = json.loads(status_entry["users"])
         invitees = tuple(game_settings["invitees"] + [user_name])
         with self.engine.connect() as conn:
             res = conn.execute(f"""
@@ -375,6 +368,20 @@ class TestCreateGame(BaseTestCase):
             else:
                 self.assertEqual(user_entry["status"], "invited")
 
+    def test_create_single_player_game(self):
+        user_id = 1
+        user_name = "cheetos"
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duation = 365
+        game_settings = {
+            "duration": game_duation,
+            "game_mode": "single_player",
+            "title": "jugando solo",
+            "benchmark": "return_ratio"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False, json=game_settings)
+        self.assertEqual(res.status_code, 200)
+
 
 class TestPlayGame(BaseTestCase):
 
@@ -438,7 +445,7 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # check a different user's balance information
-        df = make_balances_chart_data(game_id, 3)
+        df = make_user_balances_chart_data(game_id, 3)
         serialize_and_pack_balances_chart(df, game_id, 3)
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id, "username": "toofast"})
@@ -524,9 +531,7 @@ class TestGetGameStats(BaseTestCase):
 
     def test_leaderboard(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
         compile_and_pack_player_leaderboard(game_id)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -551,7 +556,7 @@ class TestGetGameStats(BaseTestCase):
 
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
+            if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
                      "benchmark_formatted", "leaderboard"]:
                 continue
             self.assertEqual(db_dict[k], v)
@@ -561,7 +566,6 @@ class TestGetGameStats(BaseTestCase):
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark_formatted"], "RETURN RATIO")
-        self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")
 
 
 class TestFriendManagement(BaseTestCase):
@@ -690,16 +694,16 @@ class TestHomePage(BaseTestCase):
             self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
-        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the creategame
+        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the create_game
         test. Rhis functionality is already tested. Want to do a bit testing of the order placing functionality via the
         API and how that impacts the database.
         """
         #
         rds.flushall()
         reset_db()
-        refresh_table("users")
-        refresh_table("symbols")
-        refresh_table("friends")
+        populate_table("users")
+        populate_table("symbols")
+        populate_table("friends")
 
         user_id = 1
         user_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -720,7 +724,7 @@ class TestHomePage(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 3,
             "invitees": game_invitees,
             "side_bets_perc": 50,
@@ -776,7 +780,7 @@ class TestPriceFetching(BaseTestCase):
 
     def test_api_price_fetching(self):
         reset_db()
-        refresh_table("users")
+        populate_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},

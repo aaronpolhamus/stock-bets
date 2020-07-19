@@ -2,7 +2,7 @@ from backend.tests import BaseTestCase
 from unittest import TestCase
 from unittest.mock import patch
 
-from backend.logic.payouts import (
+from backend.logic.metrics import (
     calculate_metrics,
     check_if_payout_time
 )
@@ -32,8 +32,8 @@ class TestMetrics(BaseTestCase):
         base_time_mock.time.return_value = datetime_to_posix(end_date)
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
 
-        self.assertAlmostEqual(return_ratio, -1.2563, 4)
-        self.assertAlmostEqual(sharpe_ratio, -0.5267, 4)
+        self.assertAlmostEqual(return_ratio, -0.6133719, 4)
+        self.assertAlmostEqual(sharpe_ratio, -0.5490682, 4)
 
 
 class TestCheckPayoutTime(TestCase):

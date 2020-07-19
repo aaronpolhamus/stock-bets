@@ -4,19 +4,16 @@ import json
 import os
 import pandas as pd
 from typing import List
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import MetaData
 
-from backend.config import Config
 from backend.database.db import engine
 
 
 def reset_db():
-    reset_engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     db_metadata.drop_all()
     os.system("flask db upgrade")
-    reset_engine.dispose()
 
 
 def unpack_enumerated_field_mappings(enum_class):

@@ -15,15 +15,18 @@ from backend.logic.base import (
     n_sidebets_in_game,
     posix_to_datetime,
     datetime_to_posix,
-    make_historical_balances_and_prices_table
-)
-from backend.tasks.redis import rds
-from backend.logic.visuals import (
-    STARTING_SHARPE_RATIO,
+    make_historical_balances_and_prices_table,
     get_expected_sidebets_payout_dates
 )
 
+
+# -------- #
+# Defaults #
+# -------- #
+STARTING_SHARPE_RATIO = 0
+STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -48,13 +51,16 @@ def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date:
 
 
 def portfolio_return_ratio(df: pd.DataFrame):
+    if df.empty:
+        return STARTING_RETURN_RATIO
     start_val = df.iloc[0]["value"]
     end_val = df.iloc[-1]["value"]
     return 100 * (end_val - start_val) / start_val
 
 
 def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
-    # TODO: risk-free rate may need to vary in time at some point
+    if df.empty:
+        return STARTING_SHARPE_RATIO
     df["returns"] = (df["value"] - df.iloc[0]["value"]) / df.iloc[0]["value"]
     value = (df["returns"].mean() - rf) / df["returns"].std()
     if np.isnan(value):
@@ -71,17 +77,6 @@ def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_dat
     sharpe_ratio = portfolio_sharpe_ratio(df, rf)
     return return_ratio, sharpe_ratio
 
-
-def calculate_and_pack_metrics(game_id, user_id, start_date=None, end_date=None):
-    return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
-    if start_date is None and end_date is None:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}"
-    else:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-    rds.set(return_ratio_label, return_ratio)
-    rds.set(sharpe_ratio_label, sharpe_ratio)
 
 # ------------------- #
 # Winners and payouts #
