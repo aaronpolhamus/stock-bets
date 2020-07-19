@@ -10,7 +10,7 @@ from backend.logic.auth import (
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user_if_first_visit,
+    register_user,
     ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.games import (
@@ -162,7 +162,7 @@ def login():
         if not check_against_invited_users(user_entry["email"]):
             return make_response(NOT_INVITED_EMAIL, 401)
 
-    register_user_if_first_visit(user_entry)
+    register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)

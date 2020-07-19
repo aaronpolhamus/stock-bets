@@ -89,7 +89,7 @@ def get_user_data(uuid):
     return user
 
 
-def register_user_if_first_visit(user_entry):
+def register_user(user_entry):
     # TODO add friend request of the user that invited the user
     uuid = user_entry["resource_uuid"]
     user = get_user_data(uuid)
