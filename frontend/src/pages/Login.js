@@ -4,49 +4,75 @@ import GoogleLogin from 'react-google-login'
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
 import api from 'services/api'
 
-import { Container, Row } from 'react-bootstrap'
+import { Container, Row, Col } from 'react-bootstrap'
 import { Content } from 'components/layout/Layout'
 import { ReactComponent as Logo } from 'assets/logo.svg'
 import { SmallText } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
+import { breakpoints } from 'components/layout/Breakpoints'
 
-const RightCol = styled.div`
+const RightCol = styled(Col)`
   padding: 8vw;
+  height: 50vh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
   &::before {
+    background: var(--color-secondary);
+    border-radius: 50% 50% / 45% 50%;
     content: "";
     display: block;
-    width: 150vh;
     height: 120vh;
-    background: var(--color-secondary);
-    position: fixed;
-    bottom: 6vh;
-    left: 50vw;
-    border-radius: 50% 50% / 45% 50%;
+    position: absolute;
+    top: 0;
+    width: 150vh;
     z-index: -1;
+
   }
   &::after {
+    background: var(--color-primary);
+    border-radius: 50% 50% / 45% 50%;
     content: "";
     display: block;
-    width: 100vh;
     height: 100vh;
-    background: var(--color-primary);
-    position: fixed;
-    top: 50vh;
-    left: 60vw;
-    border-radius: 50% 50% / 45% 50%;
-    z-index: -2;
+    position: absolute;
+    top: 70%;
+    left: -15vw;
+    width: 100vh;
+    z-index: -1;
   }
   a {
     position: fixed;
     bottom: 2vh;
     right: 2vw;
   }
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: left;
+    &::before {
+      position: fixed;
+      top: auto;
+      bottom: 6vh;
+      left: 50vw;
+    }
+    &::after {
+      position: fixed;
+      left: 60vw;
+      top: 50vh;
+      z-index: -2
+    }
+  }
+
 `
 
-const LeftCol = styled.div`
+const LeftCol = styled(Col)`
   display: flex;
+  height: 50vh;
+  flex-wrap: wrap;
   align-items: center;
 `
 
@@ -71,12 +97,27 @@ const LoginButton = styled.button`
 
 const StyledLogo = styled(Logo)`
   max-width: 460px;
-  width: 90%;
+  width: 100%;
 `
 
 const StyledFaIcon = styled(FontAwesomeIcon)`
   position: relative;
   top: 1px;
+`
+
+const LeftColContent = styled.div`
+  width: 100%;
+  text-align: center;
+  p {
+    color: var(--color-text-gray)
+  }
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: left;
+    p{
+      margin-top: var(--space-200);
+      font-size: var(--font-size-large)
+    }
+  }
 `
 
 function responseError (response) {
@@ -110,11 +151,19 @@ export default function AlphabetLogin () {
   return (
     <Content height='100vh' alignItems='center' display='flex'>
       <Container fluid>
-        <Row noGutters sm={2}>
-          <LeftCol>
-            <StyledLogo />
+        <Row>
+          <LeftCol md={6}>
+            <LeftColContent>
+              <StyledLogo />
+              <p>
+                <span>Trade as a pro, </span>
+                <em>
+                  just for fun.
+                </em>
+              </p>
+            </LeftColContent>
           </LeftCol>
-          <RightCol>
+          <RightCol md={6}>
             <p>
               <GoogleLogin
                 clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
@@ -132,8 +181,6 @@ export default function AlphabetLogin () {
                   </LoginButton>
                 )}
               />
-            </p>
-            <p>
               <FacebookLogin
                 appId={process.env.REACT_APP_FACEBOOK_APP_ID}
                 disableMobileRedirect

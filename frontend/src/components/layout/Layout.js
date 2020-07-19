@@ -47,6 +47,7 @@ const Content = styled.div`
   height: ${(props) => props.height || 'auto'};
   align-items: ${(props) => props.alignItems || 'flex-start'};
   justify-content: ${(props) => props.justifyContent || 'flex-start'};
+  overflow: hidden;
 `
 
 const Header = styled.header`
@@ -81,7 +82,7 @@ const PageSection = styled.section`
 `
 
 const ColContent = styled.div`
-  padding: var(--space-200);
+  padding: var(--space-300);
   @media screen and (min-width: ${breakpoints.md}){
     padding: var(--space-400);
   }
