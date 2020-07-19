@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
+from database.db import engine
 from backend.logic.base import (
     get_end_of_last_trading_day,
     posix_to_datetime,
@@ -37,11 +38,16 @@ from backend.tasks.definitions import (
     PROCESS_ORDERS_LOCK_TIMEOUT
 )
 from backend.tasks.redis import dlm
+from backend.logic.friends import (
+    suggest_friends,
+    get_friend_invites_list,
+    get_friend_details, invite_friend_to_stockbets
+)
 from backend.tasks.redis import (
     rds,
     TASK_LOCK_MSG
 )
-from backend.tests import BaseTestCase
+from backend.tests import BaseTestCase, mock_send_email
 from logic.base import fetch_price
 from logic.visuals import calculate_and_pack_game_metrics
 
@@ -137,7 +143,7 @@ class TestGameIntegration(BaseTestCase):
         mock_game = {
             "creator_id": creator_id,
             "title": game_title,
-            "game_mode": "multi_player",
+            "mode": "winner_takes_all",
             "duration": 180,
             "buy_in": 100,
             "benchmark": "return_ratio",
@@ -595,6 +601,16 @@ class TestFriendManagement(BaseTestCase):
         result = suggest_friends(user_id, "d")
         dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
         self.assertEqual(dummy_match, ["dummy2"])
+
+    @patch('logic.friends.send_email', mock_send_email)
+    def test_invite_friend_to_stockbets(self):
+        user_id = 1
+        friend_email = 'dummy_email_test@gmail.com'
+        invite_friend_to_stockbets(user_id, friend_email)
+        with engine.connect() as conn:
+            count = conn.execute("SELECT COUNT(*) FROM external_invites WHERE invited_email = %s;",
+                                 friend_email).fetchall()
+        self.assertEqual(1, count[0][0])
 
 
 class TestDataAccess(BaseTestCase):

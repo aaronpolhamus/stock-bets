@@ -10,6 +10,10 @@ from backend.logic.auth import create_jwt
 from tasks.redis import rds
 
 
+def mock_send_email(_requester_id, _email):
+    return True
+
+
 class BaseTestCase(unittest.TestCase):
     """The base test case sets up a connection with a live DB, mocks fresh data, and has metadata and API request
     properties that are useful in our testing environment. It doesn't need to be invoked in a context where checks

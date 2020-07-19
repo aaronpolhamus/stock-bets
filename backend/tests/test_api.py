@@ -53,14 +53,10 @@ from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
-from backend.tests import BaseTestCase
+from backend.tests import BaseTestCase, mock_send_email
 from config import Config
 
 HOST_URL = 'https://localhost:5000/api'
-
-
-def mock_send_email(_requester_id, _email):
-    return True
 
 
 class TestUserManagement(BaseTestCase):
