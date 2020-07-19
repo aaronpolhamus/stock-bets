@@ -6,9 +6,7 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
-from backend.logic.base import query_to_dict
-from backend.logic.friends import invite_friend, get_if_invited_by_email
-
+from backend.logic.friends import invite_friend, get_if_invited_by_email, update_email_invite_status
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
 
@@ -101,6 +99,7 @@ def register_user_if_first_visit(user_entry):
     user = get_user_data(uuid)
     requester_friend_id = get_if_invited_by_email(user['email'])
     if requester_friend_id is not None:
+        update_email_invite_status(user['email'])
         invite_friend(requester_friend_id, user["id"])
 
 
