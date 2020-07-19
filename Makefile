@@ -80,9 +80,10 @@ backend-build:
 	docker-compose build backend
 
 backend-test:
+	make db-mock-data
+	make worker-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
-	make db-mock-data
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
 
