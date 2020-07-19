@@ -2,7 +2,6 @@ import json
 import time
 from unittest.mock import patch
 
-from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
@@ -10,6 +9,11 @@ from backend.logic.base import (
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
+)
+from backend.logic.friends import (
+    suggest_friends,
+    get_friend_invites_list,
+    get_friend_details
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -24,7 +28,6 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
@@ -33,17 +36,14 @@ from backend.tasks.definitions import (
     PROCESS_ORDERS_LOCK_KEY,
     PROCESS_ORDERS_LOCK_TIMEOUT
 )
-from backend.logic.friends import (
-    suggest_friends,
-    get_friend_invites_list,
-    get_friend_details
-)
+from backend.tasks.redis import dlm
 from backend.tasks.redis import (
     rds,
     TASK_LOCK_MSG
 )
 from backend.tests import BaseTestCase
 from logic.base import fetch_price
+from logic.visuals import calculate_and_pack_game_metrics
 
 
 class TestStockDataTasks(BaseTestCase):
@@ -411,13 +411,12 @@ class TestGameIntegration(BaseTestCase):
                 stop_limit_price=stop_limit_price
             )
 
-            with self.engine.connect() as conn:
-                amzn_open_order_id = conn.execute("""
-                                                  SELECT id 
-                                                  FROM orders 
-                                                  WHERE user_id = %s AND game_id = %s AND symbol = %s
-                                                  ORDER BY id DESC LIMIT 0, 1;""",
-                                                  user_id, game_id, stock_pick).fetchone()[0]
+            amzn_sales_entry = query_to_dict("""
+                SELECT id, price, quantity
+                FROM orders 
+                WHERE user_id = %s AND game_id = %s AND symbol = %s
+                ORDER BY id DESC LIMIT 0, 1;
+            """, user_id, game_id, stock_pick)
 
             stock_pick = "MELI"
             user_id = 4
@@ -448,7 +447,7 @@ class TestGameIntegration(BaseTestCase):
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
 
-            process_order(amzn_open_order_id)
+            process_order(amzn_sales_entry["id"])
             process_order(meli_open_order_id)
 
             with self.engine.connect() as conn:
@@ -469,12 +468,12 @@ class TestGameIntegration(BaseTestCase):
             test_user_stock = "AMZN"
             updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
-            amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
-            shares_sold = 250_000 // amzn_clear_price
+            amzn_clear_price = df[df["id"] == amzn_sales_entry["id"]].iloc[0]["clear_price"]
             # This test is a little bit awkward because of how we are handling floating point for prices and
             # doing integer round here. This may need to become more precise in the future
-            self.assertTrue((updated_holding - (original_amzn_holding - shares_sold) <= 1))
-            self.assertAlmostEqual(updated_cash, test_user_original_cash + shares_sold * amzn_clear_price, 2)
+            self.assertEqual(updated_holding, original_amzn_holding - amzn_sales_entry["quantity"])
+            self.assertAlmostEqual(updated_cash,
+                                   test_user_original_cash + amzn_sales_entry["quantity"] * amzn_clear_price, 2)
 
             test_user_id = 4
             test_user_stock = "MELI"
@@ -492,7 +491,6 @@ class TestVisualAssetsTasks(BaseTestCase):
         # TODO: this task can only run during trading hours, but since it's so critical to the app we allow it to be
         # here, in spite of being time-dependent
         if during_trading_day():
-
             user_id = 1
             game_id = 3
 
