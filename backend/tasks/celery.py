@@ -80,6 +80,11 @@ celery.conf.beat_schedule = {
         "task": "async_update_all_games",
         "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
     },
+    # we need to keep updating games on the weekend, but only four times a day for now
+    "update_all_games_weekend": {
+        "task": "async_update_all_games",
+        "schedule": crontab(minute="0", hour="*/6", day_of_week="saturday,sunday")
+    },
     # we'll also refresh platform KPIs at the end of each day
     "calculate_metrics": {
         "task": "async_calculate_key_metrics",
