@@ -172,7 +172,6 @@ class Symbols(db.Model):
 
 
 class Prices(db.Model):
-
     __tablename__ = "prices"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -221,4 +220,20 @@ class Winners(db.Model):
     end_time = db.Column(db.Float(precision=32))
     payout = db.Column(db.Float(precision=32))
     type = db.Column(db.Enum(PayoutType))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class ExternalInviteStatus(Enum):
+    invited = "Invited"
+    accepted = "Accepted"
+    error = "error"
+
+
+class ExternalInvites(db.Model):
+    __tablename__ = "external_invites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    invited_email = db.Column(db.Text)
+    status = db.Column(db.Enum(ExternalInviteStatus))
     timestamp = db.Column(db.Float(precision=32))
