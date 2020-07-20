@@ -33,11 +33,8 @@ from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
     async_cache_price,
-    async_update_all_index_values,
-    PROCESS_ORDERS_LOCK_KEY,
-    PROCESS_ORDERS_LOCK_TIMEOUT
+    async_update_all_index_values
 )
-from backend.tasks.redis import dlm
 from backend.logic.friends import (
     suggest_friends,
     get_friend_invites_list,
@@ -146,7 +143,7 @@ class TestGameIntegration(BaseTestCase):
         mock_game = {
             "creator_id": creator_id,
             "title": game_title,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "duration": 180,
             "buy_in": 100,
             "benchmark": "return_ratio",
