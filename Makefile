@@ -15,7 +15,7 @@ db-reset:
 db-mock-data:
 	rm -f backend/mockdata.sql
 	make db-reset
-	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_mock_data;make_mock_data()"
+	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
 db-logs:
@@ -80,9 +80,10 @@ backend-build:
 	docker-compose build backend
 
 backend-test:
+	make db-mock-data
+	make worker-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
-	make db-mock-data
 	docker-compose exec api coverage run --source . -m unittest discover -v
 	docker-compose exec api coverage report
 

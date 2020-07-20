@@ -14,6 +14,9 @@ from backend.logic.base import (
     get_all_active_symbols
 )
 from backend.logic.games import (
+    get_game_ids_by_status,
+    get_game_info_for_user,
+    expire_finished_game,
     suggest_symbols,
     get_order_ticket,
     process_order,
@@ -44,6 +47,7 @@ from backend.logic.schemas import (
 )
 from backend.logic.visuals import (
     init_order_details)
+from backend.database.fixtures.mock_data import simulation_end_time
 from backend.tests import BaseTestCase
 
 
@@ -716,3 +720,29 @@ class TestSchemaValidation(TestCase):
         df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
+
+
+class TestGameExpiration(BaseTestCase):
+
+    def test_game_expiration(self):
+        # we have two mock games that are "finished." One has been done for less than a week, and should still be
+        # visible to the frontend. The other has been finished for two weeks and should be hidden
+        user_id = 1
+        visible_game_id = 6
+        expired_game_id = 7
+        finished_ids = get_game_ids_by_status("finished")
+        self.assertEqual(set(finished_ids), {visible_game_id, expired_game_id})
+        with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
+            mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+            for game_id in finished_ids:
+                expire_finished_game(game_id)
+
+        # when we check the game information for our test user, game 6 should be in there, game 7 should not
+        game_info = get_game_info_for_user(user_id)
+        self.assertEqual(len(game_info), 3)
+        active_game = [x for x in game_info if x["game_id"] == 3][0]
+        self.assertEqual(active_game["title"], "test game")
+        pending_game = [x for x in game_info if x["game_id"] == 5][0]
+        self.assertEqual(pending_game["title"], "valiant roset")
+        finished_game = [x for x in game_info if x["game_id"] == visible_game_id][0]
+        self.assertEqual(finished_game["title"], "finished game to show")

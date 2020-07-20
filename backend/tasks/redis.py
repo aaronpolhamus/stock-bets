@@ -7,7 +7,7 @@ from redis_cache import RedisCache
 from redlock import Redlock
 
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
-DEFAULT_ASSET_EXPIRATION = 7 * 24 * 60 * 60  # by default keep cached values around for 1 week
+DEFAULT_ASSET_EXPIRATION = 8 * 24 * 60 * 60  # by default keep cached values around for 8 days
 DEFAULT_CACHE_EXPIRATION = 1 * 24 * 60 * 60  # we can keep cached values around for a shorter period of time
 
 rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
