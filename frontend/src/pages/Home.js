@@ -148,8 +148,11 @@ const Home = () => {
             <TitlePage>
               Games
             </TitlePage>
-            <Button variant='primary' href='/new'>
-              Make a new game
+            <Button variant='primary' href='/new/single_player'>
+              Play against the market
+            </Button>
+            <Button variant='primary' href='/new/multi_player'>
+              Play against your friends
             </Button>
           </Header>
         </PageSection>

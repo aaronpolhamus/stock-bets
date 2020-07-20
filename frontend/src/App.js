@@ -20,7 +20,7 @@ export default function App () {
         <Route exact path='/' component={Home} />
         <Route exact path='/play/:gameId/' component={PlayGame} />
         <Route exact path='/join/:gameId/' component={JoinGame} />
-        <Route path='/new/' component={NewGame} />
+        <Route path='/new/:gameMode' component={NewGame} />
       </UserContext.Provider>
       <Route path='/welcome/' component={Welcome} />
       <Route path='/login/' component={Login} />

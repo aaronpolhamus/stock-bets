@@ -22,13 +22,12 @@ const StyledTypeahead = styled(Typeahead)`
   }
 `
 
-const MakeGame = () => {
+const MakeGame = ({ gameMode }) => {
   const [defaults, setDefaults] = useState({})
   const [sidePotPct, setSidePotPct] = useState(0)
   const [formValues, setFormValues] = useState({})
   const [redirect, setRedirect] = useState(false)
   const [showModal, setShowModal] = useState(false)
-
   const fetchData = async () => {
     const response = await api.post('/api/game_defaults')
     if (response.status === 200) {
