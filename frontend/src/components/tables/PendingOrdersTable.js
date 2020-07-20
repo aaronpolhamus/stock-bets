@@ -45,7 +45,6 @@ const tableHeaders = [
 ]
 
 const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
-
   const [cancelableOrder, setCancelableOrder] = useState(null)
 
   // Methods and settings for modal component

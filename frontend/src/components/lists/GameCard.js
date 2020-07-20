@@ -81,6 +81,7 @@ const GameCard = ({ gameId }) => {
 
   if (Object.keys(gameData).length === 0) return null
 
+  console.log({ gameData })
   const leaderboardPosition = `
     ${currentUserLeaderboardPosition(gameData.leaderboard)}
     place
@@ -104,8 +105,7 @@ const GameCard = ({ gameId }) => {
                     <TextDivider> | </TextDivider>
                     {daysLeft(gameData.end_time)}
                   </>
-                )
-              }
+                )}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
@@ -128,7 +128,6 @@ const GameCard = ({ gameId }) => {
 }
 
 const GameCardPending = ({ gameData }) => {
-  console.log(gameData)
   return (
     <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>

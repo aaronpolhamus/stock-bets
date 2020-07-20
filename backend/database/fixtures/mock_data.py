@@ -5,18 +5,28 @@ test runner to construct a .sql data dump that we can quickly scan into the DB.
 import json
 from datetime import timedelta
 from unittest.mock import patch
-from sqlalchemy import MetaData
 
+from backend.bi.report_logic import (
+    serialize_and_pack_games_per_user_chart,
+    make_games_per_user_data,
+    ORDERS_PER_ACTIVE_USER_PREFIX
+)
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.logic.base import (
+    DEFAULT_VIRTUAL_CASH,
+    SECONDS_IN_A_DAY,
     get_all_game_users_ids,
     get_schedule_start_and_end,
     get_trading_calendar,
     posix_to_datetime
 )
-from logic.visuals import calculate_and_pack_game_metrics
+from backend.logic.games import (
+    expire_finished_game,
+    DEFAULT_INVITE_OPEN_WINDOW
+)
 from backend.logic.visuals import (
+    calculate_and_pack_game_metrics,
     make_chart_json,
     compile_and_pack_player_leaderboard,
     make_the_field_charts,
@@ -25,15 +35,10 @@ from backend.logic.visuals import (
     serialize_and_pack_order_performance_chart,
     serialize_and_pack_winners_table
 )
-from backend.bi.report_logic import (
-    serialize_and_pack_games_per_user_chart,
-    make_games_per_user_data,
-    ORDERS_PER_ACTIVE_USER_PREFIX
-)
 from backend.tasks.redis import rds
 from config import Config
+from sqlalchemy import MetaData
 
-SECONDS_IN_A_DAY = 60 * 60 * 24
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
 simulation_end_time = max([record["timestamp"] for record in price_records])
@@ -97,19 +102,25 @@ MOCK_DATA = {
     "games": [
         {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0},  # 1
         {"title": "max aggression", "game_mode": "multi_player", "duration": 1, "buy_in": 100_000,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0},  # 2
         {"title": "test game", "game_mode": "multi_player", "duration": 14, "buy_in": 100,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": 1589368380.0},
+         "invite_window": 1589368380.0},  # 3
         {"title": "test user excluded", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0},
+         "invite_window": 1580630520.0},  # 4
         {"title": "valiant roset", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0}
+         "invite_window": 1580630520.0},  # 5
+        {"title": "finished game to show", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
+         "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
+         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW},  # 6
+        {"title": "finished game to hide", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
+         "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
+         "invite_window": simulation_start_time - 14 * SECONDS_IN_A_DAY + DEFAULT_INVITE_OPEN_WINDOW}  # 7
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
@@ -118,7 +129,17 @@ MOCK_DATA = {
         {"game_id": 3, "status": "active", "timestamp": simulation_start_time, "users": [1, 3, 4]},
         {"game_id": 4, "status": "pending", "timestamp": simulation_start_time, "users": [3, 4, 5]},
         {"game_id": 4, "status": "active", "timestamp": simulation_start_time, "users": [3, 4, 5]},
-        {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]}
+        {"game_id": 5, "status": "pending", "timestamp": 1589368260.0, "users": [1, 3, 4, 5]},
+        {"game_id": 6, "status": "pending", "timestamp": simulation_start_time, "users": [1, 4]},
+        {"game_id": 6, "status": "active", "timestamp": simulation_start_time, "users": [1, 4]},
+        {"game_id": 6, "status": "finished", "timestamp": simulation_start_time + SECONDS_IN_A_DAY * 1 + 10,
+         "users": [1, 4]},
+        {"game_id": 7, "status": "pending", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY,
+         "users": [1, 4]},
+        {"game_id": 7, "status": "active", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY,
+         "users": [1, 4]},
+        {"game_id": 7, "status": "finished", "timestamp": simulation_start_time - 13 * SECONDS_IN_A_DAY,
+         "users": [1, 4]},
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
@@ -144,6 +165,12 @@ MOCK_DATA = {
         {"game_id": 5, "user_id": 1, "status": "invited", "timestamp": 1589368260.0},
         {"game_id": 5, "user_id": 3, "status": "invited", "timestamp": 1589368260.0},
         {"game_id": 5, "user_id": 4, "status": "invited", "timestamp": 1589368260.0},
+        {"game_id": 6, "user_id": 1, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 6, "user_id": 4, "status": "invited", "timestamp": simulation_start_time},
+        {"game_id": 6, "user_id": 4, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 7, "user_id": 1, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
+        {"game_id": 7, "user_id": 4, "status": "invited", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
+        {"game_id": 7, "user_id": 4, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},
@@ -322,17 +349,32 @@ MOCK_DATA = {
 
         # Game 4, setup
         {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 99798.28, "symbol": None},
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 1, "symbol": "BABA"},
         {"user_id": 3, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
         {"user_id": 4, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 1_000_000, "symbol": None},
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+
+        # Game 6, setup
+        {"user_id": 1, "game_id": 6, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+        {"user_id": 4, "game_id": 6, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+
+        # Game 7, setup
+        {"user_id": 1, "game_id": 7, "order_status_id": None,
+         "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY, "balance_type": "virtual_cash",
+         "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+        {"user_id": 4, "game_id": 7, "order_status_id": None,
+         "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY, "balance_type": "virtual_cash",
+         "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+
     ],
     "friends": [
         {"requester_id": 1, "invited_id": 3, "status": "invited", "timestamp": 1589758324},
@@ -359,7 +401,7 @@ def populate_table(table_name):
         conn.execute(table_meta.insert(), MOCK_DATA[table_name])
 
 
-def make_mock_data():
+def make_db_mocks():
     table_names = MOCK_DATA.keys()
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
@@ -369,29 +411,33 @@ def make_mock_data():
 
 
 def make_redis_mocks():
-    game_id = 3
-    with patch("backend.logic.base.time") as mock_base_time:
-        mock_base_time.time.return_value = simulation_end_time
-
+    def _build_assets(g_id):
         # performance metrics
-        calculate_and_pack_game_metrics(game_id)
+        calculate_and_pack_game_metrics(g_id)
 
         # leaderboard
-        compile_and_pack_player_leaderboard(game_id)
+        compile_and_pack_player_leaderboard(g_id)
 
         # the field and balance charts
-        make_the_field_charts(game_id)
+        make_the_field_charts(g_id)
 
         # tables and performance breakout charts
-        user_ids = get_all_game_users_ids(game_id)
+        user_ids = get_all_game_users_ids(g_id)
         for user_id in user_ids:
             # game/user-level assets
-            serialize_and_pack_order_details(game_id, user_id)
-            serialize_and_pack_portfolio_details(game_id, user_id)
-            serialize_and_pack_order_performance_chart(game_id, user_id)
+            serialize_and_pack_order_details(g_id, user_id)
+            serialize_and_pack_portfolio_details(g_id, user_id)
+            serialize_and_pack_order_performance_chart(g_id, user_id)
 
         # winners/payouts table
-        serialize_and_pack_winners_table(game_id)
+        serialize_and_pack_winners_table(g_id)
+
+    with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
+        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+        game_ids = [3, 6, 7]
+        for game_id in game_ids:
+            _build_assets(game_id)
+            expire_finished_game(game_id)
 
     # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()
@@ -402,4 +448,4 @@ def make_redis_mocks():
 
 
 if __name__ == '__main__':
-    make_mock_data()
+    make_db_mocks()

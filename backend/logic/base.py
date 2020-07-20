@@ -39,9 +39,10 @@ DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 
-# -------------------------------- #
-# Managing time and trad schedules #
-# -------------------------------- #
+# --------------------------------- #
+# Managing time and trade schedules #
+# --------------------------------- #
+SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
 RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 nyse = mcal.get_calendar('NYSE')
@@ -435,7 +436,7 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    last_entry_df = balances.groupby("symbol", as_index=False).last()
+    last_entry_df = balances.groupby(group_var, as_index=False).last()
     to_append = last_entry_df[(last_entry_df[condition_var] > 0) & (last_entry_df[time_var] < bookend_time)]
     to_append[time_var] = bookend_time
     return pd.concat([balances, to_append]).reset_index(drop=True)
@@ -502,7 +503,7 @@ def get_web_table_object():
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(chrome_options=options)
+    return webdriver.Chrome(options=options)
 
 
 def extract_row_data(row):
@@ -552,7 +553,7 @@ def update_index_value(symbol):
 
     # a bit of logic to get the close of day price
     with engine.connect() as conn:
-        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", "^IXIC").fetchone()[0]
+        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", symbol).fetchone()[0]
         if max_time is None:
             max_time = 0
 

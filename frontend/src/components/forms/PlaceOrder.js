@@ -249,7 +249,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
 }
 
 PlaceOrder.propTypes = {
-  gameId: PropTypes.string, 
+  gameId: PropTypes.string,
   onPlaceOrder: PropTypes.func
 }
 

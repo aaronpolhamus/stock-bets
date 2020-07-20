@@ -21,6 +21,8 @@ from backend.database.models import (
     BuyOrSell,
     TimeInForce)
 from backend.logic.base import (
+    get_game_info,
+    SECONDS_IN_A_DAY,
     get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
     fetch_price,
@@ -38,6 +40,9 @@ from backend.logic.visuals import (
 )
 from funkybob import RandomNameGenerator
 
+TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
+
+
 # Default make game settings
 # --------------------------
 
@@ -46,7 +51,7 @@ DEFAULT_BUYIN = 100  # dolllars
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
-DEFAULT_INVITE_OPEN_WINDOW = 48 * 60 * 60  # Number of seconds that a game invite is open for (2 days)
+DEFAULT_INVITE_OPEN_WINDOW = 2 * SECONDS_IN_A_DAY  # Number of seconds that a game invite is open for (2 days)
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 
 QUANTITY_DEFAULT = "Shares"
@@ -104,8 +109,8 @@ def make_random_game_title():
     return next(title_iterator).replace("_", " ")
 
 
-# Functions for starting, joining, and funding games
-# --------------------------------------------------
+# Functions for starting, joining, and funding games, and expiring them when they're done
+# ---------------------------------------------------------------------------------------
 def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
              invitees=None):
     assert game_mode in ["single_player", "multi_player"]
@@ -172,7 +177,7 @@ def get_open_game_invite_ids():
     return [x[0] for x in result]
 
 
-def get_active_game_ids():
+def get_game_ids_by_status(status="active"):
     with engine.connect() as conn:
         result = conn.execute("""
         SELECT g.id
@@ -187,10 +192,10 @@ def get_active_game_ids():
             GROUP BY game_id) grouped_gs
           ON
             gs.id = grouped_gs.max_id
-          WHERE gs.status = 'active'
+          WHERE gs.status = %s
         ) pending_game_ids
         ON
-          g.id = pending_game_ids.game_id;""").fetchall()
+          g.id = pending_game_ids.game_id;""", status).fetchall()
     return [x[0] for x in result]
 
 
@@ -331,7 +336,7 @@ def get_game_info_for_user(user_id):
           games g on gs.game_id = g.id
         INNER JOIN
           users creator_info ON creator_info.id = g.creator_id
-        WHERE gs.status IN ('active', 'pending');
+        WHERE gs.status IN ('active', 'pending', 'finished');
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[str(user_id)]).to_dict(orient="records")
@@ -362,6 +367,17 @@ def get_user_invite_statuses_for_pending_game(game_id):
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
 
+
+def expire_finished_game(game_id):
+    game_info = get_game_info(game_id)
+    expiration_time = game_info["start_time"] + game_info["duration"] * SECONDS_IN_A_DAY + TIME_TO_SHOW_FINISHED_GAMES
+    current_time = time.time()
+    if current_time >= expiration_time:
+        with engine.connect() as conn:
+            game_users = conn.execute("""
+                SELECT users FROM game_status 
+                WHERE game_id = %s AND status = 'active';""", game_id).fetchone()[0]
+        add_row("game_status", game_id=game_id, status="expired", users=json.loads(game_users), timestamp=current_time)
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------

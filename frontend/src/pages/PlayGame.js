@@ -156,7 +156,7 @@ const PlayGame = (props) => {
         autohide
       >
         <Toast.Header>
-          <strong className="mr-auto">Order placed</strong>
+          <strong className='mr-auto'>Order placed</strong>
           <small>Right now</small>
         </Toast.Header>
         <Toast.Body>

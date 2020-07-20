@@ -6,73 +6,9 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
-from backend.logic.base import query_to_dict
-
-WHITE_LIST = [
-    "aaron@stockbets.io",
-    "adamdominik24@gmail.com",
-    "adrian@captec.io",
-    "alexanderclapp@gmail.com",
-    "andressierrasoler@gmail.com",
-    "andrew.nobrega@gmail.com",
-    "apolhamu@gmail.com",
-    "benp2007@gmail.com",
-    "benspener@gmail.com",
-    "bethanydominik@gmail.com",
-    "bkrohn@gmail.com",
-    "caseyoswald@gmail.com",
-    "charly@captec.io",
-    "David.V.Imbert@gmail.com",
-    "dannygins@gmail.com",
-    "dud341@gmail.com",
-    "eddiestrickler@gmail.com",
-    "edgar@captec.io",
-    "gtheckt@gmail.com",
-    "gavarj@spu.edu",
-    "GraysonBadgley@gmail.com",
-    "gretchenguo@gmail.com",
-    "guillermomrelliug@gmail.com",
-    "gustavo@captec.io",
-    "ianhrovatin@gmail.com",
-    "jafet@captec.io",
-    "jaime@rodas.mx",
-    "jafetgonz@gmail.com",
-    "jason.shaw.23@gmail.com",
-    "jmz7vcom@gmail.com",
-    "jsanchezcastillejos@gmail.com",
-    "ken@escale.com.br",
-    "kiefertravis@gmail.com",
-    "landstromconsulting@gmail.com",
-    "markpolhamus@gmail.com",
-    "matheus@sat.ws",
-    "matt@escale.com.br",
-    "mcooper4040@gmail.com",
-    "mjpcooper@gmail.com",
-    "mpolovin@gmail.com",
-    "miguel@stockbets.io",
-    "miguel@ruidovisual.com",
-    "pattycampam@gmail.com",
-    "renny@wearefirstin.com",
-    "rohitesh.dhawan@gmail.com",
-    "ryanwillemsen@gmail.com",
-    "seanwells074@gmail.com",
-    "scott.michel.moore@gmail.com",
-    "thebigmehtaphor@gmail.com",
-    "thedanc@gmail.com",
-    "timmybouley@gmail.com",
-    "tommaso@mymoons.mx",
-    "torygreen@gmail.com",
-    "waverly.james92@gmail.com",
-]
-
+from backend.logic.friends import invite_friend, get_if_invited_by_email, update_email_invite_status
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
-
-
-class WhiteListException(Exception):
-
-    def __init__(self, message="The product is still in it's early beta and we're whitelisting. You'll get on soon!"):
-        super().__init__(message)
 
 
 def standardize_email(email):
@@ -81,11 +17,12 @@ def standardize_email(email):
     return "@".join([prefix, suffix])
 
 
-def check_against_whitelist(email):
-    standardized_list = [standardize_email(x) for x in WHITE_LIST]
-    if standardize_email(email) in standardized_list:
-        return
-    raise WhiteListException
+def check_against_invited_users(email):
+    with engine.connect() as conn:
+        count, = conn.execute("SELECT count(*) FROM external_invites WHERE invited_email = %s", email).fetchone()
+    if count > 0:
+        return True
+    return False
 
 
 def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
@@ -146,16 +83,28 @@ def make_user_entry_from_facebook(oauth_data):
     return None, None, response.status_code
 
 
-def register_user(user_entry):
-    user = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", user_entry["resource_uuid"])
-    if user is None:
-        add_row("users", **user_entry)
-        return
+def get_user_data(uuid):
+    with engine.connect() as conn:
+        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", uuid).fetchone()
+    return user
 
-    # update an existing user's profile pic if it's changed
-    if user_entry["profile_pic"] != user["profile_pic"]:
-        with engine.connect() as conn:
-            conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", user["profile_pic"], user["id"])
+
+def register_user(user_entry):
+    uuid = user_entry["resource_uuid"]
+    user = get_user_data(uuid)
+    if user is not None:
+        if user_entry["profile_pic"] != user["profile_pic"]:
+            with engine.connect() as conn:
+                conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", user["profile_pic"], user["id"])
+        return None
+    add_row("users", **user_entry)
+    user = get_user_data(uuid)
+    requester_friends_ids = get_if_invited_by_email(user['email'])
+    for friends in requester_friends_ids:
+        friend_id = friends['requester_id']
+        add_row("external_invites", requester_id=friend_id, invited_email=user["email"], status="accepted",
+                timestamp=time.time())
+        invite_friend(friend_id, user["id"])
 
 
 def make_session_token_from_uuid(resource_uuid):

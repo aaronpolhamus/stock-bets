@@ -11,9 +11,7 @@ from backend.logic.auth import (
     make_session_token_from_uuid,
     register_username_with_token,
     register_user,
-    check_against_whitelist,
-    WhiteListException,
-    ADMIN_USERS
+    ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -55,7 +53,8 @@ from backend.logic.friends import (
     suggest_friends,
     get_friend_details,
     respond_to_friend_invite,
-    invite_friend
+    invite_friend,
+    invite_friend_to_stockbets
 )
 from backend.logic.visuals import (
     format_time_for_response,
@@ -102,6 +101,7 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
+NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
 
 
 # -------------- #
@@ -159,10 +159,8 @@ def login():
         return make_response(OAUTH_ERROR_MSG, status_code)
 
     if Config.CHECK_WHITE_LIST:
-        try:
-            check_against_whitelist(user_entry["email"])
-        except WhiteListException as err:
-            return make_response(str(err), 401)
+        if not check_against_invited_users(user_entry["email"]):
+            return make_response(NOT_INVITED_EMAIL, 401)
 
     register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
@@ -298,7 +296,7 @@ def api_game_info():
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
-    if game_info["game_status"] == "active":
+    if game_info["game_status"] in ["active", "finished"]:
         game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
@@ -409,6 +407,15 @@ def send_friend_request():
     invited_username = request.json.get("friend_invitee")
     invite_friend(user_id, invited_username)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
+
+
+@routes.route("/api/invite_user_by_email", methods=["POST"])
+@authenticate
+def invite_friend_by_email():
+    user_id = decode_token(request)
+    email = request.json.get('friend_email')
+    invite_friend_to_stockbets(user_id, email)
+    return make_response("Email sent to your friend", 200)
 
 
 @routes.route("/api/respond_to_friend_request", methods=["POST"])
