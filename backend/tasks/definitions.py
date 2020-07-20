@@ -37,7 +37,8 @@ from backend.logic.visuals import (
 )
 from backend.tasks.celery import (
     celery,
-    BaseTask
+    BaseTask,
+    PRICE_CACHING_INTERVAL
 )
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -45,8 +46,10 @@ from backend.bi.report_logic import (
 )
 from backend.tasks.redis import task_lock
 
-PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
+PROCESS_ORDERS_LOCK_KEY = "async_process_all_open_orders"
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 15 * 1000
+CACHE_PRICE_LOCK_KEY = "async_cache_price"
+CACHE_PRICE_LOCK_TIMEOUT = PRICE_CACHING_INTERVAL * 1000 * 60
 
 # -------------------------- #
 # Price fetching and caching #
@@ -54,6 +57,7 @@ PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 15 * 1000
 
 
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
+@task_lock(key=CACHE_PRICE_LOCK_KEY, timeout=CACHE_PRICE_LOCK_TIMEOUT)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.

@@ -124,7 +124,7 @@ class TestGameKickoff(BaseTestCase):
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
-        self.assertEqual(len(a_current_balance_table["headers"]), 7)
+        self.assertEqual(len(a_current_balance_table["headers"]), 8)
 
         an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["orders"]["pending"], [])

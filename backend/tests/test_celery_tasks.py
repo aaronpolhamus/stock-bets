@@ -1,6 +1,7 @@
 import json
 import time
 from unittest.mock import patch
+from unittest import TestCase
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
@@ -10,11 +11,6 @@ from backend.logic.base import (
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
-)
-from backend.logic.friends import (
-    suggest_friends,
-    get_friend_invites_list,
-    get_friend_details
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -649,6 +645,9 @@ class TestTaskLocking(BaseTestCase):
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
         self.assertEqual(res5.get(), TASK_LOCK_MSG)
+
+
+class TestRedisCaching(TestCase):
 
     def test_task_caching(self):
         rds.flushall()

@@ -326,7 +326,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 7)
+        self.assertEqual(len(init_balances_entry["headers"]), 8)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)

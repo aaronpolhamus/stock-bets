@@ -159,7 +159,6 @@ def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_id(requester_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
-
 # ------- #
 # Friends #
 # ------- #

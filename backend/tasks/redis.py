@@ -1,3 +1,4 @@
+import base64
 import json
 import pickle as pkl
 
@@ -16,13 +17,20 @@ redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dum
 dlm = Redlock([{"host": Config.REDIS_HOST}])
 
 
+def args_signature(*args, **kwargs):
+    arg_string = "_".join([str(x) for x in args])
+    kwargs_string = "_".join([f"{k}-{v}" for k, v in kwargs.items()])
+    return base64.b64encode(f"{arg_string}:{kwargs_string}".encode()).decode()
+
+
 def task_lock(function=None, key="", timeout=None):
     """Enforce only one celery task at a time. timeout is in milliseconds"""
 
     def _dec(run_func):
         def _caller(*args, **kwargs):
             ret_value = TASK_LOCK_MSG
-            lock = dlm.lock(key, timeout)
+            signature = args_signature(*args, **kwargs)
+            lock = dlm.lock(f"{key}:{signature}", timeout)
             if lock:
                 ret_value = run_func(*args, **kwargs)
                 dlm.unlock(lock)
