@@ -189,7 +189,6 @@ def update_email_invite_status(email):
 
 
 def send_email(requester_id, email):
-    return True
     user_information = get_user_information(requester_id)
     name = user_information['name']
     message = Mail(
