@@ -9,21 +9,33 @@ const Icon = styled.div`
   }
 `
 const Content = styled.div`
-
+  position: relative;
   @media screen and (max-width: ${props => props.$breakpoint}){
     position: fixed;
+    box-shadow: ${props => props.$show ? '-50px 0px 50px rgba(17, 7, 60, 0.5)' : '0'};
     background-color: ${props => props.$backgroundColor || '#fff'};
     top: 0;
-    right: ${props => props.$show ? 0 : '-80vw'};
+    right: ${props => props.$show ? 0 : '-90vw'};
     height: 100vh;
     transition: right .2s ease-out;
-    width: 80vw;
+    width: 90vw;
     z-index: 1;
     padding: var(--space-500) var(--space-300);
   }
 `
+const CloseButton = styled.button`
+  appearance: none;
+  border: none;
+  background-color: transparent;
+  position: absolute;
+  top: var(--space-300);
+  right: var(--space-100);
+  @media screen and (min-width: ${props => props.$breakpoint}){
+    display: none;
+  }
+`
 
-const SlideinBlock = ({ children, icon, context, className, backgroundColor }) => {
+const SlideinBlock = ({ children, icon, context, className, backgroundColor, iconClose}) => {
   const [showBlock, setShowBlock] = useState(false)
 
   const toggleShowBlock = () => {
@@ -50,7 +62,12 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor }) =
         $breakpoint={breakpoint}
         $backgroundColor={backgroundColor}
         $show={showBlock}>
-
+        <CloseButton
+          $breakpoint={breakpoint}
+          onClick={toggleShowBlock}
+        >
+          {iconClose || 'x'}
+        </CloseButton>
         {children}
 
       </Content>
