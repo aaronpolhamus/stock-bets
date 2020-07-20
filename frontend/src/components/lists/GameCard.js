@@ -128,7 +128,6 @@ const GameCard = ({ gameId }) => {
 }
 
 const GameCardPending = ({ gameData }) => {
-  console.log(gameData)
   return (
     <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>

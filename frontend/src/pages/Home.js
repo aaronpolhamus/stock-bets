@@ -20,7 +20,7 @@ import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import { LogOut, Users } from 'react-feather'
+import { LogOut, Users as IconUsers } from 'react-feather'
 import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -92,7 +92,17 @@ const Home = () => {
     <Layout>
       <Sidebar md={3}>
         <SlideinBlock
-          icon={<Users size={14} style={{ marginTop: '-3px' }} />}
+          icon={
+            <IconUsers
+              size={24}
+              color='var(--color-primary-darken)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
+          context='md'
+          backgroundColor='var(--color-secondary)'
         >
           <StyledMiniCard
             avatarSrc={data.profile_pic}

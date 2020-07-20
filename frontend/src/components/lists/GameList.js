@@ -4,7 +4,6 @@ import PropTypes from 'prop-types'
 
 const gameListBuilder = (props) => {
   return props.games.map((entry, index) => {
-    console.log(entry)
     switch (props.cardType) {
       case 'pending':
         return <GameCardPending gameData={entry} key={index} />

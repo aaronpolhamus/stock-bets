@@ -7,23 +7,6 @@ const StyledContainer = styled(Container)`
   padding: 0;
 `
 
-// Sidebar Component
-const SidebarWrapper = styled(Col)`
-  background-color: var(--color-secondary);
-  color: var(--color-lightest);
-  box-sizing: border-box;
-  box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
-    2px 2px 3px rgba(61, 50, 106, 0.3);
-
-  @media screen and (min-width: ${breakpoints.md}){
-    border-radius: 0 1rem 0 0;
-    min-height: 100vh;
-    position: sticky;
-    top: 0;
-    align-self: flex-start;
-  }
-`
-
 const SmallColumnWrapper = styled(Col)`
   background-color: var(--color-light-gray);
   min-height: 100vh;
@@ -72,10 +55,6 @@ const Breadcrumb = styled.div`
   }
 `
 
-const SidebarSection = styled.div`
-  margin-bottom: var(--space-500);
-`
-
 // Section Component
 const PageSection = styled.section`
   margin-bottom: var(--space-600);
@@ -88,6 +67,37 @@ const ColContent = styled.div`
   }
 `
 
+// Sidebar Component
+const SidebarWrapper = styled(Col)`
+  color: var(--color-lightest);
+  box-sizing: border-box;
+
+  @media screen and (min-width: ${breakpoints.md}){
+    box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
+    2px 2px 3px rgba(61, 50, 106, 0.3);
+    background-color: var(--color-secondary);
+    border-radius: 0 1rem 0 0;
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+  }
+`
+const SidebarContent = styled.div`
+  padding: var(--space-300);
+  display: flex;
+  width: 90vw;
+  justify-content: space-between;
+  @media screen and (min-width: ${breakpoints.md}){
+    display: block;
+    width: 100%;
+    padding: var(--space-400);
+  }
+`
+const SidebarSection = styled.div`
+  margin-bottom: var(--space-500);
+`
+
 const Column = ({ children, ...props }) => (
   <Col {...props}>
     <ColContent>
@@ -98,11 +108,11 @@ const Column = ({ children, ...props }) => (
 
 const Sidebar = ({ children, size, ...props }) => (
   <SidebarWrapper size={size} {...props}>
-    <ColContent>
+    <SidebarContent>
       <Logo href='/'>Stockbets</Logo>
 
       {children}
-    </ColContent>
+    </SidebarContent>
   </SidebarWrapper>
 )
 
