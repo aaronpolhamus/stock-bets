@@ -6,15 +6,11 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from database.db import engine
 from backend.logic.base import (
+    fetch_price,
     get_end_of_last_trading_day,
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
-)
-from backend.logic.friends import (
-    suggest_friends,
-    get_friend_invites_list,
-    get_friend_details
 )
 from backend.logic.games import (
     respond_to_game_invite,
@@ -45,12 +41,12 @@ from backend.tasks.redis import (
     TASK_LOCK_MSG
 )
 from backend.tests import BaseTestCase
-from logic.base import fetch_price
 from logic.visuals import calculate_and_pack_game_metrics
 
 
 def mock_send_email(_requester_id, _email):
     return True
+
 
 class TestStockDataTasks(BaseTestCase):
 
