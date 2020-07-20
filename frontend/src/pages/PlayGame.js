@@ -67,7 +67,8 @@ const PlayGame = (props) => {
         <PageSection>
           <Breadcrumb>
             <Link to='/'>
-              <ChevronLeft size={14} style={{ marginTop: '-3px' }} /> Dashboard
+              <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
+              <span> Dashboard</span>
             </Link>
           </Breadcrumb>
           <GameHeader gameId={gameId} />
@@ -156,7 +157,7 @@ const PlayGame = (props) => {
         autohide
       >
         <Toast.Header>
-          <strong className='mr-auto'>Order placed</strong>
+          <strong>Order placed</strong>
           <small>Right now</small>
         </Toast.Header>
         <Toast.Body>

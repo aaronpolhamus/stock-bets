@@ -1,6 +1,7 @@
 import json
 import time
 from unittest.mock import patch
+from unittest import TestCase
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
@@ -645,6 +646,9 @@ class TestTaskLocking(BaseTestCase):
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
         self.assertEqual(res5.get(), TASK_LOCK_MSG)
+
+
+class TestRedisCaching(TestCase):
 
     def test_task_caching(self):
         rds.flushall()

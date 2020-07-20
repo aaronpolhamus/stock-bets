@@ -18,12 +18,17 @@ import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
+import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import * as Icon from 'react-feather'
+import {
+  LogOut,
+  X as IconClose,
+  Users as IconUsers
+} from 'react-feather'
 import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
-const Logout = async () => {
+const handleLogout = async () => {
   await api.post('/api/logout')
   window.location.assign('/')
 }
@@ -98,21 +103,45 @@ const Home = () => {
   return (
     <Layout>
       <Sidebar md={3}>
-        <StyledMiniCard
-          avatarSrc={data.profile_pic}
-          username={data.username}
-          email={data.email}
-          nameColor='var(--cotlor-lighter)'
-          dataColor='var(--color-text-light-gray)'
-          info={['Return: 50%', 'Sharpe: 0.324']}
-        />
-        <FriendsList />
+        <SlideinBlock
+          icon={
+            <IconUsers
+              size={24}
+              color='var(--color-primary-darken)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
+          iconClose={
+            <IconClose
+              size={24}
+              color='var(--color-primary)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
+          context='md'
+          backgroundColor='var(--color-secondary)'
+        >
+          <StyledMiniCard
+            avatarSrc={data.profile_pic}
+            username={data.username}
+            email={data.email}
+            nameColor='var(--cotlor-lighter)'
+            dataColor='var(--color-text-light-gray)'
+            info={['Return: 50%', 'Sharpe: 0.324']}
+          />
+          <FriendsList />
+        </SlideinBlock>
       </Sidebar>
       <Column md={9}>
         <PageSection>
           <Breadcrumb justifyContent='flex-end'>
-            <Button variant='link' onClick={Logout}>
-              <Icon.LogOut size={14} style={{ marginTop: '-3px' }} /> Logout
+            <Button variant='link' onClick={handleLogout}>
+              <LogOut size={14} style={{ marginTop: '-3px' }} />
+              <span> Logout</span>
             </Button>
           </Breadcrumb>
           <Header>
@@ -120,11 +149,6 @@ const Home = () => {
               Games
             </TitlePage>
             <Button variant='primary' href='/new'>
-              <Icon.PlusCircle
-                size={16}
-                color='var(--color-primary-darkest)'
-                style={{ marginTop: '-3px' }}
-              />{' '}
               Make a new game
             </Button>
           </Header>
