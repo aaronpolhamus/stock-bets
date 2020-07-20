@@ -43,9 +43,9 @@ def make_stock_data_records():
                 price_records.append(dict(symbol=stock_symbol, price=record["average"], timestamp=posix_time))
 
                 # add synthetic index data as well
-                ixic_value += np.random.normal(0, 0.005 * ixic_value_0)
-                gspc_value += np.random.normal(0, 0.005 * gspc_value_0)
-                dji_value += np.random.normal(0, 0.005 * dji_value_0)
+                ixic_value += np.random.normal(0, 0.0005 * ixic_value_0)
+                gspc_value += np.random.normal(0, 0.0005 * gspc_value_0)
+                dji_value += np.random.normal(0, 0.0005 * dji_value_0)
                 index_records.append(dict(symbol="^IXIC", value=ixic_value, timestamp=posix_time))
                 index_records.append(dict(symbol="^GSPC", value=gspc_value, timestamp=posix_time))
                 index_records.append(dict(symbol="^DJI", value=dji_value, timestamp=posix_time))

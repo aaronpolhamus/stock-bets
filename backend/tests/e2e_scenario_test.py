@@ -29,6 +29,7 @@ if __name__ == '__main__':
     reset_db()
     populate_table("users")
     populate_table("symbols")
+    populate_table("indexes")
 
     # setup user tokens
     user_id = 1
