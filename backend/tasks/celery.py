@@ -64,11 +64,11 @@ celery.conf.beat_schedule = {
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
     },
     "update_index_values": {
-        "task": "async_update_index_value",
+        "task": "async_update_all_index_values",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-16", day_of_week="1-5")
     },
     "update_index_values_eod": {
-        "task": "async_update_index_value",
+        "task": "async_update_all_index_values",
         "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
     },
     "update_all_games": {
