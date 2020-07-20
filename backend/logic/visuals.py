@@ -476,7 +476,7 @@ def relabel_aggregated_portfolios(df: pd.DataFrame) -> pd.DataFrame:
     del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
     df = build_labels(df)
     df.sort_values("timestamp", inplace=True)
-    return df.groupby(["username", "t_index"], as_index=False)[["label", "value"]].agg("last")
+    return df.groupby(["username", "t_index"], as_index=False)[["label", "value", "timestamp"]].agg("last")
 
 
 def make_the_field_charts(game_id: int):
@@ -506,6 +506,7 @@ def make_the_field_charts(game_id: int):
 
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
+    relabelled_df.sort_values("timestamp", inplace=True)
     serialize_and_pack_portfolio_comps_chart(relabelled_df, game_id)
 
 
