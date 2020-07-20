@@ -620,9 +620,7 @@ class TestTaskLocking(BaseTestCase):
         """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
-        lock = dlm.lock(PROCESS_ORDERS_LOCK_KEY, PROCESS_ORDERS_LOCK_TIMEOUT)
-        if lock:
-            dlm.unlock(lock)
+        rds.flushall()
         res1 = async_process_all_open_orders.delay()
         res2 = async_process_all_open_orders.delay()
         res3 = async_process_all_open_orders.delay()
@@ -637,6 +635,7 @@ class TestTaskLocking(BaseTestCase):
         self.assertEqual(res5.get(), TASK_LOCK_MSG)
 
     def test_task_caching(self):
+        rds.flushall()
         test_time = posix_to_datetime(time.time()).date()
         start = time.time()
         _ = get_trading_calendar(test_time, test_time)

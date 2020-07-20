@@ -34,7 +34,8 @@ from backend.logic.base import (
     check_single_player_mode,
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
-    get_expected_sidebets_payout_dates
+    get_expected_sidebets_payout_dates,
+    TIMEZONE
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -518,31 +519,24 @@ def make_order_performance_table(game_id: int, user_id: int):
     # add a label that uniquely identifies a purchase order
     order_df["order_label"] = order_df["symbol"] + order_df["timestamp_fulfilled"].astype(str)
     order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
-    order_df["order_label"] = order_df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
+    order_df["order_label"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize(
+        'UTC').tz_convert('America/New_York')
+    order_df['order_label'] = order_df['order_label'].dt.strftime(DATE_LABEL_FORMAT)
     order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
-        "clear_price_fulfilled"].apply(lambda x: number_to_currency(x)) + "/" + order_df["order_label"]
+        "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
 
     # add bookend times and resample
+    cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
+    cum_sum_df.columns = ['symbol', 'cum_buys']
+    order_df = order_df.merge(cum_sum_df)
     order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
-    order_df["timestamp_fulfilled"] = order_df["timestamp_fulfilled"].apply(lambda x: posix_to_datetime(x))
+    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
+        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
     order_df.set_index("timestamp_fulfilled", inplace=True)
-    order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
-    order_df = order_df.reset_index()
-    del order_df["level_0"]
-
-    # we'll now ensure that resampled orders are properly sorted and compute cumulative purchases
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
-    tmp_array = []
-    for symbol in order_df["symbol"].unique():
-        cum_buys = 0
-        symbol_subset = order_df[order_df["symbol"] == symbol]
-        for order_label in symbol_subset["order_label"].unique():
-            order_subset = symbol_subset[symbol_subset["order_label"] == order_label]
-            cum_buys += order_subset.iloc[0]["quantity"]
-            order_subset["cum_buys"] = cum_buys
-            tmp_array.append(order_subset)
-    order_df = pd.concat(tmp_array)
-
+    order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
+    order_df.reset_index(inplace=True)
+    del order_df["level_0"]
     # get historical balances and prices
     bp_df = make_historical_balances_and_prices_table(game_id, user_id)
 
@@ -551,7 +545,6 @@ def make_order_performance_table(game_id: int, user_id: int):
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
-
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
@@ -572,9 +565,9 @@ def make_order_performance_table(game_id: int, user_id: int):
 
         df_slice = df_slice.iloc[true_index]
         slices.append(df_slice)
-
     df = pd.concat(slices)
-    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100).apply(lambda x: round(x, 2))
+    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
+    df["return"] = df["return"].round(2)
     return df
 
 

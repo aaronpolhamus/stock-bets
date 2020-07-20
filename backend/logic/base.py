@@ -436,7 +436,7 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param time_var: the posix time column that contains time information
     """
     bookend_time = make_bookend_time()
-    last_entry_df = balances.groupby("symbol", as_index=False).last()
+    last_entry_df = balances.groupby(group_var, as_index=False).last()
     to_append = last_entry_df[(last_entry_df[condition_var] > 0) & (last_entry_df[time_var] < bookend_time)]
     to_append[time_var] = bookend_time
     return pd.concat([balances, to_append]).reset_index(drop=True)
