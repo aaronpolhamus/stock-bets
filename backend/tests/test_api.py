@@ -49,11 +49,12 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
+
 from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
-from backend.tests import BaseTestCase, mock_send_email
+from backend.tests import BaseTestCase
 from config import Config
 
 HOST_URL = 'https://localhost:5000/api'
@@ -387,7 +388,8 @@ class TestCreateGame(BaseTestCase):
             "title": "jugando solo",
             "benchmark": "return_ratio"
         }
-        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False, json=game_settings)
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
+                                         verify=False, json=game_settings)
         self.assertEqual(res.status_code, 200)
 
 
@@ -564,7 +566,8 @@ class TestGetGameStats(BaseTestCase):
 
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
         for k, v in res.json().items():
-            if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
+            if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
+                     "start_time",
                      "benchmark_formatted", "leaderboard"]:
                 continue
             self.assertEqual(db_dict[k], v)
@@ -578,13 +581,12 @@ class TestGetGameStats(BaseTestCase):
 
 class TestFriendManagement(BaseTestCase):
 
-    @patch('logic.friends.send_email', mock_send_email)
     def test_friend_management(self):
         """Integration test of the API's ability to interface with the celery functions tested in
         test_celery_tasks.TestFriendManagement
         """
         test_username = "cheetos"
-        test_friend_email = "test_email@gmail.com"
+        test_friend_email = "test_dummy_email@gmail.com"
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
@@ -622,7 +624,7 @@ class TestFriendManagement(BaseTestCase):
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         res = self.requests_session.post(f"{HOST_URL}/invite_user_by_email", json={"friend_email": test_friend_email},
-                                         cookies={"session_token": dummy_user_session_token}, verify=False)
+                                             cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",

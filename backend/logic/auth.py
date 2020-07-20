@@ -90,10 +90,12 @@ def get_user_data(uuid):
 
 
 def register_user(user_entry):
-    # TODO add friend request of the user that invited the user
     uuid = user_entry["resource_uuid"]
     user = get_user_data(uuid)
     if user is not None:
+        if user_entry["profile_pic"] != user["profile_pic"]:
+            with engine.connect() as conn:
+                conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", user["profile_pic"], user["id"])
         return None
     add_row("users", **user_entry)
     user = get_user_data(uuid)

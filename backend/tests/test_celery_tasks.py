@@ -47,10 +47,13 @@ from backend.tasks.redis import (
     rds,
     TASK_LOCK_MSG
 )
-from backend.tests import BaseTestCase, mock_send_email
+from backend.tests import BaseTestCase
 from logic.base import fetch_price
 from logic.visuals import calculate_and_pack_game_metrics
 
+
+def mock_send_email(_requester_id, _email):
+    return True
 
 class TestStockDataTasks(BaseTestCase):
 
@@ -602,10 +605,10 @@ class TestFriendManagement(BaseTestCase):
         dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
         self.assertEqual(dummy_match, ["dummy2"])
 
-    @patch('logic.friends.send_email', mock_send_email)
+    @patch('backend.logic.friends.send_email', mock_send_email)
     def test_invite_friend_to_stockbets(self):
         user_id = 1
-        friend_email = 'dummy_email_test@gmail.com'
+        friend_email = 'mocking_another_email@gmail.com'
         invite_friend_to_stockbets(user_id, friend_email)
         with engine.connect() as conn:
             count = conn.execute("SELECT COUNT(*) FROM external_invites WHERE invited_email = %s;",
