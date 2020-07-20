@@ -6,7 +6,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 from backend.database.db import engine
-from backend.database.helpers import add_row
+from backend.database.helpers import add_row, query_to_dict
 from backend.logic.base import get_user_id, get_user_information
 from backend.config import Config
 
@@ -144,10 +144,9 @@ def get_friend_invites_list(user_id: int):
 
 
 def get_if_invited_by_email(email):
-    with engine.connect() as conn:
-        requester_friend_id = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
-                                           email).fetchone()
-    return requester_friend_id
+    friends_that_invited_email = query_to_dict("SELECT requester_id FROM external_invites WHERE invited_email = %s",
+                                               email)
+    return friends_that_invited_email
 
 
 def get_friend_details(user_id: int):
@@ -191,6 +190,7 @@ def update_email_invite_status(email):
 
 
 def send_email(requester_id, email):
+    return True
     user_information = get_user_information(requester_id)
     name = user_information['name']
     message = Mail(
