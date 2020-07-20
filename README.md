@@ -12,6 +12,8 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `IEX_API_PRODUCTION` (True/False): Always False for development! Otherwise you'll consume paid price data from IEX when developing locally.
   - `IEX_API_SECRET_PROD` (string): IEX production API secret
   - `IEX_API_SECRET_SANDBOX` (string): IEX sandbox API secret
+  - `SENDGRID_API_KEY` (string): SENDGRID API to send emails 
+  - `EMAIL_SENDER` (string): The sender of the emails you have configured on sendgrind 
 * To use the frontend with SSL locally, paste `chrome://flags/#allow-insecure-localhost` into your Google Chrome url. Just be careful: you may want to turn this back on at some point.
 * Make sure that you don't have an current port mappings to `3306`, `5000`, `5672`, `15672`, `6379`, or `5555` on your host. Your dev env needs all of these. 
 * `cd` to the repo root and run `make up`. This is the "master" local launch command--it will build and raise the entire backend, install and build your npm dependencies, and start the web app on port `3000`. 
