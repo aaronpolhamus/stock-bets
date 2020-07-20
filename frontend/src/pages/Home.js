@@ -20,10 +20,10 @@ import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import { 
-  LogOut, 
-  X as IconClose, 
-  Users as IconUsers 
+import {
+  LogOut,
+  X as IconClose,
+  Users as IconUsers
 } from 'react-feather'
 import LogRocket from 'logrocket'
 

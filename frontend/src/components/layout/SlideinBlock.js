@@ -77,6 +77,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
 
 SlideinBlock.propTypes = {
   icon: PropTypes.node,
+  iconClose: PropTypes.node,
   // In which screen size it behaves like a sliding block
   context: PropTypes.string,
   backgroundColor: PropTypes.string,

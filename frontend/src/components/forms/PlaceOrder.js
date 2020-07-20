@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import api from 'services/api'
 import { Row, Col, Button, Form } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
@@ -8,8 +8,7 @@ import { fetchGameData } from 'components/functions/api'
 import { RadioButtons, TabbedRadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import PropTypes from 'prop-types'
-
-// request -> guardar datos -> actualizar form -> limpiar datos -> request submit
+import styled from 'styled-components'
 
 const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [gameInfo, setGameInfo] = useState({})
@@ -19,7 +18,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [symbolLabel, setSymbolLabel] = useState('')
   const [priceData, setPriceData] = useState({})
   const [intervalId, setintervalId] = useState(null)
-  const [submitted, setSubmitted] = useState(false)
+  const formRef = useRef(null)
+  const autosugestRef = useRef(null)
 
   useEffect(() => {
     const getFormInfo = async () => {
@@ -45,9 +45,14 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     await api.post('/api/place_order', orderTicketCopy)
       .then(request => {
         onPlaceOrder()
+        setSymbolValue('')
+        setSymbolLabel('')
+        setPriceData({})
+        formRef.current.reset()
+        clearInterval(intervalId)
       })
       .catch(error => {
-        console.log(error.response.data)
+        window.alert(error.response.data)
       })
   }
 
@@ -118,133 +123,131 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     setPriceData(response.data)
   }
 
-  const handleClose = () => {
-    setSubmitted(false)
-  }
-
   return (
-    <>
-      <Form onSubmit={handleSubmit}>
-        <Form.Group>
-          <TabbedRadioButtons
-            mode='tabbed'
-            name='buy_or_sell'
-            defaultChecked={orderTicket.buy_or_sell}
-            onChange={handleChange}
-            className=''
-            options={gameInfo.buy_sell_options}
-            color='var(--color-text-light-gray)'
-            $colorChecked='var(--color-lightest)'
+    <Form
+      onSubmit={handleSubmit}
+      ref={formRef}
+    >
+      <Form.Group>
+        <TabbedRadioButtons
+          mode='tabbed'
+          name='buy_or_sell'
+          defaultChecked={orderTicket.buy_or_sell}
+          onChange={handleChange}
+          className=''
+          options={gameInfo.buy_sell_options}
+          color='var(--color-text-light-gray)'
+          $colorChecked='var(--color-lightest)'
+        />
+      </Form.Group>
+      <Form.Group>
+        <Form.Label>Symbol</Form.Label>
+        {symbolSuggestions && (
+          <Autosuggest
+            ref={autosugestRef}
+            suggestions={symbolSuggestions}
+            onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+            onSuggestionsClearRequested={onSuggestionsClearRequested}
+            getSuggestionValue={getSuggestionValue}
+            renderSuggestion={renderSuggestion}
+            onSuggestionSelected={onSuggestionSelected}
+            inputProps={{
+              placeholder: 'What are we trading today?',
+              value: symbolValue,
+              onChange: onSymbolChange
+            }}
           />
-        </Form.Group>
-        <Form.Group>
-          <Form.Label>Symbol</Form.Label>
-          {symbolSuggestions && (
-            <Autosuggest
-              suggestions={symbolSuggestions}
-              onSuggestionsFetchRequested={onSuggestionsFetchRequested}
-              onSuggestionsClearRequested={onSuggestionsClearRequested}
-              getSuggestionValue={getSuggestionValue}
-              renderSuggestion={renderSuggestion}
-              onSuggestionSelected={onSuggestionSelected}
-              inputProps={{
-                placeholder: 'What are we trading today?',
-                value: symbolValue,
-                onChange: onSymbolChange
-              }}
-            />
-          )}
-          {Object.keys(priceData).length > 0 && (
-            <AuxiliarText color='var(--color-light-gray)'>
-              <strong>
-                {symbolLabel} ${priceData.price}
-              </strong>
-              <br />
-              <small>Last updated: {priceData.last_updated}</small>
-              <br />
-              <small>
-                <a href='https://iexcloud.io' target='_blank' rel='noopener noreferrer'>
+        )}
+        {Object.keys(priceData).length > 0 && symbolValue !== '' && (
+          <AuxiliarText color='var(--color-light-gray)'>
+            <strong>
+              {symbolLabel} ${priceData.price}
+            </strong>
+            <br />
+            <small>Last updated: {priceData.last_updated}</small>
+            <br />
+            <small>
+              <a href='https://iexcloud.io' target='_blank' rel='noopener noreferrer'>
                   Data provided by IEX Cloud
-                </a>
-              </small>
-            </AuxiliarText>
-          )}
-        </Form.Group>
-        <Row>
-          <Col>
-            <Form.Group>
-              <Form.Label>
-                {orderTicket.quantity_type &&
+              </a>
+            </small>
+          </AuxiliarText>
+        )}
+      </Form.Group>
+      <Row>
+        <Col>
+          <Form.Group>
+            <Form.Label>
+              {orderTicket.quantity_type &&
                 orderTicket.quantity_type === 'Shares'
-                  ? 'Quantity'
-                  : 'Amount'}
-              </Form.Label>
-              <Form.Control name='amount' as='input' onChange={handleChange} />
-            </Form.Group>
-          </Col>
-          <Col>
-            <Form.Group>
-              <Form.Label>Shares or USD</Form.Label>
-              <Form.Control
-                name='quantity_type'
-                as='select'
-                defaultValue={orderTicket.quantity_type}
-                onChange={handleChange}
-              >
-                {gameInfo.quantity_options &&
+                ? 'Quantity'
+                : 'Amount'}
+            </Form.Label>
+            <Form.Control required name='amount' as='input' onChange={handleChange} />
+          </Form.Group>
+        </Col>
+        <Col>
+          <Form.Group>
+            <Form.Label>Shares or USD</Form.Label>
+            <Form.Control
+              name='quantity_type'
+              as='select'
+              defaultValue={orderTicket.quantity_type}
+              onChange={handleChange}
+            >
+              {gameInfo.quantity_options &&
                   gameInfo.quantity_options.map((value) => (
                     <option key={value}>{value}</option>
                   ))}
-              </Form.Control>
-            </Form.Group>
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            <Form.Group>
-              <Form.Label>
+            </Form.Control>
+          </Form.Group>
+        </Col>
+      </Row>
+      <Row>
+        <Col>
+          <Form.Group>
+            <Form.Label>
                 Order type
-                <Tooltip message="A market order clears right away, at  whatever price is currently on the market. A 'limit' order is an order where the price direction is in your favor, e.g. a buy-limit order clears when the market price is less than or equal to the price you set. A sell-limit order, on the other hand, clears when the market price is greater than or equal to your order price. A sell-stop order is a common way to reduce exposure to loss, and clears when the market price is at or below the sale order price. Orders only clear during trading day--if you're placing orders outside of trading hours, you should see them reflected in your orders table as pending." />
-              </Form.Label>
-              <RadioButtons
-                name='order_type'
-                defaultChecked={orderTicket.order_type}
-                onChange={handleChange}
-                options={gameInfo.order_type_options}
-                color='var(--color-text-light-gray)'
-                $colorChecked='var(--color-lightest)'
-              />
-            </Form.Group>
-          </Col>
-        </Row>
-        <Row>
-          <Col>
-            {['stop', 'limit'].includes(orderTicket.order_type) &&
+              <Tooltip message="A market order clears right away, at  whatever price is currently on the market. A 'limit' order is an order where the price direction is in your favor, e.g. a buy-limit order clears when the market price is less than or equal to the price you set. A sell-limit order, on the other hand, clears when the market price is greater than or equal to your order price. A sell-stop order is a common way to reduce exposure to loss, and clears when the market price is at or below the sale order price. Orders only clear during trading day--if you're placing orders outside of trading hours, you should see them reflected in your orders table as pending." />
+            </Form.Label>
+            <RadioButtons
+              name='order_type'
+              defaultChecked={orderTicket.order_type}
+              onChange={handleChange}
+              options={gameInfo.order_type_options}
+              color='var(--color-text-light-gray)'
+              $colorChecked='var(--color-lightest)'
+            />
+          </Form.Group>
+        </Col>
+      </Row>
+      <Row>
+        <Col>
+          {['stop', 'limit'].includes(orderTicket.order_type) &&
               stopLimitElement()}
-          </Col>
-        </Row>
-        <Form.Group>
-          <Form.Label>
+        </Col>
+      </Row>
+      <Form.Group>
+        <Form.Label>
             Time in Force
-            <Tooltip message="We'll continually monitor an 'Until cancelled' order for execution until you cancel it by hand." />
-          </Form.Label>
-          <Form.Control
-            name='time_in_force'
-            as='select'
-            defaultValue={gameInfo.time_in_force}
-            onChange={handleChange}
-          >
-            {gameInfo.time_in_force_options &&
+          <Tooltip message="We'll continually monitor an 'Until cancelled' order for execution until you cancel it by hand." />
+        </Form.Label>
+        <Form.Control
+          name='time_in_force'
+          as='select'
+          defaultValue={gameInfo.time_in_force}
+          onChange={handleChange}
+        >
+          {gameInfo.time_in_force_options &&
               optionBuilder(gameInfo.time_in_force_options)}
-          </Form.Control>
-        </Form.Group>
-        <FormFooter>
-          <Button variant='primary' type='submit'>
+        </Form.Control>
+      </Form.Group>
+      <FormFooter>
+        <Button variant='primary' type='submit'>
             Submit {orderTicket.buy_or_sell === 'buy' ? 'Buy' : 'Sell'} Order
-          </Button>
-        </FormFooter>
-      </Form>
-    </>
+        </Button>
+      </FormFooter>
+    </Form>
   )
 }
 

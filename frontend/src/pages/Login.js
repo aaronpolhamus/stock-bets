@@ -41,7 +41,7 @@ const RightCol = styled(Col)`
     display: block;
     height: 100vh;
     position: absolute;
-    top: 70%;
+    top: 30vh;
     left: -15vw;
     width: 100vh;
     z-index: -1;
