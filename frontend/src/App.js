@@ -9,6 +9,8 @@ import { NewGame } from 'pages/NewGame'
 import { Admin } from 'pages/Admin'
 import { PrivacyPolicy } from 'pages/PrivacyPolicy'
 import { UserContext } from 'Contexts'
+import { UserDropDownChart, VanillaChart } from './components/charts/BaseCharts'
+import { PageSection } from './components/layout/Layout'
 
 export default function App () {
   const [user, setUser] = useState({})

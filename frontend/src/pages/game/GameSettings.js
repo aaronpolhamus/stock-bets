@@ -23,10 +23,6 @@ const GameSettings = ({ gameInfo }) => {
         <SectionTitle color='var(--color-primary)'>Game Settings</SectionTitle>
         <dl>
           <dt>
-            <Label>Game Mode</Label>
-          </dt>
-          <StyledDd>{gameInfo.mode}</StyledDd>
-          <dt>
             <Label>Buy In</Label>
           </dt>
           <StyledDd>{gameInfo.buy_in}</StyledDd>
