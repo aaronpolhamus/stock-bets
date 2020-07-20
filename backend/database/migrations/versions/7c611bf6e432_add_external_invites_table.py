@@ -1,4 +1,4 @@
-"""empty message
+"""add external table invites
 
 Revision ID: 7c611bf6e432
 Revises: 514d5dd1760b
