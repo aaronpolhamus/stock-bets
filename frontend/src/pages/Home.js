@@ -20,7 +20,11 @@ import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import { LogOut, Users as IconUsers } from 'react-feather'
+import { 
+  LogOut, 
+  X as IconClose, 
+  Users as IconUsers 
+} from 'react-feather'
 import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -101,6 +105,15 @@ const Home = () => {
               }}
             />
           }
+          iconClose={
+            <IconClose
+              size={24}
+              color='var(--color-primary)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
           context='md'
           backgroundColor='var(--color-secondary)'
         >
@@ -119,7 +132,8 @@ const Home = () => {
         <PageSection>
           <Breadcrumb justifyContent='flex-end'>
             <Button variant='link' onClick={handleLogout}>
-              <LogOut size={14} style={{ marginTop: '-3px' }} /> Logout
+              <LogOut size={14} style={{ marginTop: '-3px' }} />
+              <span> Logout</span>
             </Button>
           </Breadcrumb>
           <Header>

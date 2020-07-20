@@ -46,12 +46,39 @@ const Header = styled.header`
 
 const Breadcrumb = styled.div`
   display: flex;
-  margin-bottom: var(--space-200);
   font-size: var(--font-size-small);
-  color: var(--color-text-gray);
+  position: relative;
+  button {
+    color: var(--color-primary-darken);
+    position: absolute;
+    top: -5.6rem;
+    right: 0;
+  }
   justify-content: ${(props) => props.justifyContent || 'flex-start'};
   a {
     color: inherit;
+  }
+  span {
+    display: none; 
+  }
+  svg {
+    stroke: currentColor;
+    width: 24px;
+    height: 24px;
+  }
+  @media screen and (min-width: ${breakpoints.md}){
+    margin-bottom: var(--space-200);
+    button{
+      position: static;
+      color: var(--color-text-gray);
+    }
+    span {
+      display: inline;
+    }
+    svg {
+      width: inherit;
+      height: inherit;
+    }
   }
 `
 
@@ -71,6 +98,16 @@ const ColContent = styled.div`
 const SidebarWrapper = styled(Col)`
   color: var(--color-lightest);
   box-sizing: border-box;
+  &::before {
+    content: '';
+    display: block;
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    border-radius: 0 0 100%;
+    background-color: var(--color-secondary);
+    z-index: -1;
+  }
 
   @media screen and (min-width: ${breakpoints.md}){
     box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
@@ -86,7 +123,7 @@ const SidebarWrapper = styled(Col)`
 const SidebarContent = styled.div`
   padding: var(--space-300);
   display: flex;
-  width: 90vw;
+  width: 87vw;
   justify-content: space-between;
   @media screen and (min-width: ${breakpoints.md}){
     display: block;
