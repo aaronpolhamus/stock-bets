@@ -2,8 +2,8 @@
 """
 from datetime import datetime as dt, timedelta
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
@@ -18,7 +18,6 @@ from backend.logic.base import (
     make_historical_balances_and_prices_table,
     get_expected_sidebets_payout_dates
 )
-
 
 # -------- #
 # Defaults #
@@ -87,9 +86,9 @@ def get_last_sidebet_payout(game_id: int):
     # when was the last time that a payout was made/that the game was started?
     with engine.connect() as conn:
         last_payout_date = conn.execute("""
-            SELECT timestamp FROM winners
+            SELECT end_time FROM winners
             WHERE game_id = %s AND type = 'sidebet'
-            ORDER BY timestamp DESC LIMIT 0, 1
+            ORDER BY end_time DESC LIMIT 0, 1
         """, game_id).fetchone()
     if last_payout_date:
         return last_payout_date[0]
@@ -153,7 +152,11 @@ def log_winners(game_id: int, current_time: float):
         payout_time = datetime_to_posix(last_interval_dt + offset)
         if check_if_payout_time(current_time, payout_time):
             curr_time_dt = posix_to_datetime(current_time)
-            curr_interval_end = [date for date in expected_sidebet_dates if last_interval_dt < date <= curr_time_dt][0]
+            # the presence of second/millisecond info can cause the line below to select two times, where the first time
+            # is the end of the last sidebet. To prevent this, we'll extend the last interval time by one day to prevent
+            # it from matching on the boundary. This works for now, since sidebets are paid weekly and monthly.
+            anchor_time = last_interval_dt + timedelta(days=1)
+            curr_interval_end = [date for date in expected_sidebet_dates if anchor_time < date <= curr_time_dt][0]
             curr_interval_posix = datetime_to_posix(curr_interval_end)
             winner_id, score = get_winner(game_id, last_interval_end, curr_interval_posix, benchmark)
             n_sidebets = n_sidebets_in_game(game_start_posix, game_end_posix, offset)
