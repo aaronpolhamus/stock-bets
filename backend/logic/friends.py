@@ -2,10 +2,13 @@ import time
 from typing import List
 
 import pandas as pd
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
-from backend.database.helpers import add_row
 from backend.database.db import engine
-from backend.logic.base import get_user_id
+from backend.database.helpers import add_row
+from backend.logic.base import get_user_id, get_user_information
+from backend.config import Config
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -140,6 +143,13 @@ def get_friend_invites_list(user_id: int):
     return [x["username"] for x in details]
 
 
+def get_if_invited_by_email(email):
+    with engine.connect() as conn:
+        requester_friend_id = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
+                                           email).fetchone()
+    return requester_friend_id
+
+
 def get_friend_details(user_id: int):
     friend_ids = get_friend_ids(user_id)
     return get_user_details_from_ids(friend_ids)
@@ -148,6 +158,7 @@ def get_friend_details(user_id: int):
 def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_id(requester_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
+
 
 # ------- #
 # Friends #
@@ -160,3 +171,37 @@ def invite_friend(requester_id, invited_username):
     """
     invited_id = get_user_id(invited_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
+
+
+def invite_friend_to_stockbets(requester_id, invited_user_email: str):
+    """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
+    joined
+    """
+    email_response = send_email(requester_id, invited_user_email)
+    status = "invited"
+    if not email_response:
+        status = "error"
+    add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
+            status=status, timestamp=time.time())
+
+
+def update_email_invite_status(email):
+    with engine.connect() as conn:
+        conn.execute("UPDATE external_invites SET status = 'accepted' WHERE invited_email = %s;", email)
+
+
+def send_email(requester_id, email):
+    user_information = get_user_information(requester_id)
+    name = user_information['name']
+    message = Mail(
+        from_email=Config.EMAIL_SENDER,
+        to_emails=email,
+        subject=f"Your friend {name} invites you to join Stockbets!",
+        html_content=f"""<strong>Hey there your friend {name} has invited you to 
+                         join stockbets.io,  You can learn about the mechanics of
+                         investing / test different strategies in single player mode, or compete against your
+                         friends.  </strong>""")
+    sg = SendGridAPIClient(Config.SENDGRID_API_KEY)
+    response = sg.send(message)
+    if response.status_code == 202:
+        return True

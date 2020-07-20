@@ -74,9 +74,17 @@ const Home = () => {
     window.heap.identify(data.username)
   }
 
-  const gamesActive = filterEntries(data.game_info, {
-    game_status: 'active'
-  })
+  const activeAndJustFinished = () => {
+    const activeGames = filterEntries(data.game_info, {
+      game_status: 'active'
+    })
+    const justFinishedGames = filterEntries(data.game_info, {
+      game_status: 'finished'
+    })
+    return activeGames.concat(justFinishedGames)
+  }
+
+  const gamesActive = activeAndJustFinished()
 
   const gamesPending = filterEntries(data.game_info, {
     game_status: 'pending',

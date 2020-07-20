@@ -34,7 +34,8 @@ from backend.logic.base import (
     check_single_player_mode,
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
-    get_expected_sidebets_payout_dates
+    get_expected_sidebets_payout_dates,
+    TIMEZONE
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -323,7 +324,7 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
     trade_times_df.index = trade_times_df.index.to_period("D")
     adjustment_df = trade_times_df["adjustment"]
 
-    tt_df = pd.concat([df, adjustment_df], axis=1)
+    tt_df = df.join(adjustment_df)
     tt_df["trade_time"] = tt_df["time_diff"] - tt_df["adjustment"]
     return pd.cut(tt_df["trade_time"], N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
 
@@ -530,7 +531,7 @@ def make_order_performance_table(game_id: int, user_id: int):
     order_df = order_df.merge(cum_sum_df)
     order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
     order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
-        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert('America/New_York')
+        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
     order_df.set_index("timestamp_fulfilled", inplace=True)
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
     order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
@@ -544,7 +545,6 @@ def make_order_performance_table(game_id: int, user_id: int):
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
-
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
@@ -573,7 +573,8 @@ def make_order_performance_table(game_id: int, user_id: int):
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
     # TODO: clean this up a bit with make_chart_json
-    order_perf = make_order_performance_table(game_id, user_id)
+    table = make_order_performance_table(game_id, user_id)
+    order_perf = table
     if order_perf.empty:
         chart_json = make_null_chart("Waiting for orders...")
     else:
