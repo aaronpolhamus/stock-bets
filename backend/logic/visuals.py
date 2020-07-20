@@ -580,7 +580,8 @@ def make_order_performance_table(game_id: int, user_id: int):
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
     # TODO: clean this up a bit with make_chart_json
-    order_perf = make_order_performance_table(game_id, user_id)
+    table = make_order_performance_table(game_id, user_id)
+    order_perf = table
     if order_perf.empty:
         chart_json = make_null_chart("Waiting for orders...")
     else:
