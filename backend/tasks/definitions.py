@@ -45,8 +45,9 @@ from backend.bi.report_logic import (
 )
 from backend.tasks.redis import task_lock
 
-PROCESS_ORDERS_LOCK_KEY = "process_all_open_orders"
-PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 15 * 1000
+CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
+PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 15
+REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
 
 # -------------------------- #
 # Price fetching and caching #
@@ -54,6 +55,7 @@ PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 15 * 1000
 
 
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
+@task_lock(key="async_cache_price", timeout=CACHE_PRICE_LOCK_TIMEOUT)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
     unnecessary data API call.
@@ -86,6 +88,7 @@ def async_update_index_value(self, index):
 
 
 @celery.task(name="async_update_all_index_values", bind=True, base=BaseTask)
+@task_lock(key="async_update_all_index_values", timeout=REFRESH_INDEXES_TIMEOUT)
 def async_update_all_index_values(self):
     for index in TRACKED_INDEXES:
         async_update_index_value.delay(index)
@@ -126,7 +129,7 @@ def async_update_symbols_table(self, n_rows=None):
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
-@task_lock(key=PROCESS_ORDERS_LOCK_KEY, timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
+@task_lock(key="process_all_open_orders", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
