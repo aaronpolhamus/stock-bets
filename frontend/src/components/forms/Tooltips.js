@@ -1,6 +1,7 @@
 import React from 'react'
 import { Popover, OverlayTrigger } from 'react-bootstrap'
 import { HelpCircle } from 'react-feather'
+import PropTypes from 'prop-types'
 
 const Tooltip = ({ message }) => (
   <OverlayTrigger
@@ -17,4 +18,10 @@ const Tooltip = ({ message }) => (
   </OverlayTrigger>
 )
 
+Tooltip.propTypes = {
+  message: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.node
+  ])
+}
 export { Tooltip }

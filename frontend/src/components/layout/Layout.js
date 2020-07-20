@@ -48,16 +48,13 @@ const Breadcrumb = styled.div`
   display: flex;
   font-size: var(--font-size-small);
   position: relative;
-  button {
+  button, a {
     color: var(--color-primary-darken);
     position: absolute;
     top: -5.6rem;
     right: 0;
   }
   justify-content: ${(props) => props.justifyContent || 'flex-start'};
-  a {
-    color: inherit;
-  }
   span {
     display: none; 
   }
@@ -68,7 +65,7 @@ const Breadcrumb = styled.div`
   }
   @media screen and (min-width: ${breakpoints.md}){
     margin-bottom: var(--space-200);
-    button{
+    button, a{
       position: static;
       color: var(--color-text-gray);
     }
@@ -84,7 +81,10 @@ const Breadcrumb = styled.div`
 
 // Section Component
 const PageSection = styled.section`
-  margin-bottom: var(--space-600);
+  margin-bottom: var(--space-300);
+  @media screen and (min-width: ${breakpoints.md}){
+    margin-bottom: var(--space-600);
+  }
 `
 
 const ColContent = styled.div`

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
-import { Tooltip } from 'components/forms/Tooltips'
 import PropTypes from 'prop-types'
 import { daysLeft } from 'components/functions/formattingHelpers'
 import { TextDivider } from 'components/textComponents/Text'
+import { Header } from 'components/layout/Layout'
 
 const GameDetails = styled.small`
   display: block;
@@ -15,30 +15,6 @@ const GameDetails = styled.small`
   margin-top: var(--space-100);
 `
 
-const CashInfoWrapper = styled.div`
-  text-align: right;
-  color: var(--color-text-gray);
-  p {
-    margin: 0;
-  }
-  strong {
-    text-transform: uppercase;
-    font-size: var(--font-size-min);
-  }
-  small {
-    color: var(--color-text-light-gray);
-  }
-`
-const Header = styled.header`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  h1 {
-    margin-top: 0;
-    line-height: 1;
-  }
-`
-
 const GameName = styled.span`
   height: var(--space-400);
   display: inline-block;
@@ -46,13 +22,9 @@ const GameName = styled.span`
 
 const GameHeader = ({ gameId }) => {
   const [gameInfo, setGameInfo] = useState([])
-  const [cashData, setCashData] = useState({})
 
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'game_info')
-    const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
-
-    setCashData(cashInfo)
     setGameInfo(data)
   }
 
@@ -77,20 +49,6 @@ const GameHeader = ({ gameId }) => {
             )}
         </GameDetails>
       </h1>
-      <CashInfoWrapper>
-        <Tooltip message='Your buying power is the amount of cash that you have on hand, minus the estimated value of any outstanding buy orders. If this is negative, check your open orders information and consider cancelling a few.' />
-        <p>
-          <strong>Cash Balance: </strong>
-          {cashData.cash_balance && cashData.cash_balance}
-        </p>
-        <p>
-          <small>
-            <strong>Buying power: </strong>
-            {cashData.buying_power && cashData.buying_power}
-          </small>
-        </p>
-      </CashInfoWrapper>
-
     </Header>
   )
 }

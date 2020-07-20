@@ -41,15 +41,19 @@ label {
 .nav-tabs {
   border-bottom: 1px solid var(--color-light-gray);
   .nav-link {
+    border-bottom: 2px solid transparent;
     border: none;
+    color: var(--color-text-gray);
     font-size: var(--font-size-small);
     font-weight: bold;
+    letter-spacing: var(--letter-spacing-smallcaps);
     line-height: 1rem;
     text-transform: uppercase;
-    letter-spacing: var(--letter-spacing-smallcaps);
-    color: var(--color-text-gray);
-    border-bottom: 2px solid transparent;
     transition: all 0.2s;
+    @include media-breakpoint-down(md) {
+      font-size: var(--font-size-min);
+      padding: var(--space-100);
+    }
   }
   .nav-link:focus {
     outline: none;
