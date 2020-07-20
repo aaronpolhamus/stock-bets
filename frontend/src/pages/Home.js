@@ -80,10 +80,12 @@ const Home = () => {
 
   const activeAndJustFinished = () => {
     const activeGames = filterEntries(data.game_info, {
-      game_status: 'active'
+      game_status: 'active',
+      game_mode: 'multi_player'
     })
     const justFinishedGames = filterEntries(data.game_info, {
-      game_status: 'finished'
+      game_status: 'finished',
+      game_mode: 'multi_player'
     })
     return activeGames.concat(justFinishedGames)
   }
@@ -92,12 +94,19 @@ const Home = () => {
 
   const gamesPending = filterEntries(data.game_info, {
     game_status: 'pending',
-    invite_status: 'joined'
+    invite_status: 'joined',
+    game_mode: 'multi_player'
   })
 
   const gamesInvited = filterEntries(data.game_info, {
     game_status: 'pending',
-    invite_status: 'invited'
+    invite_status: 'invited',
+    game_mode: 'multi_player'
+  })
+
+  const gamesSinglePlayer = filterEntries(data.game_info, {
+    game_status: 'active',
+    game_mode: 'single_player'
   })
 
   return (
@@ -160,7 +169,7 @@ const Home = () => {
           <Col lg={6} xl={8}>
             <GameList
               games={gamesActive}
-              title='Active'
+              title='Competitions'
             />
           </Col>
           <Col lg={6} xl={4}>
@@ -173,6 +182,12 @@ const Home = () => {
               games={gamesInvited}
               cardType='pending'
               title='Invited'
+            />
+          </Col>
+          <Col lg={6} xl={8}>
+            <GameList
+              games={gamesSinglePlayer}
+              title='Single player'
             />
           </Col>
         </Row>
