@@ -108,7 +108,8 @@ const FriendsList = () => {
       <Header>
         <SectionTitle color='var(--color-primary)'>Friends</SectionTitle>
       </Header>
-      <AddFriends />
+      <AddFriends inviteType='internal' />
+      <AddFriends inviteType='external' />
       <br />
       {friendRequestsData.length > 0 &&
         friendRequestsBuilder(friendRequestsData)}
