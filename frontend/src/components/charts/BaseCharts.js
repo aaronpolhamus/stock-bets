@@ -44,7 +44,7 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
                   }
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
-                      return simplifyCurrency(value)
+                      return simplifyCurrency(value, false, false)
                     } else {
                       return '$' + value
                     }
@@ -60,7 +60,7 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
           xAxes: [{
             ticks: {
               autoSkip: true,
-              maxTicksLimit: maxXticks
+              autoSkipPadding: 5
             }
           }]
         },

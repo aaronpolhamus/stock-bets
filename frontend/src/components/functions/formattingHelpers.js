@@ -1,4 +1,4 @@
-const simplifyCurrency = (value) => {
+const simplifyCurrency = (value, decimals, dollarSign) => {
   let affix = ''
   let baseline = 1
   let amount = value
@@ -14,9 +14,11 @@ const simplifyCurrency = (value) => {
     affix = 'K'
   }
 
+  decimals = decimals === undefined ? 1 : decimals
+
   amount = amount / baseline
-  amount = amount.toFixed(1)
-  amount = `$${amount}${affix}`
+  amount = decimals ? amount.toFixed(decimals) : amount
+  amount = dollarSign ? `$${amount}${affix}` : `${amount}${affix}`
 
   return amount
 }
