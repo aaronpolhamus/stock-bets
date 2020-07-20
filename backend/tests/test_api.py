@@ -1,8 +1,6 @@
 import json
 import time
 
-from unittest.mock import patch
-
 import jwt
 import pandas as pd
 from backend.api.routes import (
@@ -49,13 +47,12 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-
-from logic.visuals import calculate_and_pack_game_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
 from backend.tests import BaseTestCase
 from config import Config
+from logic.visuals import calculate_and_pack_game_metrics
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -624,7 +621,7 @@ class TestFriendManagement(BaseTestCase):
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         res = self.requests_session.post(f"{HOST_URL}/invite_user_by_email", json={"friend_email": test_friend_email},
-                                             cookies={"session_token": dummy_user_session_token}, verify=False)
+                                         cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",

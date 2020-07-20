@@ -1,6 +1,5 @@
-import os
 import time
-from typing import List, Optional
+from typing import List
 
 import pandas as pd
 from sendgrid import SendGridAPIClient
@@ -9,6 +8,7 @@ from sendgrid.helpers.mail import Mail
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import get_user_id, get_user_information
+from backend.config import Config
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -193,17 +193,15 @@ def update_email_invite_status(email):
 def send_email(requester_id, email):
     user_information = get_user_information(requester_id)
     name = user_information['name']
-    sender_email = os.getenv('EMAIL_SENDER')
-    sendgrid_key = os.getenv('SENDGRID_API_KEY')
     message = Mail(
-        from_email=sender_email,
+        from_email=Config.EMAIL_SENDER,
         to_emails=email,
         subject=f"Your friend {name} invites you to join Stockbets!",
         html_content=f"""<strong>Hey there your friend {name} has invited you to 
                          join stockbets.io,  You can learn about the mechanics of
                          investing / test different strategies in single player mode, or compete against your
                          friends.  </strong>""")
-    sg = SendGridAPIClient(sendgrid_key)
+    sg = SendGridAPIClient(Config.SENDGRID_API_KEY)
     response = sg.send(message)
     if response.status_code == 202:
         return True
