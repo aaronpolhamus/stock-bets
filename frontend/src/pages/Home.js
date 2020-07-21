@@ -1,6 +1,5 @@
-import React, { useEffect, useContext } from 'react'
-import { Redirect } from 'react-router-dom'
-import { Button, Col, Row } from 'react-bootstrap'
+import React, { useState, useEffect, useContext } from 'react'
+import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
 import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
@@ -13,7 +12,6 @@ import {
   PageSection,
   Sidebar
 } from 'components/layout/Layout'
-
 import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { filterEntries } from 'components/functions/Transformations'
@@ -29,6 +27,7 @@ import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
 const handleLogout = async () => {
+  console.log('logout')
   await api.post('/api/logout')
   window.location.assign('/')
 }
@@ -50,6 +49,9 @@ const StyledMiniCard = styled(UserMiniCard)`
 `
 
 const Home = () => {
+  const [username, setUserName] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
   const { data, loading } = usePostRequest('/api/home')
   const { setUser } = useContext(UserContext)
 
@@ -72,12 +74,24 @@ const Home = () => {
   if (loading) {
     return <p>Loading...</p>
   }
-  if (data.username === null) {
-    return <Redirect to='/welcome' />
-  } else {
-    window.heap.identify(data.username)
+
+  if (data.username !== null) window.heap.identify(data.username)
+
+  const handleChange = (e) => {
+    setUserName(e.target.value)
   }
 
+  const setUsername = async (e) => {
+    e.preventDefault()
+    try {
+      await api.post('/api/set_username', {
+        username: username
+      })
+      window.location.reload()
+    } catch (error) {
+      window && window.alert(`Looks like '${username}' is taken, try another one`)
+    }
+  }
   const activeAndJustFinished = () => {
     const activeGames = filterEntries(data.game_info, {
       game_status: 'active',
@@ -111,6 +125,26 @@ const Home = () => {
 
   return (
     <Layout>
+      <Modal show={data.username === null} onHide={() => {}} centered>
+        <Modal.Body>
+          <Form>
+            <Form.Label>
+              Welcome! Pick a publicly-visible username and let's get started.
+            </Form.Label>
+            <Form.Control
+              onChange={handleChange}
+              type='input'
+              name='username'
+              placeholder='Enter name here'
+            />
+            <Form.Check type='checkbox' label={<a href='/terms'>I agree to stockbets.io terms and conditions</a>} onChange={() => setAcceptedTerms(!acceptedTerms)} id='terms-and-conditions-check' />
+            <Form.Check type='checkbox' label={<a href='/privacy'>I agree to the stockbets.io privacy policy</a>} onChange={() => setAcceptedPrivacy(!acceptedPrivacy)} id='terms-and-conditions-check' />
+            <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
+              Submit
+            </Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
       <Sidebar md={3}>
         <SlideinBlock
           icon={

@@ -182,10 +182,17 @@ def get_all_game_users_ids(game_id):
     with engine.connect() as conn:
         result = conn.execute(
             """
-            SELECT DISTINCT user_id 
-            FROM game_invites WHERE 
-                game_id = %s AND
-                status = 'joined';""", game_id)
+            SELECT DISTINCT gi.user_id
+            FROM game_invites gi
+            INNER JOIN
+                 (SELECT game_id, user_id, max(id) as max_id
+                   FROM game_invites
+                   WHERE
+                    game_id = %s
+                   GROUP BY game_id, user_id
+                 ) grouped_gi
+            ON gi.id = grouped_gi.max_id
+            WHERE gi.status = 'joined';""", game_id)
     return [x[0] for x in result]
 
 

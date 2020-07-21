@@ -146,6 +146,9 @@ MOCK_DATA = {
         {"name": "minion", "email": "minion@despicable.me",
          "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
          "username": "minion16", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+        {"name": "minion17", "email": "minion@despicable.me",
+         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+         "username": "minion17", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
         {"name": "minion", "email": "minion@despicable.me",
          "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
          "username": "minion18", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
@@ -205,10 +208,10 @@ MOCK_DATA = {
          "invite_window": 1580630520.0},  # 5
         {"title": "finished game to show", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW},  # 6
+         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY},  # 6
         {"title": "finished game to hide", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": simulation_start_time - 14 * SECONDS_IN_A_DAY + DEFAULT_INVITE_OPEN_WINDOW},  # 7
+         "invite_window": simulation_start_time - SECONDS_IN_A_DAY * (14 + DEFAULT_INVITE_OPEN_WINDOW)},  # 7
         {"title": "single player test", "game_mode": "single_player", "duration": 90, "buy_in": None,
          "benchmark": "sharpe_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 1,
          "invite_window": None}  # 8
@@ -567,7 +570,9 @@ MOCK_DATA = {
         {"requester_id": 37, "invited_id": 1, "status": "invited", "timestamp": simulation_start_time},
         {"requester_id": 37, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time},
         {"requester_id": 38, "invited_id": 1, "status": "invited", "timestamp": simulation_start_time},
-        {"requester_id": 38, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time}
+        {"requester_id": 38, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time},
+        {"requester_id": 39, "invited_id": 1, "status": "invited", "timestamp": simulation_start_time},
+        {"requester_id": 39, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time}
     ]
 }
 

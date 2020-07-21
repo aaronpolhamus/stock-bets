@@ -101,6 +101,7 @@ if __name__ == '__main__':
         "side_bets_perc": 50,
         "side_bets_period": "weekly",
         "invitees": ["miguel", "toofast", "jadis", "jack"],
+        "invite_window": 7
     }
 
     value = input(f"""
@@ -112,12 +113,6 @@ if __name__ == '__main__':
     if value == "c":
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
-
-    game_entry = query_to_dict("SELECT * FROM games WHERE id = 1")
-    for k, v in game_settings.items():
-        if k in ["invitees", "n_rebuys"]:
-            continue
-        assert game_entry[k] == v
 
     game_entry = query_to_dict("SELECT * FROM main.game_status WHERE game_id = 1")
     user_id_list = json.loads(game_entry["users"])
@@ -165,6 +160,7 @@ if __name__ == '__main__':
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
         "invitees": ["cheetos", "jack"],
+        "invite_window": 3
     }
     res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jadis_token}, verify=False,
                                     json=game_settings)
@@ -183,6 +179,7 @@ if __name__ == '__main__':
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
         "invitees": ["cheetos", "miguel", "johnnie"],
+        "invite_window": 4
     }
     btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jack_token}, verify=False,
                               json=game_settings)

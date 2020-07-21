@@ -20,9 +20,11 @@ from backend.database.helpers import (
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
+    SECONDS_IN_A_DAY,
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
+    refresh_game_data,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
     DEFAULT_BENCHMARK,
@@ -200,7 +202,7 @@ class TestCreateGame(BaseTestCase):
                 continue
             self.assertIn(column, game_defaults.keys())
 
-        expected_available_invitees = {'toofast', 'miguel'}
+        expected_available_invitees = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set(game_defaults["available_invitees"]), expected_available_invitees)
 
         dropdown_fields_dict = {
@@ -241,6 +243,7 @@ class TestCreateGame(BaseTestCase):
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
                                          verify=False, json=game_settings)
@@ -267,7 +270,7 @@ class TestCreateGame(BaseTestCase):
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
         window = games_entry["invite_window"] - current_time
-        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 1)
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, 1)
 
         # game_status table tests
         for field in status_entry.values():  # make sure that we're test-writing all fields
@@ -342,6 +345,24 @@ class TestCreateGame(BaseTestCase):
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
 
+        # finally, we'll test our ability to leave a game
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        refresh_game_data(game_id)
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
+                                         verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_landing_info = res.json()
+        self.assertNotIn(game_id, [x["game_id"] for x in user_landing_info["game_info"]])
+
+        res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
+                                         json={"game_id": game_id}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        play_game_info = res.json()
+        self.assertNotIn(user_id, [x["id"] for x in play_game_info["leaderboard"]])
+
     def test_pending_game_management(self):
         user_id = 1
         game_id = 5
@@ -374,8 +395,6 @@ class TestCreateGame(BaseTestCase):
                 self.assertEqual(user_entry["status"], "invited")
 
     def test_create_single_player_game(self):
-        user_id = 1
-        user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_duation = 365
         game_settings = {
@@ -592,7 +611,7 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        expected_friends = {"toofast", "miguel"}
+        expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
 
         # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
@@ -646,13 +665,14 @@ class TestFriendManagement(BaseTestCase):
         # the test user is ready to make a game. murcitdev should now show up in their list of friend possibilities
         res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
-        self.assertEqual(set(res.json()["available_invitees"]), {"miguel", "murcitdev", "toofast"})
+        expected_available_invites = set(['toofast', 'miguel', "murcitdev"] + [f"minion{x}" for x in range(1, 31)])
+        self.assertEqual(set(res.json()["available_invitees"]), expected_available_invites)
 
         # finally, confirm that the new friends list looks good
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        expected_friends = {"toofast", "miguel", "murcitdev"}
+        expected_friends = set(['toofast', 'miguel', "murcitdev"] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
 
         # jack sparrow is too cool for the user and rejects his invite. since test user just accepted murcitdev's
@@ -739,6 +759,7 @@ class TestHomePage(BaseTestCase):
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
         self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
                                    json=game_settings)
