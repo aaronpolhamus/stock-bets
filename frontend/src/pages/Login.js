@@ -14,7 +14,7 @@ import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
 import { breakpoints } from 'design-tokens'
 
 const RightCol = styled(Col)`
-  padding: 8vw;
+  padding: 0vw 8vw 8vw;
   height: 50vh;
   display: flex;
   flex-wrap: wrap;
@@ -24,7 +24,7 @@ const RightCol = styled(Col)`
 
   &::before {
     background: var(--color-secondary);
-    border-radius: 50% 50% / 45% 50%;
+    border-radius: 50% 50% 0 60%/ 50% 50% 0 50%;
     content: "";
     display: block;
     height: 120vh;
@@ -39,23 +39,28 @@ const RightCol = styled(Col)`
     border-radius: 50% 50% / 45% 50%;
     content: "";
     display: block;
-    height: 100vh;
+    height: 50vh;
     position: absolute;
-    top: 30vh;
-    left: -15vw;
+    top: 35vh;
+    left: -25vw;
     width: 100vh;
     z-index: -1;
   }
-  a {
-    position: fixed;
-    bottom: 2vh;
-    right: 2vw;
-  }
+
   @media screen and (min-width: ${breakpoints.md}){
     text-align: left;
+    padding: 8vw;
+    justify-content: flex-start;
+
+    button {
+      display: block;
+    }
+    br{
+      display: none;
+    }
     &::before {
       position: fixed;
-      top: auto;
+      top: -25vh;
       bottom: 6vh;
       left: 50vw;
     }
@@ -63,10 +68,17 @@ const RightCol = styled(Col)`
       position: fixed;
       left: 60vw;
       top: 50vh;
-      z-index: -2
+      height: 100vh;
+      z-index: -2;
     }
   }
-
+  @media screen and (max-width: ${breakpoints.md}){
+    position: fixed;
+    height: 47vh;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+  }
 `
 
 const LeftCol = styled(Col)`
@@ -74,6 +86,12 @@ const LeftCol = styled(Col)`
   height: 50vh;
   flex-wrap: wrap;
   align-items: center;
+  @media screen and (max-width: ${breakpoints.md}){
+    width: 90%;
+    position: fixed;
+    top: 0;
+    left: 5%;
+  }
 `
 
 const LoginButton = styled.button`
@@ -118,6 +136,22 @@ const LeftColContent = styled.div`
       font-size: var(--font-size-large)
     }
   }
+`
+
+const FooterLinks = styled.div`
+  position: fixed;
+  bottom: 3vh;
+  width: 80%;
+  line-height: 1.2;
+  a{
+    color: inherit;
+    font-weight: bold;
+  }
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: right;
+    right: 2vw;
+  }
+
 `
 
 function responseError (response) {
@@ -197,12 +231,14 @@ export default function Login () {
                 )}
               />
             </p>
-            <Link to='/privacy'>
+            <FooterLinks>
               <SmallText color='var(--color-secondary)'>
                 Have a look at our
-                <strong> privacy policy </strong>before getting started.
+                <Link to='/terms' target='_blank'> terms and conditions </Link>
+                <br/>
+                and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
               </SmallText>
-            </Link>
+            </FooterLinks>
           </RightCol>
         </Row>
       </Container>
