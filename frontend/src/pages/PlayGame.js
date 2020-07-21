@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Toast, Accordion, Button } from 'react-bootstrap'
+import { Tabs, Tab, Toast } from 'react-bootstrap'
 import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
@@ -20,7 +20,7 @@ import { BalancesTable } from 'components/tables/BalancesTable'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { AlignText, SectionTitle } from 'components/textComponents/Text'
+import { SectionTitle } from 'components/textComponents/Text'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
@@ -122,6 +122,7 @@ const PlayGame = (props) => {
                 <BalancesTable gameId={gameId} />
               </PageSection>
               <PageSection>
+
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
@@ -135,6 +136,14 @@ const PlayGame = (props) => {
                     yScaleType='percent'
                     title='Order Performance'
                   />}
+              </PageSection>
+              <PageSection>
+                <PendingOrdersTable
+                  tableData={ordersData}
+                  gameId={gameId}
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
+                />
               </PageSection>
               <PageSection>
                 <PendingOrdersTable
