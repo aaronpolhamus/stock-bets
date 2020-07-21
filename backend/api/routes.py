@@ -14,6 +14,7 @@ from backend.logic.auth import (
     ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.games import (
+    DEFAULT_INVITE_OPEN_WINDOW,
     respond_to_game_invite,
     get_user_invite_statuses_for_pending_game,
     get_user_invite_status_for_game,
@@ -248,7 +249,8 @@ def game_defaults():
             side_bets_perc=DEFAULT_SIDEBET_PERCENT,
             side_bets_period=DEFAULT_SIDEBET_PERIOD,
             sidebet_periods=SIDE_BET_PERIODS,
-            available_invitees=available_invitees
+            available_invitees=available_invitees,
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW
         ))
     return jsonify(resp)
 
@@ -267,7 +269,8 @@ def create_game():
         game_settings.get("buy_in"),
         game_settings.get("side_bets_perc"),
         game_settings.get("side_bets_period"),
-        game_settings.get("invitees")
+        game_settings.get("invitees"),
+        game_settings.get("invite_window")
     )
     return make_response(GAME_CREATED_MSG, 200)
 

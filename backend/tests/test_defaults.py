@@ -32,7 +32,7 @@ class TestDefaults(TestCase):
         self.assertEqual(DEFAULT_GAME_DURATION, 30)
         self.assertEqual(DEFAULT_BUYIN, 100)
         self.assertEqual(DEFAULT_SIDEBET_PERCENT, 0)
-        self.assertEqual(DEFAULT_INVITE_OPEN_WINDOW, 48 * 60 * 60)
+        self.assertEqual(DEFAULT_INVITE_OPEN_WINDOW, 2)
 
     def test_defaults(self):
         # this ensures that users will continue to be able to see recently expired game data, even after it is no

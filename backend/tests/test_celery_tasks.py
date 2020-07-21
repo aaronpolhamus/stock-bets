@@ -7,6 +7,7 @@ import pandas as pd
 from backend.database.helpers import query_to_dict
 from database.db import engine
 from backend.logic.base import (
+    SECONDS_IN_A_DAY,
     fetch_price,
     get_end_of_last_trading_day,
     posix_to_datetime,
@@ -146,7 +147,8 @@ class TestGameIntegration(BaseTestCase):
             "benchmark": "return_ratio",
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
-            "invitees": ["miguel", "murcitdev", "toofast"]
+            "invitees": ["miguel", "murcitdev", "toofast"],
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
 
         add_game(
@@ -158,7 +160,8 @@ class TestGameIntegration(BaseTestCase):
             mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]
+            mock_game["invitees"],
+            mock_game["invite_window"]
         )
 
         game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)
@@ -169,6 +172,9 @@ class TestGameIntegration(BaseTestCase):
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
+                continue
+            if k == "invite_window":
+                self.assertAlmostEqual(game_entry[k], start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, 3)
                 continue
             self.assertAlmostEqual(game_entry[k], v, 1)
 
@@ -224,7 +230,7 @@ class TestGameIntegration(BaseTestCase):
 
         # So far so good. Pretend that we're now past the invite open window and it's time to play
         # ----------------------------------------------------------------------------------------
-        game_start_time = time.time() + DEFAULT_INVITE_OPEN_WINDOW + 1
+        game_start_time = time.time() + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY + 1
         with patch("backend.logic.games.time") as mock_time:
             # users have joined, and we're past the invite window
             mock_time.time.return_value = game_start_time
@@ -586,7 +592,7 @@ class TestFriendManagement(BaseTestCase):
         user_id = 1
         # check out who the tests user's friends are currently:
         friend_details = get_friend_details(user_id)
-        expected_friends = {"toofast", "miguel"}
+        expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in friend_details]), expected_friends)
 
         # what friend invites does the test user have pending?

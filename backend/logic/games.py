@@ -51,7 +51,7 @@ DEFAULT_BUYIN = 100  # dolllars
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
-DEFAULT_INVITE_OPEN_WINDOW = 2 * SECONDS_IN_A_DAY  # Number of seconds that a game invite is open for (2 days)
+DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 
 QUANTITY_DEFAULT = "Shares"
@@ -112,13 +112,15 @@ def make_random_game_title():
 # Functions for starting, joining, and funding games, and expiring them when they're done
 # ---------------------------------------------------------------------------------------
 def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
-             invitees=None):
+             invitees=None, invite_window=None):
     assert game_mode in ["single_player", "multi_player"]
     if invitees is None:
         invitees = []
 
     opened_at = time.time()
-    invite_window = opened_at + DEFAULT_INVITE_OPEN_WINDOW
+    invite_window_posix = None
+    if invite_window is not None:
+        invite_window_posix = opened_at + int(invite_window) * SECONDS_IN_A_DAY
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,
@@ -128,7 +130,7 @@ def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, sid
                       buy_in=buy_in,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
-                      invite_window=invite_window)
+                      invite_window=invite_window_posix)
 
     user_ids = [creator_id]
     if game_mode == "multi_player":
