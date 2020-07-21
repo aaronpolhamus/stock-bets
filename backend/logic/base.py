@@ -652,9 +652,12 @@ def get_payouts_meta_data(game_id: int):
     return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]
 
 
-def check_single_player_mode(game_id: int):
+def check_single_player_mode(game_id: int) -> bool:
     with engine.connect() as conn:
-        return conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()[0] == "single_player"
+        game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
+    if not game_mode:
+        return False
+    return game_mode[0] == "single_player"
 
 # -------------------------------------------------- #
 # Methods for handling indexes in single-player mode #

@@ -167,8 +167,8 @@ class TestCreateGame(BaseTestCase):
 
     def test_game_defaults(self):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token},
-                                         verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
+                                         cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         game_defaults = res.json()
 
@@ -644,7 +644,7 @@ class TestFriendManagement(BaseTestCase):
         self.assertTrue(len(res.json()) == 0)
 
         # the test user is ready to make a game. murcitdev should now show up in their list of friend possibilities
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults",
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(set(res.json()["available_invitees"]), {"miguel", "murcitdev", "toofast"})
 
@@ -699,7 +699,6 @@ class TestHomePage(BaseTestCase):
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 4)
         for game_entry in res.json()["game_info"]:
             self.assertEqual(game_entry["invite_status"], "joined")
 
