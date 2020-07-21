@@ -1,5 +1,7 @@
 import React from 'react'
 import { Table } from 'react-bootstrap'
+import styled from 'styled-components'
+import { breakpoints } from 'design-tokens'
 
 const renderRow = (row, headers, exclude = ['order_id']) => {
   return headers.map((key, index) => {
@@ -24,12 +26,24 @@ const makeHeader = (headers) => {
   })
 }
 
+const StyledTh = styled.th`
+  text-align: ${props => props.$align || 'left'};
+  @media screen and (max-width: ${props => props.$breakpoint}){
+    display: none;
+  }
+`
+
 const makeCustomHeader = (headers) => {
   return headers.map((header, index) => {
+    const breakpoint = breakpoints[header.hideOnBreakpoint]
     return (
-      <th key={index} style={{ textAlign: header.align }}>
+      <StyledTh
+        key={index}
+        $align={header.align}
+        $breakpoint={breakpoint}
+      >
         {header.value}
-      </th>
+      </StyledTh>
     )
   })
 }

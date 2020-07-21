@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
-import { fetchGameData, apiPost } from 'components/functions/api'
+import { apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
 import { SectionTitle, SmallCaps } from 'components/textComponents/Text'
 import {
@@ -22,13 +22,14 @@ const OrderTypeIcon = ({ type, ...props }) => {
 
 const tableHeaders = [
   {
-    value: 'Type'
+    value: 'Type',
+    content: (<p>jsdfa</p>)
   },
   {
     value: 'Symbol'
   },
   {
-    value: 'Quantity',
+    value: 'Qty.',
     align: 'right'
   },
   {
@@ -36,10 +37,17 @@ const tableHeaders = [
     align: 'right'
   },
   {
-    value: 'Time in force'
+    value: 'Time in force',
+    hideOnBreakpoint: 'md',
+    align: 'right'
   },
   {
     value: 'Date Placed',
+    align: 'right',
+    hideOnBreakpoint: 'md'
+  },
+  {
+    value: '',
     align: 'right'
   }
 ]
@@ -65,7 +73,7 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
         <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
           <td>
             <OrderTypeIcon size={20} type={row['Buy/Sell']} />
-            <SmallCaps color='var(--color-text-gray)'>
+            <SmallCaps $hideOnBreakpoint='md' color='var(--color-text-gray)'>
               {row['Order type']}
             </SmallCaps>
           </td>
@@ -78,11 +86,13 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
           <CellStyled>
             <strong>{row['Order price']}</strong>
           </CellStyled>
-          <td>
+          <CellStyled $hideOnBreakpoint='md'>
             <SmallCaps>{row['Time in force']}</SmallCaps>
-          </td>
-          <CellStyled>
+          </CellStyled>
+          <CellStyled $hideOnBreakpoint='md'>
             {row['Placed on']}
+          </CellStyled>
+          <CellStyled>
             <CancelButton
               onClick={() => {
                 setCancelableOrder(row)

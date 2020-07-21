@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { Table, Button, Modal } from 'react-bootstrap'
-import { fetchGameData, apiPost } from 'components/functions/api'
+import { Table } from 'react-bootstrap'
+import { fetchGameData } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
-import { SmallCaps, Subtext, SectionTitle } from 'components/textComponents/Text'
-import { PageSection } from 'components/layout/Layout'
+import { Subtext, SectionTitle } from 'components/textComponents/Text'
 import {
   RowStyled,
-  CellStyled,
-  CancelButton
+  CellStyled
 } from 'components/tables/TableStyledComponents'
 
 import { makeCustomHeader } from 'components/functions/tables'
@@ -24,29 +22,6 @@ const OrderTypeIcon = ({ type, ...props }) => {
 }
 
 const tableHeaders = {
-  pending: [
-    {
-      value: 'Type'
-    },
-    {
-      value: 'Symbol'
-    },
-    {
-      value: 'Quantity',
-      align: 'right'
-    },
-    {
-      value: 'Price',
-      align: 'right'
-    },
-    {
-      value: 'Time in force'
-    },
-    {
-      value: 'Date Placed',
-      align: 'right'
-    }
-  ],
   fulfilled: [
     {
       value: 'Type'
@@ -55,7 +30,7 @@ const tableHeaders = {
       value: 'Symbol'
     },
     {
-      value: 'Quantity',
+      value: 'Qty.',
       align: 'right'
     },
     {
@@ -103,108 +78,20 @@ const OpenOrdersTable = ({ gameId }) => {
     getGameData()
   }, [])
 
-  const [cancelableOrder, setCancelableOrder] = useState(null)
   // Methods and settings for modal component
-  const [show, setShow] = useState(false)
-  const handleClose = () => setShow(false)
-  const handleCancelOrder = async (gameId, orderId) => {
-    await apiPost('cancel_order', {
-      game_id: gameId,
-      order_id: orderId
-    })
-    getGameData()
-    setShow(false)
-  }
-
-  const renderRows = (rows) => {
-    return rows.map((row, index) => {
-      return (
-        <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
-          <td>
-            <OrderTypeIcon size={20} type={row['Buy/Sell']} />
-            <SmallCaps color='var(--color-text-gray)'>
-              {row['Order type']}
-            </SmallCaps>
-          </td>
-          <td>
-            <strong>{row.Symbol}</strong>
-          </td>
-          <CellStyled>
-            <strong>{row.Quantity}</strong>
-          </CellStyled>
-          <CellStyled>
-            <strong>{row['Order price']}</strong>
-          </CellStyled>
-          <td>
-            <SmallCaps>{row['Time in force']}</SmallCaps>
-          </td>
-          <CellStyled>
-            {row['Placed on']}
-            <CancelButton
-              onClick={() => {
-                setCancelableOrder(row)
-                setShow(true)
-              }}
-            />
-          </CellStyled>
-        </RowStyled>
-      )
-    })
-  }
 
   if (tableData.orders) {
     return (
       <>
-        <PageSection>
-          <SectionTitle>Pending orders</SectionTitle>
-
-          <Table hover>
-            <thead>
-              <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
-            </thead>
-            <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
-          </Table>
-        </PageSection>
-
-        <PageSection>
-          <SectionTitle>Fulfilled orders</SectionTitle>
-          <Table hover>
-            <thead>
-              <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
-            </thead>
-            <tbody>
-              {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
-            </tbody>
-          </Table>
-        </PageSection>
-
-        <Modal centered show={show} onHide={handleClose}>
-          <Modal.Header>
-            <Modal.Title className='text-center'>
-              {cancelableOrder && `Cancel ${cancelableOrder['Buy/Sell']} order`}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body className='text-center'>
-            <p>
-              {cancelableOrder &&
-                `${cancelableOrder.Quantity} shares of ${cancelableOrder.Symbol} at ${cancelableOrder['Order price']}`}
-            </p>
-          </Modal.Body>
-          <Modal.Footer className='centered'>
-            <Button variant='info' onClick={handleClose}>
-              I&apos;ll think about it
-            </Button>
-            <Button
-              type='submit'
-              variant='danger'
-              onClick={() => {
-                handleCancelOrder(gameId, cancelableOrder.order_id)
-              }}
-            >
-              Cancel order
-            </Button>
-          </Modal.Footer>
-        </Modal>
+        <SectionTitle>Fulfilled orders</SectionTitle>
+        <Table hover>
+          <thead>
+            <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
+          </thead>
+          <tbody>
+            {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
+          </tbody>
+        </Table>
       </>
     )
   }

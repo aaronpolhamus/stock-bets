@@ -64,7 +64,10 @@ const PlayGame = (props) => {
         />
       </Sidebar>
       <Column md={9}>
-        <PageSection>
+        <PageSection
+          $marginBottom='var(--space-400)'
+          $marginBottomMd='var(--space-400)'
+        >
           <Breadcrumb>
             <Link to='/'>
               <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
@@ -88,6 +91,22 @@ const PlayGame = (props) => {
                 />
 
               </PageSection>
+            </Tab>
+            <Tab eventKey='balances-chart' title='Balances and Orders'>
+              <PageSection>
+                <UserDropDownChart
+                  gameId={gameId}
+                  endpoint='get_balances_chart'
+                  yScaleType='dollar'
+                  title='Balances Chart'
+                />
+              </PageSection>
+              <PageSection>
+                <Header>
+                  <SectionTitle> Your balances </SectionTitle>
+                </Header>
+                <BalancesTable gameId={gameId} />
+              </PageSection>
               <PageSection>
                 <UserDropDownChart
                   gameId={gameId}
@@ -96,41 +115,12 @@ const PlayGame = (props) => {
                   title='Order Performance'
                 />
               </PageSection>
-            </Tab>
-            <Tab eventKey='balances-chart' title='Balances and Orders'>
               <PageSection>
-                <Header>
-                  <SectionTitle> Your balances </SectionTitle>
-                </Header>
-                <BalancesTable gameId={gameId} />
-              </PageSection>
-              <PageSection>
-                <Accordion>
-                  <AlignText align='right'>
-                    <Accordion.Toggle
-                      as={Button}
-                      variant='link'
-                      eventKey='0'
-                    >
-                      Show Balances Chart
-                    </Accordion.Toggle>
-                  </AlignText>
-                  <Accordion.Collapse eventKey='0'>
-                    <UserDropDownChart
-                      gameId={gameId}
-                      endpoint='get_balances_chart'
-                      yScaleType='dollar'
-                      title='Balances Chart'
-                    />
-                  </Accordion.Collapse>
-                </Accordion>
-              </PageSection>
-              <PageSection>
-                <UserDropDownChart
+                <PendingOrdersTable
+                  tableData={ordersData}
                   gameId={gameId}
-                  endpoint='get_order_performance_chart'
-                  yScaleType='percent'
-                  title='Order Performance'
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
                 />
               </PageSection>
               <PageSection>

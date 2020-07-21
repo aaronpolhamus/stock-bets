@@ -82,7 +82,6 @@ const FieldChart = ({ gameId, height }) => {
     dataCopy.datasets = newDatasets
   }
 
-  console.log(dataCopy)
   return (
     <Row>
       <Col md={3}>
