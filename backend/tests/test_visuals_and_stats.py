@@ -269,7 +269,10 @@ class TestVisuals(BaseTestCase):
         test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
         self.assertEqual(len(test_user_data["data"]), N_PLOT_POINTS)
 
-    def test_visuals_with_data(self):
+    @patch("backend.logic.base.time")
+    @patch("backend.logic.games.time")
+    def test_visuals_with_data(self, mock_base_time, mock_game_time):
+        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
         game_id = 3
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)

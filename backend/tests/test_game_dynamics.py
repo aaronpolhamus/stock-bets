@@ -739,10 +739,12 @@ class TestGameExpiration(BaseTestCase):
 
         # when we check the game information for our test user, game 6 should be in there, game 7 should not
         game_info = get_game_info_for_user(user_id)
-        self.assertEqual(len(game_info), 3)
+        self.assertEqual(len(game_info), 4)
         active_game = [x for x in game_info if x["game_id"] == 3][0]
         self.assertEqual(active_game["title"], "test game")
         pending_game = [x for x in game_info if x["game_id"] == 5][0]
         self.assertEqual(pending_game["title"], "valiant roset")
         finished_game = [x for x in game_info if x["game_id"] == visible_game_id][0]
         self.assertEqual(finished_game["title"], "finished game to show")
+        finished_game = [x for x in game_info if x["game_mode"] == "single_player"][0]
+        self.assertEqual(finished_game["title"], "single player test")

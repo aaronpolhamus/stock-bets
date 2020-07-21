@@ -140,3 +140,4 @@ celerybeat-schedule.db
 .env.prod
 *sql
 *RHistory
+.localstack
