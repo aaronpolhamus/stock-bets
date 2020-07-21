@@ -146,14 +146,6 @@ const PlayGame = (props) => {
                 />
               </PageSection>
               <PageSection>
-                <PendingOrdersTable
-                  tableData={ordersData}
-                  gameId={gameId}
-                  title='Pending Orders'
-                  onCancelOrder={getOrdersData}
-                />
-              </PageSection>
-              <PageSection>
                 <OpenOrdersTable gameId={gameId} />
               </PageSection>
             </Tab>
