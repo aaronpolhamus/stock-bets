@@ -284,8 +284,8 @@ class TestVisuals(BaseTestCase):
         self.assertEqual(len(order_details["headers"]), 13)
 
         user_ids = get_all_game_users_ids(game_id)
-        for user_id in user_ids:
-            serialize_and_pack_order_performance_chart(game_id, user_id)
+        for player_id in user_ids:
+            serialize_and_pack_order_performance_chart(game_id, player_id)
 
         op_chart_3_1 = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart_3_1["datasets"]])
