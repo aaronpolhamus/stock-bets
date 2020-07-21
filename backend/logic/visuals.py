@@ -507,7 +507,6 @@ def make_the_field_charts(game_id: int):
                 {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
             apply_validation(df, portfolio_comps_schema)
             portfolios.append(df[portfolio_table_keys])
-
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
     relabelled_df.sort_values("timestamp", inplace=True)

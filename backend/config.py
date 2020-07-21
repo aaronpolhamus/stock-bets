@@ -68,3 +68,8 @@ class Config:
     IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
     IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
     IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
+
+    # S3 Credentials
+    AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_KEY = getenv("AWS_SECRET_KEY")
+    BUCKET_NAME = getenv("BUCKET_NAME")
