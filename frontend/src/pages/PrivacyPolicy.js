@@ -15,7 +15,7 @@ const PrivacyPolicy = () => {
   const [redirect, setRedirect] = useState(false)
   const history = useHistory()
 
-  if (redirect) return <Redirect to='/login' />
+  if (redirect) return <Redirect to='/' />
   return (
     <Content className='text-page' padding='var(--space-lg-200)'>
       <Container>
@@ -156,7 +156,7 @@ const PrivacyPolicy = () => {
             Thanks but no, thanks.
           </Button>
           <Button variant='primary' onClick={() => setRedirect(true)}>
-            Sounds great, sign me in!
+            Sounds great, let's go!
           </Button>
         </p>
       </Container>

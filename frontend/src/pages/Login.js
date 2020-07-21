@@ -124,7 +124,7 @@ function responseError (response) {
   return response
 }
 
-export default function AlphabetLogin () {
+export default function Login () {
   const [redirect, setRedirect] = useState(false)
 
   const detectProvider = (response) => {

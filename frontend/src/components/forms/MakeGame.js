@@ -133,7 +133,7 @@ const MakeGame = ({ gameMode }) => {
             <Form.Group>
               <Form.Label>
                 Benchmark
-                <Tooltip message="If you're not sure what a Sharpe ratio is, go with simple return, which simply  divides the money you have at the end by the amount you started with." />
+                <Tooltip message="Simple return is your total portfolio value at the end of your game divided by what you started with. The Sharpe ratio is trickier, and it's important to understand it if you're going to use it as a benchmark. It's possible, for example, to have a positive Sharpe ratio even if your total return is negative. Check out this video for the details of how we calculate the Sharpe ratio: https://www.youtube.com/watch?v=s0bxoD_0fAU" />
               </Form.Label>
 
               <RadioButtons
