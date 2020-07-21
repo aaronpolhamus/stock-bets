@@ -14,6 +14,7 @@ from backend.bi.report_logic import (
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
 from backend.logic.base import (
+    check_single_player_mode,
     DEFAULT_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
     get_all_game_users_ids,
@@ -120,7 +121,10 @@ MOCK_DATA = {
          "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW},  # 6
         {"title": "finished game to hide", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": simulation_start_time - 14 * SECONDS_IN_A_DAY + DEFAULT_INVITE_OPEN_WINDOW}  # 7
+         "invite_window": simulation_start_time - 14 * SECONDS_IN_A_DAY + DEFAULT_INVITE_OPEN_WINDOW},  # 7
+        {"title": "single player test", "game_mode": "single_player", "duration": 90, "buy_in": None,
+         "benchmark": "sharpe_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 1,
+         "invite_window": None}  # 8
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
@@ -140,6 +144,8 @@ MOCK_DATA = {
          "users": [1, 4]},
         {"game_id": 7, "status": "finished", "timestamp": simulation_start_time - 13 * SECONDS_IN_A_DAY,
          "users": [1, 4]},
+        {"game_id": 8, "status": "pending", "timestamp": simulation_start_time, "users": [1]},
+        {"game_id": 8, "status": "active", "timestamp": simulation_start_time, "users": [1]},
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
@@ -171,6 +177,7 @@ MOCK_DATA = {
         {"game_id": 7, "user_id": 1, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 7, "user_id": 4, "status": "invited", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 7, "user_id": 4, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
+        {"game_id": 8, "user_id": 1, "status": "joined", "timestamp": simulation_start_time},
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},
@@ -242,6 +249,12 @@ MOCK_DATA = {
          "price": 7.99, "order_type": "market", "time_in_force": "day"},  # 13
         {"user_id": 4, "game_id": 4, "symbol": "SPXU", "buy_or_sell": "buy", "quantity": 2_131,
          "price": 11.73, "order_type": "market", "time_in_force": "day"},  # 14
+
+        # game 8, user id #1
+        {"user_id": 1, "game_id": 8, "symbol": "NVDA", "buy_or_sell": "buy", "quantity": 713,
+         "price": get_stock_start_price("NVDA"), "order_type": "market", "time_in_force": "day"},  # 15
+        {"user_id": 1, "game_id": 8, "symbol": "NKE", "buy_or_sell": "buy", "quantity": 3136,
+         "price": get_stock_start_price("NKE"), "order_type": "market", "time_in_force": "day"},  # 16
     ],
     "order_status": [
         {"order_id": 1, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 1
@@ -277,6 +290,12 @@ MOCK_DATA = {
         {"order_id": 12, "timestamp": simulation_start_time, "status": "fulfilled", "clear_price": 1_000},  # 22
         {"order_id": 13, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 23
         {"order_id": 14, "timestamp": 1592572846.5938, "status": "pending", "clear_price": None},  # 24
+        {"order_id": 15, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 25
+        {"order_id": 15, "timestamp": simulation_start_time, "status": "fulfilled",  # 26
+         "clear_price": get_stock_start_price("NVDA")},
+        {"order_id": 16, "timestamp": simulation_start_time, "status": "pending", "clear_price": None},  # 27
+        {"order_id": 16, "timestamp": simulation_start_time, "status": "fulfilled",  # 28
+         "clear_price": get_stock_start_price("NKE")}
     ],
     "game_balances": [
         # Game 3, user id #1
@@ -375,6 +394,21 @@ MOCK_DATA = {
          "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY, "balance_type": "virtual_cash",
          "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
 
+        # Game 8, setup and orders
+        {"user_id": 1, "game_id": 8, "order_status_id": None, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+        {"user_id": 1, "game_id": 8, "order_status_id": 26, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713,
+         "symbol": None},
+        {"user_id": 1, "game_id": 8, "order_status_id": 26, "timestamp": simulation_start_time,
+         "balance_type": "virtual_stock", "balance": 713, "symbol": "NVDA"},
+        {"user_id": 1, "game_id": 8, "order_status_id": 28, "timestamp": simulation_start_time,
+         "balance_type": "virtual_cash",
+         "balance": DEFAULT_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713 - get_stock_start_price("NKE") * 3136,
+         "symbol": None},
+        {"user_id": 1, "game_id": 8, "order_status_id": 28, "timestamp": simulation_start_time,
+         "balance_type": "virtual_stock", "balance": 3136, "symbol": "NKE"},
+
     ],
     "friends": [
         {"requester_id": 1, "invited_id": 3, "status": "invited", "timestamp": 1589758324},
@@ -429,12 +463,13 @@ def make_redis_mocks():
             serialize_and_pack_portfolio_details(g_id, user_id)
             serialize_and_pack_order_performance_chart(g_id, user_id)
 
-        # winners/payouts table
-        serialize_and_pack_winners_table(g_id)
+        if not check_single_player_mode(g_id):
+            # winners/payouts table
+            serialize_and_pack_winners_table(g_id)
 
     with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
         mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
-        game_ids = [3, 6, 7]
+        game_ids = [3, 6, 7, 8]
         for game_id in game_ids:
             _build_assets(game_id)
             expire_finished_game(game_id)

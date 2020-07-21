@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { MakeGame } from 'components/forms/MakeGame'
 import {
   Layout,
@@ -12,6 +12,7 @@ import {
 import * as Icon from 'react-feather'
 
 const NewGame = () => {
+  const { gameMode } = useParams()
   return (
     <Layout>
       <Sidebar md={2} />
@@ -28,7 +29,7 @@ const NewGame = () => {
             <h1>New Game</h1>
           </Header>
         </PageSection>
-        <MakeGame />
+        <MakeGame gameMode={gameMode} />
       </Column>
     </Layout>
   )

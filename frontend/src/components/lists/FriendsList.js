@@ -108,12 +108,14 @@ const FriendsList = () => {
       <Header>
         <SectionTitle color='var(--color-primary)'>Friends</SectionTitle>
       </Header>
+      <AddFriends inviteType='internal' />
+      <AddFriends inviteType='external' />
+      <br />
       {friendRequestsData.length > 0 &&
         friendRequestsBuilder(friendRequestsData)}
       <FriendsListList>
         {friendsData.length > 0 && friendsListBuilder(friendsData)}
       </FriendsListList>
-      <AddFriends />
 
       <Modal show={show} onHide={handleClose} centered>
         <Modal.Header closeButton>

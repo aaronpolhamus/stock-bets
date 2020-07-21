@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
-import { fetchGameData, apiPost } from 'components/functions/api'
+import { apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
 import { SectionTitle, SmallCaps } from 'components/textComponents/Text'
 import {

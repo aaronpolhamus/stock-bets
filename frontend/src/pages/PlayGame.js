@@ -11,7 +11,7 @@ import {
   Sidebar
 } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
-import { UserDropDownChart } from 'components/charts/BaseCharts'
+import { VanillaChart, UserDropDownChart } from 'components/charts/BaseCharts'
 import { OpenOrdersTable } from 'components/tables/OpenOrdersTable'
 import { PendingOrdersTable } from 'components/tables/PendingOrdersTable'
 import { GameHeader } from 'pages/game/GameHeader'
@@ -27,6 +27,7 @@ const PlayGame = (props) => {
   const { user, setUser } = useContext(UserContext)
   const [ordersData, setOrdersData] = useState({})
   const [showToast, setShowToast] = useState(false)
+  const [gameMode, setGameMode] = useState(null)
 
   const getOrdersData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -53,6 +54,12 @@ const PlayGame = (props) => {
       getUserInfo()
     }
     getOrdersData()
+
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, 'game_info')
+      setGameMode(data.game_mode)
+    }
+    getGameData()
   }, [user, setUser])
 
   return (
@@ -67,7 +74,8 @@ const PlayGame = (props) => {
         <PageSection>
           <Breadcrumb>
             <Link to='/'>
-              <ChevronLeft size={14} style={{ marginTop: '-3px' }} /> Dashboard
+              <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
+              <span> Dashboard</span>
             </Link>
           </Breadcrumb>
           <GameHeader gameId={gameId} />
@@ -88,12 +96,19 @@ const PlayGame = (props) => {
 
               </PageSection>
               <PageSection>
-                <UserDropDownChart
-                  gameId={gameId}
-                  endpoint='get_order_performance_chart'
-                  yScaleType='percent'
-                  title='Order Performance'
-                />
+                {gameMode === 'multi_player'
+                  ? <UserDropDownChart
+                    gameId={gameId}
+                    endpoint='get_order_performance_chart'
+                    yScaleType='percent'
+                    title='Order Performance'
+                  />
+                  : <VanillaChart
+                    gameId={gameId}
+                    endpoint='get_order_performance_chart'
+                    yScaleType='percent'
+                    title='Order Performance'
+                  />}
               </PageSection>
             </Tab>
             <Tab eventKey='balances-chart' title='Balances and Orders'>
@@ -115,31 +130,45 @@ const PlayGame = (props) => {
                     </Accordion.Toggle>
                   </AlignText>
                   <Accordion.Collapse eventKey='0'>
-                    <UserDropDownChart
-                      gameId={gameId}
-                      endpoint='get_balances_chart'
-                      yScaleType='dollar'
-                      title='Balances Chart'
-                    />
+                    {gameMode === 'multi_player'
+                      ? <UserDropDownChart
+                        gameId={gameId}
+                        endpoint='get_balances_chart'
+                        yScaleType='dollar'
+                        title='Balances Chart'
+                      />
+                      : <VanillaChart
+                        gameId={gameId}
+                        endpoint='get_balances_chart'
+                        yScaleType='dollar'
+                        title='Balances Chart'
+                      />}
                   </Accordion.Collapse>
                 </Accordion>
               </PageSection>
               <PageSection>
-                <UserDropDownChart
-                  gameId={gameId}
-                  endpoint='get_order_performance_chart'
-                  yScaleType='percent'
-                  title='Order Performance'
-                />
+                {gameMode === 'multi_player'
+                  ? <UserDropDownChart
+                    gameId={gameId}
+                    endpoint='get_order_performance_chart'
+                    yScaleType='percent'
+                    title='Order Performance'
+                  />
+                  : <VanillaChart
+                    gameId={gameId}
+                    endpoint='get_order_performance_chart'
+                    yScaleType='percent'
+                    title='Order Performance'
+                  />}
               </PageSection>
               <PageSection>
                 <OpenOrdersTable gameId={gameId} />
               </PageSection>
-
             </Tab>
-            <Tab eventKey='order-performance-chart' title='Payouts'>
-              <PayoutsTable gameId={gameId} />
-            </Tab>
+            {gameMode === 'multi_player' &&
+              <Tab eventKey='order-performance-chart' title='Payouts'>
+                <PayoutsTable gameId={gameId} />
+              </Tab>}
           </Tabs>
         </PageSection>
       </Column>
@@ -156,7 +185,7 @@ const PlayGame = (props) => {
         autohide
       >
         <Toast.Header>
-          <strong className='mr-auto'>Order placed</strong>
+          <strong>Order placed</strong>
           <small>Right now</small>
         </Toast.Header>
         <Toast.Body>

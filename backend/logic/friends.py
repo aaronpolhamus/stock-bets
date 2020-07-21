@@ -158,7 +158,6 @@ def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_id(requester_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
-
 # ------- #
 # Friends #
 # ------- #
@@ -190,7 +189,6 @@ def update_email_invite_status(email):
 
 
 def send_email(requester_id, email):
-    return True
     user_information = get_user_information(requester_id)
     name = user_information['name']
     message = Mail(

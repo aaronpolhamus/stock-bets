@@ -94,7 +94,6 @@ class TestUserManagement(BaseTestCase):
 
         # check valid output from the /home endpoint. There should be one pending invite for valiant roset, with
         # test game being active
-        self.assertEqual(len(data["game_info"]), 4)
         for game_data in data["game_info"]:
             if game_data["title"] == "valiant roset":
                 self.assertEqual(game_data["game_status"], "pending")
@@ -168,8 +167,8 @@ class TestCreateGame(BaseTestCase):
 
     def test_game_defaults(self):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token},
-                                         verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
+                                         cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         game_defaults = res.json()
 
@@ -326,7 +325,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 7)
+        self.assertEqual(len(init_balances_entry["headers"]), 8)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
@@ -645,7 +644,7 @@ class TestFriendManagement(BaseTestCase):
         self.assertTrue(len(res.json()) == 0)
 
         # the test user is ready to make a game. murcitdev should now show up in their list of friend possibilities
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults",
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(set(res.json()["available_invitees"]), {"miguel", "murcitdev", "toofast"})
 
@@ -678,7 +677,7 @@ class TestHomePage(BaseTestCase):
         # verify that the test page landing looks like we expect it to
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 4)
+        self.assertEqual(len(res.json()["game_info"]), 5)
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
@@ -700,7 +699,6 @@ class TestHomePage(BaseTestCase):
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 4)
         for game_entry in res.json()["game_info"]:
             self.assertEqual(game_entry["invite_status"], "joined")
 

@@ -310,6 +310,7 @@ def get_game_info_for_user(user_id):
             gs.game_id, 
             g.title,
             g.creator_id,
+            g.game_mode,
             creator_info.profile_pic AS creator_avatar,
             creator_info.username AS creator_username,
             gs.users,

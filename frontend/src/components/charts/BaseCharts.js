@@ -9,7 +9,6 @@ import { UserContext } from 'Contexts'
 
 const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
   // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
-
   return (
     <Line
       ref={ref}
@@ -104,6 +103,29 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
   )
 })
 
+const VanillaChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  // A simple chart for single player games -- no drop-down menus or fancy effects
+  const [chartData, setChartData] = useState({})
+  useEffect(() => {
+    const getChartData = async () => {
+      const data = await fetchGameData(gameId, endpoint)
+      setChartData(data)
+    }
+    getChartData()
+  }, [])
+  return (
+    <>
+      <Row>
+        <Col xs={6} sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>}
+        </Col>
+      </Row>
+      <BaseChart data={chartData} height={height} yScaleType={yScaleType} />
+    </ >
+  )
+}
+
 const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
   const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
@@ -175,4 +197,13 @@ UserDropDownChart.propTypes = {
   title: PropTypes.string
 }
 
-export { BaseChart, UserDropDownChart }
+VanillaChart.propTypes = {
+  gameId: PropTypes.string,
+  height: PropTypes.string,
+  endpoint: PropTypes.string,
+  yScaleType: PropTypes.string,
+  legends: PropTypes.bool,
+  title: PropTypes.string
+}
+
+export { BaseChart, UserDropDownChart, VanillaChart }

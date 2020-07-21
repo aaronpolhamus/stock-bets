@@ -232,20 +232,24 @@ def game_defaults():
     to render fields correctly
     """
     user_id = decode_token(request)
+    game_mode = request.json.get("game_mode")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     friend_details = get_friend_details(user_id)
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
         duration=DEFAULT_GAME_DURATION,
-        buy_in=DEFAULT_BUYIN,
         benchmark=DEFAULT_BENCHMARK,
-        side_bets_perc=DEFAULT_SIDEBET_PERCENT,
-        side_bets_period=DEFAULT_SIDEBET_PERIOD,
-        sidebet_periods=SIDE_BET_PERIODS,
         benchmarks=BENCHMARKS,
-        available_invitees=available_invitees
     )
+    if game_mode == "multi_player":
+        resp.update(dict(
+            buy_in=DEFAULT_BUYIN,
+            side_bets_perc=DEFAULT_SIDEBET_PERCENT,
+            side_bets_period=DEFAULT_SIDEBET_PERIOD,
+            sidebet_periods=SIDE_BET_PERIODS,
+            available_invitees=available_invitees
+        ))
     return jsonify(resp)
 
 

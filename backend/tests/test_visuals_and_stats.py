@@ -124,7 +124,7 @@ class TestGameKickoff(BaseTestCase):
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
-        self.assertEqual(len(a_current_balance_table["headers"]), 7)
+        self.assertEqual(len(a_current_balance_table["headers"]), 8)
 
         an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["orders"]["pending"], [])
@@ -269,7 +269,10 @@ class TestVisuals(BaseTestCase):
         test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
         self.assertEqual(len(test_user_data["data"]), N_PLOT_POINTS)
 
-    def test_visuals_with_data(self):
+    @patch("backend.logic.base.time")
+    @patch("backend.logic.games.time")
+    def test_visuals_with_data(self, mock_base_time, mock_game_time):
+        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
         game_id = 3
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
@@ -281,10 +284,10 @@ class TestVisuals(BaseTestCase):
         self.assertEqual(len(order_details["headers"]), 13)
 
         user_ids = get_all_game_users_ids(game_id)
-        for user_id in user_ids:
-            serialize_and_pack_order_performance_chart(game_id, user_id)
+        for player_id in user_ids:
+            serialize_and_pack_order_performance_chart(game_id, player_id)
 
-        op_chart_3_1 = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_3_1")
+        op_chart_3_1 = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart_3_1["datasets"]])
         expected_stocks = {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"}
         self.assertEqual(chart_stocks, expected_stocks)
@@ -435,3 +438,34 @@ class TestSinglePlayerLogic(BaseTestCase):
 
         # and check that the leaderboard exists on the game level
         self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", rds.keys())
+
+    @patch("backend.logic.base.time")
+    @patch("backend.logic.games.time")
+    def test_single_player_visuals(self, mock_base_time, mock_game_time):
+        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+        game_id = 8
+        user_id = 1
+        serialize_and_pack_order_details(game_id, user_id)
+        order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
+        self.assertEqual(len(order_details["orders"]["pending"]), 0)
+        self.assertEqual(len(order_details["orders"]["fulfilled"]), 2)
+        self.assertEqual(set([x["Symbol"] for x in order_details["orders"]["fulfilled"]]), {"NVDA", "NKE"})
+
+        serialize_and_pack_order_performance_chart(game_id, user_id)
+        self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
+        op_chart = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
+        chart_stocks = set([x["label"].split("/")[0] for x in op_chart["datasets"]])
+        expected_stocks = {"NKE", "NVDA"}
+        self.assertEqual(chart_stocks, expected_stocks)
+
+        # balances chart
+        df = make_user_balances_chart_data(game_id, user_id)
+        serialize_and_pack_balances_chart(df, game_id, user_id)
+        balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+        self.assertEqual(set([x["label"] for x in balances_chart["datasets"]]), {"NVDA", "NKE", "Cash"})
+
+        # leaderboard and field charts
+        compile_and_pack_player_leaderboard(game_id)
+        make_the_field_charts(game_id)
+        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}")
+        self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + TRACKED_INDEXES))

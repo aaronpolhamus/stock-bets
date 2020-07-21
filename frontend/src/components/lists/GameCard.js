@@ -80,8 +80,6 @@ const GameCard = ({ gameId }) => {
   }, [])
 
   if (Object.keys(gameData).length === 0) return null
-
-  console.log({ gameData })
   const leaderboardPosition = `
     ${currentUserLeaderboardPosition(gameData.leaderboard)}
     place

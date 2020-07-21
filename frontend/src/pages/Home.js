@@ -18,12 +18,17 @@ import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
+import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import * as Icon from 'react-feather'
+import {
+  LogOut,
+  X as IconClose,
+  Users as IconUsers
+} from 'react-feather'
 import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
-const Logout = async () => {
+const handleLogout = async () => {
   await api.post('/api/logout')
   window.location.assign('/')
 }
@@ -75,10 +80,12 @@ const Home = () => {
 
   const activeAndJustFinished = () => {
     const activeGames = filterEntries(data.game_info, {
-      game_status: 'active'
+      game_status: 'active',
+      game_mode: 'multi_player'
     })
     const justFinishedGames = filterEntries(data.game_info, {
-      game_status: 'finished'
+      game_status: 'finished',
+      game_mode: 'multi_player'
     })
     return activeGames.concat(justFinishedGames)
   }
@@ -87,45 +94,74 @@ const Home = () => {
 
   const gamesPending = filterEntries(data.game_info, {
     game_status: 'pending',
-    invite_status: 'joined'
+    invite_status: 'joined',
+    game_mode: 'multi_player'
   })
 
   const gamesInvited = filterEntries(data.game_info, {
     game_status: 'pending',
-    invite_status: 'invited'
+    invite_status: 'invited',
+    game_mode: 'multi_player'
+  })
+
+  const gamesSinglePlayer = filterEntries(data.game_info, {
+    game_status: 'active',
+    game_mode: 'single_player'
   })
 
   return (
     <Layout>
       <Sidebar md={3}>
-        <StyledMiniCard
-          avatarSrc={data.profile_pic}
-          username={data.username}
-          email={data.email}
-          nameColor='var(--cotlor-lighter)'
-          dataColor='var(--color-text-light-gray)'
-          info={['Return: 50%', 'Sharpe: 0.324']}
-        />
-        <FriendsList />
+        <SlideinBlock
+          icon={
+            <IconUsers
+              size={24}
+              color='var(--color-primary-darken)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
+          iconClose={
+            <IconClose
+              size={24}
+              color='var(--color-primary)'
+              style={{
+                marginTop: '-3px'
+              }}
+            />
+          }
+          context='md'
+          backgroundColor='var(--color-secondary)'
+        >
+          <StyledMiniCard
+            avatarSrc={data.profile_pic}
+            username={data.username}
+            email={data.email}
+            nameColor='var(--cotlor-lighter)'
+            dataColor='var(--color-text-light-gray)'
+            info={['Return: 50%', 'Sharpe: 0.324']}
+          />
+          <FriendsList />
+        </SlideinBlock>
       </Sidebar>
       <Column md={9}>
         <PageSection>
           <Breadcrumb justifyContent='flex-end'>
-            <Button variant='link' onClick={Logout}>
-              <Icon.LogOut size={14} style={{ marginTop: '-3px' }} /> Logout
+            <Button variant='link' onClick={handleLogout}>
+              <LogOut size={14} style={{ marginTop: '-3px' }} />
+              <span> Logout</span>
             </Button>
           </Breadcrumb>
           <Header>
             <TitlePage>
               Games
             </TitlePage>
-            <Button variant='primary' href='/new'>
-              <Icon.PlusCircle
-                size={16}
-                color='var(--color-primary-darkest)'
-                style={{ marginTop: '-3px' }}
-              />{' '}
-              Make a new game
+            <Button variant='primary' href='/new/single_player'>
+              Play against the market
+            </Button>
+            <Button variant='primary' href='/new/multi_player'>
+              Play against your friends
             </Button>
           </Header>
         </PageSection>
@@ -133,7 +169,7 @@ const Home = () => {
           <Col lg={6} xl={8}>
             <GameList
               games={gamesActive}
-              title='Active'
+              title='Competitions'
             />
           </Col>
           <Col lg={6} xl={4}>
@@ -146,6 +182,12 @@ const Home = () => {
               games={gamesInvited}
               cardType='pending'
               title='Invited'
+            />
+          </Col>
+          <Col lg={6} xl={8}>
+            <GameList
+              games={gamesSinglePlayer}
+              title='Single player'
             />
           </Col>
         </Row>

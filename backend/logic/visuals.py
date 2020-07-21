@@ -110,6 +110,7 @@ PORTFOLIO_DETAIL_MAPPINGS = {
     "clear_price": "Last order price",
     "price": "Market price",
     "timestamp": "Updated at",
+    "last_change": "Recent change",
     "Value": "Value",
     "Portfolio %": "Portfolio %"}
 
@@ -521,7 +522,7 @@ def make_order_performance_table(game_id: int, user_id: int):
     order_df["order_label"] = order_df["symbol"] + order_df["timestamp_fulfilled"].astype(str)
     order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
     order_df["order_label"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize(
-        'UTC').tz_convert('America/New_York')
+        'UTC').tz_convert(TIMEZONE)
     order_df['order_label'] = order_df['order_label'].dt.strftime(DATE_LABEL_FORMAT)
     order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
         "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
@@ -531,8 +532,7 @@ def make_order_performance_table(game_id: int, user_id: int):
     cum_sum_df.columns = ['symbol', 'cum_buys']
     order_df = order_df.merge(cum_sum_df)
     order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
-    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
-        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
+    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
     order_df.set_index("timestamp_fulfilled", inplace=True)
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
     order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
@@ -709,6 +709,21 @@ def get_most_recent_prices(symbols):
         return pd.read_sql(sql, conn, params=symbols)
 
 
+def make_trend_indicator(symbols: List[str]):
+    """The purpose of this function is to produce an indicator of a stock's trend for the balances table. For now it
+    shows the change from the last-observed price, but this is something that we can modify later"""
+    query_set = []
+    for symbol in symbols:
+        query_set.append(f"(SELECT * FROM prices WHERE symbol = '{symbol}' ORDER BY id DESC LIMIT 2)")
+    sql = " UNION ALL ".join(query_set)
+    with engine.connect() as conn:
+        df = pd.read_sql(sql, conn)
+
+    df["last_price"] = df["price"].shift(-1)
+    df["last_change"] = 100 * (df["price"] - df["last_price"]) / df["last_price"]
+    return df.iloc[::2][["symbol", "last_change"]]
+
+
 def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     out_dict = dict(data=[], headers=list(PORTFOLIO_DETAIL_MAPPINGS.values()))
     balances = get_active_balances(game_id, user_id)
@@ -725,6 +740,8 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     total_portfolio_value = df["Value"].sum() + cash_balance
     df["Portfolio %"] = (df["Value"] / total_portfolio_value).apply(lambda x: percent_formatter(x))
     df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
+    trend_df = make_trend_indicator(symbols)
+    df = df.merge(trend_df, how="left")
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
     out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import api from 'services/api'
 import { Row, Col, Button, Form } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
@@ -8,8 +8,44 @@ import { fetchGameData } from 'components/functions/api'
 import { RadioButtons, TabbedRadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import PropTypes from 'prop-types'
+import styled from 'styled-components'
+import { breakpoints } from 'components/layout/Breakpoints'
+import { CashInfo } from 'components/lists/CashInfo'
+import { ChevronsDown } from 'react-feather'
 
-// request -> guardar datos -> actualizar form -> limpiar datos -> request submit
+const StyledOrderForm = styled(Form)`
+  @media screen and (max-width: ${breakpoints.md}){
+    position: fixed;
+    z-index: 2;
+    padding: var(--space-300);
+    background-color: var(--color-secondary);
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    box-shadow: 0px -30px 30px rgba(17, 7, 60, 0.3);
+  }
+`
+const CollapsibleBlock = styled.div`
+  @media screen and (max-width: ${breakpoints.md}){
+    transition: max-height .2s ease-out;
+    max-height: ${props => props.$show ? '100vh' : 0};
+    overflow: hidden;
+  }
+`
+
+const CollapsibleClose = styled.button`
+  display: none;
+  appearance: none;
+  border: none;
+  background-color: transparent;
+  position: absolute;
+  top: -40px;
+  right: var(--space-100);
+  @media screen and (max-width: ${breakpoints.md}){
+    transition: max-height .2s ease-out;
+    display: ${props => props.$show ? 'block' : 'none'};
+  }
+`
 
 const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [gameInfo, setGameInfo] = useState({})
@@ -18,12 +54,20 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [symbolValue, setSymbolValue] = useState('')
   const [symbolLabel, setSymbolLabel] = useState('')
   const [priceData, setPriceData] = useState({})
+  const [cashData, setCashData] = useState({})
+
+  const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
-  const [submitted, setSubmitted] = useState(false)
+  const formRef = useRef(null)
+  const autosugestRef = useRef(null)
 
   useEffect(() => {
     const getFormInfo = async () => {
       const data = await fetchGameData(gameId, 'order_form_defaults')
+
+      const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
+
+      setCashData(cashInfo)
       setOrderTicket(data)
       setGameInfo(data)
     }
@@ -45,9 +89,14 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     await api.post('/api/place_order', orderTicketCopy)
       .then(request => {
         onPlaceOrder()
+        setSymbolValue('')
+        setSymbolLabel('')
+        setPriceData({})
+        formRef.current.reset()
+        clearInterval(intervalId)
       })
       .catch(error => {
-        console.log(error.response.data)
+        window.alert(error.response.data)
       })
   }
 
@@ -95,6 +144,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     setintervalId(newIntervalID)
   }
 
+  const handleBuySellClicked = () => {
+    setShowCollapsible(true)
+  }
+
   const stopLimitElement = () => {
     return (
       <Form.Group>
@@ -118,29 +171,43 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     setPriceData(response.data)
   }
 
-  const handleClose = () => {
-    setSubmitted(false)
-  }
-
   return (
-    <>
-      <Form onSubmit={handleSubmit}>
-        <Form.Group>
-          <TabbedRadioButtons
-            mode='tabbed'
-            name='buy_or_sell'
-            defaultChecked={orderTicket.buy_or_sell}
-            onChange={handleChange}
-            className=''
-            options={gameInfo.buy_sell_options}
-            color='var(--color-text-light-gray)'
-            $colorChecked='var(--color-lightest)'
-          />
-        </Form.Group>
+    <StyledOrderForm
+      onSubmit={handleSubmit}
+      ref={formRef}
+    >
+      <CollapsibleClose
+        $show={showCollapsible}
+        onClick={() => {
+          setShowCollapsible(false)
+        }}
+      >
+        <ChevronsDown
+          size={24}
+          color='var(--color-secondary)'
+        />
+      </CollapsibleClose>
+      <Form.Group>
+        <TabbedRadioButtons
+          mode='tabbed'
+          name='buy_or_sell'
+          defaultChecked={orderTicket.buy_or_sell}
+          onChange={handleChange}
+          onClick={handleBuySellClicked}
+          options={gameInfo.buy_sell_options}
+          color='var(--color-text-light-gray)'
+          $colorChecked='var(--color-lightest)'
+        />
+      </Form.Group>
+      <CollapsibleBlock
+        $show={showCollapsible}
+      >
+        <CashInfo cashData={cashData} />
         <Form.Group>
           <Form.Label>Symbol</Form.Label>
           {symbolSuggestions && (
             <Autosuggest
+              ref={autosugestRef}
               suggestions={symbolSuggestions}
               onSuggestionsFetchRequested={onSuggestionsFetchRequested}
               onSuggestionsClearRequested={onSuggestionsClearRequested}
@@ -154,7 +221,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
               }}
             />
           )}
-          {Object.keys(priceData).length > 0 && (
+          {Object.keys(priceData).length > 0 && symbolValue !== '' && (
             <AuxiliarText color='var(--color-light-gray)'>
               <strong>
                 {symbolLabel} ${priceData.price}
@@ -164,7 +231,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
               <br />
               <small>
                 <a href='https://iexcloud.io' target='_blank' rel='noopener noreferrer'>
-                  Data provided by IEX Cloud
+                    Data provided by IEX Cloud
                 </a>
               </small>
             </AuxiliarText>
@@ -175,11 +242,11 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
             <Form.Group>
               <Form.Label>
                 {orderTicket.quantity_type &&
-                orderTicket.quantity_type === 'Shares'
+                  orderTicket.quantity_type === 'Shares'
                   ? 'Quantity'
                   : 'Amount'}
               </Form.Label>
-              <Form.Control name='amount' as='input' onChange={handleChange} />
+              <Form.Control required name='amount' as='input' onChange={handleChange} />
             </Form.Group>
           </Col>
           <Col>
@@ -192,9 +259,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
                 onChange={handleChange}
               >
                 {gameInfo.quantity_options &&
-                  gameInfo.quantity_options.map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
+                    gameInfo.quantity_options.map((value) => (
+                      <option key={value}>{value}</option>
+                    ))}
               </Form.Control>
             </Form.Group>
           </Col>
@@ -203,7 +270,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           <Col>
             <Form.Group>
               <Form.Label>
-                Order type
+                  Order type
                 <Tooltip message="A market order clears right away, at  whatever price is currently on the market. A 'limit' order is an order where the price direction is in your favor, e.g. a buy-limit order clears when the market price is less than or equal to the price you set. A sell-limit order, on the other hand, clears when the market price is greater than or equal to your order price. A sell-stop order is a common way to reduce exposure to loss, and clears when the market price is at or below the sale order price. Orders only clear during trading day--if you're placing orders outside of trading hours, you should see them reflected in your orders table as pending." />
               </Form.Label>
               <RadioButtons
@@ -220,12 +287,12 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
         <Row>
           <Col>
             {['stop', 'limit'].includes(orderTicket.order_type) &&
-              stopLimitElement()}
+                stopLimitElement()}
           </Col>
         </Row>
         <Form.Group>
           <Form.Label>
-            Time in Force
+              Time in Force
             <Tooltip message="We'll continually monitor an 'Until cancelled' order for execution until you cancel it by hand." />
           </Form.Label>
           <Form.Control
@@ -235,16 +302,16 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
             onChange={handleChange}
           >
             {gameInfo.time_in_force_options &&
-              optionBuilder(gameInfo.time_in_force_options)}
+                optionBuilder(gameInfo.time_in_force_options)}
           </Form.Control>
         </Form.Group>
         <FormFooter>
           <Button variant='primary' type='submit'>
-            Submit {orderTicket.buy_or_sell === 'buy' ? 'Buy' : 'Sell'} Order
+              Place {orderTicket.buy_or_sell === 'buy' ? 'Buy' : 'Sell'} Order
           </Button>
         </FormFooter>
-      </Form>
-    </>
+      </CollapsibleBlock>
+    </StyledOrderForm>
   )
 }
 

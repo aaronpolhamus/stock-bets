@@ -9,6 +9,8 @@ import { NewGame } from 'pages/NewGame'
 import { Admin } from 'pages/Admin'
 import { PrivacyPolicy } from 'pages/PrivacyPolicy'
 import { UserContext } from 'Contexts'
+import { UserDropDownChart, VanillaChart } from './components/charts/BaseCharts'
+import { PageSection } from './components/layout/Layout'
 
 export default function App () {
   const [user, setUser] = useState({})
@@ -20,7 +22,7 @@ export default function App () {
         <Route exact path='/' component={Home} />
         <Route exact path='/play/:gameId/' component={PlayGame} />
         <Route exact path='/join/:gameId/' component={JoinGame} />
-        <Route path='/new/' component={NewGame} />
+        <Route path='/new/:gameMode' component={NewGame} />
       </UserContext.Provider>
       <Route path='/welcome/' component={Welcome} />
       <Route path='/login/' component={Login} />

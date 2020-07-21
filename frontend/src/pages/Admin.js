@@ -55,7 +55,6 @@ const Admin = () => {
   }
 
   const handleChange = (e) => {
-    console.log(e.target.value)
     setStock(e.target.value)
   }
   if (redirect) return <Redirect to='/' />
