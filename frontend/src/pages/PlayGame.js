@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Accordion, Button, Toast } from 'react-bootstrap'
+import { Tabs, Tab, Toast } from 'react-bootstrap'
 import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
@@ -20,7 +20,7 @@ import { BalancesTable } from 'components/tables/BalancesTable'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { AlignText, SectionTitle } from 'components/textComponents/Text'
+import { SectionTitle } from 'components/textComponents/Text'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
@@ -71,7 +71,10 @@ const PlayGame = (props) => {
         />
       </Sidebar>
       <Column md={9}>
-        <PageSection>
+        <PageSection
+          $marginBottom='var(--space-400)'
+          $marginBottomMd='var(--space-400)'
+        >
           <Breadcrumb>
             <Link to='/'>
               <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
@@ -95,23 +98,23 @@ const PlayGame = (props) => {
                 />
 
               </PageSection>
+            </Tab>
+            <Tab eventKey='balances-chart' title='Balances and Orders'>
               <PageSection>
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
+                    endpoint='get_balances_chart'
+                    yScaleType='dollar'
+                    title='Balances Chart'
                   />
                   : <VanillaChart
                     gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
+                    endpoint='get_balances_chart'
+                    yScaleType='dollar'
+                    title='Balances Chart'
                   />}
               </PageSection>
-            </Tab>
-            <Tab eventKey='balances-chart' title='Balances and Orders'>
               <PageSection>
                 <Header>
                   <SectionTitle> Your balances </SectionTitle>
@@ -119,34 +122,7 @@ const PlayGame = (props) => {
                 <BalancesTable gameId={gameId} />
               </PageSection>
               <PageSection>
-                <Accordion>
-                  <AlignText align='right'>
-                    <Accordion.Toggle
-                      as={Button}
-                      variant='link'
-                      eventKey='0'
-                    >
-                      Show Balances Chart
-                    </Accordion.Toggle>
-                  </AlignText>
-                  <Accordion.Collapse eventKey='0'>
-                    {gameMode === 'multi_player'
-                      ? <UserDropDownChart
-                        gameId={gameId}
-                        endpoint='get_balances_chart'
-                        yScaleType='dollar'
-                        title='Balances Chart'
-                      />
-                      : <VanillaChart
-                        gameId={gameId}
-                        endpoint='get_balances_chart'
-                        yScaleType='dollar'
-                        title='Balances Chart'
-                      />}
-                  </Accordion.Collapse>
-                </Accordion>
-              </PageSection>
-              <PageSection>
+
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
@@ -160,6 +136,22 @@ const PlayGame = (props) => {
                     yScaleType='percent'
                     title='Order Performance'
                   />}
+              </PageSection>
+              <PageSection>
+                <PendingOrdersTable
+                  tableData={ordersData}
+                  gameId={gameId}
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
+                />
+              </PageSection>
+              <PageSection>
+                <PendingOrdersTable
+                  tableData={ordersData}
+                  gameId={gameId}
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
+                />
               </PageSection>
               <PageSection>
                 <OpenOrdersTable gameId={gameId} />

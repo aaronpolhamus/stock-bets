@@ -1,10 +1,13 @@
 import React from 'react'
 import styled from 'styled-components'
 import { Container, Col, Row } from 'react-bootstrap'
-import { breakpoints } from 'components/layout/Breakpoints'
+import { breakpoints } from 'design-tokens'
 // Global Layout Component
 const StyledContainer = styled(Container)`
   padding: 0;
+  @media screen and (max-width: ${breakpoints.md}){
+    overflow: hidden;
+  }
 `
 
 const SmallColumnWrapper = styled(Col)`
@@ -81,9 +84,9 @@ const Breadcrumb = styled.div`
 
 // Section Component
 const PageSection = styled.section`
-  margin-bottom: var(--space-300);
+  margin-bottom: ${props => props.$marginBottom || 'var(--space-600)'};
   @media screen and (min-width: ${breakpoints.md}){
-    margin-bottom: var(--space-600);
+    margin-bottom: ${props => props.$marginBottomMd || 'var(--space-800)'};
   }
 `
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import PropTypes from 'prop-types'
-import { breakpoints } from 'components/layout/Breakpoints'
+import { breakpoints } from 'design-tokens'
 import styled from 'styled-components'
 
 const Icon = styled.div`

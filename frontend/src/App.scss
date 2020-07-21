@@ -68,12 +68,17 @@ label {
 
 .tab-pane{
   padding: var(--space-400) var(--space-200);
+  @include media-breakpoint-down(md) {
+    padding: var(--space-400) var(--space-100);
+
+  }
 }
 
 //Buttons
 .btn {
   & + & {
     margin-left: 0.5em;
+    margin-top: 0.5em;
   }
   &-link {
     color: var(--color-text-gray);
@@ -113,7 +118,14 @@ label {
   }
   td {
     font-size: var(--font-size-small);
+
   }
+  @include media-breakpoint-down(md) {
+    td, th{
+      padding: var(--space-100);
+    }
+  }
+
 }
 
 // Autosuggest
