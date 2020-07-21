@@ -5,7 +5,9 @@ import { breakpoints } from 'design-tokens'
 // Global Layout Component
 const StyledContainer = styled(Container)`
   padding: 0;
-  overflow: hidden;
+  @media screen and (max-width: ${breakpoints.md}){
+    overflow: hidden;
+  }
 `
 
 const SmallColumnWrapper = styled(Col)`

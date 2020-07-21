@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Toast } from 'react-bootstrap'
+import { Tabs, Tab, Toast, Accordion, Button } from 'react-bootstrap'
 import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
@@ -20,7 +20,7 @@ import { BalancesTable } from 'components/tables/BalancesTable'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { SectionTitle } from 'components/textComponents/Text'
+import { AlignText, SectionTitle } from 'components/textComponents/Text'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
@@ -104,15 +104,15 @@ const PlayGame = (props) => {
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
+                    endpoint='get_balances_chart'
+                    yScaleType='dollar'
+                    title='Balances Chart'
                   />
                   : <VanillaChart
                     gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
+                    endpoint='get_balances_chart'
+                    yScaleType='dollar'
+                    title='Balances Chart'
                   />}
               </PageSection>
               <PageSection>
@@ -120,34 +120,6 @@ const PlayGame = (props) => {
                   <SectionTitle> Your balances </SectionTitle>
                 </Header>
                 <BalancesTable gameId={gameId} />
-              </PageSection>
-              <PageSection>
-                <Accordion>
-                  <AlignText align='right'>
-                    <Accordion.Toggle
-                      as={Button}
-                      variant='link'
-                      eventKey='0'
-                    >
-                      Show Balances Chart
-                    </Accordion.Toggle>
-                  </AlignText>
-                  <Accordion.Collapse eventKey='0'>
-                    {gameMode === 'multi_player'
-                      ? <UserDropDownChart
-                        gameId={gameId}
-                        endpoint='get_balances_chart'
-                        yScaleType='dollar'
-                        title='Balances Chart'
-                      />
-                      : <VanillaChart
-                        gameId={gameId}
-                        endpoint='get_balances_chart'
-                        yScaleType='dollar'
-                        title='Balances Chart'
-                      />}
-                  </Accordion.Collapse>
-                </Accordion>
               </PageSection>
               <PageSection>
                 {gameMode === 'multi_player'
