@@ -1,9 +1,13 @@
 import React from 'react'
 import styled from 'styled-components'
 import { XCircle } from 'react-feather'
+import { breakpoints } from 'design-tokens'
 
 const CellStyled = styled.td`
   text-align: ${(props) => props.align || 'right'};
+  @media screen and (max-width: ${props => breakpoints[props.$hideOnBreakpoint]}){
+    display: none;
+  }
 `
 
 const RowStyled = styled.tr`

@@ -71,7 +71,10 @@ const PlayGame = (props) => {
         />
       </Sidebar>
       <Column md={9}>
-        <PageSection>
+        <PageSection
+          $marginBottom='var(--space-400)'
+          $marginBottomMd='var(--space-400)'
+        >
           <Breadcrumb>
             <Link to='/'>
               <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
@@ -95,6 +98,8 @@ const PlayGame = (props) => {
                 />
 
               </PageSection>
+            </Tab>
+            <Tab eventKey='balances-chart' title='Balances and Orders'>
               <PageSection>
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
@@ -110,8 +115,6 @@ const PlayGame = (props) => {
                     title='Order Performance'
                   />}
               </PageSection>
-            </Tab>
-            <Tab eventKey='balances-chart' title='Balances and Orders'>
               <PageSection>
                 <Header>
                   <SectionTitle> Your balances </SectionTitle>
@@ -160,6 +163,14 @@ const PlayGame = (props) => {
                     yScaleType='percent'
                     title='Order Performance'
                   />}
+              </PageSection>
+              <PageSection>
+                <PendingOrdersTable
+                  tableData={ordersData}
+                  gameId={gameId}
+                  title='Pending Orders'
+                  onCancelOrder={getOrdersData}
+                />
               </PageSection>
               <PageSection>
                 <OpenOrdersTable gameId={gameId} />

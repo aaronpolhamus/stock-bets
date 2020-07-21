@@ -11,7 +11,7 @@ import { SmallText } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
-import { breakpoints } from 'components/layout/Breakpoints'
+import { breakpoints } from 'design-tokens'
 
 const RightCol = styled(Col)`
   padding: 8vw;

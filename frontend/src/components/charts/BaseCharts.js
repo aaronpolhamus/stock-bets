@@ -7,22 +7,26 @@ import { SectionTitle } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
-const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
+const BaseChart = forwardRef(({ data, height, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
   // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
   return (
     <Line
       ref={ref}
       data={data}
+      height={height || 'auto'}
       options={{
         spanGaps: true,
         legend: {
-          position: 'left',
+          position: 'bottom',
           align: 'start',
           labels: {
             usePointStyle: true,
             padding: 10
           },
           display: legends
+        },
+        legendCallback: (chart) => {
+          return '<p>hey hey</p>'
         },
         elements: {
           point: {
@@ -154,14 +158,15 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
     }
   }, [gameId, username, endpoint])
 
+  console.log(data)
   return (
     <>
       <Row>
-        <Col xs={6} sm={9}>
+        <Col sm={9}>
           {title &&
             <SectionTitle>{title}</SectionTitle>}
         </Col>
-        <Col xs={6} sm={3}>
+        <Col sm={3}>
           <Form.Control
             name='username'
             as='select'
@@ -174,7 +179,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
         </Col>
       </Row>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
-    </ >
+    </>
   )
 }
 
