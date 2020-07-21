@@ -76,9 +76,10 @@ label {
 
 //Buttons
 .btn {
+  margin-bottom: 0.25em;
+  margin-top: 0.25em;
   & + & {
     margin-left: 0.5em;
-    margin-top: 0.5em;
   }
   &-link {
     color: var(--color-text-gray);
