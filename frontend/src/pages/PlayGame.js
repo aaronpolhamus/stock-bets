@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Accordion, Button, Toast } from 'react-bootstrap'
+import { Tabs, Tab, Toast } from 'react-bootstrap'
 import { useParams, Link } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
@@ -20,7 +20,7 @@ import { BalancesTable } from 'components/tables/BalancesTable'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { AlignText, SectionTitle } from 'components/textComponents/Text'
+import { SectionTitle } from 'components/textComponents/Text'
 
 const PlayGame = (props) => {
   const { gameId } = useParams()
