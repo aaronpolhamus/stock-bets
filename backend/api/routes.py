@@ -14,6 +14,7 @@ from backend.logic.auth import (
     ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.games import (
+    leave_game,
     DEFAULT_INVITE_OPEN_WINDOW,
     respond_to_game_invite,
     get_user_invite_statuses_for_pending_game,
@@ -103,6 +104,7 @@ FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
 NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
+LEAVE_GAME_MESSAGE = "You've left the game"
 
 
 # -------------- #
@@ -290,6 +292,15 @@ def api_respond_to_game_invite():
 def get_pending_game_info():
     game_id = request.json.get("game_id")
     return jsonify(get_user_invite_statuses_for_pending_game(game_id))
+
+
+@routes.route("/api/leave_game", methods=["POST"])
+@authenticate
+def api_leave_game():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    leave_game(game_id, user_id)
+    return make_response(LEAVE_GAME_MESSAGE, 200)
 
 # --------------------------- #
 # Order management and prices #

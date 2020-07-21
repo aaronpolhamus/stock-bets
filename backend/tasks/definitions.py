@@ -1,12 +1,8 @@
-import time
-
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    check_single_player_mode,
     TRACKED_INDEXES,
     during_trading_day,
-    get_all_game_users_ids,
     get_cache_price,
     set_cache_price,
     SeleniumDriverError,
@@ -23,18 +19,7 @@ from backend.logic.games import (
     service_open_game,
     expire_finished_game
 )
-from backend.logic.metrics import (
-    log_winners
-)
-from logic.visuals import calculate_and_pack_game_metrics
-from backend.logic.visuals import (
-    serialize_and_pack_order_performance_chart,
-    serialize_and_pack_winners_table,
-    compile_and_pack_player_leaderboard,
-    serialize_and_pack_order_details,
-    make_the_field_charts,
-    serialize_and_pack_portfolio_details,
-)
+from backend.logic.visuals import refresh_game_data
 from backend.tasks.celery import (
     celery,
     BaseTask
@@ -163,28 +148,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id):
-    calculate_and_pack_game_metrics(game_id)
-
-    # leaderboard
-    compile_and_pack_player_leaderboard(game_id)
-
-    # the field and balance charts
-    make_the_field_charts(game_id)
-
-    # tables and performance breakout charts
-    user_ids = get_all_game_users_ids(game_id)
-    for user_id in user_ids:
-        # game/user-level assets
-        serialize_and_pack_order_details(game_id, user_id)
-        serialize_and_pack_portfolio_details(game_id, user_id)
-        serialize_and_pack_order_performance_chart(game_id, user_id)
-
-    if not check_single_player_mode(game_id):
-        # winners/payouts table
-        update_performed = log_winners(game_id, time.time())
-        if update_performed:
-            serialize_and_pack_winners_table(game_id)
-
+    refresh_game_data(game_id)
 
 # ----------- #
 # Key metrics #

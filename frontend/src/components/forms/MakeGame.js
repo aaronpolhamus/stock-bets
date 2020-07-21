@@ -246,7 +246,7 @@ const MakeGame = ({ gameMode }) => {
             Your game against the market is live!
               <div>
                 <small>
-                They say the market is tough to beat... ;)
+                They say the market is tough to beat...
                 </small>
               </div>
             </div>

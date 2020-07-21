@@ -81,6 +81,7 @@ class GameInviteStatusTypes(Enum):
     joined = "Joined"
     declined = "Declined"
     expired = "Expired"
+    left = "Left"
 
 
 class GameInvites(db.Model):

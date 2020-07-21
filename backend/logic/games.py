@@ -255,6 +255,12 @@ def close_game(game_id, update_time):
     mark_invites_expired(game_id, ["invited", "joined"], update_time)
 
 
+def leave_game(game_id: int, user_id: int):
+    """Users in non-paid games can leave at any time
+    """
+    add_row("game_invites", game_id=game_id, user_id=user_id, status="left", timestamp=time.time())
+
+
 def mark_invites_expired(game_id, status_list: List[str], update_time):
     """For a given game ID and list of statuses, this function will convert those invitations to "expired." This
     happens when games past their invite window still have pending invitations, or when games pass their invite window

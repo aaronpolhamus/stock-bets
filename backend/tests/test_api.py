@@ -24,6 +24,7 @@ from backend.logic.base import (
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
+    refresh_game_data,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
     DEFAULT_BENCHMARK,
@@ -344,6 +345,24 @@ class TestCreateGame(BaseTestCase):
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
 
+        # finally, we'll test our ability to leave a game
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        refresh_game_data(game_id)
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
+                                         verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_landing_info = res.json()
+        self.assertNotIn(game_id, [x["game_id"] for x in user_landing_info["game_info"]])
+
+        res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
+                                         json={"game_id": game_id}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        play_game_info = res.json()
+        self.assertNotIn(user_id, [x["id"] for x in play_game_info["leaderboard"]])
+
     def test_pending_game_management(self):
         user_id = 1
         game_id = 5
@@ -376,8 +395,6 @@ class TestCreateGame(BaseTestCase):
                 self.assertEqual(user_entry["status"], "invited")
 
     def test_create_single_player_game(self):
-        user_id = 1
-        user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_duation = 365
         game_settings = {

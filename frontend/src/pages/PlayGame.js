@@ -1,6 +1,6 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Toast } from 'react-bootstrap'
-import { useParams, Link } from 'react-router-dom'
+import { Tabs, Tab, Toast, Button, Modal } from 'react-bootstrap'
+import { useParams, Link, Redirect } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Breadcrumb,
@@ -22,12 +22,14 @@ import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { SectionTitle } from 'components/textComponents/Text'
 
-const PlayGame = (props) => {
+const PlayGame = () => {
   const { gameId } = useParams()
   const { user, setUser } = useContext(UserContext)
   const [ordersData, setOrdersData] = useState({})
   const [showToast, setShowToast] = useState(false)
   const [gameMode, setGameMode] = useState(null)
+  const [showLeaveBox, setShowLeaveBox] = useState(false)
+  const [redirect, setRedirect] = useState(false)
 
   const getOrdersData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -62,6 +64,20 @@ const PlayGame = (props) => {
     getGameData()
   }, [user, setUser])
 
+  const handleCancelLeave = () => {
+    setShowLeaveBox(false)
+  }
+
+  const handleConfirmLeave = async () => {
+    await apiPost('leave_game', {
+      game_id: gameId,
+      withCredentials: true
+    })
+    setShowLeaveBox(false)
+    setRedirect(true)
+  }
+
+  if (redirect) return <Redirect to='/' />
   return (
     <Layout>
       <Sidebar md={3}>
@@ -83,6 +99,7 @@ const PlayGame = (props) => {
           </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>
+        <Button variant='primary' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         <PageSection>
           <Tabs>
             <Tab eventKey='field-chart' title='The Field'>
@@ -176,6 +193,21 @@ const PlayGame = (props) => {
           We got your order!
         </Toast.Body>
       </Toast>
+      <Modal show={showLeaveBox}>
+        <Modal.Body>
+          <div className='text-center'>
+            Are you sure you'd like to leave this game? Once you do you won't be able to rejoin, and will lose access to this game's data.
+          </div>
+        </Modal.Body>
+        <Modal.Footer className='centered'>
+          <Button variant='danger' onClick={handleConfirmLeave}>
+            Yep, I'm sure
+          </Button>
+          <Button variant='primary' onClick={handleCancelLeave}>
+            I'll stick around
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Layout>
   )
 }
