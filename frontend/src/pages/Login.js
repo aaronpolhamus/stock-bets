@@ -234,9 +234,9 @@ export default function Login () {
             <FooterLinks>
               <SmallText color='var(--color-secondary)'>
                 Have a look at our
-                <Link to='/terms'> terms and conditions </Link>
+                <Link to='/terms' target='_blank'> terms and conditions </Link>
                 <br/>
-                and <Link to='/privacy'> privacy policy </Link> before getting started.
+                and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
               </SmallText>
             </FooterLinks>
           </RightCol>
