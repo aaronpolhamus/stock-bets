@@ -89,8 +89,7 @@ def get_end_of_last_trading_day() -> float:
     return end_day
 
 
-def during_trading_day() -> bool:
-    posix_time = time.time()
+def during_trading_day(posix_time=time.time()) -> bool:
     ref_time = posix_to_datetime(posix_time).date()
     schedule = get_trading_calendar(ref_time, ref_time)
     if schedule.empty:
@@ -564,7 +563,7 @@ def update_index_value(symbol):
             max_time = 0
 
     eod = get_end_of_last_trading_day()
-    if max_time < eod:
+    if max_time < eod <= time.time():
         add_row("indexes", symbol=symbol, value=value, timestamp=eod)
         return True
 
@@ -680,6 +679,19 @@ def get_index_reference(symbol: str, ref_time: float) -> float:
     return ref_val
 
 
+def make_index_start_time(game_start: float) -> float:
+    if during_trading_day(game_start):
+        return game_start
+
+    schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
+    trade_start, _ = get_schedule_start_and_end(schedule)
+    if game_start > trade_start:
+        schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
+        trade_start, _ = get_schedule_start_and_end(schedule)
+        return trade_start
+    return trade_start
+
+
 def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
     """In single-player mode a player competes against the indexes. This function just normalizes a dataframe of index
     values by the starting value for when the game began
@@ -701,7 +713,8 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = Non
     df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
-    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[game_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+    trade_start = make_index_start_time(start)
+    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
 
 
 def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
