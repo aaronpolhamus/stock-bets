@@ -78,6 +78,7 @@ label {
 .btn {
   margin-bottom: 0.25em;
   margin-top: 0.25em;
+  font-weight: bold;
   & + & {
     margin-left: 0.5em;
   }
@@ -88,6 +89,16 @@ label {
     &:hover {
       color: inherit;
       text-decoration: underline;
+    }
+  }
+  &-alt {
+    border: 1px solid var(--color-text-gray);
+    color: #fff;
+    svg{
+      stroke: var(--color-primary);
+    } 
+    &:hover{
+      color: var(--color-primary);
     }
   }
 }
@@ -195,6 +206,14 @@ label {
   font-weight: bold;
   color: var(--color-text-gray);
 }
+
+.home-layout{
+  @include media-breakpoint-down(md) {
+    padding-bottom: 10vh;
+  }
+}
+
+
 
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {
