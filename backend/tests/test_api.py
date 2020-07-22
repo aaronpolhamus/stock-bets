@@ -638,7 +638,7 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        res = self.requests_session.post(f"{HOST_URL}/invite_user_by_email", json={"friend_email": test_friend_email},
+        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email", json={"friend_emails": [test_friend_email]},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there

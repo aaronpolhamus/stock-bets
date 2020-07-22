@@ -76,7 +76,7 @@ const Home = () => {
     const kickOff = async () => {
       try {
         await api.post('/api/create_game', {
-          title: 'pilot game -- beat the market this week',
+          title: 'intro game',
           game_mode: 'single_player',
           duration: 7,
           benchmark: 'return_ratio'
@@ -174,6 +174,9 @@ const Home = () => {
             <Form.Check type='checkbox' label={<a href='/privacy'>I agree to the stockbets.io privacy policy</a>} onChange={() => setAcceptedPrivacy(!acceptedPrivacy)} id='terms-and-conditions-check' />
             <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
               Submit
+            </Button>
+            <Button onClick={() => window.history.go(-2)} variant='light'>
+              I'll come back later
             </Button>
           </Form>
         </Modal.Body>

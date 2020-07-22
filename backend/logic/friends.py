@@ -2,13 +2,12 @@ import time
 from typing import List
 
 import pandas as pd
+from backend.config import Config
+from backend.database.db import engine
+from backend.database.helpers import add_row
+from backend.logic.base import get_user_id, get_user_information
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-
-from backend.database.db import engine
-from backend.database.helpers import add_row, query_to_dict
-from backend.logic.base import get_user_id, get_user_information
-from backend.config import Config
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -144,9 +143,12 @@ def get_friend_invites_list(user_id: int):
 
 
 def get_if_invited_by_email(email):
-    friends_that_invited_email = query_to_dict("SELECT requester_id FROM external_invites WHERE invited_email = %s",
-                                               email)
-    return friends_that_invited_email
+    with engine.connect() as conn:
+        friend_ids = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
+                                  email).fetchall()
+    if friend_ids:
+        return [x[0] for x in friend_ids]
+    return []
 
 
 def get_friend_details(user_id: int):
@@ -158,16 +160,16 @@ def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_id(requester_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
+
 # ------- #
 # Friends #
 # ------- #
 
 
-def invite_friend(requester_id, invited_username):
+def invite_friend(requester_id, invited_id):
     """Since the user is sending the request, we'll know their user ID via their web token. We don't post this
     information to the frontend for other users, though, so we'll look up their ID based on username
     """
-    invited_id = get_user_id(invited_username)
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
@@ -181,11 +183,6 @@ def invite_friend_to_stockbets(requester_id, invited_user_email: str):
         status = "error"
     add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
             status=status, timestamp=time.time())
-
-
-def update_email_invite_status(email):
-    with engine.connect() as conn:
-        conn.execute("UPDATE external_invites SET status = 'accepted' WHERE invited_email = %s;", email)
 
 
 def send_email(requester_id, email):

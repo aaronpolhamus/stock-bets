@@ -6,7 +6,7 @@ import requests
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
-from backend.logic.friends import invite_friend, get_if_invited_by_email, update_email_invite_status
+from backend.logic.friends import invite_friend, get_if_invited_by_email
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
 
@@ -100,11 +100,10 @@ def register_user(user_entry):
     add_row("users", **user_entry)
     user = get_user_data(uuid)
     requester_friends_ids = get_if_invited_by_email(user['email'])
-    for friends in requester_friends_ids:
-        friend_id = friends['requester_id']
-        add_row("external_invites", requester_id=friend_id, invited_email=user["email"], status="accepted",
+    for requester_id in requester_friends_ids:
+        add_row("external_invites", requester_id=requester_id, invited_email=user["email"], status="accepted",
                 timestamp=time.time())
-        invite_friend(friend_id, user["id"])
+        invite_friend(requester_id, user["id"])
 
 
 def make_session_token_from_uuid(resource_uuid):

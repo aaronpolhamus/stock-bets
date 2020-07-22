@@ -38,9 +38,9 @@ const AddFriends = () => {
 
   const handleFriendInvite = async (e) => {
     e.preventDefault()
-    // await apiPost('invite_user_by_email', {
-    //   friend_email: emails
-    // })
+    await apiPost('invite_users_by_email', {
+      friend_emails: emails
+    })
     setShowForm(false)
     setShow(true)
   }
@@ -107,7 +107,7 @@ const AddFriends = () => {
                   autocomplete='off' 
                   autocorrect='off' 
                   autocapitalize='off' 
-                  placeholder='placeholder'
+                  placeholder='After entering an email, add another one with the tab or comma keys'
                   emails={emails}
                   onChange={(_emails)=>{
                     setEmails(_emails)

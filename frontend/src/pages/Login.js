@@ -235,7 +235,7 @@ export default function Login () {
               <SmallText color='var(--color-secondary)'>
                 Have a look at our
                 <Link to='/terms' target='_blank'> terms and conditions </Link>
-                <br/>
+                <br />
                 and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
               </SmallText>
             </FooterLinks>

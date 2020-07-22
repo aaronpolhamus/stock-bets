@@ -105,6 +105,7 @@ FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
 NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
 LEAVE_GAME_MESSAGE = "You've left the game"
+EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 
 
 # -------------- #
@@ -423,17 +424,19 @@ def api_suggest_symbols():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    invite_friend(user_id, invited_username)
+    invited_id = get_user_id(invited_username)
+    invite_friend(user_id, invited_id)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
 
 
-@routes.route("/api/invite_user_by_email", methods=["POST"])
+@routes.route("/api/invite_users_by_email", methods=["POST"])
 @authenticate
 def invite_friend_by_email():
     user_id = decode_token(request)
-    email = request.json.get('friend_email')
-    invite_friend_to_stockbets(user_id, email)
-    return make_response("Email sent to your friend", 200)
+    emails = request.json.get('friend_emails')
+    for email in emails:
+        invite_friend_to_stockbets(user_id, email)
+    return make_response(EMAIL_SENT_MESSAGE, 200)
 
 
 @routes.route("/api/respond_to_friend_request", methods=["POST"])
