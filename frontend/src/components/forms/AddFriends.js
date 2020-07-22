@@ -10,12 +10,16 @@ import { UserPlus } from 'react-feather'
 import { apiPost } from 'components/functions/api'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { RadioButtons } from 'components/forms/Inputs'
+import { ReactMultiEmail, isEmail } from 'react-multi-email';
+import 'react-multi-email/style.css';
 
 const AddFriends = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [friendSuggestions, setFriendSuggestions] = useState([])
   const [friendInvitee, setFriendInvitee] = useState('')
-  const [emailInvitees, setEmailInvitees] = useState([])
+
+  const [emails, setEmails] = useState([])
+
   const [show, setShow] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [inviteType, setInviteType] = useState('invite')
@@ -34,10 +38,9 @@ const AddFriends = () => {
 
   const handleFriendInvite = async (e) => {
     e.preventDefault()
-    console.log(emailInvitees)
-    await apiPost('invite_user_by_email', {
-      friend_email: emailInvitees
-    })
+    // await apiPost('invite_user_by_email', {
+    //   friend_email: emails
+    // })
     setShowForm(false)
     setShow(true)
   }
@@ -45,10 +48,6 @@ const AddFriends = () => {
   const handleChange = (invitee) => {
     if (invitee[0] === undefined) return
     setFriendInvitee(invitee[0].username)
-  }
-
-  const handleEmailChange = (e) => {
-    setEmailInvitees(e.target.value.split(','))
   }
 
   const handleSuggestions = async (query) => {
@@ -92,7 +91,7 @@ const AddFriends = () => {
         <Modal.Body>
           <RadioButtons
             options={{
-              invite: 'Invite a friend by mail',
+              invite: 'Invite friends by mail',
               add: 'Add a friend by username'
             }}
             name='invite_type'
@@ -104,7 +103,33 @@ const AddFriends = () => {
           { inviteType === 'invite'
             ? (
               <Form onSubmit={handleFriendInvite}>
-                <Form.Control type='text' placeholder="Enter your friend's email here" onChange={handleEmailChange} />
+                <ReactMultiEmail
+                  autocomplete='off' 
+                  autocorrect='off' 
+                  autocapitalize='off' 
+                  placeholder='placeholder'
+                  emails={emails}
+                  onChange={(_emails)=>{
+                    setEmails(_emails)
+                  }}
+                  validateEmail={email => {
+                    return isEmail(email); 
+                  }}
+                  getLabel={(
+                    email: string,
+                    index: number,
+                    removeEmail: (index: number) => void,
+                  ) => {
+                    return (
+                      <div data-tag key={index}>
+                        {email}
+                        <span data-tag-handle onClick={() => removeEmail(index)}>
+                          ×
+                        </span>
+                      </div>
+                    );
+                  }}
+                />
                 <Form.Text className='text-muted'>
                   We&apos;ll never share your friend&apos;s email, and we won&apos;t spam them or put them on a mailing list.
                 </Form.Text>
@@ -122,7 +147,7 @@ const AddFriends = () => {
                     labelKey='username'
                     isLoading={isLoading}
                     options={friendSuggestions}
-                    placeholder="Type your friend's username"
+                    placeholder='Type your friend&apos;s username'
                     onSearch={handleSuggestions}
                     onChange={handleChange}
                     renderMenuItemChildren={(option, props) => (
@@ -152,7 +177,7 @@ const AddFriends = () => {
             ? (
               <div className='text-center'>
                           You&apos;ve invited
-                <strong> {emailInvitees} </strong>
+                <strong> {emails.join(', ')} </strong>
                 <div>to join stockbets.</div>
                 <div>
                   <small>We&apos;ll let them know! If they accept they&apos;ll have your friend invitation waiting for them.</small>
