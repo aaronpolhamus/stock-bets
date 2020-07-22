@@ -23,7 +23,7 @@ const StyledRadio = styled(Form.Check)`
       height: 16px;
       margin-right: var(--space-50);
       position: relative;
-      top: 2px;
+      top: .22rem;
       width: 16px;
     }
   }

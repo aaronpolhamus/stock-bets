@@ -224,7 +224,7 @@ const MakeGame = ({ gameMode }) => {
         </Row>
         <div className='text-right'>
           <Button variant='primary' type='submit'>
-            Create New Game
+            Create new game
           </Button>
         </div>
       </Form>
