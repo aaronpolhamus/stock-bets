@@ -158,7 +158,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
     }
   }, [gameId, username, endpoint])
 
-  console.log(data)
   return (
     <>
       <Row>

@@ -1,9 +1,9 @@
-import React, { useContext } from 'react'
+import React, { useContext, useState } from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
-import { UserAvatar } from 'components/users/UserAvatar'
-import { Info } from 'react-feather'
 import { UserContext } from 'Contexts'
+import { PlayerCard } from 'components/lists/PlayerCard'
+import { Info } from 'react-feather'
 
 const LeaderboardList = styled.ol`
   font-size: var(--font-size-small);
@@ -12,16 +12,19 @@ const LeaderboardList = styled.ol`
   z-index: 1;
 `
 
-const PlayerLi = styled.li`
-`
-
-const PlayerRow = styled.label`
+const PlayerRow = styled.div`
   cursor: pointer;
-  display: flex;
   position: relative;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
   transform: translate3d(0, 0, 0);
   user-select: none;
 
+  label{
+    cursor: pointer;
+    flex-basis: 50%;
+  }
   input {
     display: none;
   }
@@ -66,7 +69,7 @@ const PlayerRow = styled.label`
     z-index: 2
   }
 
-  &:hover p span{
+  label:hover span{
     color: var(--color-text-primary);
     &::before{
       width: 8px;
@@ -75,102 +78,7 @@ const PlayerRow = styled.label`
   }
 `
 
-const PlayerStocks = styled.div`
-  color: var(--color-text-gray);
-  span {
-    color: var(--color-text-primary);
-    font-size: var(--font-size-small)
-  }
-`
-
-const PlayerReturn = styled.ul`
-  list-style-type: none;
-  padding: var(--space-200) 0;
-  margin: 0 0 var(--space-200) 0;
-  color: var(--color-text-gray);
-  border-bottom: 1px solid var(--color-light-gray);
-  li {
-    display: flex;
-    justify-content: space-between;
-  }
-  strong {
-    color: var(--color-text-primary)
-  }
-`
-
-const PlayerCard = ({ player, className }) => {
-  return (
-    <div className={className}>
-      <header>
-        <UserAvatar src={player.profile_pic} size='var(--space-700)' />
-        <h2>
-          {player.username}
-          <small>
-          ${player.portfolio_value.toLocaleString()}
-          </small>
-        </h2>
-      </header>
-      <PlayerReturn>
-        <li>
-          {'Simple Return '}
-          <strong>
-            {player.return_ratio.toFixed(2)}%
-          </strong>
-        </li>
-        <li>
-          {'Sharpe Ratio '}
-          <strong>
-            {player.sharpe_ratio.toFixed(4)}
-          </strong>
-        </li>
-      </PlayerReturn>
-      <PlayerStocks>
-        <p>
-          Stocks held:
-        </p>
-        <span>{player.stocks_held.join(', ')}</span>
-      </PlayerStocks>
-    </div>
-  )
-}
-
-const PlayerCardStyled = styled(PlayerCard)`
-  position: absolute;
-  background-color: white;
-  box-shadow: 0px 15px 27px rgba(17, 7, 60, 0.15);
-  width: 14rem;
-  padding: var(--space-200);
-  border-radius: 6px;
-  top: -999px;
-  left: 200%;
-  opacity: 0;
-  z-index: 2;
-  transition: top 0s .5s, left .3s .1s, opacity .3s .1s;
-  transform: translateY(-20%);
-  header {
-    display: flex;
-    align-items: center;
-  }
-  h2{
-    color: var(--color-text-primary);
-    font-weight: bold;
-    font-size: var(--font-size-normal);
-    margin-bottom: 0;
-    margin-left: var(--space-100);
-    small {
-      display: block;
-      color: var(--color-success);
-    }
-  }
-  div:hover > & {
-    top: 0;
-    left: 100%;
-    opacity: 1;
-    transition: left .3s .1s, opacity .3s .1s;
-  }
-`
-
-const PlayerTooltip = styled.div`
+const PlayerDetails = styled.div`
   position: relative;
   small {
     margin-right: var(--space-50);
@@ -180,42 +88,72 @@ const PlayerTooltip = styled.div`
   }
 `
 
+const PlayerLi = ({ player, checked, onSelect }) => {
+  const [showCard, setShowCard] = useState(false)
+
+  const handleShowCard = () => {
+    if (showCard) {
+      setShowCard(false)
+    } else {
+      setShowCard(true)
+    }
+  }
+  // console.log(player)
+  return (
+    <li>
+      <PlayerRow
+        style={{ '--player-color': player.color }}
+      >
+        <label>
+          <input
+            type='checkbox'
+            value={player.username}
+            color={player.color}
+            onInput={() => {
+              onSelect(player)
+            }}
+            defaultChecked={checked}
+          />
+          <p>
+            <span>
+              {player.username}
+            </span>
+          </p>
+        </label>
+        <PlayerDetails
+          onClick={handleShowCard}
+        >
+          <small>{player.return_ratio.toFixed(2)}%</small>
+          <Info
+            size={14}
+            color='var(--color-text-gray)'
+          />
+        </PlayerDetails>
+        <PlayerCard
+          show={showCard}
+          player={player}
+        />
+      </PlayerRow>
+    </li>
+  )
+}
+
 const Leaderboard = ({ data, onSelect }) => {
   const { user } = useContext(UserContext)
 
   if (data === undefined) return null
+
   const leaderboardBuilder = () => {
     return data.map((player, index) => {
       const isCurrentUser = player.username === user.username
+
       return (
-        <PlayerLi key={index}>
-          <PlayerRow
-            style={{ '--player-color': player.color }}
-          >
-            <input
-              type='checkbox'
-              value={player.username}
-              color={player.color}
-              onInput={() => {
-                onSelect(player)
-              }}
-              defaultChecked={isCurrentUser}
-            />
-            <p>
-              <span>
-                {player.username}
-              </span>
-            </p>
-            <PlayerTooltip>
-              <small>{player.return_ratio.toFixed(2)}%</small>
-              <Info
-                size={14}
-                color='var(--color-text-gray)'
-              />
-              <PlayerCardStyled player={player} />
-            </PlayerTooltip>
-          </PlayerRow>
-        </PlayerLi>
+        <PlayerLi
+          key={index}
+          player={player}
+          checked={isCurrentUser}
+          onSelect={onSelect}
+        />
       )
     })
   }
@@ -229,6 +167,12 @@ const Leaderboard = ({ data, onSelect }) => {
 
 Leaderboard.propTypes = {
   data: PropTypes.array,
+  onSelect: PropTypes.func
+}
+
+PlayerLi.propTypes = {
+  player: PropTypes.object,
+  checked: PropTypes.bool,
   onSelect: PropTypes.func
 }
 
