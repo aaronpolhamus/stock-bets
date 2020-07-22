@@ -12,8 +12,9 @@ import { UserMiniCard } from 'components/users/UserMiniCard'
 import { RadioButtons } from 'components/forms/Inputs'
 import { ReactMultiEmail, isEmail } from 'react-multi-email';
 import 'react-multi-email/style.css';
+import PropTypes from 'prop-types'
 
-const AddFriends = () => {
+const AddFriends = ({variant}) => {
   const [isLoading, setIsLoading] = useState(false)
   const [friendSuggestions, setFriendSuggestions] = useState([])
   const [friendInvitee, setFriendInvitee] = useState('')
@@ -70,13 +71,21 @@ const AddFriends = () => {
 
   return (
     <>
+
       <Button
         onClick={() => {
           setShowForm(true)
         }}
+        variant={variant}
       >
         Invite or add friends
-        <UserPlus />
+        <UserPlus 
+          color='var(--color-secondary)' 
+          size={18}
+          style={{
+            marginLeft: 'var(--space-100)'
+          }}
+        />
       </Button>
       <Modal
         show={showForm}
@@ -201,6 +210,10 @@ const AddFriends = () => {
       </Modal>
     </>
   )
+}
+
+AddFriends.propTypes = {
+  variant: PropTypes.string
 }
 
 export { AddFriends }

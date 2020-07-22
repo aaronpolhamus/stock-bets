@@ -7,8 +7,15 @@ import { optionBuilder } from 'components/functions/forms'
 import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import styled from 'styled-components'
+import { breakpoints } from 'design-tokens'
 
 const StyledTypeahead = styled(Typeahead)`
+  @media screen and (max-width: ${breakpoints.md}){
+    .rbt-input-multi {
+      min-height: calc(1.5em + 0.75rem + 2px);
+      height: auto;
+    }
+  }
   .rbt-input-wrapper {
     display: flex;
     flex-direction: row-reverse;

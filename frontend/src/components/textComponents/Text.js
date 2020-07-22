@@ -23,6 +23,7 @@ const SectionTitle = styled.h2`
   color: ${(props) => props.color || 'var(--color-text-primary)'};
   font-size: var(--font-size-normal);
   font-weight: bold;
+  margin-bottom: var(--space-200);
 `
 
 const TitlePage = styled.h1`
@@ -86,9 +87,17 @@ const TextDivider = styled.span`
   color: var(--color-primary-darken);
 `
 
+const Flex = styled.div`
+  display: flex;
+  & > * + *{
+    margin-left: var(--space-300);
+  }
+`
+
 export {
   AlignText,
   AuxiliarText,
+  Flex,
   FlexRow,
   FormFooter,
   Label,

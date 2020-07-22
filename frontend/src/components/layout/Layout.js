@@ -7,6 +7,7 @@ const StyledContainer = styled(Container)`
   padding: 0;
   @media screen and (max-width: ${breakpoints.md}){
     overflow: hidden;
+    padding-bottom: 10vh;
   }
 `
 
@@ -40,6 +41,7 @@ const Header = styled.header`
   display: flex;
   justify-content: space-between;
   align-items: ${(props) => props.alignItems || 'center'};
+  flex-wrap: wrap;
   margin-bottom: ${(props) => props.marginBottom || 0};
   h2{
     flex-shrink: 0;
@@ -92,6 +94,7 @@ const PageSection = styled.section`
 
 const ColContent = styled.div`
   padding: var(--space-300);
+  position: relative;
   @media screen and (min-width: ${breakpoints.md}){
     padding: var(--space-400);
   }
@@ -164,8 +167,8 @@ const SmallColumn = ({ children, ...props }) => (
   </SmallColumnWrapper>
 )
 
-const Layout = ({ children }) => (
-  <StyledContainer fluid>
+const Layout = ({ children, className }) => (
+  <StyledContainer fluid className={className}>
     <Row noGutters>{children}</Row>
   </StyledContainer>
 )

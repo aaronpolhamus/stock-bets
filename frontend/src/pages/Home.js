@@ -23,6 +23,8 @@ import {
   Users as IconUsers
 } from 'react-feather'
 import LogRocket from 'logrocket'
+import { AddFriends } from 'components/forms/AddFriends'
+import { breakpoints } from 'design-tokens'
 
 // Left in un-used for now: we'll almost certainly get to this later
 const handleLogout = async () => {
@@ -45,6 +47,27 @@ const StyledMiniCard = styled(UserMiniCard)`
     width: 100%;
     background-color: rgba(255, 255, 255, 0.1);
   }
+`
+const HomeFooter = styled.div`
+  width: 100%;
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: 0;
+  bottom: 0;
+  height: 13vh;
+  background: linear-gradient(0deg, #FFFFFF 52.22%, rgba(255, 255, 255, 0) 100%);
+  @media screen and (min-width: ${breakpoints.md}){
+    width: 70%;
+    bottom: var(--space-400);
+    justify-content: flex-end;
+    left: auto;
+    right: auto;
+    height: auto;
+    background: none;
+  }
+
 `
 
 const Home = () => {
@@ -158,7 +181,9 @@ const Home = () => {
     game_mode: 'single_player'
   })
   return (
-    <Layout>
+    <Layout
+      className='home-layout'
+    >
       <Modal show={data.username === null && showWelcome} onHide={() => {}} centered>
         <Modal.Body>
           <Form>
@@ -236,11 +261,11 @@ const Home = () => {
             </Button>
           </Breadcrumb>
           <Header>
-            <TitlePage>
+            <h1>
               Games
-            </TitlePage>
+            </h1>
             <div style={{ textAlign: 'right' }}>
-              <Button variant='primary' href='/new'>
+              <Button variant='success' href='/new'>
                 Make new game
               </Button>
             </div>
@@ -272,6 +297,10 @@ const Home = () => {
             />
           </Col>
         </Row>
+        <HomeFooter>
+          <AddFriends/>
+        </HomeFooter>
+
       </Column>
     </Layout>
   )
