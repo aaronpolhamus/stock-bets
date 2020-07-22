@@ -84,7 +84,7 @@ UserMiniCard.propTypes = {
   dataColor: PropTypes.string,
   dataFontSize: PropTypes.string,
   email: PropTypes.string,
-  info: PropTypes.string
+  info: PropTypes.array
 }
 
 export { UserMiniCard }
