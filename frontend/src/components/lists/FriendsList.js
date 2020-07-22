@@ -14,6 +14,9 @@ const FriendsListWrapper = styled.div`
 const FriendsListList = styled.ul`
   list-style-type: none;
   padding: 0;
+  max-height: 22rem;
+  overflow: auto;
+  scroll-behavior: smooth;
 `
 
 const FriendsListItem = styled.li`
