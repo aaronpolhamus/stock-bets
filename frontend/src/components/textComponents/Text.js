@@ -86,9 +86,17 @@ const TextDivider = styled.span`
   color: var(--color-primary-darken);
 `
 
+const Flex = styled.div`
+  display: flex;
+  & > * + *{
+    margin-left: var(--space-300);
+  }
+`
+
 export {
   AlignText,
   AuxiliarText,
+  Flex,
   FlexRow,
   FormFooter,
   Label,

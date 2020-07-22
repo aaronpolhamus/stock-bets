@@ -84,10 +84,8 @@ const JoinGame = (props) => {
 
   return (
     <Layout>
-      <Sidebar md={3}>
-        <GameSettings gameInfo={gameInfo} />
-      </Sidebar>
-      <Column md={9}>
+      <Sidebar md={2} size='sm'/>
+      <Column md={10}>
         <PageSection>
           <Breadcrumb>
             <a href='/'>
@@ -99,6 +97,9 @@ const JoinGame = (props) => {
             <h1>{gameInfo.title}</h1>
             {renderButtons(gameInfo.user_status)}
           </Header>
+        </PageSection>
+        <PageSection $marginBottomMd='var(--space-300)'>
+          <GameSettings gameInfo={gameInfo} />
         </PageSection>
         <PageSection>
           <PendingGameParticipants participants={gameParticipants} />
