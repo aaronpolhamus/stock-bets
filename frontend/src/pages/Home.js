@@ -239,11 +239,8 @@ const Home = () => {
               Games
             </TitlePage>
             <div style={{ textAlign: 'right' }}>
-              <Button variant='primary' href='/new/single_player'>
-                Play solo
-              </Button>
-              <Button variant='primary' href='/new/multi_player'>
-                Play against your friends
+              <Button variant='primary' href='/new'>
+                Make new game
               </Button>
             </div>
           </Header>
