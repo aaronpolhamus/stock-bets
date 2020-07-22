@@ -14,6 +14,9 @@ const FriendsListWrapper = styled.div`
 const FriendsListList = styled.ul`
   list-style-type: none;
   padding: 0;
+  max-height: 22rem;
+  overflow: auto;
+  scroll-behavior: smooth;
 `
 
 const FriendsListItem = styled.li`
@@ -108,8 +111,6 @@ const FriendsList = () => {
       <Header>
         <SectionTitle color='var(--color-primary)'>Friends</SectionTitle>
       </Header>
-      <AddFriends inviteType='internal' />
-      <AddFriends inviteType='external' />
       <br />
       {friendRequestsData.length > 0 &&
         friendRequestsBuilder(friendRequestsData)}
@@ -156,6 +157,7 @@ const FriendsList = () => {
           )}
         </Modal.Footer>
       </Modal>
+      <AddFriends inviteType='internal' />
     </FriendsListWrapper>
   )
 }
