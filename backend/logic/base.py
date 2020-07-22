@@ -89,7 +89,9 @@ def get_end_of_last_trading_day() -> float:
     return end_day
 
 
-def during_trading_day(posix_time=time.time()) -> bool:
+def during_trading_day(posix_time: float = None) -> bool:
+    if posix_time is None:
+        posix_time = time.time()
     ref_time = posix_to_datetime(posix_time).date()
     schedule = get_trading_calendar(ref_time, ref_time)
     if schedule.empty:
