@@ -128,7 +128,11 @@ class TestStockDataTasks(BaseTestCase):
 
         self.assertEqual(df.shape, (3, 4))
         if not during_trading_day():
-            eod = get_end_of_last_trading_day()
+            ref_day = time.time()
+            eod = get_end_of_last_trading_day(ref_day)
+            while eod > ref_day:
+                ref_day -= SECONDS_IN_A_DAY
+                eod = get_end_of_last_trading_day(ref_day)
             [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]
 
 

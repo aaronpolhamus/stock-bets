@@ -53,6 +53,7 @@ const Home = () => {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
   const [showStartGame, setShowStartGame] = useState(false)
+  const [pilotGameFinished, setPilotGameFinished] = useState(false)
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
   const { setUser } = useContext(UserContext)
@@ -63,7 +64,6 @@ const Home = () => {
         setLoading(true)
         const response = await api.post('/api/home')
         setData(response.data)
-        console.log(data)
       } catch (e) {
         console.log(e)
       } finally {
@@ -71,7 +71,7 @@ const Home = () => {
       }
     }
     getHomeData()
-  }, [showStartGame, setShowStartGame])
+  }, [pilotGameFinished])
   useEffect(() => {
     const kickOff = async () => {
       try {
@@ -81,6 +81,7 @@ const Home = () => {
           duration: 7,
           benchmark: 'return_ratio'
         })
+        setPilotGameFinished(true)
       } catch (e) {
         console.log(e)
       }

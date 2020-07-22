@@ -77,10 +77,12 @@ def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
     return utc_dt.astimezone(tz)
 
 
-def get_end_of_last_trading_day() -> float:
-    """Note, if we're in the middle of a trading day, this will return the end of the current day
+def get_end_of_last_trading_day(ref_day=None) -> float:
+    """Note, if any trading happens during this day this will return the end of the current day
     """
-    ref_day = posix_to_datetime(time.time()).date()
+    if ref_day is None:
+        ref_day = time.time()
+    ref_day = posix_to_datetime(ref_day).date()
     schedule = get_trading_calendar(ref_day, ref_day)
     while schedule.empty:
         ref_day -= timedelta(days=1)
@@ -564,7 +566,12 @@ def update_index_value(symbol):
         if max_time is None:
             max_time = 0
 
-    eod = get_end_of_last_trading_day()
+    ref_day = time.time()
+    eod = get_end_of_last_trading_day(ref_day)
+    while eod > ref_day:
+        ref_day -= SECONDS_IN_A_DAY
+        eod = get_end_of_last_trading_day(ref_day)
+
     if max_time < eod <= time.time():
         add_row("indexes", symbol=symbol, value=value, timestamp=eod)
         return True
