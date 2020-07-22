@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import api from 'services/api'
 
 const fetchGameData = async (gameId, apiEndpoint) => {
@@ -15,34 +14,4 @@ const apiPost = async (endpoint, data) => {
   return response.data
 }
 
-const usePostRequest = (url, payload) => {
-  const [data, setData] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState({})
-
-  const postUrl = async (url, payload) => {
-    try {
-      setLoading(true)
-      const response = await api.post(url, {
-        withCredentials: true,
-        data: payload
-      })
-      setData(response.data)
-    } catch (error) {
-      setError(error)
-    } finally {
-      setLoading(false)
-    }
-  }
-  useEffect(() => {
-    postUrl(url, payload)
-  }, [url, payload])
-
-  return {
-    data,
-    loading,
-    error
-  }
-}
-
-export { usePostRequest, apiPost, fetchGameData }
+export { apiPost, fetchGameData }

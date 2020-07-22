@@ -69,13 +69,11 @@ const GameCard = ({ gameId }) => {
   }
 
   const [gameData, setGameData] = useState({})
-
-  const getGameData = async () => {
-    const data = await fetchGameData(gameId, 'game_info')
-    setGameData(data)
-  }
-
   useEffect(() => {
+    const getGameData = async () => {
+      const data = await fetchGameData(gameId, 'game_info')
+      setGameData(data)
+    }
     getGameData()
   }, [])
 

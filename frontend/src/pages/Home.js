@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react'
 import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
-import { usePostRequest } from 'components/functions/api'
 import api from 'services/api'
 import styled from 'styled-components'
 import { UserContext } from 'Contexts'
@@ -52,8 +51,42 @@ const Home = () => {
   const [username, setUserName] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
-  const { data, loading } = usePostRequest('/api/home')
+  const [showWelcome, setShowWelcome] = useState(true)
+  const [showStartGame, setShowStartGame] = useState(false)
+  const [data, setData] = useState({})
+  const [loading, setLoading] = useState(true)
   const { setUser } = useContext(UserContext)
+
+  useEffect(() => {
+    const getHomeData = async () => {
+      try {
+        setLoading(true)
+        const response = await api.post('/api/home')
+        setData(response.data)
+        console.log(data)
+      } catch (e) {
+        console.log(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    getHomeData()
+  }, [showStartGame, setShowStartGame])
+  useEffect(() => {
+    const kickOff = async () => {
+      try {
+        await api.post('/api/create_game', {
+          title: 'pilot game -- beat the market this week',
+          game_mode: 'single_player',
+          duration: 7,
+          benchmark: 'return_ratio'
+        })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (showStartGame) kickOff()
+  }, [showStartGame, setShowStartGame])
 
   useEffect(() => {
     // identify user once they've hit the homepage
@@ -87,7 +120,8 @@ const Home = () => {
       await api.post('/api/set_username', {
         username: username
       })
-      window.location.reload()
+      setShowWelcome(false)
+      setShowStartGame(true)
     } catch (error) {
       window && window.alert(`Looks like '${username}' is taken, try another one`)
     }
@@ -122,10 +156,9 @@ const Home = () => {
     game_status: 'active',
     game_mode: 'single_player'
   })
-
   return (
     <Layout>
-      <Modal show={data.username === null} onHide={() => {}} centered>
+      <Modal show={data.username === null && showWelcome} onHide={() => {}} centered>
         <Modal.Body>
           <Form>
             <Form.Label>
@@ -143,6 +176,17 @@ const Home = () => {
               Submit
             </Button>
           </Form>
+        </Modal.Body>
+      </Modal>
+      <Modal show={showStartGame} centered>
+        <Modal.Body>
+          To get you introduced to the feature set we've setup a single player "pilot game" for you -- it lasts a week,
+          and you'll be playing against the major market indexes. To play against other stockbets users go ahead and add
+          a couple friends, or accept any outstanding invitations that you have. You can join or start multiplayer games
+          with people once they are in your network.
+          <Button onClick={() => setShowStartGame(false)} variant='primary'>
+            Start trading
+          </Button>
         </Modal.Body>
       </Modal>
       <Sidebar md={3}>
