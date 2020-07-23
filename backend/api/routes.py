@@ -14,6 +14,8 @@ from backend.logic.auth import (
     ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.games import (
+    add_user_via_platform,
+    add_user_via_email,
     leave_game,
     DEFAULT_INVITE_OPEN_WINDOW,
     respond_to_game_invite,
@@ -56,7 +58,9 @@ from backend.logic.friends import (
     get_friend_details,
     respond_to_friend_invite,
     invite_friend,
-    invite_friend_to_stockbets
+    email_platform_invitation,
+    email_game_invitation,
+    InvalidEmailError
 )
 from backend.logic.visuals import (
     format_time_for_response,
@@ -273,7 +277,8 @@ def create_game():
         game_settings.get("side_bets_perc"),
         game_settings.get("side_bets_period"),
         game_settings.get("invitees"),
-        game_settings.get("invite_window")
+        game_settings.get("invite_window"),
+        game_settings.get("email_invitees")
     )
     return make_response(GAME_CREATED_MSG, 200)
 
@@ -302,6 +307,34 @@ def api_leave_game():
     game_id = request.json.get("game_id")
     leave_game(game_id, user_id)
     return make_response(LEAVE_GAME_MESSAGE, 200)
+
+
+@routes.route("/api/email_game_invitations", methods=["POST"])
+@authenticate
+def email_game_invitations():
+    """Endpoint to add additional users to open game invite via email"""
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    invitee_emails = request.json.get("invitee_emails")
+    try:
+        for email in invitee_emails:
+            email_game_invitation(user_id, email, game_id)
+            add_user_via_email(game_id, email, user_id)
+    except InvalidEmailError as e:
+        make_response(f"{email} : {str(e)}", 400)
+    return make_response("fill this in", 200)
+
+
+@routes.route("/api/standard_game_invitations", methods=["POST"])
+@authenticate
+def standard_game_invitations():
+    """Endpoint to add additional users to open game endpoint from within the platform"""
+    game_id = request.json.get("game_id")
+    invited_usernames = request.json.get("invited_usernames")
+    for username in invited_usernames:
+        invited_id = get_user_id(username)
+        add_user_via_platform(game_id, invited_id)
+
 
 # --------------------------- #
 # Order management and prices #
@@ -435,7 +468,10 @@ def invite_friend_by_email():
     user_id = decode_token(request)
     emails = request.json.get('friend_emails')
     for email in emails:
-        invite_friend_to_stockbets(user_id, email)
+        try:
+            email_platform_invitation(user_id, email)
+        except InvalidEmailError as e:
+            make_response(f"{email} : {str(e)}", 400)
     return make_response(EMAIL_SENT_MESSAGE, 200)
 
 

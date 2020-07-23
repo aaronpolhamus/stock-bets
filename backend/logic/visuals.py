@@ -653,12 +653,12 @@ def update_order_details_table(game_id: int, user_id: int, order_id: int, action
     fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
     order_details = unpack_redis_json(fn)
     if action == "add":
-        order_record = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
+        order_record = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
         order_status_latest = query_to_dict(
-            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)[0]
         order_status = order_status_latest["status"]
         order_status_placed = query_to_dict("SELECT * FROM order_status WHERE order_id = %s AND status = 'pending'",
-                                            order_id)
+                                            order_id)[0]
         market_price, timestamp = fetch_price(order_record["symbol"])
         clear_price = order_status_latest["clear_price"]
         entry = {

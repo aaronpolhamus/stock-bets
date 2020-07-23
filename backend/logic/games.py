@@ -21,6 +21,9 @@ from backend.database.models import (
     BuyOrSell,
     TimeInForce)
 from backend.logic.base import (
+    standardize_email,
+    get_user_id_from_passed_email,
+    get_user_information,
     get_game_info,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
@@ -33,6 +36,7 @@ from backend.logic.base import (
     during_trading_day,
     get_active_balances
 )
+from backend.logic.friends import add_to_game_invites_if_registered
 from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_portfolio_details,
@@ -41,7 +45,6 @@ from backend.logic.visuals import (
 from funkybob import RandomNameGenerator
 
 TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
-
 
 # Default make game settings
 # --------------------------
@@ -111,9 +114,28 @@ def make_random_game_title():
 
 # Functions for starting, joining, and funding games, and expiring them when they're done
 # ---------------------------------------------------------------------------------------
+def create_game_invites_entries(game_id: int, creator_id: int, user_ids: List[int], opened_at: float):
+    for user_id in user_ids:
+        status = "invited"
+        if user_id == creator_id:
+            status = "joined"
+        add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
+
+
+def create_external_invite_entries(game_id: int, creator_id: int, emails: List[str], opened_at) -> List[int]:
+    matched_ids = []
+    for email in emails:
+        add_row("external_invites", requester_id=creator_id, invited_email=email, status="invited", timestamp=opened_at,
+                game_id=game_id, type="game")
+        user_id = get_user_id_from_passed_email(email)
+        if user_id:
+            add_row("game_invites", game_id=game_id, user_id=user_id, status="invited", timestamp=opened_at)
+            matched_ids.append(user_id)
+    return matched_ids
+
+
 def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
-             invitees=None, invite_window=None):
-    assert game_mode in ["single_player", "multi_player"]
+             invitees=None, invite_window=None, email_invitees=None):
     if invitees is None:
         invitees = []
 
@@ -133,21 +155,60 @@ def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, sid
                       invite_window=invite_window_posix)
 
     user_ids = [creator_id]
-    if game_mode == "multi_player":
-        user_ids += translate_usernames_to_ids(tuple(invitees))
-        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
-    else:
-        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
+    user_ids += translate_usernames_to_ids(tuple(invitees))
+    matched_ids = create_external_invite_entries(game_id, creator_id, email_invitees, opened_at)
+    if matched_ids:
+        user_ids = list(set(user_ids).union(set(matched_ids)))
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 
-    if game_mode == "single_player":
+    if game_mode == "multi_player":
+        add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
+    else:
         kick_off_game(game_id, user_ids, opened_at)
 
 
+def update_pending_game_status_for_new_user(game_id: int, user_id: int):
+    with engine.connect() as conn:
+        res = conn.execute("SELECT users FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                           game_id).fetchone()[0]
+        user_ids = json.loads(res)
+
+    if user_id not in user_ids:
+        user_ids += user_id
+        add_row("game_status", game_id=game_id, status="pending", users=user_id, timestamp=time.time())
+
+
+def add_user_via_email(game_id: int, requester_id: int, email: str):
+    """Add a user to an existing open game via email"""
+    add_row('external_invites', requester_id=requester_id, invited_email=email, status="invited", timestamp=time.time(),
+            game_id=game_id, type='game')
+
+    add_to_game_invites_if_registered(game_id, email)
+    invitee_id = get_user_id_from_passed_email(email)
+    update_pending_game_status_for_new_user(game_id, invitee_id)
+
+
+def add_user_via_platform(game_id: int, user_id: int):
+    add_row("game_invites", game_id=game_id, user_id=user_id, status="invited", timestamp=time.time())
+    update_pending_game_status_for_new_user(game_id, user_id)
+
+
+def update_external_invites(game_id, user_id, decision):
+    if decision == "accepted":
+        decision = "joined"
+    # check if the user has an external invite for this game. if they do, mark the external invite as accepted
+    user_email = get_user_information(user_id)["email"]
+    external_invite_entries = query_to_dict("""
+        SELECT * FROM external_invites WHERE
+        game_id = %s AND LOWER(REPLACE(invited_email, '.', ''));""", standardize_email(user_email))
+    for entry in external_invite_entries:
+        add_row("external_invites", requester_id=entry["request_id"], invited_email=user_email,
+                status=decision, timestamp=time.time(), game_id=game_id, type="game")
+
+
 def respond_to_game_invite(game_id, user_id, decision, response_time):
-    # respond_to_invite
-    assert decision in ["joined", "declined"]
     add_row("game_invites", game_id=game_id, user_id=user_id, status=decision, timestamp=response_time)
+    update_external_invites(game_id, user_id, decision)
     start_game_if_all_invites_responded(game_id)
 
 
@@ -209,14 +270,6 @@ def translate_usernames_to_ids(usernames: tuple):
     return [x[0] for x in res]
 
 
-def create_game_invites_entries(game_id, creator_id, user_ids, opened_at):
-    for user_id in user_ids:
-        status = "invited"
-        if user_id == creator_id:
-            status = "joined"
-        add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
-
-
 def get_invite_list_by_status(game_id, status="joined"):
     with engine.connect() as conn:
         result = conn.execute("""
@@ -246,13 +299,6 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
     refresh_game_data(game_id)
-
-
-def close_game(game_id, update_time):
-    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-    add_row("game_status", game_id=game_id, status="expired",
-            users=json.loads(game_status_entry["users"]), timestamp=update_time)
-    mark_invites_expired(game_id, ["invited", "joined"], update_time)
 
 
 def leave_game(game_id: int, user_id: int):
@@ -289,6 +335,13 @@ def mark_invites_expired(game_id, status_list: List[str], update_time):
         add_row("game_invites", game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
 
 
+def close_open_game(game_id, update_time):
+    game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)[0]
+    add_row("game_status", game_id=game_id, status="expired",
+            users=json.loads(game_status_entry["users"]), timestamp=update_time)
+    mark_invites_expired(game_id, ["invited", "joined"], update_time)
+
+
 def service_open_game(game_id):
     """Important note: This function doesn't have any logic to verify that it's operating on an open game. It should
     ONLY be applied to IDs passed in from get_open_game_invite_ids
@@ -299,7 +352,7 @@ def service_open_game(game_id):
         # If we have quorum, game is active and we can mark it as such on the game status table
         kick_off_game(game_id, accepted_invite_user_ids, update_time)
     else:
-        close_game(game_id, update_time)
+        close_open_game(game_id, update_time)
 
 
 def start_game_if_all_invites_responded(game_id):
@@ -387,6 +440,7 @@ def expire_finished_game(game_id):
                 SELECT users FROM game_status 
                 WHERE game_id = %s AND status = 'active';""", game_id).fetchone()[0]
         add_row("game_status", game_id=game_id, status="expired", users=json.loads(game_users), timestamp=current_time)
+
 
 # Functions for handling placing and execution of orders
 # ------------------------------------------------------
@@ -600,7 +654,7 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
 
 
 def get_order_ticket(order_id):
-    return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)
+    return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
 
 
 def process_order(order_id):

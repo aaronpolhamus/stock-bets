@@ -48,6 +48,19 @@ RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series o
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 
+
+def standardize_email(email: str):
+    return email.lower().replace(".", "")
+
+
+def get_user_id_from_passed_email(invited_user_email):
+    with engine.connect() as conn:
+        res = conn.execute("""SELECT id FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s""",
+                           standardize_email(invited_user_email)).fetchone()
+    if res:
+        return res[0]
+    return None
+
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
@@ -168,8 +181,7 @@ def get_game_start_time(game_id: int):
 
 
 def get_game_info(game_id: int):
-    sql_query = "SELECT * FROM games WHERE id = %s;"
-    info = query_to_dict(sql_query, game_id)
+    info = query_to_dict("SELECT * FROM games WHERE id = %s;", game_id)[0]
     info["creator_username"] = get_usernames([info["creator_id"]])[0]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
@@ -323,14 +335,13 @@ def get_all_game_usernames(game_id: int):
     user_ids = get_all_game_users_ids(game_id)
     return get_usernames(user_ids)
 
-
 # --------- #
 # User info #
 # --------- #
 
 
 def get_user_information(user_id):
-    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)
+    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
 
 
 def get_user_id(username: str):

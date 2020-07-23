@@ -5,16 +5,17 @@ import jwt
 import requests
 from backend.config import Config
 from backend.database.db import engine
-from backend.database.helpers import add_row
-from backend.logic.friends import invite_friend, get_if_invited_by_email
+from backend.database.helpers import add_row, query_to_dict
+from backend.logic.friends import invite_friend, get_requester_ids_from_email
+from backend.logic.base import standardize_email
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
 
 
-def standardize_email(email):
-    prefix, suffix = email.lower().split("@")
-    prefix = prefix.replace(".", "")
-    return "@".join([prefix, suffix])
+def get_user_data(uuid):
+    with engine.connect() as conn:
+        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", uuid).fetchone()
+    return user
 
 
 def check_against_invited_users(email):
@@ -83,27 +84,61 @@ def make_user_entry_from_facebook(oauth_data):
     return None, None, response.status_code
 
 
-def get_user_data(uuid):
-    with engine.connect() as conn:
-        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", uuid).fetchone()
-    return user
+def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
+    if new_profile_pic != old_profile_pic:
+        with engine.connect() as conn:
+            conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", new_profile_pic, user_id)
 
 
-def register_user(user_entry):
-    uuid = user_entry["resource_uuid"]
-    user = get_user_data(uuid)
-    if user is not None:
-        if user_entry["profile_pic"] != user["profile_pic"]:
-            with engine.connect() as conn:
-                conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", user["profile_pic"], user["id"])
-        return None
-    add_row("users", **user_entry)
-    user = get_user_data(uuid)
-    requester_friends_ids = get_if_invited_by_email(user['email'])
+def setup_new_user(inbound_entry: dict, uuid: str) -> int:
+    add_row("users", **inbound_entry)
+    db_entry = get_user_data(uuid)
+    requester_friends_ids = get_requester_ids_from_email(db_entry['email'])
     for requester_id in requester_friends_ids:
-        add_row("external_invites", requester_id=requester_id, invited_email=user["email"], status="accepted",
+        add_row("external_invites", requester_id=requester_id, invited_email=db_entry["email"], status="accepted",
                 timestamp=time.time())
-        invite_friend(requester_id, user["id"])
+        invite_friend(requester_id, db_entry["id"])
+    return db_entry
+
+
+def get_pending_external_game_invites(invited_email: str):
+    """Returns external game invites whose most recent status is 'invited'
+    """
+    return query_to_dict("""
+        SELECT *
+        FROM external_invites ex
+        INNER JOIN
+             (SELECT requester_id, game_id, MAX(id) as max_id
+               FROM external_invites
+               GROUP BY requester_id, game_id) grouped_ex
+        ON ex.id = grouped_ex.max_id
+        WHERE LOWER(REPLACE(ex.invited_email, '.', '')) = %s AND ex.status = 'invited';
+    """, standardize_email(invited_email))
+
+
+def register_user(inbound_entry):
+    uuid = inbound_entry["resource_uuid"]
+    db_entry = get_user_data(uuid)
+    returning_user = False
+    if db_entry is not None:
+        # make any necessary update to the user's profile data
+        update_profile_pic(db_entry["id"], inbound_entry["profile_pic"], db_entry["profile_pic"])
+        returning_user = True
+
+    # register first-time users
+    if not returning_user:
+        db_entry = setup_new_user(inbound_entry, uuid)
+
+    # for both classes of user, check if there are any outstanding game invites to create invitations for
+    external_game_invite_entries = get_pending_external_game_invites(inbound_entry["email"])
+    with engine.connect() as conn:
+        for entry in external_game_invite_entries:
+            # is this user already invited to a game?
+            result = conn.execute("SELECT * FROM game_invites WHERE game_id = %s AND user_id = %s", entry["game_id"],
+                                  db_entry["user_id"]).fetchone()
+            if not result:
+                add_row("game_invites", game_id=entry["game_id"], user_id=db_entry["user_id"], status="invited",
+                        timestamp=time.time())
 
 
 def make_session_token_from_uuid(resource_uuid):

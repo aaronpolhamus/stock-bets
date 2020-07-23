@@ -132,7 +132,7 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(open_game_ids, [1, 2, 5])
 
         service_open_game(game_id)
-        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s AND status = 'active'", game_id)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s AND status = 'active'", game_id)[0]
 
         self.assertEqual(json.loads(game_status_entry["users"]), [4, 3])
 
@@ -150,7 +150,7 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 2
         service_open_game(game_id)
-        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'", game_id)
+        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'", game_id)[0]
 
         self.assertEqual(json.loads(gs_entry["users"]), [1, 3])
 
@@ -748,3 +748,29 @@ class TestGameExpiration(BaseTestCase):
         self.assertEqual(finished_game["title"], "finished game to show")
         finished_game = [x for x in game_info if x["game_mode"] == "single_player"][0]
         self.assertEqual(finished_game["title"], "single player test")
+
+        # TODO: tests that if all users cancel the game is also moved to cancelled
+
+
+class TestExternalInviteFunctionality(BaseTestCase):
+
+    def test_external_invite_functionality(self):
+        pass
+
+        # don't allow reduntant external invite entries
+
+        # test that multiple user invites works
+
+        # build out invite to game functionality
+
+        # user invites another user to game who is on platform
+
+        # user invites another user to game who is not on the platform yet
+
+        # a user who is on the platform and receives an email invite joins a game
+
+        # a user who is not on the platform and receives an email invite joins a game
+
+        # test email standardization functions
+
+        # in a separate API test write logic for catching bad emails

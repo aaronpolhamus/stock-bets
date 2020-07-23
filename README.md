@@ -35,6 +35,19 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 * _CORS-related frontend errors_: Yeah, this is a thing. The current project setup should allow your Chrome browser to communicate with the API server on `localhost` after invoking `chrome://flags/#allow-insecure-localhost`, but holler if you're having an issue. Before you do, check the server api logs with `make api-logs` when sending your API requests. The current setup will return a CORS error if the server responds with `500`, even if the issue isn't CORS but an internal problem with  business logic raising an exception.
 * _Everything is broken, I can't figure out what's going on. Is this a docker issue?_: There's _probably_ a quicker fix, but if you think that tearing everything down and starting from scratch is the answer run `make destroy-everything` (you can run the individual commands inside if any don't execute successfully), restart your docker machine, and call `make up`. If that doesn't fix the problem, check in with a teammate. 
 
+### Notes on business logic
+The business logic modules stored in `/backend/logic` have an order that is important preserve. That logic is: 
+```
+- base.py
+- metrics.py
+- visuals.py
+- friends.py
+- games.py
+- auth.py
+```
+
+When asking yourself "where do I put this piece of business logic?" the answer is "as far downstream (i.e. close to the games module) as you can whie respecting this order". We've tried to further break down the logical modules with comments indicating what different branches of application logic they deal with, but there is room for constant improvement here. 
+
 ### Style
 #### Overall
 * Favor a functional over object-oriented style (although object-oriented is sometimes the best approach, especially for custom, complex data structures)

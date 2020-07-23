@@ -251,9 +251,9 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])[0]
         game_id = games_entry["id"]
-        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)[0]
 
         # games table tests
         for field in games_entry.values():  # make sure that we're test-writing all fields
@@ -579,7 +579,7 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
+        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
                      "start_time",
@@ -638,7 +638,8 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email", json={"friend_emails": [test_friend_email]},
+        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email",
+                                         json={"friend_emails": [test_friend_email]},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there

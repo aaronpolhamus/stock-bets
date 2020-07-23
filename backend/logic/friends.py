@@ -5,9 +5,21 @@ import pandas as pd
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
-from backend.logic.base import get_user_id, get_user_information
+from backend.logic.base import (
+    get_user_id,
+    get_user_information
+)
+from backend.logic.base import standardize_email, get_user_id_from_passed_email
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+
+
+# Exceptions
+# ----------
+class InvalidEmailError(Exception):
+
+    def __str__(self):
+        return "This appears to be an invalid email, or the sendgrid integration is broken"
 
 
 def get_user_details_from_ids(user_id_list: List[int], label: str = None):
@@ -142,7 +154,7 @@ def get_friend_invites_list(user_id: int):
     return [x["username"] for x in details]
 
 
-def get_if_invited_by_email(email):
+def get_requester_ids_from_email(email):
     with engine.connect() as conn:
         friend_ids = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
                                   email).fetchall()
@@ -173,30 +185,78 @@ def invite_friend(requester_id, invited_id):
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
-def invite_friend_to_stockbets(requester_id, invited_user_email: str):
-    """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
-    joined
-    """
-    email_response = send_email(requester_id, invited_user_email)
-    status = "invited"
-    if not email_response:
-        status = "error"
-    add_row("external_invites", requester_id=requester_id, invited_email=invited_user_email,
-            status=status, timestamp=time.time())
+def check_external_invite_exists(requester_id: int, invited_user_email: str, invite_type: str, game_id: int = None):
+    with engine.connect() as conn:
+        res = conn.execute("""
+            SELECT id FROM external_invites 
+            WHERE requester_id = %s AND LOWER(REPLACE(invited_email, '.', '')) = %s AND type = %s AND game_id = %s""",
+                           requester_id, standardize_email(invited_user_email), invite_type, game_id).fetchone()
+    if res:
+        return True
+    return False
 
 
-def send_email(requester_id, email):
+def add_to_game_invites_if_registered(game_id, invited_user_email):
+    # check and see if the externall invited user is registered in the DB. if they are, add them to the internal
+    # invite table as well
+    user_id = get_user_id_from_passed_email(invited_user_email)
+    if user_id:
+        add_row("game_invites", game_id=game_id, user_id=user_id, status="invited", timestamp=time.time())
+
+
+def send_invite_email(requester_id, email, email_type="platform"):
     user_information = get_user_information(requester_id)
     name = user_information['name']
-    message = Mail(
-        from_email=Config.EMAIL_SENDER,
-        to_emails=email,
-        subject=f"Your friend {name} invites you to join Stockbets!",
-        html_content=f"""<strong>Hey there your friend {name} has invited you to 
-                         join stockbets.io,  You can learn about the mechanics of
-                         investing / test different strategies in single player mode, or compete against your
-                         friends.  </strong>""")
+    if email_type == "platform":
+        message = Mail(
+            from_email=Config.EMAIL_SENDER,
+            to_emails=email,
+            subject=f"Your friend {name} invites you to join Stockbets!",
+            html_content=f"""<strong>Hey there your friend {name} has invited you to 
+                             join stockbets.io,  You can learn about the mechanics of
+                             investing / test different strategies in single player mode, or compete against your
+                             friends.  </strong>""")
+    if email_type == "game":
+        message = Mail(
+            from_email=Config.EMAIL_SENDER,
+            to_emails=email,
+            subject=f"Your friend {name} has invited you to a competition on stockbets.io",
+            html_content=f"""<strong>Hey there your friend {name} has invited you to 
+                             a multiplayer competition on stockbets.io. Compete to build the the
+                             most winning portfolio over the competition either for fun or real stakes. </strong>""")
+
     sg = SendGridAPIClient(Config.SENDGRID_API_KEY)
     response = sg.send(message)
     if response.status_code == 202:
         return True
+
+
+def email_platform_invitation(requester_id: int, invited_user_email: str):
+    """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
+    joined
+    """
+    if check_external_invite_exists(requester_id, invited_user_email, "platform"):
+        return
+    email_response = send_invite_email(requester_id, invited_user_email)
+    if not email_response:
+        raise InvalidEmailError
+
+    add_row('external_invites', requester_id=requester_id, invited_email=invited_user_email, status="invited",
+            timestamp=time.time(), game_id=None, type='platform')
+
+
+def email_game_invitation(requester_id: int, invited_user_email: str, game_id: int):
+    if check_external_invite_exists(requester_id, invited_user_email, "game", game_id):
+        return
+    email_response = send_invite_email(requester_id, invited_user_email, "game")
+    if not email_response:
+        raise InvalidEmailError
+
+    add_row('external_invites', requester_id=requester_id, invited_email=invited_user_email, status="invited",
+            timestamp=time.time(), game_id=game_id, type='game')
+
+    if not check_external_invite_exists(requester_id, invited_user_email, "platform"):
+        add_row('external_invites', requester_id=requester_id, invited_email=invited_user_email, status="invited",
+                timestamp=time.time(), game_id=None, type='platform')
+
+        add_to_game_invites_if_registered(game_id, invited_user_email)
