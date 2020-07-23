@@ -43,11 +43,10 @@ def verify_google_oauth(token_id):
     return requests.post(Config.GOOGLE_VALIDATION_URL, data={"id_token": token_id})
 
 
-def make_user_entry_from_google(oauth_data):
-    token_id = oauth_data.get("tokenId")
-    response = verify_google_oauth(token_id)
+def make_user_entry_from_google(tokenId, googleId):
+    response = verify_google_oauth(tokenId)
     if response.status_code == 200:
-        resource_uuid = oauth_data.get("googleId")
+        resource_uuid = googleId
         decoded_json = response.json()
         user_entry = dict(
             name=decoded_json["given_name"],
@@ -58,7 +57,7 @@ def make_user_entry_from_google(oauth_data):
             provider="google",
             resource_uuid=resource_uuid
         )
-        return user_entry, resource_uuid, 200
+        return user_entry, resource_uuid, response.status_code
     return None, None, response.status_code
 
 
@@ -66,21 +65,19 @@ def verify_facebook_oauth(access_token):
     return requests.post(Config.FACEBOOK_VALIDATION_URL, data={"access_token": access_token})
 
 
-def make_user_entry_from_facebook(oauth_data):
-    access_token = oauth_data.get("accessToken")
-    response = verify_facebook_oauth(access_token)
+def make_user_entry_from_facebook(accessToken, userID, name, email, picture):
+    response = verify_facebook_oauth(accessToken)
     if response.status_code == 200:
-        resource_uuid = oauth_data.get("userID")
         user_entry = dict(
-            name=oauth_data["name"],
-            email=oauth_data["email"],
-            profile_pic=oauth_data["picture"]["data"]["url"],
+            name=name,
+            email=email,
+            profile_pic=picture,
             username=None,
             created_at=time.time(),
             provider="facebook",
-            resource_uuid=resource_uuid
+            resource_uuid=userID
         )
-        return user_entry, resource_uuid, 200
+        return user_entry, userID, 200
     return None, None, response.status_code
 
 

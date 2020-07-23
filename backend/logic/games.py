@@ -134,8 +134,9 @@ def create_external_invite_entries(game_id: int, creator_id: int, emails: List[s
     return matched_ids
 
 
-def add_game(creator_id, title, game_mode, duration, benchmark, buy_in=None, side_bets_perc=None, side_bets_period=None,
-             invitees=None, invite_window=None, email_invitees=None):
+def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, buy_in: float = None,
+             side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None, invite_window: int = None,
+             email_invitees: List[str] = None):
     if invitees is None:
         invitees = []
 
@@ -193,7 +194,7 @@ def add_user_via_platform(game_id: int, user_id: int):
     update_pending_game_status_for_new_user(game_id, user_id)
 
 
-def update_external_invites(game_id, user_id, decision):
+def update_external_invites(game_id: int, user_id: int, decision: str):
     if decision == "accepted":
         decision = "joined"
     # check if the user has an external invite for this game. if they do, mark the external invite as accepted
@@ -270,7 +271,7 @@ def translate_usernames_to_ids(usernames: tuple):
     return [x[0] for x in res]
 
 
-def get_invite_list_by_status(game_id, status="joined"):
+def get_invite_list_by_status(game_id: int, status: str = "joined"):
     with engine.connect() as conn:
         result = conn.execute("""
             SELECT gi.user_id 
@@ -283,6 +284,24 @@ def get_invite_list_by_status(game_id, status="joined"):
               gi.id = grouped_gi.max_id
             WHERE 
               gi.game_id = %s AND 
+              status = %s;""", game_id, status).fetchall()
+    return [x[0] for x in result]
+
+
+def get_external_invite_list_by_status(game_id: int, status: str = "invited"):
+    with engine.connect() as conn:
+        result = conn.execute("""
+            SELECT ex.invited_email 
+            FROM external_invites ex
+            INNER JOIN
+              (SELECT game_id, invited_email, max(id) as max_id
+                FROM external_invites
+                WHERE type = 'game'
+                GROUP BY game_id, invited_email) grouped_ex
+            ON
+              ex.id = grouped_ex.max_id
+            WHERE 
+              ex.game_id = %s AND 
               status = %s;""", game_id, status).fetchall()
     return [x[0] for x in result]
 
@@ -358,7 +377,9 @@ def service_open_game(game_id):
 def start_game_if_all_invites_responded(game_id):
     accepted_invite_user_ids = get_invite_list_by_status(game_id)
     pending_invite_ids = get_invite_list_by_status(game_id, "invited")
-    if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START and len(pending_invite_ids) == 0:
+    pending_email_invites = get_external_invite_list_by_status(game_id, "invited")
+    all_pending_invites = pending_invite_ids + pending_email_invites
+    if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START and len(all_pending_invites) == 0:
         kick_off_game(game_id, accepted_invite_user_ids, time.time())
 
 

@@ -1,7 +1,11 @@
-from functools import wraps
 import time
+from functools import wraps
 
 import jwt
+from backend.bi.report_logic import (
+    GAMES_PER_USER_PREFIX,
+    ORDERS_PER_ACTIVE_USER_PREFIX
+)
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
@@ -12,6 +16,23 @@ from backend.logic.auth import (
     register_username_with_token,
     register_user,
     ADMIN_USERS, check_against_invited_users
+)
+from backend.logic.base import (
+    get_game_info,
+    get_user_id,
+    get_pending_buy_order_value,
+    fetch_price,
+    get_user_information
+)
+from backend.logic.friends import (
+    get_friend_invites_list,
+    suggest_friends,
+    get_friend_details,
+    respond_to_friend_invite,
+    invite_friend,
+    email_platform_invitation,
+    email_game_invitation,
+    InvalidEmailError
 )
 from backend.logic.games import (
     add_user_via_platform,
@@ -45,23 +66,6 @@ from backend.logic.games import (
     QUANTITY_DEFAULT,
     QUANTITY_OPTIONS
 )
-from backend.logic.base import (
-    get_game_info,
-    get_user_id,
-    get_pending_buy_order_value,
-    fetch_price,
-    get_user_information
-)
-from backend.logic.friends import (
-    get_friend_invites_list,
-    suggest_friends,
-    get_friend_details,
-    respond_to_friend_invite,
-    invite_friend,
-    email_platform_invitation,
-    email_game_invitation,
-    InvalidEmailError
-)
 from backend.logic.visuals import (
     format_time_for_response,
     update_order_details_table,
@@ -79,10 +83,6 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_update_game_data,
     async_calculate_key_metrics
-)
-from backend.bi.report_logic import (
-    GAMES_PER_USER_PREFIX,
-    ORDERS_PER_ACTIVE_USER_PREFIX
 )
 from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
@@ -140,6 +140,7 @@ def admin(f):
         if user_email not in ADMIN_USERS:
             return make_response(ADMIN_BLOCK_MSG, 401)
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -155,10 +156,15 @@ def login():
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
     if provider == "google":
-        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data)
+        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data["tokenId"],
+                                                                             oauth_data["googleId"])
 
     if provider == "facebook":
-        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data)
+        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data["accessToken"],
+                                                                               oauth_data["userID"],
+                                                                               oauth_data["name"],
+                                                                               oauth_data["email"],
+                                                                               oauth_data["picture"]["data"]["url"])
 
     if provider == "twitter":
         pass
@@ -206,6 +212,7 @@ def set_username():
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
+
 # --------- #
 # User info #
 # --------- #
@@ -227,6 +234,7 @@ def home():
     user_info = get_user_information(user_id)
     user_info["game_info"] = get_game_info_for_user(user_id)
     return jsonify(user_info)
+
 
 # ---------------- #
 # Games management #
@@ -330,10 +338,11 @@ def email_game_invitations():
 def standard_game_invitations():
     """Endpoint to add additional users to open game endpoint from within the platform"""
     game_id = request.json.get("game_id")
-    invited_usernames = request.json.get("invited_usernames")
+    invited_usernames = request.json.get("invitee_usernames")
     for username in invited_usernames:
         invited_id = get_user_id(username)
         add_user_via_platform(game_id, invited_id)
+    return make_response("fill this in", 200)
 
 
 # --------------------------- #
@@ -447,6 +456,7 @@ def api_suggest_symbols():
     buy_or_sell = request.json["buy_or_sell"]
     return jsonify(suggest_symbols(game_id, user_id, text, buy_or_sell))
 
+
 # ------- #
 # Friends #
 # ------- #
@@ -508,6 +518,7 @@ def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
     return jsonify(suggest_friends(user_id, text))
+
 
 # ------- #
 # Visuals #
@@ -574,6 +585,7 @@ def get_payouts_table():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
 
+
 # ----- #
 # Stats #
 # ----- #
@@ -595,6 +607,7 @@ def get_cash_balances():
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+
 
 # ----- #
 # Admin #
