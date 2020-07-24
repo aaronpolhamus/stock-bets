@@ -15,10 +15,12 @@ import { ChevronsDown } from 'react-feather'
 
 const StyledOrderForm = styled(Form)`
   @media screen and (max-width: ${breakpoints.md}){
+    overflow: auto;
     background-color: var(--color-secondary);
     bottom: 0;
     left: 0;
     height: 90vh;
+    height: -webkit-fill-available;
     padding: 0 var(--space-400) var(--space-600);
     position: fixed;
     transition: transform .3s, box-shadow .5s;
@@ -38,19 +40,18 @@ const StyledOrderForm = styled(Form)`
 `
 
 const CollapsibleClose = styled.div`
-  align-items: center;
+  align-items: flex-end;
   appearance: none;
-  background-color: var(--color-primary);
-  border-radius: 50%;
   border: none;
   display: none;
-  height: 7vh;
+  height: 2.5rem;
   justify-content: center;
-  position: absolute;
-  right: var(--space-50);
   text-align: right;
-  top: -8vh;
-  width: 7vh;
+  width: 100%;
+  margin: auto;
+  z-index: 1;
+  position: relative;
+  margin-bottom: -1rem;
 
   @media screen and (max-width: ${breakpoints.md}){
     transition: max-height .2s ease-out;
@@ -59,8 +60,11 @@ const CollapsibleClose = styled.div`
 `
 const OrderFormHeader = styled(Form.Group)`
   @media screen and (max-width: ${breakpoints.md}){
-
-    height: var(--space-900);
+    position: sticky;
+    top: 0;
+    text-align: right;
+    background-color: var(--color-secondary);
+    min-height: var(--space-900);
     margin-bottom: var(--space-200);
     text-align: center;
     .form-check {
@@ -217,18 +221,18 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
       ref={formRef}
       $show={showCollapsible}
     >
-      <CollapsibleClose
-        $show={showCollapsible}
-        onClick={() => {
-          setShowCollapsible(false)
-        }}
-      >
-        <ChevronsDown
-          size={24}
-          color='var(--color-secondary)'
-        />
-      </CollapsibleClose>
       <OrderFormHeader>
+        <CollapsibleClose
+          $show={showCollapsible}
+          onClick={() => {
+            setShowCollapsible(false)
+          }}
+        >
+          <ChevronsDown
+            size={24}
+            color='var(--color-text-gray)'
+          />
+        </CollapsibleClose>
         <TabbedRadioButtons
           mode='tabbed'
           name='buy_or_sell'
