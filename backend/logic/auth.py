@@ -12,12 +12,6 @@ from backend.logic.base import standardize_email
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
 
 
-def get_user_data(uuid):
-    with engine.connect() as conn:
-        user = conn.execute("SELECT * FROM users WHERE resource_uuid = %s", uuid).fetchone()
-    return user
-
-
 def check_against_invited_users(email):
     with engine.connect() as conn:
         count, = conn.execute("SELECT count(*) FROM external_invites WHERE invited_email = %s", email).fetchone()
@@ -89,7 +83,7 @@ def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
 
 def setup_new_user(inbound_entry: dict, uuid: str) -> int:
     add_row("users", **inbound_entry)
-    db_entry = get_user_data(uuid)
+    db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)[0]
     requester_friends_ids = get_requester_ids_from_email(db_entry['email'])
     for requester_id in requester_friends_ids:
         add_row("external_invites", requester_id=requester_id, invited_email=db_entry["email"], status="accepted",
@@ -115,9 +109,9 @@ def get_pending_external_game_invites(invited_email: str):
 
 def register_user(inbound_entry):
     uuid = inbound_entry["resource_uuid"]
-    db_entry = get_user_data(uuid)
+    db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)
     returning_user = False
-    if db_entry is not None:
+    if db_entry:
         # make any necessary update to the user's profile data
         update_profile_pic(db_entry["id"], inbound_entry["profile_pic"], db_entry["profile_pic"])
         returning_user = True
@@ -132,9 +126,9 @@ def register_user(inbound_entry):
         for entry in external_game_invite_entries:
             # is this user already invited to a game?
             result = conn.execute("SELECT * FROM game_invites WHERE game_id = %s AND user_id = %s", entry["game_id"],
-                                  db_entry["user_id"]).fetchone()
+                                  db_entry["id"]).fetchone()
             if not result:
-                add_row("game_invites", game_id=entry["game_id"], user_id=db_entry["user_id"], status="invited",
+                add_row("game_invites", game_id=entry["game_id"], user_id=db_entry["id"], status="invited",
                         timestamp=time.time())
 
 

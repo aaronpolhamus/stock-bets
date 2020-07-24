@@ -6,10 +6,10 @@ from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    get_user_id,
+    get_user_ids,
     get_user_information
 )
-from backend.logic.base import standardize_email, get_user_id_from_passed_email
+from backend.logic.base import standardize_email, get_user_ids_from_passed_emails
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
@@ -169,7 +169,7 @@ def get_friend_details(user_id: int):
 
 
 def respond_to_friend_invite(requester_username, invited_id, decision):
-    requester_id = get_user_id(requester_username)
+    requester_id = get_user_ids([requester_username])[0]
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
 
 
@@ -185,23 +185,34 @@ def invite_friend(requester_id, invited_id):
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status="invited", timestamp=time.time())
 
 
-def check_external_invite_exists(requester_id: int, invited_user_email: str, invite_type: str, game_id: int = None):
+def check_external_game_invite(requester_id: int, invited_user_email: str, game_id: int = None):
     with engine.connect() as conn:
         res = conn.execute("""
             SELECT id FROM external_invites 
-            WHERE requester_id = %s AND LOWER(REPLACE(invited_email, '.', '')) = %s AND type = %s AND game_id = %s""",
-                           requester_id, standardize_email(invited_user_email), invite_type, game_id).fetchone()
+            WHERE requester_id = %s AND LOWER(REPLACE(invited_email, '.', '')) = %s AND game_id = %s AND type='game'""",
+                           requester_id, standardize_email(invited_user_email), game_id).fetchone()
+    if res:
+        return True
+    return False
+
+
+def check_platform_invite_exists(requester_id: int, invited_user_email: str):
+    with engine.connect() as conn:
+        res = conn.execute("""
+            SELECT id FROM external_invites 
+            WHERE requester_id = %s AND LOWER(REPLACE(invited_email, '.', '')) = %s AND type = 'platform';""",
+                           requester_id, standardize_email(invited_user_email)).fetchone()
     if res:
         return True
     return False
 
 
 def add_to_game_invites_if_registered(game_id, invited_user_email):
-    # check and see if the externall invited user is registered in the DB. if they are, add them to the internal
+    # check and see if the externally invited user is registered in the DB. if they are, add them to the internal
     # invite table as well
-    user_id = get_user_id_from_passed_email(invited_user_email)
+    user_id = get_user_ids_from_passed_emails([invited_user_email])
     if user_id:
-        add_row("game_invites", game_id=game_id, user_id=user_id, status="invited", timestamp=time.time())
+        add_row("game_invites", game_id=game_id, user_id=user_id[0], status="invited", timestamp=time.time())
 
 
 def send_invite_email(requester_id, email, email_type="platform"):
@@ -235,7 +246,7 @@ def email_platform_invitation(requester_id: int, invited_user_email: str):
     """Sends an email to your friend to joins stockbets, adds a friend request to the username once the person has
     joined
     """
-    if check_external_invite_exists(requester_id, invited_user_email, "platform"):
+    if check_platform_invite_exists(requester_id, invited_user_email):
         return
     email_response = send_invite_email(requester_id, invited_user_email)
     if not email_response:
@@ -246,7 +257,7 @@ def email_platform_invitation(requester_id: int, invited_user_email: str):
 
 
 def email_game_invitation(requester_id: int, invited_user_email: str, game_id: int):
-    if check_external_invite_exists(requester_id, invited_user_email, "game", game_id):
+    if check_external_game_invite(requester_id, invited_user_email, game_id):
         return
     email_response = send_invite_email(requester_id, invited_user_email, "game")
     if not email_response:
@@ -255,8 +266,8 @@ def email_game_invitation(requester_id: int, invited_user_email: str, game_id: i
     add_row('external_invites', requester_id=requester_id, invited_email=invited_user_email, status="invited",
             timestamp=time.time(), game_id=game_id, type='game')
 
-    if not check_external_invite_exists(requester_id, invited_user_email, "platform"):
+    # if a user isn't on the platform and doesn't have an invite, do there here as well
+    platform_id = get_user_ids_from_passed_emails([invited_user_email])
+    if not check_platform_invite_exists(requester_id, invited_user_email) and not platform_id:
         add_row('external_invites', requester_id=requester_id, invited_email=invited_user_email, status="invited",
                 timestamp=time.time(), game_id=None, type='platform')
-
-        add_to_game_invites_if_registered(game_id, invited_user_email)

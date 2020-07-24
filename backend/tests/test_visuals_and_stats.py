@@ -18,7 +18,7 @@ from backend.logic.base import (
     make_date_offset,
     get_all_game_users_ids,
     get_game_info,
-    get_user_id,
+    get_user_ids,
 )
 from backend.logic.games import (
     add_game,
@@ -72,7 +72,7 @@ class TestGameKickoff(BaseTestCase):
     def _start_game_runner(self, start_time, game_id):
         user_statuses = get_user_invite_statuses_for_pending_game(game_id)
         pending_user_usernames = [x["username"] for x in user_statuses if x["status"] == "invited"]
-        pending_user_ids = [get_user_id(x) for x in pending_user_usernames]
+        pending_user_ids = get_user_ids(pending_user_usernames)
 
         # get all user IDs for the game. For this test case everyone is going ot accept
         with self.engine.connect() as conn:

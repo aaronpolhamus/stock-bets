@@ -16,7 +16,7 @@ from backend.logic.base import (
 )
 from backend.logic.games import (
     respond_to_game_invite,
-    get_open_game_invite_ids,
+    get_open_game_ids_past_window,
     service_open_game,
     process_order,
     add_game,
@@ -213,7 +213,7 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        open_game_ids = get_open_game_invite_ids()
+        open_game_ids = get_open_game_ids_past_window()
         for _id in open_game_ids:
             service_open_game(_id)
 
@@ -238,7 +238,7 @@ class TestGameIntegration(BaseTestCase):
         with patch("backend.logic.games.time") as mock_time:
             # users have joined, and we're past the invite window
             mock_time.time.return_value = game_start_time
-            open_game_ids = get_open_game_invite_ids()
+            open_game_ids = get_open_game_ids_past_window()
             for _id in open_game_ids:
                 service_open_game(_id)
 

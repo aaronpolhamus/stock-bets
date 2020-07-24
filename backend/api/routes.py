@@ -18,8 +18,8 @@ from backend.logic.auth import (
     ADMIN_USERS, check_against_invited_users
 )
 from backend.logic.base import (
+    get_user_ids,
     get_game_info,
-    get_user_id,
     get_pending_buy_order_value,
     fetch_price,
     get_user_information
@@ -339,8 +339,8 @@ def standard_game_invitations():
     """Endpoint to add additional users to open game endpoint from within the platform"""
     game_id = request.json.get("game_id")
     invited_usernames = request.json.get("invitee_usernames")
-    for username in invited_usernames:
-        invited_id = get_user_id(username)
+    invited_ids = get_user_ids(invited_usernames)
+    for invited_id in invited_ids:
         add_user_via_platform(game_id, invited_id)
     return make_response("fill this in", 200)
 
@@ -467,7 +467,7 @@ def api_suggest_symbols():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    invited_id = get_user_id(invited_username)
+    invited_id = get_user_ids([invited_username])[0]
     invite_friend(user_id, invited_id)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
 
@@ -535,7 +535,7 @@ def balances_chart():
     game_id = request.json.get("game_id")
     username = request.json.get("username")
     if username:
-        user_id = get_user_id(username)
+        user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
@@ -549,7 +549,7 @@ def order_performance_chart():
     game_id = request.json.get("game_id")
     username = request.json.get("username")
     if username:
-        user_id = get_user_id(username)
+        user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))

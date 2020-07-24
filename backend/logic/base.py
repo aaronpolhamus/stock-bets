@@ -53,13 +53,15 @@ def standardize_email(email: str):
     return email.lower().replace(".", "")
 
 
-def get_user_id_from_passed_email(invited_user_email):
+def get_user_ids_from_passed_emails(invited_user_emails):
+    standardized_emails = [standardize_email(x) for x in invited_user_emails]
     with engine.connect() as conn:
-        res = conn.execute("""SELECT id FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s""",
-                           standardize_email(invited_user_email)).fetchone()
+        res = conn.execute(f"""
+            SELECT id FROM users WHERE LOWER(REPLACE(email, '.', '')) 
+            IN ({','.join(['%s'] * len(standardized_emails))})""", standardized_emails).fetchall()
     if res:
-        return res[0]
-    return None
+        return [x[0] for x in res]
+    return []
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -344,12 +346,12 @@ def get_user_information(user_id):
     return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
 
 
-def get_user_id(username: str):
+def get_user_ids(usernames: List[str]) -> List[int]:
     with engine.connect() as conn:
-        user_id = conn.execute("""
-        SELECT id FROM users WHERE username = %s
-        """, username).fetchone()[0]
-    return user_id
+        res = conn.execute(f"""
+            SELECT id FROM users WHERE username in ({",".join(['%s'] * len(usernames))});
+        """, usernames).fetchall()
+    return [x[0] for x in res]
 
 
 def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
