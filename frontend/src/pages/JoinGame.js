@@ -79,7 +79,6 @@ const JoinGame = () => {
         )
     }
   }
-
   return (
     <Layout>
       <Sidebar md={2} size='sm' />
