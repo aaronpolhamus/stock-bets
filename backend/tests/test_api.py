@@ -378,8 +378,8 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(set([x["username"] for x in res.json()]), {"cheetos", "toofast", "miguel", "murcitdev"})
-        self.assertEqual(set([x["status"] for x in res.json()]), {"joined", "invited", "invited", "invited"})
+        self.assertEqual(set([x["username"] for x in res.json()["platform_invites"]]), {"cheetos", "toofast", "miguel", "murcitdev"})
+        self.assertEqual(set([x["status"] for x in res.json()["platform_invites"]]), {"joined", "invited", "invited", "invited"})
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
                                          json={"game_id": game_id, "decision": "joined"},
@@ -389,7 +389,7 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        for user_entry in res.json():
+        for user_entry in res.json()["platform_invites"]:
             if user_entry["username"] in ["murcitdev", "cheetos"]:
                 self.assertEqual(user_entry["status"], "joined")
             else:
@@ -583,8 +583,7 @@ class TestGetGameStats(BaseTestCase):
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
-                     "start_time",
-                     "benchmark_formatted", "leaderboard"]:
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host"]:
                 continue
             self.assertEqual(db_dict[k], v)
 

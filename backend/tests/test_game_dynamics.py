@@ -977,7 +977,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
             updated_game_invite_count = conn.execute("""
                 SELECT COUNT(*) FROM game_invites 
                 WHERE game_id IN (%s, %s);""", game_1_id, game_2_id).fetchone()[0]
-        self.assertEqual(updated_game_invite_count, 14)
+        self.assertEqual(updated_game_invite_count, 15)
 
         # quick patch to simulate that this user has successfuly picked a username
         with self.engine.connect() as conn:

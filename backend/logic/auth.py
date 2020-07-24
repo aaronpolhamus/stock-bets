@@ -87,7 +87,7 @@ def setup_new_user(inbound_entry: dict, uuid: str) -> int:
     requester_friends_ids = get_requester_ids_from_email(db_entry['email'])
     for requester_id in requester_friends_ids:
         add_row("external_invites", requester_id=requester_id, invited_email=db_entry["email"], status="accepted",
-                timestamp=time.time())
+                timestamp=time.time(), type="platform")
         invite_friend(requester_id, db_entry["id"])
     return db_entry
 
@@ -96,15 +96,16 @@ def get_pending_external_game_invites(invited_email: str):
     """Returns external game invites whose most recent status is 'invited'
     """
     return query_to_dict("""
-        SELECT *
-        FROM external_invites ex
-        INNER JOIN
-             (SELECT requester_id, game_id, MAX(id) as max_id
-               FROM external_invites
-               GROUP BY requester_id, game_id) grouped_ex
-        ON ex.id = grouped_ex.max_id
-        WHERE LOWER(REPLACE(ex.invited_email, '.', '')) = %s AND ex.status = 'invited';
-    """, standardize_email(invited_email))
+            SELECT *
+            FROM external_invites ex
+            INNER JOIN
+                 (SELECT LOWER(REPLACE(invited_email, '.', '')) as formatted_email, MAX(id) as max_id
+                   FROM external_invites
+                   WHERE type = 'game'
+                   GROUP BY requester_id, type, game_id, formatted_email) grouped_ex
+            ON ex.id = grouped_ex.max_id
+            WHERE LOWER(REPLACE(ex.invited_email, '.', '')) = %s AND ex.status = 'invited';    
+""", standardize_email(invited_email))
 
 
 def register_user(inbound_entry):
@@ -122,9 +123,9 @@ def register_user(inbound_entry):
         db_entry = setup_new_user(inbound_entry, uuid)
 
     # for both classes of user, check if there are any outstanding game invites to create invitations for
-    external_game_invite_entries = get_pending_external_game_invites(inbound_entry["email"])
+    external_game_invites = get_pending_external_game_invites(inbound_entry["email"])
     with engine.connect() as conn:
-        for entry in external_game_invite_entries:
+        for entry in external_game_invites:
             # is this user already invited to a game?
             result = conn.execute("SELECT * FROM game_invites WHERE game_id = %s AND user_id = %s", entry["game_id"],
                                   db_entry["id"]).fetchone()
