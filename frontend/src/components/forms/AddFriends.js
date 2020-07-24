@@ -214,22 +214,22 @@ AddFriends.propTypes = {
 }
 
 const StyledTypeahead = styled(Typeahead)`
-  @media screen and (max-width: ${breakpoints.md}){
-    .rbt-input-multi {
-      min-height: calc(1.5em + 0.75rem + 2px);
-      height: auto;
-    }
-  }
+  
   .rbt-input-wrapper {
     display: flex;
-    flex-direction: row-reverse;
-    flex-wrap: wrap-reverse;
   }
   .rbt-input-wrapper div {
-    flex: 1 0 100% !important;
+    
   }
   .rbt-input-wrapper [option] {
-    margin-top: var(--space-300);
+    font-size: var(--font-size-small);
+    background-color: var(--color-light-gray);
+    padding: 0 var(--space-100);
+    border-radius: var(--space-50);
+    margin-right: var(--space-50);
+    button{
+      margin-right: var(--space-50);
+    }
   }
 `
 

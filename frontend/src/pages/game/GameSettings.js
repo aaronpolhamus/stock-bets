@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { Button, Row, Col, Form, Modal } from 'react-bootstrap'
-import { SectionTitle, Label, Flex } from 'components/textComponents/Text'
+import { SectionTitle, Label, Flex, AlignText } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import { MultiInvite } from 'components/forms/AddFriends'
 import api from 'services/api'
+import { UserPlus } from 'react-feather'
 
 const StyledDd = styled.dd`
   margin-bottom: var(--space-300);
@@ -22,6 +23,8 @@ const GameSettings = ({ gameInfo }) => {
   const [availableInvitees, setAvailableInvitees] = useState([])
   const [newInvitations, setNewInvitations] = useState({})
   const [showInviteConfirmation, setShowInviteConfirmation] = useState(false)
+  const [showInviteForm, setShowInviteForm] = useState(false)
+
   useEffect(() => {
     const fetchData = async () => {
       const response = await api.post('/api/game_defaults', { game_mode: 'multi_player' })
@@ -46,6 +49,7 @@ const GameSettings = ({ gameInfo }) => {
 
   const handleInvitationsSubmit = async (e) => {
     e.preventDefault()
+    setShowInviteForm(false)
     const newInvitationsCopy = { ...newInvitations }
     newInvitationsCopy.game_id = gameInfo.id
     await api
@@ -117,16 +121,48 @@ const GameSettings = ({ gameInfo }) => {
           </Flex>
         </TopPaddingColumn>
         {gameInfo.is_host &&
-          <TopPaddingColumn md={9}>
-            <Form onSubmit={handleInvitationsSubmit}>
-              <Form.Group>
-                <MultiInvite availableInvitees={availableInvitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
-              </Form.Group>
-              <Button variant='primary' type='submit'>
-                Invite additional players
+          <>
+            <AlignText
+              align='right'
+            >
+              <Button
+                onClick={() => {
+                  setShowInviteForm(true)
+                }}
+              >
+            Invite more friends to play
+                <UserPlus
+                  color='var(--color-secondary)'
+                  size={18}
+                  style={{
+                    marginLeft: 'var(--space-100)'
+                  }}
+                />
               </Button>
-            </Form>
-          </TopPaddingColumn>}
+            </AlignText>
+            <Modal
+              show={showInviteForm}
+              onHide={() => {
+                setShowInviteForm(false)
+              }}
+              centered
+            >
+              <Modal.Body>
+                <Form onSubmit={handleInvitationsSubmit}>
+                  <Form.Group>
+                    <MultiInvite availableInvitees={availableInvitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
+                  </Form.Group>
+                  <AlignText align='right'>
+                    <Button variant='primary' type='submit'>
+                      Invite additional players
+                    </Button>
+
+                  </AlignText>
+                </Form>
+              </Modal.Body>
+            </Modal>
+          </>
+        }
       </Row>
     </>
   )

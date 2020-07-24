@@ -46,6 +46,7 @@ const FlexRow = styled.div`
 `
 
 const AlignText = styled.div`
+  width: 100%;
   text-align: ${(props) => props.align || 'left'};
 `
 
