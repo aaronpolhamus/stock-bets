@@ -14,40 +14,78 @@ import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 
 const StyledOrderForm = styled(Form)`
+  position: relative;
   @media screen and (max-width: ${breakpoints.md}){
-    position: fixed;
-    z-index: 2;
-    padding: 0 var(--space-400) var(--space-600);
+    overflow: auto;
     background-color: var(--color-secondary);
     bottom: 0;
     left: 0;
+    height: 90vh;
+    height: -webkit-fill-available;
+    padding: 0 var(--space-400) var(--space-600);
+    position: fixed;
+    transition: transform .3s, box-shadow .5s;
     width: 100vw;
-    transition: transform .3s;
+    z-index: 2;
+
+    box-shadow: ${props => props.$show
+      ? '0px -30px 30px rgba(17, 7, 60, 0.3)'
+      : '0'
+    };
     transform: ${props => props.$show
-      ? 'translate(100%)'
-      : 'translateY(calc(100% - var(--space-lg-100)));'
-    }
+      ? 'translateY(0)'
+      : 'translateY(calc(100% - var(--space-lg-100)))'
+    };
     
-    box-shadow: 0px -30px 30px rgba(17, 7, 60, 0.3);
   }
+  /* Processig Form Loader */
+  &::before {
+    content: '';
+    display: block;
+    position: absolute;
+    background-color: var(--color-secondary);
+    width: 100%;
+    height: 200vh;
+    z-index: 1;
+    left: 0;
+    top: -200vh;
+    opacity: 0;
+    ${({ $loading }) => $loading && `
+      top: 0;
+      opacity: .5;
+    `}
+  }
+
 `
 
 const CollapsibleClose = styled.div`
-  display: none;
+  align-items: flex-end;
   appearance: none;
   border: none;
-  background-color: transparent;
-  position: absolute;
-  top: -40px;
-  right: var(--space-100);
+  display: none;
+  height: 2.5rem;
+  justify-content: center;
+  text-align: right;
+  width: 100%;
+  margin: auto;
+  z-index: 1;
+  position: relative;
+  margin-bottom: -1rem;
+
   @media screen and (max-width: ${breakpoints.md}){
     transition: max-height .2s ease-out;
-    display: ${props => props.$show ? 'block' : 'none'};
+    display: ${props => props.$show ? 'flex' : 'none'};
   }
 `
 const OrderFormHeader = styled(Form.Group)`
+  min-height: var(--space-600);
   @media screen and (max-width: ${breakpoints.md}){
-    height: var(--space-900);
+    position: sticky;
+    top: 0;
+    text-align: right;
+    background-color: var(--color-secondary);
+    min-height: var(--space-900);
+    margin-bottom: var(--space-200);
     text-align: center;
     .form-check {
       width: 50%;
@@ -81,6 +119,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [symbolLabel, setSymbolLabel] = useState('')
   const [priceData, setPriceData] = useState({})
   const [cashData, setCashData] = useState({})
+  const [orderProcessing, setOrderProcessing] = useState(false)
 
   const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
@@ -111,10 +150,12 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     const orderTicketCopy = { ...orderTicket }
     orderTicketCopy.symbol = symbolValue
     setOrderTicket(orderTicketCopy)
-
+    setOrderProcessing(true)
     await api.post('/api/place_order', orderTicketCopy)
       .then(request => {
-        onPlaceOrder()
+        setShowCollapsible(false)
+        setOrderProcessing(false)
+        onPlaceOrder(orderTicketCopy)
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
@@ -202,19 +243,20 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
       onSubmit={handleSubmit}
       ref={formRef}
       $show={showCollapsible}
+      $loading={orderProcessing}
     >
-      <CollapsibleClose
-        $show={showCollapsible}
-        onClick={() => {
-          setShowCollapsible(false)
-        }}
-      >
-        <ChevronsDown
-          size={24}
-          color='var(--color-secondary)'
-        />
-      </CollapsibleClose>
       <OrderFormHeader>
+        <CollapsibleClose
+          $show={showCollapsible}
+          onClick={() => {
+            setShowCollapsible(false)
+          }}
+        >
+          <ChevronsDown
+            size={24}
+            color='var(--color-text-gray)'
+          />
+        </CollapsibleClose>
         <TabbedRadioButtons
           mode='tabbed'
           name='buy_or_sell'
@@ -226,7 +268,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           $colorChecked='var(--color-lightest)'
         />
       </OrderFormHeader>
-      <CashInfo cashData={cashData} />
+      <CashInfo cashData={cashData} balance={false}/>
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (

@@ -8,6 +8,7 @@ import {
   Header,
   Layout,
   PageSection,
+  PageFooter,
   Sidebar
 } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
@@ -27,6 +28,11 @@ const PlayGame = () => {
   const { user, setUser } = useContext(UserContext)
   const [ordersData, setOrdersData] = useState({})
   const [showToast, setShowToast] = useState(false)
+  const [lastOrder, setLastOrder] = useState({
+    buy_or_sell: '',
+    amount: '',
+    symbol: ''
+  })
   const [gameMode, setGameMode] = useState(null)
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
@@ -37,6 +43,7 @@ const PlayGame = () => {
   }
 
   const handlePlacedOrder = (order) => {
+    setLastOrder(order)
     setShowToast(true)
     getOrdersData()
   }
@@ -99,7 +106,6 @@ const PlayGame = () => {
           </Breadcrumb>
           <GameHeader gameId={gameId} />
         </PageSection>
-        <Button variant='primary' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         <PageSection>
           <Tabs>
             <Tab eventKey='field-chart' title='The Field'>
@@ -172,6 +178,9 @@ const PlayGame = () => {
               </Tab>}
           </Tabs>
         </PageSection>
+        <PageFooter>
+          <Button variant='outline-danger' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
+        </PageFooter>
       </Column>
       <Toast
         style={{
@@ -186,25 +195,26 @@ const PlayGame = () => {
         autohide
       >
         <Toast.Header>
-          <strong>Order placed</strong>
-          <small>Right now</small>
+          <strong>
+            {`${lastOrder.buy_or_sell} order placed`}
+          </strong>
         </Toast.Header>
         <Toast.Body>
-          We got your order!
+          {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === '1' ? 'share' : 'shares'}`}
         </Toast.Body>
       </Toast>
       <Modal show={showLeaveBox}>
         <Modal.Body>
           <div className='text-center'>
-            Are you sure you'd like to leave this game? Once you do you won't be able to rejoin, and will lose access to this game's data.
+            Are you sure you&apos;d like to leave this game? Once you do you won&apos;t be able to rejoin, and will lose access to this game&apos;s data.
           </div>
         </Modal.Body>
         <Modal.Footer className='centered'>
           <Button variant='danger' onClick={handleConfirmLeave}>
-            Yep, I'm sure
+            Yep, I&apos;m sure
           </Button>
-          <Button variant='primary' onClick={handleCancelLeave}>
-            I'll stick around
+          <Button variant='info' onClick={handleCancelLeave}>
+            I&apos;ll stick around
           </Button>
         </Modal.Footer>
       </Modal>

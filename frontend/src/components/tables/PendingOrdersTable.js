@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
 import { apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
@@ -54,6 +54,7 @@ const tableHeaders = [
 
 const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
   const [cancelableOrder, setCancelableOrder] = useState(null)
+  const btnCancelRef = useRef()
 
   // Methods and settings for modal component
   const [show, setShow] = useState(false)
@@ -96,6 +97,9 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
             <CancelButton
               onClick={() => {
                 setCancelableOrder(row)
+                setTimeout(() => {
+                  btnCancelRef.current.focus()
+                }, 1)
                 setShow(true)
               }}
             />
@@ -128,18 +132,24 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
             </p>
           </Modal.Body>
           <Modal.Footer className='centered'>
-            <Button variant='info' onClick={handleClose}>
-              I&apos;ll think about it
+
+            <Button
+              variant='info'
+              onClick={handleClose}
+            >
+                I&apos;ll think about it
             </Button>
             <Button
+              ref={btnCancelRef}
               type='submit'
               variant='danger'
               onClick={() => {
                 handleCancelOrder(gameId, cancelableOrder.order_id)
               }}
             >
-              Cancel order
+                Cancel order
             </Button>
+
           </Modal.Footer>
         </Modal>
       </>

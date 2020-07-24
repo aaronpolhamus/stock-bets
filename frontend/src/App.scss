@@ -103,6 +103,10 @@ label {
   }
 }
 
+input.form-control{
+  font-size: 16px;
+}
+
 //Modals
 .modal-title {
   width: 100%;
@@ -213,6 +217,19 @@ label {
   }
 }
 
+.toast-header {
+  justify-content: space-between;
+  &::first-letter,
+  *::first-letter{
+    text-transform: uppercase;
+  }
+}
+
+@media screen and (max-width: 26rem){
+  html{
+    font-size: 15px;
+  }
+}
 
 
 @media (prefers-reduced-motion: no-preference) {
