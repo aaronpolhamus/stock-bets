@@ -31,7 +31,6 @@ from backend.logic.friends import (
     respond_to_friend_invite,
     invite_friend,
     email_platform_invitation,
-    email_game_invitation,
     InvalidEmailError
 )
 from backend.logic.games import (

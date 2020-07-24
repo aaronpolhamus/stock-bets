@@ -159,7 +159,7 @@ def get_requester_ids_from_email(email):
         friend_ids = conn.execute("SELECT requester_id FROM external_invites WHERE invited_email = %s",
                                   email).fetchall()
     if friend_ids:
-        return [x[0] for x in friend_ids]
+        return list(set([x[0] for x in friend_ids]))
     return []
 
 
