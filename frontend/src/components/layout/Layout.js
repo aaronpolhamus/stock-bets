@@ -3,52 +3,6 @@ import styled from 'styled-components'
 import { Container, Col, Row } from 'react-bootstrap'
 import { breakpoints } from 'design-tokens'
 // Global Layout Component
-const StyledContainer = styled(Container)`
-  padding: 0;
-  @media screen and (max-width: ${breakpoints.md}){
-    overflow: hidden;
-    padding-bottom: 10vh;
-  }
-`
-
-const SmallColumnWrapper = styled(Col)`
-  background-color: var(--color-light-gray);
-  min-height: 100vh;
-`
-
-const Logo = styled.a`
-  text-transform: uppercase;
-  font-weight: bold;
-  color: var(--color-lightest);
-  display: block;
-  margin-bottom: 1.2rem;
-  &:hover {
-    color: inherit;
-    text-decoration: none;
-  }
-`
-
-const Content = styled.div`
-  padding: ${(props) => props.padding || 'var(--space-400)'};
-  display: ${(props) => props.display || 'block'};
-  height: ${(props) => props.height || 'auto'};
-  align-items: ${(props) => props.alignItems || 'flex-start'};
-  justify-content: ${(props) => props.justifyContent || 'flex-start'};
-  overflow: hidden;
-`
-
-const Header = styled.header`
-  display: flex;
-  justify-content: space-between;
-  align-items: ${(props) => props.alignItems || 'center'};
-  flex-wrap: wrap;
-  margin-bottom: ${(props) => props.marginBottom || 0};
-  h2{
-    flex-shrink: 0;
-    margin-right: var(--space-200)
-  }
-`
-
 const Breadcrumb = styled.div`
   display: flex;
   font-size: var(--font-size-small);
@@ -84,14 +38,6 @@ const Breadcrumb = styled.div`
   }
 `
 
-// Section Component
-const PageSection = styled.section`
-  margin-bottom: ${props => props.$marginBottom || 'var(--space-600)'};
-  @media screen and (min-width: ${breakpoints.md}){
-    margin-bottom: ${props => props.$marginBottomMd || 'var(--space-800)'};
-  }
-`
-
 const ColContent = styled.div`
   padding: var(--space-300);
   position: relative;
@@ -100,7 +46,50 @@ const ColContent = styled.div`
   }
 `
 
-// Sidebar Component
+const Content = styled.div`
+  padding: ${(props) => props.padding || 'var(--space-400)'};
+  display: ${(props) => props.display || 'block'};
+  height: ${(props) => props.height || 'auto'};
+  align-items: ${(props) => props.alignItems || 'flex-start'};
+  justify-content: ${(props) => props.justifyContent || 'flex-start'};
+  overflow: hidden;
+`
+
+const Header = styled.header`
+  display: flex;
+  justify-content: space-between;
+  align-items: ${(props) => props.alignItems || 'center'};
+  flex-wrap: wrap;
+  margin-bottom: ${(props) => props.marginBottom || 0};
+  h2{
+    flex-shrink: 0;
+    margin-right: var(--space-200)
+  }
+`
+
+const Logo = styled.a`
+  text-transform: uppercase;
+  font-weight: bold;
+  color: var(--color-lightest);
+  display: block;
+  margin-bottom: 1.2rem;
+  &:hover {
+    color: inherit;
+    text-decoration: none;
+  }
+`
+const PageSection = styled.section`
+  margin-bottom: ${props => props.$marginBottom || 'var(--space-600)'};
+  @media screen and (min-width: ${breakpoints.md}){
+    margin-bottom: ${props => props.$marginBottomMd || 'var(--space-800)'};
+  }
+`
+
+const PageFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+`
+
 const SidebarWrapper = styled(Col)`
   color: var(--color-lightest);
   box-sizing: border-box;
@@ -126,6 +115,7 @@ const SidebarWrapper = styled(Col)`
     align-self: flex-start;
   }
 `
+
 const SidebarContent = styled.div`
   padding: var(--space-300);
   display: flex;
@@ -137,8 +127,22 @@ const SidebarContent = styled.div`
     padding: var(--space-400);
   }
 `
+
 const SidebarSection = styled.div`
   margin-bottom: var(--space-500);
+`
+
+const SmallColumnWrapper = styled(Col)`
+  background-color: var(--color-light-gray);
+  min-height: 100vh;
+`
+const StyledContainer = styled(Container)`
+  padding: 0;
+  min-height: 100vh;
+  @media screen and (max-width: ${breakpoints.md}){
+    overflow: hidden;
+    padding-bottom: 10vh;
+  }
 `
 
 const Column = ({ children, ...props }) => (
@@ -180,6 +184,7 @@ export {
   Header,
   Layout,
   PageSection,
+  PageFooter,
   Sidebar,
   SidebarSection,
   SmallColumn
