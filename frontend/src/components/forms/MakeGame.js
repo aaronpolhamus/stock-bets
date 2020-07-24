@@ -1,33 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Redirect } from 'react-router-dom'
 import api from 'services/api'
-import { Form, Button, Modal, Row, Col } from 'react-bootstrap'
-import { Typeahead } from 'react-bootstrap-typeahead'
+import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
 import { optionBuilder } from 'components/functions/forms'
 import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
-import styled from 'styled-components'
-import { breakpoints } from 'design-tokens'
-
-const StyledTypeahead = styled(Typeahead)`
-  @media screen and (max-width: ${breakpoints.md}){
-    .rbt-input-multi {
-      min-height: calc(1.5em + 0.75rem + 2px);
-      height: auto;
-    }
-  }
-  .rbt-input-wrapper {
-    display: flex;
-    flex-direction: row-reverse;
-    flex-wrap: wrap-reverse;
-  }
-  .rbt-input-wrapper div {
-    flex: 1 0 100% !important;
-  }
-  .rbt-input-wrapper [option] {
-    margin-top: var(--space-300);
-  }
-`
+import { MultiInvite } from 'components/forms/AddFriends'
 
 const MakeGame = ({ gameMode }) => {
   const [defaults, setDefaults] = useState({})
@@ -35,15 +13,16 @@ const MakeGame = ({ gameMode }) => {
   const [formValues, setFormValues] = useState({})
   const [redirect, setRedirect] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const fetchData = async () => {
-    const response = await api.post('/api/game_defaults', { game_mode: gameMode })
-    if (response.status === 200) {
-      setDefaults(response.data)
-      setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
-    }
-  }
 
   useEffect(() => {
+    const fetchData = async () => {
+      const response = await api.post('/api/game_defaults', { game_mode: gameMode })
+      if (response.status === 200) {
+        setDefaults(response.data)
+        setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
+      }
+    }
+
     fetchData()
   }, [])
 
@@ -82,6 +61,12 @@ const MakeGame = ({ gameMode }) => {
   const handleInviteesChange = (inviteesInput) => {
     const formValuesCopy = { ...formValues }
     formValuesCopy.invitees = inviteesInput
+    setFormValues(formValuesCopy)
+  }
+
+  const handleEmailInviteesChange = (_emails) => {
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.email_invitees = _emails
     setFormValues(formValuesCopy)
   }
 
@@ -170,26 +155,7 @@ const MakeGame = ({ gameMode }) => {
           </Col>
           {gameMode === 'multi_player' &&
             <Col lg={4}>
-              <Form.Group>
-                <Form.Label>
-                Add Participant
-                  <Tooltip
-                    message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first."
-                  />
-                </Form.Label>
-                <StyledTypeahead
-                  id='typeahead-particpants'
-                  name='invitees'
-                  labelKey='name'
-                  multiple
-                  options={
-                    defaults.available_invitees &&
-                  Object.values(defaults.available_invitees)
-                  }
-                  placeholder="Who's playing?"
-                  onChange={handleInviteesChange}
-                />
-              </Form.Group>
+              <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
             </Col>}
           {gameMode === 'multi_player' &&
             <Col lg={4}>
@@ -250,7 +216,7 @@ const MakeGame = ({ gameMode }) => {
         {gameMode === 'single_player' &&
           <Modal.Body>
             <div className='text-center'>
-            Your game against the market is live!
+            Your single player game is live!
               <div>
                 <small>
                 They say the market is tough to beat...

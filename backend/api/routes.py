@@ -110,6 +110,7 @@ ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if yo
 NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
+INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
 
 
 # -------------- #
@@ -317,33 +318,27 @@ def api_leave_game():
     return make_response(LEAVE_GAME_MESSAGE, 200)
 
 
-@routes.route("/api/email_game_invitations", methods=["POST"])
+@routes.route("/api/invite_users_to_pending_game", methods=["POST"])
 @authenticate
-def email_game_invitations():
-    """Endpoint to add additional users to open game invite via email"""
+def invite_users_to_pending_game():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
-    invitee_emails = request.json.get("invitee_emails")
-    try:
-        for email in invitee_emails:
-            email_game_invitation(user_id, email, game_id)
-            add_user_via_email(game_id, email, user_id)
-    except InvalidEmailError as e:
-        make_response(f"{email} : {str(e)}", 400)
-    return make_response("fill this in", 200)
+    invitee_emails = request.json.get("email_invitees")
+    invitees = request.json.get("invitees")
 
+    if invitees is not None:
+        invited_ids = get_user_ids(invitees)
+        for invited_id in invited_ids:
+            add_user_via_platform(game_id, invited_id)
 
-@routes.route("/api/standard_game_invitations", methods=["POST"])
-@authenticate
-def standard_game_invitations():
-    """Endpoint to add additional users to open game endpoint from within the platform"""
-    game_id = request.json.get("game_id")
-    invited_usernames = request.json.get("invitee_usernames")
-    invited_ids = get_user_ids(invited_usernames)
-    for invited_id in invited_ids:
-        add_user_via_platform(game_id, invited_id)
-    return make_response("fill this in", 200)
+    if invitee_emails is not None:
+        try:
+            for email in invitee_emails:
+                add_user_via_email(game_id, user_id, email)
+        except InvalidEmailError as e:
+            make_response(f"{email} : {str(e)}", 400)
 
+    return make_response(INVITED_MORE_USERS_MESSAGE, 200)
 
 # --------------------------- #
 # Order management and prices #
@@ -356,6 +351,7 @@ def api_game_info():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
+    game_info["is_host"] = game_info["creator_id"] == user_id
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
     if game_info["game_status"] in ["active", "finished"]:
         game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]

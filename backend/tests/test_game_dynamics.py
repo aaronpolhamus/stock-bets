@@ -22,11 +22,6 @@ from backend.logic.base import (
     get_pending_buy_order_value,
     get_all_active_symbols
 )
-from backend.logic.friends import (
-    email_game_invitation,
-    email_platform_invitation,
-    send_invite_email
-)
 from backend.logic.games import (
     get_invite_list_by_status,
     add_game,

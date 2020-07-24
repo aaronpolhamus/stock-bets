@@ -112,6 +112,7 @@ def register_user(inbound_entry):
     db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)
     returning_user = False
     if db_entry:
+        db_entry = db_entry[0]
         # make any necessary update to the user's profile data
         update_profile_pic(db_entry["id"], inbound_entry["profile_pic"], db_entry["profile_pic"])
         returning_user = True

@@ -98,7 +98,6 @@ const PlayerLi = ({ player, checked, onSelect }) => {
       setShowCard(true)
     }
   }
-  // console.log(player)
   return (
     <li>
       <PlayerRow
