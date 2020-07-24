@@ -14,8 +14,7 @@ import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 
 const StyledOrderForm = styled(Form)`
-  opacity: ${props => props.$loading ? '.5' : 1};
-  transition: opacity .2s;
+  position: relative;
   @media screen and (max-width: ${breakpoints.md}){
     overflow: auto;
     background-color: var(--color-secondary);
@@ -40,6 +39,22 @@ const StyledOrderForm = styled(Form)`
     
   }
   /* Processig Form Loader */
+  &::before {
+    content: '';
+    display: block;
+    position: absolute;
+    background-color: var(--color-secondary);
+    width: 100%;
+    height: 200vh;
+    z-index: 1;
+    left: 0;
+    top: -200vh;
+    opacity: 0;
+    ${({ $loading }) => $loading && `
+      top: 0;
+      opacity: .5;
+    `}
+  }
 
 `
 
