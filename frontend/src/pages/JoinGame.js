@@ -27,7 +27,7 @@ const JoinGame = () => {
       gameId,
       'get_pending_game_info'
     )
-    setGameParticipants(gameParticipantsData)
+    setGameParticipants(gameParticipantsData.platform_invites)
   }
 
   useEffect(() => {

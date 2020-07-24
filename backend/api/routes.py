@@ -34,6 +34,7 @@ from backend.logic.friends import (
     InvalidEmailError
 )
 from backend.logic.games import (
+    get_external_invite_list_by_status,
     add_user_via_platform,
     add_user_via_email,
     leave_game,
@@ -305,7 +306,11 @@ def api_respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-    return jsonify(get_user_invite_statuses_for_pending_game(game_id))
+
+    records = dict()
+    records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
+    records["email_invites"] = get_external_invite_list_by_status(game_id, "pending")
+    return jsonify(records)
 
 
 @routes.route("/api/leave_game", methods=["POST"])

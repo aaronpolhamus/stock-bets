@@ -423,7 +423,7 @@ def get_game_info_for_user(user_id):
         return pd.read_sql(sql, conn, params=[str(user_id)]).to_dict(orient="records")
 
 
-def get_user_invite_statuses_for_pending_game(game_id):
+def get_user_invite_statuses_for_pending_game(game_id: int):
     sql = f"""
             SELECT creator_id, users.username, gi_status.status, users.profile_pic
             FROM game_status gs
