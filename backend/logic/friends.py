@@ -186,7 +186,6 @@ def invite_friend(requester_id, invited_id):
 
 
 def check_external_game_invite(requester_id: int, invited_user_email: str, game_id: int = None):
-    print(f"*** invited_user_email --- {invited_user_email} ***")
     with engine.connect() as conn:
         res = conn.execute("""
             SELECT id FROM external_invites 
