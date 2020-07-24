@@ -53,7 +53,7 @@ def standardize_email(email: str):
     return email.lower().replace(".", "")
 
 
-def get_user_ids_from_passed_emails(invited_user_emails):
+def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]:
     standardized_emails = [standardize_email(x) for x in invited_user_emails]
     with engine.connect() as conn:
         res = conn.execute(f"""

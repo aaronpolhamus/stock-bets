@@ -64,9 +64,10 @@ class TestUserManagement(BaseTestCase):
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
-        res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"},
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
                                          verify=False)
-        self.assertEqual(res.status_code, 411)
+        self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, OAUTH_ERROR_MSG)
 
         res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"},
@@ -601,7 +602,7 @@ class TestFriendManagement(BaseTestCase):
         test_celery_tasks.TestFriendManagement
         """
         test_username = "cheetos"
-        test_friend_email = "test_dummy_email@gmail.com"
+        test_friend_email = "test_dummy_email@example.com"
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")

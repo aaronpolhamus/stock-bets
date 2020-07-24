@@ -132,6 +132,9 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
     if invitees is None:
         invitees = []
 
+    if email_invitees is None:
+        email_invitees = []
+
     opened_at = time.time()
     invite_window_posix = None
     if invite_window is not None:
@@ -148,8 +151,12 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
                       invite_window=invite_window_posix)
 
     user_ids = [creator_id]
-    user_ids += get_user_ids(invitees)
-    matched_ids = get_user_ids_from_passed_emails(email_invitees)
+    if invitees:
+        user_ids += get_user_ids(invitees)
+
+    matched_ids = []
+    if email_invitees:
+        matched_ids = get_user_ids_from_passed_emails(email_invitees)
     user_ids = list(set(user_ids).union(set(matched_ids)))
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 

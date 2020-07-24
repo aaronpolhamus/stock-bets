@@ -913,8 +913,11 @@ class TestExternalInviteFunctionality(BaseTestCase):
         invited_user_ids_updated = get_invite_list_by_status(game_1_id, "invited")
         self.assertEqual(set(invited_user_ids_initial + [minion_1_id, minion_2_id]), set(invited_user_ids_updated))
 
-        # we've sent a bunch of email platform invites out at this point. we should have 6 in total: 2 for each of the
-        # non-platform users, and 1 external game invite for each of the platform users:
+        # we've sent a bunch of email invites out at this point. we should have 8 external registries in total:
+        # external user #1: 2 game invites and 1 platform invite
+        # external user #2: 1 game invite and 1 platform invite
+        # minion #1: 2 game invites
+        # minion #2: 1 game invite
         external_email_invites_updated = query_to_dict("SELECT * FROM external_invites;")
         self.assertEqual(len(external_email_invites_updated), 8)
         for invite_entry in external_email_invites_updated:
