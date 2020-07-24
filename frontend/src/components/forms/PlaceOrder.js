@@ -14,6 +14,8 @@ import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 
 const StyledOrderForm = styled(Form)`
+  opacity: ${props => props.$loading ? '.5' : 1};
+  transition: opacity .2s;
   @media screen and (max-width: ${breakpoints.md}){
     overflow: auto;
     background-color: var(--color-secondary);
@@ -37,6 +39,8 @@ const StyledOrderForm = styled(Form)`
     };
     
   }
+  /* Processig Form Loader */
+
 `
 
 const CollapsibleClose = styled.div`
@@ -59,6 +63,7 @@ const CollapsibleClose = styled.div`
   }
 `
 const OrderFormHeader = styled(Form.Group)`
+  min-height: var(--space-600);
   @media screen and (max-width: ${breakpoints.md}){
     position: sticky;
     top: 0;
@@ -99,6 +104,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [symbolLabel, setSymbolLabel] = useState('')
   const [priceData, setPriceData] = useState({})
   const [cashData, setCashData] = useState({})
+  const [orderProcessing, setOrderProcessing] = useState(false)
 
   const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
@@ -129,10 +135,12 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     const orderTicketCopy = { ...orderTicket }
     orderTicketCopy.symbol = symbolValue
     setOrderTicket(orderTicketCopy)
-
+    setOrderProcessing(true)
     await api.post('/api/place_order', orderTicketCopy)
       .then(request => {
-        onPlaceOrder()
+        setShowCollapsible(false)
+        setOrderProcessing(false)
+        onPlaceOrder(orderTicketCopy)
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
@@ -220,6 +228,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
       onSubmit={handleSubmit}
       ref={formRef}
       $show={showCollapsible}
+      $loading={orderProcessing}
     >
       <OrderFormHeader>
         <CollapsibleClose

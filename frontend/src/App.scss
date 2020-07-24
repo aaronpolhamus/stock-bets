@@ -217,6 +217,14 @@ input.form-control{
   }
 }
 
+.toast-header {
+  justify-content: space-between;
+  &::first-letter,
+  *::first-letter{
+    text-transform: uppercase;
+  }
+}
+
 @media screen and (max-width: 26rem){
   html{
     font-size: 15px;

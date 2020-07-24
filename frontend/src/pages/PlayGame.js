@@ -28,6 +28,11 @@ const PlayGame = () => {
   const { user, setUser } = useContext(UserContext)
   const [ordersData, setOrdersData] = useState({})
   const [showToast, setShowToast] = useState(false)
+  const [lastOrder, setLastOrder] = useState({
+    buy_or_sell: '',
+    amount: '',
+    symbol: ''
+  })
   const [gameMode, setGameMode] = useState(null)
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
@@ -38,6 +43,7 @@ const PlayGame = () => {
   }
 
   const handlePlacedOrder = (order) => {
+    setLastOrder(order)
     setShowToast(true)
     getOrdersData()
   }
@@ -189,11 +195,12 @@ const PlayGame = () => {
         autohide
       >
         <Toast.Header>
-          <strong>Order placed</strong>
-          <small>Right now</small>
+          <strong>
+            {`${lastOrder.buy_or_sell} order placed`}
+          </strong>
         </Toast.Header>
         <Toast.Body>
-          We got your order!
+          {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === '1' ? 'share' : 'shares'}`}
         </Toast.Body>
       </Toast>
       <Modal show={showLeaveBox}>
