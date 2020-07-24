@@ -22,39 +22,46 @@ const CashInfoWrapper = styled.div`
   }
 `
 
-const CashInfo = ({ cashData }) => {
+const CashInfo = ({ cashData, balance = true, buyingPower = true }) => {
   return (
     <CashInfoWrapper>
-      <p>
-        <span>
-          <strong>Cash Balance: </strong>
-          {cashData.cash_balance && cashData.cash_balance}
-        </span>
-      </p>
-      <p>
-        <small>
-          <strong>Buying power: </strong>
-          {cashData.buying_power && cashData.buying_power}
-        </small>
-        <Tooltip
-          message={
-            <>
-              <p>
-                <strong>Buying power</strong> is your cash minus any outstanding buy order.
-              </p>
-              <p>
-                If this is negative, consider cancelling a few.
-              </p>
-            </>
-          }
-        />
-      </p>
+      { balance &&
+        <p>
+          <span>
+            <strong>Cash Balance: </strong>
+            {cashData.cash_balance && cashData.cash_balance}
+          </span>
+        </p>
+
+      }
+      { buyingPower &&
+        <p>
+          <small>
+            <strong>Buying power: </strong>
+            {cashData.buying_power && cashData.buying_power}
+          </small>
+          <Tooltip
+            message={
+              <>
+                <p>
+                  <strong>Buying power</strong> is your cash minus any outstanding buy order.
+                </p>
+                <p>
+                  If this is negative, consider cancelling a few.
+                </p>
+              </>
+            }
+          />
+        </p>
+      }
     </CashInfoWrapper>
   )
 }
 
 CashInfo.propTypes = {
-  cashData: PropTypes.object
+  cashData: PropTypes.object,
+  balance: PropTypes.bool,
+  buyingPower: PropTypes.bool
 }
 
 export { CashInfo }

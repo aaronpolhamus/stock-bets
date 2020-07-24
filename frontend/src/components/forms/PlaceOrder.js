@@ -15,39 +15,53 @@ import { ChevronsDown } from 'react-feather'
 
 const StyledOrderForm = styled(Form)`
   @media screen and (max-width: ${breakpoints.md}){
-    position: fixed;
-    z-index: 2;
-    padding: 0 var(--space-400) var(--space-600);
     background-color: var(--color-secondary);
     bottom: 0;
     left: 0;
+    height: 90vh;
+    padding: 0 var(--space-400) var(--space-600);
+    position: fixed;
+    transition: transform .3s, box-shadow .5s;
     width: 100vw;
-    transition: transform .3s;
+    z-index: 2;
+
+    box-shadow: ${props => props.$show
+      ? '0px -30px 30px rgba(17, 7, 60, 0.3)'
+      : '0'
+    };
     transform: ${props => props.$show
-      ? 'translate(100%)'
-      : 'translateY(calc(100% - var(--space-lg-100)));'
-    }
+      ? 'translateY(0)'
+      : 'translateY(calc(100% - var(--space-lg-100)))'
+    };
     
-    box-shadow: 0px -30px 30px rgba(17, 7, 60, 0.3);
   }
 `
 
 const CollapsibleClose = styled.div`
-  display: none;
+  align-items: center;
   appearance: none;
+  background-color: var(--color-primary);
+  border-radius: 50%;
   border: none;
-  background-color: transparent;
+  display: none;
+  height: 7vh;
+  justify-content: center;
   position: absolute;
-  top: -40px;
-  right: var(--space-100);
+  right: var(--space-50);
+  text-align: right;
+  top: -8vh;
+  width: 7vh;
+
   @media screen and (max-width: ${breakpoints.md}){
     transition: max-height .2s ease-out;
-    display: ${props => props.$show ? 'block' : 'none'};
+    display: ${props => props.$show ? 'flex' : 'none'};
   }
 `
 const OrderFormHeader = styled(Form.Group)`
   @media screen and (max-width: ${breakpoints.md}){
+
     height: var(--space-900);
+    margin-bottom: var(--space-200);
     text-align: center;
     .form-check {
       width: 50%;
@@ -226,7 +240,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           $colorChecked='var(--color-lightest)'
         />
       </OrderFormHeader>
-      <CashInfo cashData={cashData} />
+      <CashInfo cashData={cashData} balance={false}/>
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
