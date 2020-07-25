@@ -71,5 +71,6 @@ class Config:
 
     # S3 Credentials
     AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_KEY = getenv("AWS_SECRET_KEY")
+    AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_ENDPOINT_URL = getenv('AWS_ENDPOINT_URL')
     BUCKET_NAME = getenv("BUCKET_NAME")

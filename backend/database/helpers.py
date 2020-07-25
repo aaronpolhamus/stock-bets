@@ -2,11 +2,13 @@
 """
 import json
 import os
+import boto3
 import pandas as pd
 from typing import List
 from sqlalchemy import MetaData
 
 from backend.database.db import engine
+from backend.config import Config
 
 
 def reset_db():
@@ -52,3 +54,15 @@ def query_to_dict(sql_query, *args):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
+
+
+def s3_client(region='us-east-1'):
+    """TODO this will highly depend on how we authenticate the container in the cloud, if it is with
+        credentials or via IAM Roles, if it is the second we should also delete the access keys in this client
+    """
+    boto_config = {'service_name': 's3', 'endpoint_url': Config.AWS_ENDPOINT_URL, 'region_name': region,
+                   'aws_access_key_id': Config.AWS_ACCESS_KEY_ID, 'aws_secret_access_key': Config.AWS_SECRET_ACCESS_KEY}
+    if Config.AWS_ENDPOINT_URL is None:
+        del boto_config['entrypoint_url']
+    client = boto3.client(**boto_config)
+    return client

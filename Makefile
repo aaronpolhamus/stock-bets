@@ -18,6 +18,9 @@ db-mock-data:
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
+local-infra:
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
+
 db-logs:
 	docker-compose logs -f db
 
