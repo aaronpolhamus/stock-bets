@@ -51,7 +51,4 @@ def query_to_dict(sql_query, *args):
     values if there is more than one result. This wraps pandas, and you can pass in a series of args if needed
     """
     with engine.connect() as conn:
-        results = pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
-    if results:
-        return results
-    return []
+        return pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")

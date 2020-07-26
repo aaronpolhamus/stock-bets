@@ -953,7 +953,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
         # waiting for them. their platform invitation will register as accepted. the game_invites table will reflect
         # their new entries, and the game_status 'pending' entry will update with their user ids
         with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
-            class GoogleOAuthMock(object):
+            class GoogleOAuthMock:
                 status_code = 200
 
                 def __init__(self, email, uuid):
