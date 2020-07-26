@@ -24,7 +24,7 @@ class TestDBHelpers(BaseTestCase):
         symbol_id = add_row("symbols", symbol=dummy_symbol, name=dummy_name)
         # There's nothing special about primary key #27. If we update the mocks this will need to update, too.
         self.assertEqual(symbol_id, 27)
-        acme_entry = query_to_dict("SELECT * FROM symbols WHERE symbol = %s", dummy_symbol)
+        acme_entry = query_to_dict("SELECT * FROM symbols WHERE symbol = %s", dummy_symbol)[0]
         self.assertEqual(acme_entry["symbol"], dummy_symbol)
         self.assertEqual(acme_entry["name"], dummy_name)
 

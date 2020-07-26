@@ -11,13 +11,11 @@ import {
 } from 'components/layout/Layout'
 import { GameSettings } from 'pages/game/GameSettings'
 import { PendingGameParticipants } from 'pages/game/PendingGameParticipants'
-
 import { Button } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 
-const JoinGame = (props) => {
+const JoinGame = () => {
   const { gameId } = useParams()
-
   const [gameInfo, setGameInfo] = useState([])
   const [gameParticipants, setGameParticipants] = useState([])
 
@@ -29,7 +27,7 @@ const JoinGame = (props) => {
       gameId,
       'get_pending_game_info'
     )
-    setGameParticipants(gameParticipantsData)
+    setGameParticipants(gameParticipantsData.platform_invites)
   }
 
   useEffect(() => {
@@ -81,10 +79,9 @@ const JoinGame = (props) => {
         )
     }
   }
-
   return (
     <Layout>
-      <Sidebar md={2} size='sm'/>
+      <Sidebar md={2} size='sm' />
       <Column md={10}>
         <PageSection>
           <Breadcrumb>

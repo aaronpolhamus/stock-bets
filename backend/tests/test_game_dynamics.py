@@ -1,6 +1,7 @@
 """Bundles tests relating to games, including celery task tests
 """
 import json
+import time
 import unittest
 from datetime import datetime as dt
 from unittest import TestCase
@@ -8,12 +9,22 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+from backend.database.fixtures.mock_data import simulation_end_time
 from backend.database.helpers import query_to_dict
+from backend.logic.auth import (
+    make_user_entry_from_google,
+    register_user,
+    register_username_with_token
+)
 from backend.logic.base import (
+    get_user_ids_from_passed_emails,
+    get_user_ids,
     get_pending_buy_order_value,
     get_all_active_symbols
 )
 from backend.logic.games import (
+    get_invite_list_by_status,
+    add_game,
     get_game_ids_by_status,
     get_game_info_for_user,
     expire_finished_game,
@@ -32,13 +43,18 @@ from backend.logic.games import (
     get_order_quantity,
     get_all_open_orders,
     place_order,
-    get_open_game_invite_ids,
+    get_open_game_ids_past_window,
     service_open_game,
     InsufficientFunds,
     InsufficientHoldings,
     LimitError,
     NoNegativeOrders,
-    DEFAULT_VIRTUAL_CASH
+    DEFAULT_VIRTUAL_CASH,
+    DEFAULT_INVITE_OPEN_WINDOW,
+    add_user_via_email,
+    add_user_via_platform,
+    respond_to_game_invite,
+    get_external_invite_list_by_status
 )
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -46,8 +62,9 @@ from backend.logic.schemas import (
     FailedValidation
 )
 from backend.logic.visuals import (
+    FIELD_CHART_PREFIX,
     init_order_details)
-from backend.database.fixtures.mock_data import simulation_end_time
+from backend.tasks.redis import unpack_redis_json
 from backend.tests import BaseTestCase
 
 
@@ -128,11 +145,12 @@ class TestGameLogic(BaseTestCase):
         self.assertEqual(active_symbols, expected_symbols)
 
         game_id = 1
-        open_game_ids = get_open_game_invite_ids()
+        open_game_ids = get_open_game_ids_past_window()
         self.assertEqual(open_game_ids, [1, 2, 5])
 
         service_open_game(game_id)
-        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s AND status = 'active'", game_id)
+        game_status_entry = \
+            query_to_dict("SELECT * FROM game_status WHERE game_id = %s AND status = 'active'", game_id)[0]
 
         self.assertEqual(json.loads(game_status_entry["users"]), [4, 3])
 
@@ -150,7 +168,7 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 2
         service_open_game(game_id)
-        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'", game_id)
+        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s and status = 'expired'", game_id)[0]
 
         self.assertEqual(json.loads(gs_entry["users"]), [1, 3])
 
@@ -748,3 +766,262 @@ class TestGameExpiration(BaseTestCase):
         self.assertEqual(finished_game["title"], "finished game to show")
         finished_game = [x for x in game_info if x["game_mode"] == "single_player"][0]
         self.assertEqual(finished_game["title"], "single player test")
+
+        # TODO: tests that if all users cancel the game is also moved to cancelled
+
+
+class TestExternalInviteFunctionality(BaseTestCase):
+
+    @patch("backend.logic.friends.send_invite_email")
+    def test_external_invite_functionality(self, send_invite_email_mock):
+        send_invite_email_mock.return_value = True
+        creator_id = 1
+
+        # [A] test user makes a new game -- it should include (a) username invites, (b) email invites on platform, (c)
+        # email invites not on platform
+        # -----------------------------
+
+        game_1_title = "external test game 1"
+        game_1_platform_invites = ["jack", "jadis"]
+        # (capitalization off on purpose to text matching function against DB
+        minion_1_email = "MinIon1@despicable.me"
+        external_email_1 = "externaluser@example.com"
+        game_1_email_invites = [minion_1_email, external_email_1]
+        add_game(
+            creator_id=creator_id,
+            title=game_1_title,
+            game_mode="multi_player",
+            duration=90,
+            benchmark="return_ratio",
+            buy_in=100,
+            side_bets_perc=0,
+            side_bets_period="weekly",
+            invitees=game_1_platform_invites,
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW,
+            email_invitees=game_1_email_invites
+        )
+        with self.engine.connect() as conn:
+            game_1_id = conn.execute("SELECT id FROM games WHERE title = %s;", game_1_title).fetchone()[0]
+
+        # platform invites follow regular invite flow
+        game_1_invites = query_to_dict("SELECT * FROM game_invites WHERE game_id = %s", game_1_id)
+        self.assertEqual(len(game_1_invites),
+                         4)  # creator, two platform invites, one external invite linked to platform
+        for entry in game_1_invites:
+            if entry["user_id"] == creator_id:
+                self.assertEqual(entry["status"], "joined")
+                continue
+            self.assertEqual(entry["status"], "invited")
+
+        # explicitly check to confirm that the minion user is in there
+        invited_user_ids_initial = get_invite_list_by_status(game_1_id, "invited")
+        minion1_user_id = get_user_ids(["minion1"])[0]
+        self.assertIn(minion1_user_id, invited_user_ids_initial)
+
+        # email invites w platform users match email and follow regular flow, but also update the external invites table
+        external_email_invites_1 = query_to_dict("SELECT * FROM external_invites WHERE game_id = %s;", game_1_id)
+        minion_invites = [x for x in external_email_invites_1 if x["invited_email"] == minion_1_email]
+        self.assertEqual(len(minion_invites), 1)
+        self.assertEqual(minion_invites[0]["status"], "invited")
+        self.assertEqual(minion_invites[0]["game_id"], game_1_id)
+        self.assertEqual(minion_invites[0]["requester_id"], creator_id)
+
+        # matched users' platform IDs are also included in the game_status users field
+        game_1_status = query_to_dict("""SELECT * FROM game_status 
+            WHERE game_id = %s AND status = 'pending';""", game_1_id)[0]
+        game_1_invited_users_start = json.loads(game_1_status["users"])
+        self.assertIn(minion1_user_id, game_1_invited_users_start)
+
+        # email to users not on platform generates external game invite and platform invite.
+        external_user_invites = query_to_dict("SELECT * FROM external_invites WHERE invited_email = %s",
+                                              external_email_1)
+        self.assertEqual(len(external_user_invites), 2)
+        for invite_entry in external_user_invites:
+            if invite_entry["type"] == "platform":
+                self.assertTrue(np.isnan(invite_entry["game_id"]))
+
+            if invite_entry["type"] == "game":
+                self.assertEqual(invite_entry["game_id"], game_1_id)
+
+            self.assertEqual(invite_entry["requester_id"], creator_id)
+
+        registered_user_invite = query_to_dict("SELECT * FROM external_invites WHERE invited_email = %s",
+                                               minion_1_email)
+        self.assertEqual(len(registered_user_invite), 1)
+        self.assertEqual(registered_user_invite[0]["game_id"], game_1_id)
+
+        # create a second test game. an additional new game invite to the same user generates another external invite
+        # entry, but _not_ an additional platform entry
+        game_2_title = "external test game 2"
+        game_2_platform_invites = ["jack", "jadis"]
+        game_2_email_invites = [minion_1_email, external_email_1]
+        add_game(
+            creator_id=creator_id,
+            title=game_2_title,
+            game_mode="multi_player",
+            duration=90,
+            benchmark="return_ratio",
+            buy_in=100,
+            side_bets_perc=0,
+            side_bets_period="weekly",
+            invitees=game_2_platform_invites,
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW,
+            email_invitees=game_2_email_invites
+        )
+        with self.engine.connect() as conn:
+            game_2_id = conn.execute("SELECT id FROM games WHERE title = %s;", game_2_title).fetchone()[0]
+
+        external_invite_entries_2 = query_to_dict("SELECT * FROM external_invites WHERE invited_email = %s;",
+                                                  external_email_1)
+        self.assertEqual(len(external_invite_entries_2), 3)
+        self.assertEqual(len([x for x in external_invite_entries_2 if x["type"] == "platform"]), 1)
+        self.assertEqual(len([x for x in external_invite_entries_2 if x["type"] == "game"]), 2)
+
+        # [B] after creating the game the host wants to invite additional users. they invite the same three groups above
+        # ----------------------------------------------------------------------------------------------------------
+        minion_1_id = get_user_ids(["minion1"])[0]
+        minion_2_id = get_user_ids(["minion2"])[0]
+        minion_2_email = "minion2@despicable.me"
+        second_external_user = "externaluser2@example.com"
+
+        add_user_via_platform(game_1_id, minion_1_id)
+        add_user_via_email(game_1_id, creator_id, minion_2_email)
+        add_user_via_email(game_1_id, creator_id, second_external_user)
+
+        # platform invites implement standard invite flow and create an updated entry for the game status table
+        minion_1_invite_entry = query_to_dict("SELECT * FROM game_invites WHERE user_id = %s AND game_id = %s",
+                                              minion_1_id, game_1_id)
+        self.assertEqual(len(minion_1_invite_entry), 1)  # there shouldn't be a second entry for minion 1
+
+        # email invites to current users create an external invite entry, match the internal ID, and implement standard
+        # invite flow
+        minion_2_invite_entry = query_to_dict("SELECT * FROM game_invites WHERE user_id = %s", minion_2_id)[0]
+        self.assertEqual(minion_2_invite_entry["status"], "invited")
+
+        minion_2_external_entry = query_to_dict("SELECT * FROM external_invites WHERE invited_email = %s",
+                                                minion_2_email)
+        self.assertEqual(len(minion_2_external_entry), 1)
+        self.assertEqual(minion_2_external_entry[0]["game_id"], game_1_id)
+        self.assertEqual(minion_2_external_entry[0]["type"], "game")
+        self.assertEqual(minion_2_external_entry[0]["requester_id"], creator_id)
+
+        invited_user_ids_updated = get_invite_list_by_status(game_1_id, "invited")
+        self.assertEqual(set(invited_user_ids_initial + [minion_1_id, minion_2_id]), set(invited_user_ids_updated))
+
+        # we've sent a bunch of email invites out at this point. we should have 8 external registries in total:
+        # external user #1: 2 game invites and 1 platform invite
+        # external user #2: 1 game invite and 1 platform invite
+        # minion #1: 2 game invites
+        # minion #2: 1 game invite
+        external_email_invites_updated = query_to_dict("SELECT * FROM external_invites;")
+        self.assertEqual(len(external_email_invites_updated), 8)
+        for invite_entry in external_email_invites_updated:
+            if invite_entry["type"] == "platform":
+                self.assertTrue(np.isnan(invite_entry["game_id"]))
+
+            if invite_entry["type"] == "game":
+                self.assertIn(invite_entry["game_id"], [game_1_id, game_2_id])
+            self.assertEqual(invite_entry["requester_id"], creator_id)
+
+        # [C/D] we should now have 4 different email invitations to handle  -- 2 who is on the platform currently, and 2
+        # who are not
+        # ---------------------------------------------------------------------------------------------------------
+        with self.engine.connect() as conn:
+            starting_game_invite_count = conn.execute("""
+                SELECT COUNT(*) FROM game_invites 
+                WHERE game_id IN (%s, %s);""", game_1_id, game_2_id).fetchone()[0]
+        self.assertEqual(starting_game_invite_count, 9)
+
+        # jack, jadis, and minion1 will accept their game invite. now we're just waiting on the un-registered user
+        jadis_id = get_user_ids(["jadis"])[0]
+        jack_id = get_user_ids(["jack"])[0]
+        minion_2_user_id = get_user_ids(["minion2"])[0]
+        for user_id in [jadis_id, jack_id, minion1_user_id, minion_2_user_id]:
+            respond_to_game_invite(game_1_id, user_id, "joined", time.time())
+
+        # test external invite accepted update
+        accepted_invite_emails = get_external_invite_list_by_status(game_1_id, "accepted")
+        accepted_invite_ids = get_user_ids_from_passed_emails(accepted_invite_emails)
+        self.assertEqual({minion1_user_id, minion_2_user_id}, set(accepted_invite_ids))
+
+        # we added functionality to block game starts if there are pending external invites -- check to make sure that
+        # is working here
+        open_game_ids = get_game_ids_by_status("pending")
+        self.assertIn(game_1_id, open_game_ids)
+
+        # external user from [A] has two email game invitations. when they sign in, they'll have two game invitations
+        # waiting for them. their platform invitation will register as accepted. the game_invites table will reflect
+        # their new entries, and the game_status 'pending' entry will update with their user ids
+        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
+            class GoogleOAuthMock:
+                status_code = 200
+
+                def __init__(self, email, uuid):
+                    self._email = email
+                    self._uuid = uuid
+
+                def json(self):
+                    return dict(given_name="frederick",
+                                email=self._email,
+                                picture="not_relevant",
+                                username=None,
+                                created_at=time.time(),
+                                provider="google",
+                                resource_uuid=self._uuid)
+
+            oauth_response_mock.return_value = GoogleOAuthMock(external_email_1, "unique1")
+            user_entry, resource_uuid, status_code = make_user_entry_from_google("abc123", "cde456")
+            register_user(user_entry)
+
+        with self.engine.connect() as conn:
+            updated_game_invite_count = conn.execute("""
+                SELECT COUNT(*) FROM game_invites 
+                WHERE game_id IN (%s, %s);""", game_1_id, game_2_id).fetchone()[0]
+        self.assertEqual(updated_game_invite_count, 15)
+
+        # quick patch to simulate that this user has successfuly picked a username
+        with self.engine.connect() as conn:
+            user_id = conn.execute("SELECT id FROM users WHERE name = 'frederick';").fetchone()[0]
+        register_username_with_token(user_id, external_email_1, "frederick")
+        external_example_user_id = get_user_ids(["frederick"])[0]
+
+        # they'll accept the first game invitation, updating the external_invites  and game_invites table and kicking
+        # off the game
+        respond_to_game_invite(game_1_id, external_example_user_id, "joined", time.time())
+
+        # finally, the last external user will join the game to kick it off
+        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
+            class GoogleOAuthMock(object):
+                status_code = 200
+
+                def __init__(self, email, uuid):
+                    self._email = email
+                    self._uuid = uuid
+
+                def json(self):
+                    return dict(given_name="frederick2",
+                                email=self._email,
+                                picture="not_relevant",
+                                username=None,
+                                created_at=time.time(),
+                                provider="google",
+                                resource_uuid=self._uuid)
+
+            oauth_response_mock.return_value = GoogleOAuthMock(second_external_user, "unique2")
+            user_entry, resource_uuid, status_code = make_user_entry_from_google("fgh789", "ijk101")
+            register_user(user_entry)
+
+        # quick patch to simulate that this user has successfuly picked a username
+        with self.engine.connect() as conn:
+            user_id = conn.execute("SELECT id FROM users WHERE name = 'frederick2';").fetchone()[0]
+        register_username_with_token(user_id, external_email_1, "frederick2")
+        external_example_user_id2 = get_user_ids(["frederick2"])[0]
+        respond_to_game_invite(game_1_id, external_example_user_id2, "joined", time.time())
+
+        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_1_id}")
+        players = [x["label"] for x in field_chart["datasets"]]
+        self.assertEqual(set(players), {'cheetos', 'jack', 'jadis', 'minion1', 'minion2', 'frederick', 'frederick2'})
+
+        # in a separate API test write logic for catching bad emails
+        # with self.assertRaises(Exception):
+        #     send_invite_email(creator_id, "BADEMAILTHATSHOULDFAIL", email_type="platform")

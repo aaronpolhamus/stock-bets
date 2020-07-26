@@ -14,7 +14,7 @@ from backend.logic.base import (
 from backend.logic.games import (
     get_all_open_orders,
     process_order,
-    get_open_game_invite_ids,
+    get_open_game_ids_past_window,
     get_game_ids_by_status,
     service_open_game,
     expire_finished_game
@@ -85,7 +85,7 @@ def async_update_all_index_values(self):
 
 @celery.task(name="async_service_open_games", bind=True, base=BaseTask)
 def async_service_open_games(self):
-    open_game_ids = get_open_game_invite_ids()
+    open_game_ids = get_open_game_ids_past_window()
     for game_id in open_game_ids:
         async_service_one_open_game.delay(game_id)
 

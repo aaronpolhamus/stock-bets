@@ -228,6 +228,12 @@ class ExternalInviteStatus(Enum):
     invited = "Invited"
     accepted = "Accepted"
     error = "error"
+    declined = "Declined"
+
+
+class ExternalInviteTypes(Enum):
+    platform = "Platform"
+    game = "Game"
 
 
 class ExternalInvites(db.Model):
@@ -238,3 +244,5 @@ class ExternalInvites(db.Model):
     invited_email = db.Column(db.Text)
     status = db.Column(db.Enum(ExternalInviteStatus))
     timestamp = db.Column(db.Float(precision=32))
+    type = db.Column(db.Enum(ExternalInviteTypes))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)

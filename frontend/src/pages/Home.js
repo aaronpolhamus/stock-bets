@@ -28,7 +28,6 @@ import { breakpoints } from 'design-tokens'
 
 // Left in un-used for now: we'll almost certainly get to this later
 const handleLogout = async () => {
-  console.log('logout')
   await api.post('/api/logout')
   window.location.assign('/')
 }
@@ -298,7 +297,7 @@ const Home = () => {
           </Col>
         </Row>
         <HomeFooter>
-          <AddFriends/>
+          <AddFriends />
         </HomeFooter>
 
       </Column>

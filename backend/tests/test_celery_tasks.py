@@ -16,7 +16,7 @@ from backend.logic.base import (
 )
 from backend.logic.games import (
     respond_to_game_invite,
-    get_open_game_invite_ids,
+    get_open_game_ids_past_window,
     service_open_game,
     process_order,
     add_game,
@@ -36,7 +36,7 @@ from backend.tasks.definitions import (
 from backend.logic.friends import (
     suggest_friends,
     get_friend_invites_list,
-    get_friend_details, invite_friend_to_stockbets
+    get_friend_details, email_platform_invitation
 )
 from backend.tasks.redis import (
     rds,
@@ -46,7 +46,7 @@ from backend.tests import BaseTestCase
 from logic.visuals import calculate_and_pack_game_metrics
 
 
-def mock_send_email(_requester_id, _email):
+def mock_send_invite_email(_requester_id, _email):
     return True
 
 
@@ -168,7 +168,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["invite_window"]
         )
 
-        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)[0]
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
@@ -184,7 +184,7 @@ class TestGameIntegration(BaseTestCase):
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)[0]
         self.assertEqual(game_status_entry["id"], 16)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
@@ -213,7 +213,7 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        open_game_ids = get_open_game_invite_ids()
+        open_game_ids = get_open_game_ids_past_window()
         for _id in open_game_ids:
             service_open_game(_id)
 
@@ -238,7 +238,7 @@ class TestGameIntegration(BaseTestCase):
         with patch("backend.logic.games.time") as mock_time:
             # users have joined, and we're past the invite window
             mock_time.time.return_value = game_start_time
-            open_game_ids = get_open_game_invite_ids()
+            open_game_ids = get_open_game_ids_past_window()
             for _id in open_game_ids:
                 service_open_game(_id)
 
@@ -429,7 +429,7 @@ class TestGameIntegration(BaseTestCase):
                 FROM orders 
                 WHERE user_id = %s AND game_id = %s AND symbol = %s
                 ORDER BY id DESC LIMIT 0, 1;
-            """, user_id, game_id, stock_pick)
+            """, user_id, game_id, stock_pick)[0]
 
             stock_pick = "MELI"
             user_id = 4
@@ -609,11 +609,11 @@ class TestFriendManagement(BaseTestCase):
         dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
         self.assertEqual(dummy_match, ["dummy2"])
 
-    @patch('backend.logic.friends.send_email', mock_send_email)
-    def test_invite_friend_to_stockbets(self):
+    @patch('backend.logic.friends.send_invite_email', mock_send_invite_email)
+    def test_email_platform_invitation(self):
         user_id = 1
         friend_email = 'mocking_another_email@gmail.com'
-        invite_friend_to_stockbets(user_id, friend_email)
+        email_platform_invitation(user_id, friend_email)
         with engine.connect() as conn:
             count = conn.execute("SELECT COUNT(*) FROM external_invites WHERE invited_email = %s;",
                                  friend_email).fetchall()

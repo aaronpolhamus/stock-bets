@@ -114,7 +114,7 @@ if __name__ == '__main__':
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
 
-    game_entry = query_to_dict("SELECT * FROM main.game_status WHERE game_id = 1")
+    game_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = 1")[0]
     user_id_list = json.loads(game_entry["users"])
     details = get_user_details_from_ids(user_id_list)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "toofast", "jack", "jadis"}

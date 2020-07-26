@@ -1,7 +1,7 @@
 import React from 'react'
 import { GameCard, GameCardPending } from 'components/lists/GameCard'
 import PropTypes from 'prop-types'
-import {SectionTitle} from 'components/textComponents/Text'
+import { SectionTitle } from 'components/textComponents/Text'
 
 const gameListBuilder = (props) => {
   return props.games.map((entry, index) => {

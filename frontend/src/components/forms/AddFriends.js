@@ -1,26 +1,23 @@
-import React, { useState } from 'react'
-import { Button, Modal, Accordion, Form } from 'react-bootstrap'
-import {
-  TextButton,
-  AuxiliarText,
-  FlexRow
-} from 'components/textComponents/Text'
-import { AsyncTypeahead } from 'react-bootstrap-typeahead'
-import { UserPlus } from 'react-feather'
-import { apiPost } from 'components/functions/api'
-import { UserMiniCard } from 'components/users/UserMiniCard'
-import { RadioButtons } from 'components/forms/Inputs'
-import { ReactMultiEmail, isEmail } from 'react-multi-email';
+import React, {useEffect, useState} from 'react'
+import {Button, Form, Modal} from 'react-bootstrap'
+import {AuxiliarText, FlexRow} from 'components/textComponents/Text'
+import {AsyncTypeahead, Typeahead} from 'react-bootstrap-typeahead'
+import {UserPlus} from 'react-feather'
+import {apiPost} from 'components/functions/api'
+import {UserMiniCard} from 'components/users/UserMiniCard'
+import {RadioButtons} from 'components/forms/Inputs'
+import {isEmail, ReactMultiEmail} from 'react-multi-email';
 import 'react-multi-email/style.css';
 import PropTypes from 'prop-types'
+import styled from "styled-components";
+import {breakpoints} from "../../design-tokens";
+import {Tooltip} from "./Tooltips";
 
 const AddFriends = ({variant}) => {
   const [isLoading, setIsLoading] = useState(false)
   const [friendSuggestions, setFriendSuggestions] = useState([])
   const [friendInvitee, setFriendInvitee] = useState('')
-
   const [emails, setEmails] = useState([])
-
   const [show, setShow] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [inviteType, setInviteType] = useState('invite')
@@ -116,7 +113,7 @@ const AddFriends = ({variant}) => {
                   autocomplete='off' 
                   autocorrect='off' 
                   autocapitalize='off' 
-                  placeholder='After entering an email, add another one with the tab or comma keys'
+                  placeholder='Separate multiple emails with a comma or tab'
                   emails={emails}
                   onChange={(_emails)=>{
                     setEmails(_emails)
@@ -216,4 +213,82 @@ AddFriends.propTypes = {
   variant: PropTypes.string
 }
 
-export { AddFriends }
+const StyledTypeahead = styled(Typeahead)`
+  
+  .rbt-input-wrapper {
+    display: flex;
+  }
+  .rbt-input-wrapper div {
+    
+  }
+  .rbt-input-wrapper [option] {
+    font-size: var(--font-size-small);
+    background-color: var(--color-light-gray);
+    padding: 0 var(--space-100);
+    border-radius: var(--space-50);
+    margin-right: var(--space-50);
+    button{
+      margin-right: var(--space-50);
+    }
+  }
+`
+
+const MultiInvite = ({availableInvitees, handleInviteesChange, handleEmailsChange}) => {
+  return <>
+    <Form.Group>
+      <Form.Label>
+        Add competitors with username
+        <Tooltip
+          message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first."
+        />
+      </Form.Label>
+      <StyledTypeahead
+        id='typeahead-particpants'
+        name='invitees'
+        labelKey='name'
+        multiple
+        options={
+          availableInvitees &&
+          Object.values(availableInvitees)
+        }
+        placeholder="Who's playing?"
+        onChange={handleInviteesChange}
+      />
+    </Form.Group>
+    <Form.Group>
+      <Form.Label>
+        Add competitors with email
+        <Tooltip
+          message="Email a friend a game invitation. If they're not on the platform already we'll walk them through onboarding, and they'll have your invitation waiting for them."
+        />
+      </Form.Label>
+
+      <ReactMultiEmail
+        autocomplete='off'
+        autocorrect='off'
+        autocapitalize='off'
+        placeholder='Separate multiple emails with a comma or tab'
+        onChange={handleEmailsChange}
+        validateEmail={email => {
+          return isEmail(email);
+        }}
+        getLabel={(
+          email: string,
+          index: number,
+          removeEmail: (index: number) => void,
+        ) => {
+          return (
+            <div data-tag key={index}>
+              {email}
+              <span data-tag-handle onClick={() => removeEmail(index)}>
+                          ×
+                        </span>
+            </div>
+          );
+        }}
+      />
+    </Form.Group>
+  </>;
+}
+
+export { AddFriends, MultiInvite }

@@ -18,7 +18,7 @@ from backend.logic.base import (
     make_date_offset,
     get_all_game_users_ids,
     get_game_info,
-    get_user_id,
+    get_user_ids,
 )
 from backend.logic.games import (
     add_game,
@@ -72,7 +72,7 @@ class TestGameKickoff(BaseTestCase):
     def _start_game_runner(self, start_time, game_id):
         user_statuses = get_user_invite_statuses_for_pending_game(game_id)
         pending_user_usernames = [x["username"] for x in user_statuses if x["status"] == "invited"]
-        pending_user_ids = [get_user_id(x) for x in pending_user_usernames]
+        pending_user_ids = get_user_ids(pending_user_usernames)
 
         # get all user IDs for the game. For this test case everyone is going ot accept
         with self.engine.connect() as conn:
@@ -345,7 +345,7 @@ class TestWinnerPayouts(BaseTestCase):
 
             winner_id, score = get_winner(game_id, start_time, end_time, game_info["benchmark"])
             log_winners(game_id, time.time())
-            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")
+            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 1;")[0]
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
             side_pot = pot_size * (game_info["side_bets_perc"] / 100) / n_sidebets
@@ -356,7 +356,7 @@ class TestWinnerPayouts(BaseTestCase):
             self.assertEqual(sidebet_entry["timestamp"], time_1)
 
             log_winners(game_id, time.time())
-            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 2;")
+            sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 2;")[0]
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
             self.assertEqual(sidebet_entry["payout"], side_pot)
@@ -365,7 +365,7 @@ class TestWinnerPayouts(BaseTestCase):
             self.assertEqual(sidebet_entry["end_time"], sidebet_dates_posix[1])
             self.assertEqual(sidebet_entry["timestamp"], time_2)
 
-            overall_entry = query_to_dict("SELECT * FROM winners WHERE id = 3;")
+            overall_entry = query_to_dict("SELECT * FROM winners WHERE id = 3;")[0]
             final_payout = pot_size * (1 - game_info["side_bets_perc"] / 100)
             self.assertEqual(overall_entry["payout"], final_payout)
             with self.engine.connect() as conn:
@@ -415,14 +415,14 @@ class TestSinglePlayerLogic(BaseTestCase):
         )
 
         # confirm that a single player game was registered successfully
-        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s;", title)
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s;", title)[0]
         game_id = game_entry["id"]
         self.assertEqual(game_entry["game_mode"], "single_player")
         self.assertEqual(game_entry["duration"], 365)
         self.assertEqual(game_entry["benchmark"], "return_ratio")
 
         # confirm that user is registered as joined
-        invite_entry = query_to_dict("SELECT * FROM game_invites WHERE game_id = %s", game_id)
+        invite_entry = query_to_dict("SELECT * FROM game_invites WHERE game_id = %s", game_id)[0]
         self.assertEqual(invite_entry["status"], "joined")
 
         # confirm that all expected redis cache assets exist

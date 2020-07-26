@@ -64,9 +64,10 @@ class TestUserManagement(BaseTestCase):
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
-        res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"},
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
                                          verify=False)
-        self.assertEqual(res.status_code, 411)
+        self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, OAUTH_ERROR_MSG)
 
         res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"},
@@ -251,9 +252,9 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])[0]
         game_id = games_entry["id"]
-        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)[0]
 
         # games table tests
         for field in games_entry.values():  # make sure that we're test-writing all fields
@@ -377,8 +378,8 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(set([x["username"] for x in res.json()]), {"cheetos", "toofast", "miguel", "murcitdev"})
-        self.assertEqual(set([x["status"] for x in res.json()]), {"joined", "invited", "invited", "invited"})
+        self.assertEqual(set([x["username"] for x in res.json()["platform_invites"]]), {"cheetos", "toofast", "miguel", "murcitdev"})
+        self.assertEqual(set([x["status"] for x in res.json()["platform_invites"]]), {"joined", "invited", "invited", "invited"})
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
                                          json={"game_id": game_id, "decision": "joined"},
@@ -388,7 +389,7 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        for user_entry in res.json():
+        for user_entry in res.json()["platform_invites"]:
             if user_entry["username"] in ["murcitdev", "cheetos"]:
                 self.assertEqual(user_entry["status"], "joined")
             else:
@@ -579,11 +580,10 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
+        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
-                     "start_time",
-                     "benchmark_formatted", "leaderboard"]:
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
@@ -601,7 +601,7 @@ class TestFriendManagement(BaseTestCase):
         test_celery_tasks.TestFriendManagement
         """
         test_username = "cheetos"
-        test_friend_email = "test_dummy_email@gmail.com"
+        test_friend_email = "test_dummy_email@example.com"
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
@@ -638,7 +638,8 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email", json={"friend_emails": [test_friend_email]},
+        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email",
+                                         json={"friend_emails": [test_friend_email]},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there
