@@ -73,8 +73,6 @@ def aws_client(service='s3', region='us-east-1'):
 
 def upload_image_from_url_to_s3(url, key):
     s3 = aws_client()
-    extension = '.' + url.split('.')[-1]
-    key += extension
     bucket_name = Config.AWS_BUCKET_NAME
     try:
         data = requests.get(url, stream=True)
