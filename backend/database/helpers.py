@@ -75,3 +75,16 @@ def upload_image_from_url_to_s3(url, key):
     data = requests.get(url, stream=True)
     response = s3.put_object(Body=data.content, Bucket=bucket_name, Key=key)
     return response
+
+
+def create_presigned_url(bucket_name, object_name, expiration=3600):
+    """Generate a presigned URL to share an S3 object
+    """
+
+    # Generate a presigned URL for the S3 object
+    s3_client = aws_client()
+    response = s3_client.generate_presigned_url('get_object',
+                                                Params={'Bucket': bucket_name,
+                                                        'Key': object_name},
+                                                ExpiresIn=expiration)
+    return response
