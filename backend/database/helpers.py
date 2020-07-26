@@ -77,14 +77,14 @@ def upload_image_from_url_to_s3(url, key):
     return response
 
 
-def create_presigned_url(bucket_name, object_name, expiration=3600):
-    """Generate a presigned URL to share an S3 object
+def create_presigned_url(key, bucket=Config.AWS_BUCKET_NAME, expiration=3600):
+    """Generate a presigned URL to share an S3 object, this saves the trouble of making a policy of
+    a public bucket or a public folder, making only temporary URLs, saver too since it's impossible
+    for someone to just scrap stockbet's bucket
     """
-
-    # Generate a presigned URL for the S3 object
     s3_client = aws_client()
-    response = s3_client.generate_presigned_url('get_object',
-                                                Params={'Bucket': bucket_name,
-                                                        'Key': object_name},
-                                                ExpiresIn=expiration)
-    return response
+    url = s3_client.generate_presigned_url('get_object',
+                                           Params={'Bucket': bucket,
+                                                   'Key': key},
+                                           ExpiresIn=expiration)
+    return url
