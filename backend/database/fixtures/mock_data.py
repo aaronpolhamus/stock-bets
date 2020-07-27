@@ -17,7 +17,7 @@ from backend.logic.base import (
     check_single_player_mode,
     DEFAULT_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
-    get_all_game_users_ids,
+    get_active_game_user_ids,
     get_schedule_start_and_end,
     get_trading_calendar,
     posix_to_datetime
@@ -606,7 +606,7 @@ def make_redis_mocks():
         make_the_field_charts(g_id)
 
         # tables and performance breakout charts
-        user_ids = get_all_game_users_ids(g_id)
+        user_ids = get_active_game_user_ids(g_id)
         for user_id in user_ids:
             # game/user-level assets
             serialize_and_pack_order_details(g_id, user_id)

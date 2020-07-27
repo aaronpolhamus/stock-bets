@@ -30,7 +30,7 @@ from backend.logic.base import (
     DEFAULT_VIRTUAL_CASH,
     RESAMPLING_INTERVAL,
     get_payouts_meta_data,
-    get_all_game_users_ids,
+    get_active_game_user_ids,
     check_single_player_mode,
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
@@ -243,7 +243,7 @@ def get_index_portfolio_value(game_id: int, index: str):
 
 
 def compile_and_pack_player_leaderboard(game_id: int):
-    user_ids = get_all_game_users_ids(game_id)
+    user_ids = get_active_game_user_ids(game_id)
     user_colors = assign_user_colors(game_id)
     records = []
     for user_id in user_ids:
@@ -327,7 +327,10 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
 
     tt_df = df.join(adjustment_df)
     tt_df["trade_time"] = tt_df["time_diff"] - tt_df["adjustment"]
-    return pd.cut(tt_df["trade_time"], N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
+    n_plot_points = N_PLOT_POINTS
+    if tt_df["trade_time"].nunique() < N_PLOT_POINTS:
+        n_plot_points = tt_df["trade_time"].nunique()
+    return pd.cut(tt_df["trade_time"], n_plot_points, right=True, labels=False, include_lowest=False).to_list()
 
 
 def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
@@ -484,7 +487,7 @@ def make_the_field_charts(game_id: int):
     """This function wraps a loop that produces the balances chart for each user and the field chart for the game. This
     will run every time a user places and order, and periodically as prices are collected
     """
-    user_ids = get_all_game_users_ids(game_id)
+    user_ids = get_active_game_user_ids(game_id)
     portfolios = []
     portfolio_table_keys = list(portfolio_comps_schema.keys())
     for user_id in user_ids:
@@ -829,7 +832,7 @@ def refresh_game_data(game_id: int):
     make_the_field_charts(game_id)
 
     # tables and performance breakout charts
-    user_ids = get_all_game_users_ids(game_id)
+    user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
         serialize_and_pack_order_details(game_id, user_id)
@@ -844,7 +847,7 @@ def refresh_game_data(game_id: int):
 
 
 def calculate_and_pack_game_metrics(game_id):
-    for user_id in get_all_game_users_ids(game_id):
+    for user_id in get_active_game_user_ids(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
         rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
         rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)

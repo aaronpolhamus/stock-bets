@@ -346,7 +346,7 @@ class TestCreateGame(BaseTestCase):
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
 
-        # finally, we'll test our ability to leave a game
+        # we'll test our ability to leave a game
         res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
@@ -364,6 +364,19 @@ class TestCreateGame(BaseTestCase):
         play_game_info = res.json()
         self.assertNotIn(user_id, [x["id"] for x in play_game_info["leaderboard"]])
 
+        # if all users leave a game, we expect that game to be inactive
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": toofast_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": murcitdev_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                                          game_id)[0]
+        self.assertEqual(game_status_entry["status"], "expired")
+        self.assertEqual(json.loads(game_status_entry["users"]), [])
+
     def test_pending_game_management(self):
         user_id = 1
         game_id = 5
@@ -378,8 +391,10 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(set([x["username"] for x in res.json()["platform_invites"]]), {"cheetos", "toofast", "miguel", "murcitdev"})
-        self.assertEqual(set([x["status"] for x in res.json()["platform_invites"]]), {"joined", "invited", "invited", "invited"})
+        self.assertEqual(set([x["username"] for x in res.json()["platform_invites"]]),
+                         {"cheetos", "toofast", "miguel", "murcitdev"})
+        self.assertEqual(set([x["status"] for x in res.json()["platform_invites"]]),
+                         {"joined", "invited", "invited", "invited"})
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
                                          json={"game_id": game_id, "decision": "joined"},

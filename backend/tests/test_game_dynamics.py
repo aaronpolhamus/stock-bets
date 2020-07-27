@@ -690,20 +690,29 @@ class TestSymbolSuggestion(BaseTestCase):
         text = "A"
         buy_or_sell = "buy"
         expected_suggestions = [
-            {"symbol": "AAPL", "label": "AAPL (APPLE)"},
-            {"symbol": "AMZN", "label": "AMZN (AMAZON)"},
-            {"symbol": "GOOG", "label": "GOOG (ALPHABET CLASS C)"},
-            {"symbol": "GOOGL", "label": "GOOGL (ALPHABET CLASS A)"},
-            {"symbol": "T", "label": "T (AT&T)"},
-        ]
+            {'symbol': 'T', 'label': 'T (AT&T)', 'dist': 1},
+            {'symbol': 'AAPL', 'label': 'AAPL (APPLE)', 'dist': 3},
+            {'symbol': 'AMZN', 'label': 'AMZN (AMAZON)', 'dist': 3},
+            {'symbol': 'GOOG', 'label': 'GOOG (ALPHABET CLASS C)', 'dist': 4},
+            {'symbol': 'GOOGL', 'label': 'GOOGL (ALPHABET CLASS A)', 'dist': 5}]
+
         result = suggest_symbols(game_id, user_id, text, buy_or_sell)
         self.assertEqual(result, expected_suggestions)
 
         # test sell suggestions
         text = "A"
         buy_or_sell = "sell"
-        expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)"}]
+        expected_suggestions = [{"symbol": "AMZN", "label": "AMZN (AMAZON)", "dist": 3}]
         result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        self.assertEqual(result, expected_suggestions)
+
+        # validate distance metric with Google
+        text = "GOOG"
+        buy_or_sell = "buy"
+        result = suggest_symbols(game_id, user_id, text, buy_or_sell)
+        expected_suggestions = [
+            {'symbol': 'GOOG', 'label': 'GOOG (ALPHABET CLASS C)', 'dist': 0},
+            {'symbol': 'GOOGL', 'label': 'GOOGL (ALPHABET CLASS A)', 'dist': 1}]
         self.assertEqual(result, expected_suggestions)
 
 
