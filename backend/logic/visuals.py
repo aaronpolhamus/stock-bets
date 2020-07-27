@@ -327,7 +327,10 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
 
     tt_df = df.join(adjustment_df)
     tt_df["trade_time"] = tt_df["time_diff"] - tt_df["adjustment"]
-    return pd.cut(tt_df["trade_time"], N_PLOT_POINTS, right=True, labels=False, include_lowest=False).to_list()
+    n_plot_points = N_PLOT_POINTS
+    if tt_df["trade_time"].nunique() < N_PLOT_POINTS:
+        n_plot_points = tt_df["trade_time"].nunique()
+    return pd.cut(tt_df["trade_time"], n_plot_points, right=True, labels=False, include_lowest=False).to_list()
 
 
 def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
