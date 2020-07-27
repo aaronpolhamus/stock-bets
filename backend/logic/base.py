@@ -335,7 +335,9 @@ def get_all_game_usernames(game_id: int):
 
 
 def get_user_information(user_id):
-    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
+    user_info = query_to_dict("SELECT * FROM users WHERE id = %s", user_id)
+    if user_info:
+        return user_info[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
