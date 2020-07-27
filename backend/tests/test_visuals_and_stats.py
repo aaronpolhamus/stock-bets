@@ -16,7 +16,7 @@ from backend.logic.base import (
     datetime_to_posix,
     n_sidebets_in_game,
     make_date_offset,
-    get_all_game_users_ids,
+    get_active_game_user_ids,
     get_game_info,
     get_user_ids,
 )
@@ -283,7 +283,7 @@ class TestVisuals(BaseTestCase):
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
 
-        user_ids = get_all_game_users_ids(game_id)
+        user_ids = get_active_game_user_ids(game_id)
         for player_id in user_ids:
             serialize_and_pack_order_performance_chart(game_id, player_id)
 
@@ -302,7 +302,7 @@ class TestWinnerPayouts(BaseTestCase):
         have a week of test data, we'll effectively recycle the same information via mocks
         """
         game_id = 3
-        user_ids = get_all_game_users_ids(game_id)
+        user_ids = get_active_game_user_ids(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
         game_info = get_game_info(game_id)
 

@@ -21,6 +21,7 @@ from backend.database.models import (
     BuyOrSell,
     TimeInForce)
 from backend.logic.base import (
+    get_active_game_user_ids,
     standardize_email,
     get_user_information,
     get_game_info,
@@ -47,6 +48,7 @@ from backend.logic.visuals import (
 )
 from funkybob import RandomNameGenerator
 from logic.base import get_user_ids
+from textdistance import hamming
 
 TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
 
@@ -321,7 +323,14 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 def leave_game(game_id: int, user_id: int):
     """Users in non-paid games can leave at any time
     """
-    add_row("game_invites", game_id=game_id, user_id=user_id, status="left", timestamp=time.time())
+    current_time = time.time()
+    add_row("game_invites", game_id=game_id, user_id=user_id, status="left", timestamp=current_time)
+    current_game_users = get_active_game_user_ids(game_id)
+    remaining_game_users = [x for x in current_game_users if x != user_id]
+    if not remaining_game_users:
+        add_row("game_status", game_id=game_id, status="expired", users=[], timestamp=current_time)
+        return
+    add_row("game_status", game_id=game_id, status="active", users=remaining_game_users, timestamp=current_time)
 
 
 def mark_invites_expired(game_id, status_list: List[str], update_time):
@@ -449,16 +458,13 @@ def get_user_invite_statuses_for_pending_game(game_id: int):
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
 
 
-def expire_finished_game(game_id):
+def expire_finished_game(game_id: int):
     game_info = get_game_info(game_id)
     expiration_time = game_info["start_time"] + game_info["duration"] * SECONDS_IN_A_DAY + TIME_TO_SHOW_FINISHED_GAMES
     current_time = time.time()
     if current_time >= expiration_time:
-        with engine.connect() as conn:
-            game_users = conn.execute("""
-                SELECT users FROM game_status 
-                WHERE game_id = %s AND status = 'active';""", game_id).fetchone()[0]
-        add_row("game_status", game_id=game_id, status="expired", users=json.loads(game_users), timestamp=current_time)
+        game_users = get_active_game_user_ids(game_id)
+        add_row("game_status", game_id=game_id, status="expired", users=game_users, timestamp=current_time)
 
 
 # Functions for handling placing and execution of orders
@@ -468,24 +474,25 @@ def expire_finished_game(game_id):
 def suggest_symbols(game_id, user_id, text, buy_or_sell):
     # TODO: Take this of task definitions, move it down to logic, a use a NoSQL backend
     if buy_or_sell == "buy":
-        with engine.connect() as conn:
-            to_match = f"{text.upper()}%"
-            symbol_suggestions = conn.execute("""
+        to_match = f"{text.upper()}%"
+        symbol_suggestions = query_to_dict("""
                 SELECT * FROM symbols
-                WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", (to_match, to_match))
+                WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", to_match, to_match)
 
     if buy_or_sell == "sell":
         balances = get_active_balances(game_id, user_id)
         symbols = list(balances["symbol"].unique())
-        with engine.connect() as conn:
-            to_match = f"{text.upper()}%"
-            params_list = [to_match] * 2 + symbols
-            symbol_suggestions = conn.execute(f"""
-                SELECT * FROM symbols
-                WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))})
-                LIMIT 20;""", params_list)
+        to_match = f"{text.upper()}%"
+        params_list = [to_match] * 2 + symbols
+        symbol_suggestions = query_to_dict(f"""
+            SELECT * FROM symbols
+            WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))})
+            LIMIT 20;""", params_list)
 
-    return [{"symbol": entry[1], "label": f"{entry[1]} ({entry[2]})"} for entry in symbol_suggestions]
+    suggestions = [{"symbol": entry["symbol"], "label": f"{entry['symbol']} ({entry['name']})",
+                    "dist": hamming(text, entry['symbol'])} for entry in symbol_suggestions]
+    # sort suggestions by hamming distance between text and ticker entry
+    return sorted(suggestions, key=lambda i: i["dist"])
 
 
 def get_current_stock_holding(user_id, game_id, symbol):

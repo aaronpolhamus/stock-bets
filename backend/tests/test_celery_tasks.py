@@ -1,11 +1,10 @@
 import json
 import time
-from unittest.mock import patch
 from unittest import TestCase
+from unittest.mock import patch
 
 import pandas as pd
 from backend.database.helpers import query_to_dict
-from database.db import engine
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
     fetch_price,
@@ -14,7 +13,13 @@ from backend.logic.base import (
     during_trading_day,
     get_trading_calendar,
 )
+from backend.logic.friends import (
+    suggest_friends,
+    get_friend_invites_list,
+    get_friend_details, email_platform_invitation
+)
 from backend.logic.games import (
+    leave_game,
     respond_to_game_invite,
     get_open_game_ids_past_window,
     service_open_game,
@@ -33,16 +38,12 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_update_all_index_values
 )
-from backend.logic.friends import (
-    suggest_friends,
-    get_friend_invites_list,
-    get_friend_details, email_platform_invitation
-)
 from backend.tasks.redis import (
     rds,
     TASK_LOCK_MSG
 )
 from backend.tests import BaseTestCase
+from database.db import engine
 from logic.visuals import calculate_and_pack_game_metrics
 
 
@@ -373,6 +374,9 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 24 * 60 * 60 + 1000,  # AMZN order needs to clear on the same day
                 game_start_time + 48 * 60 * 60,  # MELI order is open until being cancelled
                 game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
             ]
 
             mock_base_time.time.side_effect = [
@@ -382,6 +386,7 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
@@ -496,6 +501,20 @@ class TestGameIntegration(BaseTestCase):
             shares_sold = miguel_order_quantity
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
+
+            # if all users leave at the end of a game, that game should shut down
+            leave_game(game_id, 1)
+            leave_game(game_id, 3)
+            leave_game(game_id, 4)
+
+            game_status_entry = query_to_dict(
+                "SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;", game_id)[0]
+            self.assertEqual(game_status_entry["status"], "expired")
+            self.assertEqual(json.loads(game_status_entry["users"]), [])
+            game_invites_entries = query_to_dict(
+                "SELECT * FROM game_invites WHERE game_id = %s ORDER BY id DESC LIMIT 0, 3;", game_id)
+            for entry in game_invites_entries:
+                self.assertEqual(entry["status"], "left")
 
 
 class TestVisualAssetsTasks(BaseTestCase):

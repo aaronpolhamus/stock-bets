@@ -18,7 +18,7 @@ requests==2.21.0
 scipy==1.4.1
 selenium==3.141.0
 sendgrid==6.4.3
-
+textdistance==4.2.0
 
 # Some handy dev dependencies
 coverage==5.1

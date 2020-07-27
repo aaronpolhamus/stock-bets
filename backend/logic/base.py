@@ -7,6 +7,7 @@ import time
 from datetime import datetime as dt, timedelta
 from re import sub
 from typing import List, Union
+import json
 
 import numpy as np
 import pandas as pd
@@ -195,22 +196,13 @@ def get_game_info(game_id: int):
     return info
 
 
-def get_all_game_users_ids(game_id):
+def get_active_game_user_ids(game_id):
     with engine.connect() as conn:
-        result = conn.execute(
-            """
-            SELECT DISTINCT gi.user_id
-            FROM game_invites gi
-            INNER JOIN
-                 (SELECT game_id, user_id, max(id) as max_id
-                   FROM game_invites
-                   WHERE
-                    game_id = %s
-                   GROUP BY game_id, user_id
-                 ) grouped_gi
-            ON gi.id = grouped_gi.max_id
-            WHERE gi.status = 'joined';""", game_id)
-    return [x[0] for x in result]
+        result = conn.execute("""
+            SELECT users FROM game_status 
+            WHERE game_id = %s AND status = 'active'
+            ORDER BY id DESC LIMIT 0, 1;""", game_id).fetchone()[0]
+    return json.loads(result)
 
 
 def get_current_game_cash_balance(user_id, game_id):
@@ -334,7 +326,7 @@ def get_game_start_and_end(game_id: int):
 
 
 def get_all_game_usernames(game_id: int):
-    user_ids = get_all_game_users_ids(game_id)
+    user_ids = get_active_game_user_ids(game_id)
     return get_usernames(user_ids)
 
 # --------- #
@@ -667,7 +659,7 @@ def get_active_balances(game_id: int, user_id: int):
 
 def get_payouts_meta_data(game_id: int):
     game_info = get_game_info(game_id)
-    player_ids = get_all_game_users_ids(game_id)
+    player_ids = get_active_game_user_ids(game_id)
     n_players = len(player_ids)
     pot_size = n_players * game_info["buy_in"]
     side_bets_perc = game_info.get("side_bets_perc")
