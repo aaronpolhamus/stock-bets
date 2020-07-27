@@ -11,7 +11,7 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
@@ -20,13 +20,13 @@ from backend.database.helpers import (
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
+    SECONDS_IN_A_DAY,
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
-    DEFAULT_GAME_MODE,
+    refresh_game_data,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -38,7 +38,7 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
-    make_balances_chart_data,
+    make_user_balances_chart_data,
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
@@ -49,12 +49,12 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
-from backend.logic.winners import calculate_and_pack_metrics
 from backend.tasks.redis import (
     rds,
     unpack_redis_json)
 from backend.tests import BaseTestCase
 from config import Config
+from logic.visuals import calculate_and_pack_game_metrics
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -64,9 +64,10 @@ class TestUserManagement(BaseTestCase):
     def test_jwt_and_authentication(self):
         # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
-        res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "google"},
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
                                          verify=False)
-        self.assertEqual(res.status_code, 411)
+        self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, OAUTH_ERROR_MSG)
 
         res = self.requests_session.post(f"{HOST_URL}/login", json={"msg": "dummy_token", "provider": "fake"},
@@ -96,13 +97,18 @@ class TestUserManagement(BaseTestCase):
 
         # check valid output from the /home endpoint. There should be one pending invite for valiant roset, with
         # test game being active
-        self.assertEqual(len(data["game_info"]), 2)
         for game_data in data["game_info"]:
             if game_data["title"] == "valiant roset":
                 self.assertEqual(game_data["game_status"], "pending")
 
             if game_data["title"] == "test game":
                 self.assertEqual(game_data["game_status"], "active")
+
+            if game_data["title"] == "finished game to show":
+                self.assertEqual(game_data["game_status"], "finished")
+
+            if game_data["title"] == "finished game to hide":
+                self.assertEqual(game_data["game_status"], "finished")
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
@@ -164,18 +170,15 @@ class TestCreateGame(BaseTestCase):
 
     def test_game_defaults(self):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults", cookies={"session_token": session_token},
-                                         verify=False)
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
+                                         cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         game_defaults = res.json()
 
         expected_keys = [
             "title",
-            "mode",
-            "game_modes",
             "duration",
             "buy_in",
-            "n_rebuys",
             "benchmark",
             "side_bets_perc",
             "side_bets_period",
@@ -193,10 +196,14 @@ class TestCreateGame(BaseTestCase):
             games_description = conn.execute("SHOW COLUMNS FROM games;").fetchall()
         server_side_fields = ["id", "creator_id", "invite_window"]
         column_names = [column[0] for column in games_description if column[0] not in server_side_fields]
+
         for column in column_names:
+            # we won't set a default for game_mode, since this will be handled on a separate form
+            if column == "game_mode":
+                continue
             self.assertIn(column, game_defaults.keys())
 
-        expected_available_invitees = {'toofast', 'miguel'}
+        expected_available_invitees = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set(game_defaults["available_invitees"]), expected_available_invitees)
 
         dropdown_fields_dict = {
@@ -214,15 +221,13 @@ class TestCreateGame(BaseTestCase):
                 self.assertIn(value, frontend_labels)
 
         self.assertIsNotNone(game_defaults["title"])
-        self.assertEqual(game_defaults["mode"], DEFAULT_GAME_MODE)
         self.assertEqual(game_defaults["duration"], DEFAULT_GAME_DURATION)
         self.assertEqual(game_defaults["buy_in"], DEFAULT_BUYIN)
-        self.assertEqual(game_defaults["n_rebuys"], DEFAULT_REBUYS)
         self.assertEqual(game_defaults["benchmark"], DEFAULT_BENCHMARK)
         self.assertEqual(game_defaults["side_bets_perc"], DEFAULT_SIDEBET_PERCENT)
         self.assertEqual(game_defaults["side_bets_period"], DEFAULT_SIDEBET_PERIOD)
 
-    def test_create_game(self):
+    def test_create_and_play_multiplayer_game(self):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -233,12 +238,13 @@ class TestCreateGame(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": buy_in,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
                                          verify=False, json=game_settings)
@@ -246,40 +252,36 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # inspect subsequent DB entries
-        with self.engine.connect() as conn:
-            games_entry = conn.execute(
-                "SELECT * FROM games WHERE title = %s;", game_settings["title"]).fetchone()
-            game_id = games_entry[0]
-
-        with self.engine.connect() as conn:
-            status_entry = conn.execute("SELECT * FROM game_status WHERE game_id = %s;", game_id).fetchone()
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])[0]
+        game_id = games_entry["id"]
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s;", game_id)[0]
 
         # games table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in games_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(game_settings["buy_in"], games_entry[5])
-        self.assertEqual(game_settings["duration"], games_entry[4])
-        self.assertEqual(game_settings["mode"], games_entry[3])
-        self.assertEqual(game_settings["n_rebuys"], games_entry[6])
-        self.assertEqual(game_settings["benchmark"], games_entry[7])
-        self.assertEqual(game_settings["side_bets_perc"], games_entry[8])
-        self.assertEqual(game_settings["side_bets_period"], games_entry[9])
-        self.assertEqual(game_settings["title"], games_entry[2])
-        self.assertEqual(user_id, games_entry[1])
+
+        self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
+        self.assertEqual(game_settings["duration"], games_entry["duration"])
+        self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
+        self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
+        self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
+        self.assertEqual(game_settings["side_bets_period"], games_entry["side_bets_period"])
+        self.assertEqual(game_settings["title"], games_entry["title"])
+        self.assertEqual(user_id, games_entry["creator_id"])
         # Quick note: this test is non-determinstic: it could fail to do API server performance issues, which would be
         # something worth looking at
-        window = (current_time - games_entry[10])
-        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW, 10)
+        window = games_entry["invite_window"] - current_time
+        self.assertLess(window - DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, 1)
 
         # game_status table tests
-        for field in games_entry:  # make sure that we're test-writing all fields
+        for field in status_entry.values():  # make sure that we're test-writing all fields
             self.assertIsNotNone(field)
-        self.assertEqual(status_entry[1], game_id)
-        self.assertEqual(status_entry[2], "pending")
+        self.assertEqual(status_entry["game_id"], game_id)
+        self.assertEqual(status_entry["status"], "pending")
         # Same as note above about performance issue
-        time_diff = abs((status_entry[4] - current_time))
+        time_diff = abs((status_entry["timestamp"] - current_time))
         self.assertLess(time_diff, 1)
-        invited_users = json.loads(status_entry[3])
+        invited_users = json.loads(status_entry["users"])
         invitees = tuple(game_settings["invitees"] + [user_name])
         with self.engine.connect() as conn:
             res = conn.execute(f"""
@@ -327,7 +329,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 7)
+        self.assertEqual(len(init_balances_entry["headers"]), 8)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
@@ -344,6 +346,37 @@ class TestCreateGame(BaseTestCase):
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
 
+        # we'll test our ability to leave a game
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        refresh_game_data(game_id)
+
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
+                                         verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_landing_info = res.json()
+        self.assertNotIn(game_id, [x["game_id"] for x in user_landing_info["game_info"]])
+
+        res = self.requests_session.post(f"{HOST_URL}/game_info", cookies={"session_token": session_token},
+                                         json={"game_id": game_id}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        play_game_info = res.json()
+        self.assertNotIn(user_id, [x["id"] for x in play_game_info["leaderboard"]])
+
+        # if all users leave a game, we expect that game to be inactive
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": toofast_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
+                                         cookies={"session_token": murcitdev_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                                          game_id)[0]
+        self.assertEqual(game_status_entry["status"], "expired")
+        self.assertEqual(json.loads(game_status_entry["users"]), [])
+
     def test_pending_game_management(self):
         user_id = 1
         game_id = 5
@@ -358,8 +391,10 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(set([x["username"] for x in res.json()]), {"cheetos", "toofast", "miguel", "murcitdev"})
-        self.assertEqual(set([x["status"] for x in res.json()]), {"joined", "invited", "invited", "invited"})
+        self.assertEqual(set([x["username"] for x in res.json()["platform_invites"]]),
+                         {"cheetos", "toofast", "miguel", "murcitdev"})
+        self.assertEqual(set([x["status"] for x in res.json()["platform_invites"]]),
+                         {"joined", "invited", "invited", "invited"})
 
         res = self.requests_session.post(f"{HOST_URL}/respond_to_game_invite",
                                          json={"game_id": game_id, "decision": "joined"},
@@ -369,11 +404,24 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_pending_game_info", json={"game_id": game_id},
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        for user_entry in res.json():
+        for user_entry in res.json()["platform_invites"]:
             if user_entry["username"] in ["murcitdev", "cheetos"]:
                 self.assertEqual(user_entry["status"], "joined")
             else:
                 self.assertEqual(user_entry["status"], "invited")
+
+    def test_create_single_player_game(self):
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duation = 365
+        game_settings = {
+            "duration": game_duation,
+            "game_mode": "single_player",
+            "title": "jugando solo",
+            "benchmark": "return_ratio"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
+                                         verify=False, json=game_settings)
+        self.assertEqual(res.status_code, 200)
 
 
 class TestPlayGame(BaseTestCase):
@@ -438,7 +486,7 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(expected_current_balances_series, returned_current_balances_series)
 
         # check a different user's balance information
-        df = make_balances_chart_data(game_id, 3)
+        df = make_user_balances_chart_data(game_id, 3)
         serialize_and_pack_balances_chart(df, game_id, 3)
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id, "username": "toofast"})
@@ -524,9 +572,7 @@ class TestGetGameStats(BaseTestCase):
 
     def test_leaderboard(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
         compile_and_pack_player_leaderboard(game_id)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -549,10 +595,10 @@ class TestGetGameStats(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)
+        db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
-            if k in ["creator_username", "mode", "benchmark", "game_status", "user_status", "end_time", "start_time",
-                     "benchmark_formatted", "leaderboard"]:
+            if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
@@ -561,7 +607,6 @@ class TestGetGameStats(BaseTestCase):
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["creator_username"], "cheetos")
         self.assertEqual(res.json()["benchmark_formatted"], "RETURN RATIO")
-        self.assertEqual(res.json()["mode"], "RETURN WEIGHTED")
 
 
 class TestFriendManagement(BaseTestCase):
@@ -571,6 +616,7 @@ class TestFriendManagement(BaseTestCase):
         test_celery_tasks.TestFriendManagement
         """
         test_username = "cheetos"
+        test_friend_email = "test_dummy_email@example.com"
         dummy_username = "dummy2"
         test_user_session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         dummy_user_session_token = self.make_test_token_from_email("dummy2@example.test")
@@ -580,7 +626,7 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        expected_friends = {"toofast", "miguel"}
+        expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
 
         # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
@@ -607,7 +653,10 @@ class TestFriendManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/send_friend_request", json={"friend_invitee": test_username},
                                          cookies={"session_token": dummy_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-
+        res = self.requests_session.post(f"{HOST_URL}/invite_users_by_email",
+                                         json={"friend_emails": [test_friend_email]},
+                                         cookies={"session_token": dummy_user_session_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
         # check the invites again. we should have the dummy user in there
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friend_invites",
                                          cookies={"session_token": test_user_session_token}, verify=False)
@@ -630,15 +679,16 @@ class TestFriendManagement(BaseTestCase):
         self.assertTrue(len(res.json()) == 0)
 
         # the test user is ready to make a game. murcitdev should now show up in their list of friend possibilities
-        res = self.requests_session.post(f"{HOST_URL}/game_defaults",
+        res = self.requests_session.post(f"{HOST_URL}/game_defaults", json={"game_mode": "multi_player"},
                                          cookies={"session_token": test_user_session_token}, verify=False)
-        self.assertEqual(set(res.json()["available_invitees"]), {"miguel", "murcitdev", "toofast"})
+        expected_available_invites = set(['toofast', 'miguel', "murcitdev"] + [f"minion{x}" for x in range(1, 31)])
+        self.assertEqual(set(res.json()["available_invitees"]), expected_available_invites)
 
         # finally, confirm that the new friends list looks good
         res = self.requests_session.post(f"{HOST_URL}/get_list_of_friends",
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        expected_friends = {"toofast", "miguel", "murcitdev"}
+        expected_friends = set(['toofast', 'miguel', "murcitdev"] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
 
         # jack sparrow is too cool for the user and rejects his invite. since test user just accepted murcitdev's
@@ -663,7 +713,7 @@ class TestHomePage(BaseTestCase):
         # verify that the test page landing looks like we expect it to
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 2)
+        self.assertEqual(len(res.json()["game_info"]), 5)
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
@@ -685,21 +735,20 @@ class TestHomePage(BaseTestCase):
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 2)
         for game_entry in res.json()["game_info"]:
             self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
-        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the creategame
+        """Simulate a world where we have users and friends, but no games. We'll recreate a game from the create_game
         test. Rhis functionality is already tested. Want to do a bit testing of the order placing functionality via the
         API and how that impacts the database.
         """
         #
         rds.flushall()
         reset_db()
-        refresh_table("users")
-        refresh_table("symbols")
-        refresh_table("friends")
+        populate_table("users")
+        populate_table("symbols")
+        populate_table("friends")
 
         user_id = 1
         user_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -720,12 +769,13 @@ class TestHomePage(BaseTestCase):
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
             "duration": game_duation,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "n_rebuys": 3,
             "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
         self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token}, verify=False,
                                    json=game_settings)
@@ -776,7 +826,7 @@ class TestPriceFetching(BaseTestCase):
 
     def test_api_price_fetching(self):
         reset_db()
-        refresh_table("users")
+        populate_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         res = self.requests_session.post(f"{HOST_URL}/fetch_price", cookies={"session_token": session_token},

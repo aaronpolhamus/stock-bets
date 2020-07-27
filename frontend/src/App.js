@@ -2,12 +2,12 @@ import React, { useState, useMemo } from 'react'
 import { BrowserRouter as Router, Route } from 'react-router-dom'
 import Home from 'pages/Home'
 import Login from 'pages/Login'
-import Welcome from 'components/Welcome'
 import { PlayGame } from 'pages/PlayGame'
 import { JoinGame } from 'pages/JoinGame'
 import { NewGame } from 'pages/NewGame'
 import { Admin } from 'pages/Admin'
 import { PrivacyPolicy } from 'pages/PrivacyPolicy'
+import { TermsAndConditions } from 'pages/TermsAndConditions'
 import { UserContext } from 'Contexts'
 
 export default function App () {
@@ -22,9 +22,9 @@ export default function App () {
         <Route exact path='/join/:gameId/' component={JoinGame} />
         <Route path='/new/' component={NewGame} />
       </UserContext.Provider>
-      <Route path='/welcome/' component={Welcome} />
       <Route path='/login/' component={Login} />
       <Route path='/privacy/' component={PrivacyPolicy} />
+      <Route path='/terms/' component={TermsAndConditions} />
       <Route path='/admin/' component={Admin} />
 
     </Router>

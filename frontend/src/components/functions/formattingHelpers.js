@@ -1,4 +1,4 @@
-const simplifyCurrency = (value) => {
+const simplifyCurrency = (value, decimals, dollarSign) => {
   let affix = ''
   let baseline = 1
   let amount = value
@@ -14,9 +14,11 @@ const simplifyCurrency = (value) => {
     affix = 'K'
   }
 
+  decimals = decimals === undefined ? 1 : decimals
+
   amount = amount / baseline
-  amount = amount.toFixed(1)
-  amount = `$${amount}${affix}`
+  amount = decimals ? amount.toFixed(decimals) : amount
+  amount = dollarSign ? `$${amount}${affix}` : `${amount}${affix}`
 
   return amount
 }
@@ -30,4 +32,28 @@ const numberToOrdinal = number => {
   return `${number}${suffix}`
 }
 
-export { simplifyCurrency, numberToOrdinal }
+const msToDays = milliseconds => {
+  return Math.floor(milliseconds / 86400000)
+}
+
+const daysLeft = seconds => {
+  const endMilliseconds = seconds * 1000
+  const today = new Date().getTime()
+
+  const timeleft = endMilliseconds - today
+
+  const days = msToDays(timeleft)
+
+  if (days < 0) return 'Game ended'
+
+  switch (days) {
+    case 0:
+      return 'Ends today'
+    case 1:
+      return 'Ends tomorrow'
+    default:
+      return `${days} days left`
+  }
+}
+
+export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft }

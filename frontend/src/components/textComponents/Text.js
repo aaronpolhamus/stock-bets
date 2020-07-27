@@ -1,6 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { breakpoints } from 'design-tokens'
 
 const SimplifiedCurrency = ({ value }) => (
   <span title={value.toLocaleString()}>{simplifyCurrency(value)}</span>
@@ -20,15 +21,15 @@ const SmallText = styled.span`
 
 const SectionTitle = styled.h2`
   color: ${(props) => props.color || 'var(--color-text-primary)'};
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-normal);
   font-weight: bold;
-  letter-spacing: var(--letter-spacing-smallcaps);
-  text-transform: uppercase;
+  margin-bottom: var(--space-200);
 `
+
 const TitlePage = styled.h1`
   font-size: var(--font-size-xlarge)
-
 `
+
 const TextButton = styled.button`
   background-color: transparent;
   border: none;
@@ -45,6 +46,7 @@ const FlexRow = styled.div`
 `
 
 const AlignText = styled.div`
+  width: 100%;
   text-align: ${(props) => props.align || 'left'};
 `
 
@@ -72,15 +74,31 @@ const SmallCaps = styled.small`
   font-weight: 400;
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
+  @media screen and (max-width: ${props => breakpoints[props.$hideOnBreakpoint]}){
+    display: none;
+  }
 `
 
 const TitleCard = styled.h3`
   
 `
 
+const TextDivider = styled.span`
+  font-weight: bold;
+  color: var(--color-primary-darken);
+`
+
+const Flex = styled.div`
+  display: flex;
+  & > * + *{
+    margin-left: var(--space-300);
+  }
+`
+
 export {
   AlignText,
   AuxiliarText,
+  Flex,
   FlexRow,
   FormFooter,
   Label,
@@ -90,6 +108,7 @@ export {
   SmallText,
   Subtext,
   TextButton,
+  TextDivider,
   TitleCard,
   TitlePage
 }

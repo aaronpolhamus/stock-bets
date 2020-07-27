@@ -1,16 +1,27 @@
 import json
 import time
+from unittest import TestCase
 from unittest.mock import patch
 
-from backend.tasks.redis import dlm
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
-    during_trading_day
+    SECONDS_IN_A_DAY,
+    fetch_price,
+    get_end_of_last_trading_day,
+    posix_to_datetime,
+    during_trading_day,
+    get_trading_calendar,
+)
+from backend.logic.friends import (
+    suggest_friends,
+    get_friend_invites_list,
+    get_friend_details, email_platform_invitation
 )
 from backend.logic.games import (
+    leave_game,
     respond_to_game_invite,
-    get_open_game_invite_ids,
+    get_open_game_ids_past_window,
     service_open_game,
     process_order,
     add_game,
@@ -21,25 +32,23 @@ from backend.logic.games import (
     DEFAULT_INVITE_OPEN_WINDOW,
     DEFAULT_VIRTUAL_CASH
 )
-from backend.logic.winners import calculate_and_pack_metrics
 from backend.tasks.definitions import (
     async_process_all_open_orders,
     async_update_symbols_table,
     async_cache_price,
-    PROCESS_ORDERS_LOCK_KEY,
-    PROCESS_ORDERS_LOCK_TIMEOUT
-)
-from backend.logic.friends import (
-    suggest_friends,
-    get_friend_invites_list,
-    get_friend_details
+    async_update_all_index_values
 )
 from backend.tasks.redis import (
     rds,
     TASK_LOCK_MSG
 )
 from backend.tests import BaseTestCase
-from logic.base import fetch_price
+from database.db import engine
+from logic.visuals import calculate_and_pack_game_metrics
+
+
+def mock_send_invite_email(_requester_id, _email):
+    return True
 
 
 class TestStockDataTasks(BaseTestCase):
@@ -100,6 +109,33 @@ class TestStockDataTasks(BaseTestCase):
         del stored_df["id"]
         pd.testing.assert_frame_equal(df, stored_df)
 
+    def test_index_scrapers(self):
+        """This test make sure that our external integration with yahoo finance via the celery workers is running
+        properly, as well as that new indexes that get added to our inventory will be properly intitialized, as well as
+        that close of day index values will be stored
+        """
+
+        with self.engine.connect() as conn:
+            conn.execute("TRUNCATE indexes;")
+            async_update_all_index_values.delay()
+            df = pd.read_sql("SELECT * FROM indexes;", conn)
+
+        iteration = 0
+        while df.shape != (3, 4) and iteration < 30:
+            time.sleep(1)
+            with self.engine.connect() as conn:
+                df = pd.read_sql("SELECT * FROM indexes;", conn)
+            iteration += 1
+
+        self.assertEqual(df.shape, (3, 4))
+        if not during_trading_day():
+            ref_day = time.time()
+            eod = get_end_of_last_trading_day(ref_day)
+            while eod > ref_day:
+                ref_day -= SECONDS_IN_A_DAY
+                eod = get_end_of_last_trading_day(ref_day)
+            [self.assertEqual(eod, x) for x in df["timestamp"].to_list()]
+
 
 class TestGameIntegration(BaseTestCase):
 
@@ -110,48 +146,51 @@ class TestGameIntegration(BaseTestCase):
         mock_game = {
             "creator_id": creator_id,
             "title": game_title,
-            "mode": "winner_takes_all",
+            "game_mode": "multi_player",
             "duration": 180,
             "buy_in": 100,
-            "n_rebuys": 0,
             "benchmark": "return_ratio",
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
-            "invitees": ["miguel", "murcitdev", "toofast"]
+            "invitees": ["miguel", "murcitdev", "toofast"],
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
         }
 
         add_game(
             mock_game["creator_id"],
             mock_game["title"],
-            mock_game["mode"],
+            mock_game["game_mode"],
             mock_game["duration"],
-            mock_game["buy_in"],
-            mock_game["n_rebuys"],
             mock_game["benchmark"],
+            mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
-            mock_game["invitees"]
+            mock_game["invitees"],
+            mock_game["invite_window"]
         )
 
-        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)
+        game_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_title)[0]
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        game_id = 6
+        game_id = 9
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
+                continue
+            if k == "invite_window":
+                self.assertAlmostEqual(game_entry[k], start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, 3)
                 continue
             self.assertAlmostEqual(game_entry[k], v, 1)
 
         # Confirm that game status was updated as expected
         # ------------------------------------------------
-        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)
-        self.assertEqual(game_status_entry["id"], 8)
+        game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)[0]
+        self.assertEqual(game_status_entry["id"], 16)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])
-        self.assertEqual(users_from_db, [3, 4, 5, 1])
+        self.assertEqual(set(users_from_db), {3, 4, 5, 1})
 
         # and that the game invites table is working as well
         # --------------------------------------------------
@@ -175,7 +214,7 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_pre = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        open_game_ids = get_open_game_invite_ids()
+        open_game_ids = get_open_game_ids_past_window()
         for _id in open_game_ids:
             service_open_game(_id)
 
@@ -196,11 +235,11 @@ class TestGameIntegration(BaseTestCase):
 
         # So far so good. Pretend that we're now past the invite open window and it's time to play
         # ----------------------------------------------------------------------------------------
-        game_start_time = time.time() + DEFAULT_INVITE_OPEN_WINDOW + 1
+        game_start_time = time.time() + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY + 1
         with patch("backend.logic.games.time") as mock_time:
             # users have joined, and we're past the invite window
             mock_time.time.return_value = game_start_time
-            open_game_ids = get_open_game_invite_ids()
+            open_game_ids = get_open_game_ids_past_window()
             for _id in open_game_ids:
                 service_open_game(_id)
 
@@ -335,6 +374,9 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 24 * 60 * 60 + 1000,  # AMZN order needs to clear on the same day
                 game_start_time + 48 * 60 * 60,  # MELI order is open until being cancelled
                 game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
+                game_start_time + 48 * 60 * 60,
             ]
 
             mock_base_time.time.side_effect = [
@@ -344,6 +386,7 @@ class TestGameIntegration(BaseTestCase):
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
                 game_start_time + 24 * 60 * 60 + 1000,
+                game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
                 game_start_time + 48 * 60 * 60,
@@ -386,13 +429,12 @@ class TestGameIntegration(BaseTestCase):
                 stop_limit_price=stop_limit_price
             )
 
-            with self.engine.connect() as conn:
-                amzn_open_order_id = conn.execute("""
-                                                  SELECT id 
-                                                  FROM orders 
-                                                  WHERE user_id = %s AND game_id = %s AND symbol = %s
-                                                  ORDER BY id DESC LIMIT 0, 1;""",
-                                                  user_id, game_id, stock_pick).fetchone()[0]
+            amzn_sales_entry = query_to_dict("""
+                SELECT id, price, quantity
+                FROM orders 
+                WHERE user_id = %s AND game_id = %s AND symbol = %s
+                ORDER BY id DESC LIMIT 0, 1;
+            """, user_id, game_id, stock_pick)[0]
 
             stock_pick = "MELI"
             user_id = 4
@@ -423,7 +465,7 @@ class TestGameIntegration(BaseTestCase):
                                                   ORDER BY id DESC LIMIT 0, 1;""",
                                                   user_id, game_id, stock_pick).fetchone()[0]
 
-            process_order(amzn_open_order_id)
+            process_order(amzn_sales_entry["id"])
             process_order(meli_open_order_id)
 
             with self.engine.connect() as conn:
@@ -444,12 +486,12 @@ class TestGameIntegration(BaseTestCase):
             test_user_stock = "AMZN"
             updated_holding = get_current_stock_holding(test_user_id, game_id, test_user_stock)
             updated_cash = get_current_game_cash_balance(test_user_id, game_id)
-            amzn_clear_price = df[df["id"] == amzn_open_order_id].iloc[0]["clear_price"]
-            shares_sold = 250_000 // amzn_clear_price
+            amzn_clear_price = df[df["id"] == amzn_sales_entry["id"]].iloc[0]["clear_price"]
             # This test is a little bit awkward because of how we are handling floating point for prices and
             # doing integer round here. This may need to become more precise in the future
-            self.assertTrue((updated_holding - (original_amzn_holding - shares_sold) <= 1))
-            self.assertAlmostEqual(updated_cash, test_user_original_cash + shares_sold * amzn_clear_price, 2)
+            self.assertEqual(updated_holding, original_amzn_holding - amzn_sales_entry["quantity"])
+            self.assertAlmostEqual(updated_cash,
+                                   test_user_original_cash + amzn_sales_entry["quantity"] * amzn_clear_price, 2)
 
             test_user_id = 4
             test_user_stock = "MELI"
@@ -460,6 +502,20 @@ class TestGameIntegration(BaseTestCase):
             self.assertEqual(updated_holding, original_meli_holding - shares_sold)
             self.assertAlmostEqual(updated_cash, original_miguel_cash + shares_sold * meli_clear_price, 2)
 
+            # if all users leave at the end of a game, that game should shut down
+            leave_game(game_id, 1)
+            leave_game(game_id, 3)
+            leave_game(game_id, 4)
+
+            game_status_entry = query_to_dict(
+                "SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;", game_id)[0]
+            self.assertEqual(game_status_entry["status"], "expired")
+            self.assertEqual(json.loads(game_status_entry["users"]), [])
+            game_invites_entries = query_to_dict(
+                "SELECT * FROM game_invites WHERE game_id = %s ORDER BY id DESC LIMIT 0, 3;", game_id)
+            for entry in game_invites_entries:
+                self.assertEqual(entry["status"], "left")
+
 
 class TestVisualAssetsTasks(BaseTestCase):
 
@@ -467,7 +523,6 @@ class TestVisualAssetsTasks(BaseTestCase):
         # TODO: this task can only run during trading hours, but since it's so critical to the app we allow it to be
         # here, in spite of being time-dependent
         if during_trading_day():
-
             user_id = 1
             game_id = 3
 
@@ -537,9 +592,7 @@ class TestStatsProduction(BaseTestCase):
 
     def test_game_player_stats(self):
         game_id = 3
-        calculate_and_pack_metrics(game_id, 1)
-        calculate_and_pack_metrics(game_id, 3)
-        calculate_and_pack_metrics(game_id, 4)
+        calculate_and_pack_game_metrics(game_id)
 
         sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:
@@ -562,7 +615,7 @@ class TestFriendManagement(BaseTestCase):
         user_id = 1
         # check out who the tests user's friends are currently:
         friend_details = get_friend_details(user_id)
-        expected_friends = {"toofast", "miguel"}
+        expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in friend_details]), expected_friends)
 
         # what friend invites does the test user have pending?
@@ -574,6 +627,16 @@ class TestFriendManagement(BaseTestCase):
         result = suggest_friends(user_id, "d")
         dummy_match = [x["username"] for x in result if x["label"] == "suggested"]
         self.assertEqual(dummy_match, ["dummy2"])
+
+    @patch('backend.logic.friends.send_invite_email', mock_send_invite_email)
+    def test_email_platform_invitation(self):
+        user_id = 1
+        friend_email = 'mocking_another_email@gmail.com'
+        email_platform_invitation(user_id, friend_email)
+        with engine.connect() as conn:
+            count = conn.execute("SELECT COUNT(*) FROM external_invites WHERE invited_email = %s;",
+                                 friend_email).fetchall()
+        self.assertEqual(1, count[0][0])
 
 
 class TestDataAccess(BaseTestCase):
@@ -599,9 +662,7 @@ class TestTaskLocking(BaseTestCase):
         """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
-        lock = dlm.lock(PROCESS_ORDERS_LOCK_KEY, PROCESS_ORDERS_LOCK_TIMEOUT)
-        if lock:
-            dlm.unlock(lock)
+        rds.flushall()
         res1 = async_process_all_open_orders.delay()
         res2 = async_process_all_open_orders.delay()
         res3 = async_process_all_open_orders.delay()
@@ -614,3 +675,20 @@ class TestTaskLocking(BaseTestCase):
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
         self.assertEqual(res5.get(), TASK_LOCK_MSG)
+
+
+class TestRedisCaching(TestCase):
+
+    def test_task_caching(self):
+        rds.flushall()
+        test_time = posix_to_datetime(time.time()).date()
+        start = time.time()
+        _ = get_trading_calendar(test_time, test_time)
+        time1 = time.time() - start
+
+        start = time.time()
+        _ = get_trading_calendar(test_time, test_time)
+        time2 = time.time() - start
+
+        self.assertLess(time2, time1 / 4)  # "4" is a hueristic for 'substantial performance improvement'
+        self.assertIn("rc:get_trading_calendar", rds.keys()[0])

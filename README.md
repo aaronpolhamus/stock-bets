@@ -12,6 +12,8 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `IEX_API_PRODUCTION` (True/False): Always False for development! Otherwise you'll consume paid price data from IEX when developing locally.
   - `IEX_API_SECRET_PROD` (string): IEX production API secret
   - `IEX_API_SECRET_SANDBOX` (string): IEX sandbox API secret
+  - `SENDGRID_API_KEY` (string): SENDGRID API to send emails 
+  - `EMAIL_SENDER` (string): The sender of the emails you have configured on sendgrind 
 * To use the frontend with SSL locally, paste `chrome://flags/#allow-insecure-localhost` into your Google Chrome url. Just be careful: you may want to turn this back on at some point.
 * Make sure that you don't have an current port mappings to `3306`, `5000`, `5672`, `15672`, `6379`, or `5555` on your host. Your dev env needs all of these. 
 * `cd` to the repo root and run `make up`. This is the "master" local launch command--it will build and raise the entire backend, install and build your npm dependencies, and start the web app on port `3000`. 
@@ -32,6 +34,19 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 * _How do I test celery tasks?_: When possible, it's nice to actually use celery in the same way that it will be used in production with the `task.delay(...)` invocation. However, it's frequently necessary to mock values into tasks, and to do this you need to run the task locally instead of on the worker clusters. For this, use `task.apply(args=[...], ...)`. 
 * _CORS-related frontend errors_: Yeah, this is a thing. The current project setup should allow your Chrome browser to communicate with the API server on `localhost` after invoking `chrome://flags/#allow-insecure-localhost`, but holler if you're having an issue. Before you do, check the server api logs with `make api-logs` when sending your API requests. The current setup will return a CORS error if the server responds with `500`, even if the issue isn't CORS but an internal problem with  business logic raising an exception.
 * _Everything is broken, I can't figure out what's going on. Is this a docker issue?_: There's _probably_ a quicker fix, but if you think that tearing everything down and starting from scratch is the answer run `make destroy-everything` (you can run the individual commands inside if any don't execute successfully), restart your docker machine, and call `make up`. If that doesn't fix the problem, check in with a teammate. 
+
+### Notes on business logic
+The business logic modules stored in `/backend/logic` have an order that is important preserve. That logic is: 
+```
+- base.py
+- metrics.py
+- visuals.py
+- friends.py
+- games.py
+- auth.py
+```
+
+When asking yourself "where do I put this piece of business logic?" the answer is "as far downstream (i.e. close to the games module) as you can whie respecting this order". We've tried to further break down the logical modules with comments indicating what different branches of application logic they deal with, but there is room for constant improvement here. 
 
 ### Style
 #### Overall

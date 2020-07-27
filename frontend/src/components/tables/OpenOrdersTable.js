@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react'
-import { Table, Button, Modal } from 'react-bootstrap'
-import { fetchGameData, apiPost } from 'components/functions/api'
+import { Table } from 'react-bootstrap'
+import { fetchGameData } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
-import { SmallCaps, Subtext } from 'components/textComponents/Text'
-
+import { Subtext, SectionTitle } from 'components/textComponents/Text'
 import {
   RowStyled,
-  CellStyled,
-  CancelButton
+  CellStyled
 } from 'components/tables/TableStyledComponents'
 
 import { makeCustomHeader } from 'components/functions/tables'
+
+import PropTypes from 'prop-types'
 
 const OrderTypeIcon = ({ type, ...props }) => {
   switch (type) {
@@ -22,29 +22,6 @@ const OrderTypeIcon = ({ type, ...props }) => {
 }
 
 const tableHeaders = {
-  pending: [
-    {
-      value: 'Type'
-    },
-    {
-      value: 'Symbol'
-    },
-    {
-      value: 'Quantity',
-      align: 'right'
-    },
-    {
-      value: 'Price',
-      align: 'right'
-    },
-    {
-      value: 'Time in force'
-    },
-    {
-      value: 'Date Placed',
-      align: 'right'
-    }
-  ],
   fulfilled: [
     {
       value: 'Type'
@@ -53,7 +30,7 @@ const tableHeaders = {
       value: 'Symbol'
     },
     {
-      value: 'Quantity',
+      value: 'Qty.',
       align: 'right'
     },
     {
@@ -70,7 +47,7 @@ const tableHeaders = {
 const renderFulfilledRows = (rows) => {
   return rows.map((row, index) => {
     return (
-      <RowStyled title={`${row['Buy/Sell']} order`}>
+      <RowStyled title={`${row['Buy/Sell']} order`} key={index}>
         <td>
           <OrderTypeIcon size={18} type={row['Buy/Sell']} />
         </td>
@@ -101,70 +78,12 @@ const OpenOrdersTable = ({ gameId }) => {
     getGameData()
   }, [])
 
-  const [cancelableOrder, setCancelableOrder] = useState(null)
   // Methods and settings for modal component
-  const [show, setShow] = useState(false)
-  const handleClose = () => setShow(false)
-  const handleCancelOrder = async (gameId, orderId) => {
-    await apiPost('cancel_order', {
-      game_id: gameId,
-      order_id: orderId
-    })
-    getGameData()
-    setShow(false)
-  }
-
-  const renderRows = (rows) => {
-    return rows.map((row, index) => {
-      return (
-        <RowStyled title={`${row['Buy/Sell']} order`}>
-          <td>
-            <OrderTypeIcon size={20} type={row['Buy/Sell']} />
-            <SmallCaps color='var(--color-text-gray)'>
-              {row['Order type']}
-            </SmallCaps>
-          </td>
-          <td>
-            <strong>{row.Symbol}</strong>
-          </td>
-          <CellStyled>
-            <strong>{row.Quantity}</strong>
-          </CellStyled>
-          <CellStyled>
-            <strong>{row['Order price']}</strong>
-          </CellStyled>
-          <td>
-            <SmallCaps>{row['Time in force']}</SmallCaps>
-          </td>
-          <CellStyled>
-            {row['Placed on']}
-            <CancelButton
-              onClick={() => {
-                setCancelableOrder(row)
-                setShow(true)
-              }}
-            />
-          </CellStyled>
-        </RowStyled>
-      )
-    })
-  }
 
   if (tableData.orders) {
     return (
       <>
-        <h2>
-          <SmallCaps>Pending orders</SmallCaps>
-        </h2>
-        <Table hover>
-          <thead>
-            <tr>{makeCustomHeader(tableHeaders.pending)}</tr>
-          </thead>
-          <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
-        </Table>
-        <h2>
-          <SmallCaps>Fulfilled orders</SmallCaps>
-        </h2>
+        <SectionTitle>Fulfilled orders</SectionTitle>
         <Table hover>
           <thead>
             <tr>{makeCustomHeader(tableHeaders.fulfilled)}</tr>
@@ -173,37 +92,17 @@ const OpenOrdersTable = ({ gameId }) => {
             {renderFulfilledRows(tableData.orders.fulfilled.slice(0).reverse())}
           </tbody>
         </Table>
-        <Modal centered show={show} onHide={handleClose}>
-          <Modal.Header>
-            <Modal.Title className='text-center'>
-              {cancelableOrder && `Cancel ${cancelableOrder['Buy/Sell']} order`}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body className='text-center'>
-            <p>
-              {cancelableOrder &&
-                `${cancelableOrder.Quantity} shares of ${cancelableOrder.Symbol} at ${cancelableOrder['Order price']}`}
-            </p>
-          </Modal.Body>
-          <Modal.Footer className='centered'>
-            <Button variant='info' onClick={handleClose}>
-              I'll think about it
-            </Button>
-            <Button
-              type='submit'
-              variant='danger'
-              onClick={() => {
-                handleCancelOrder(gameId, cancelableOrder.order_id)
-              }}
-            >
-              Cancel order
-            </Button>
-          </Modal.Footer>
-        </Modal>
       </>
     )
   }
   return null
 }
 
+OrderTypeIcon.propTypes = {
+  type: PropTypes.string
+}
+
+OpenOrdersTable.propTypes = {
+  gameId: PropTypes.number
+}
 export { OpenOrdersTable }

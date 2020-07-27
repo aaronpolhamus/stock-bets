@@ -30,9 +30,8 @@ class Users(db.Model):
 
 
 class GameModes(Enum):
-    return_weighted = "Return-weighted"
-    consolation_prize = "Consolation prize"
-    winner_takes_all = "Winner takes all"
+    single_player = "single_player"
+    multi_player = "multi_player"
 
 
 class Benchmarks(Enum):
@@ -45,26 +44,19 @@ class SideBetPeriods(Enum):
     monthly = "Monthly"
 
 
-class GameStakes(Enum):
-    real = "Real money"
-    fun = "For fun / honor system"
-
-
 class Games(db.Model):
     __tablename__ = "games"
 
     id = db.Column(db.Integer, primary_key=True)
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.Text)
-    mode = db.Column(db.Enum(GameModes))
+    game_mode = db.Column(db.Enum(GameModes))
     duration = db.Column(db.Integer)
     buy_in = db.Column(db.Float(precision=32))
-    n_rebuys = db.Column(db.Integer)
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
     invite_window = db.Column(db.Float(precision=32))
-    stakes = db.Column(db.Enum(GameStakes), default="fun")
 
 
 class GameStatusTypes(Enum):
@@ -89,6 +81,7 @@ class GameInviteStatusTypes(Enum):
     joined = "Joined"
     declined = "Declined"
     expired = "Expired"
+    left = "Left"
 
 
 class GameInvites(db.Model):
@@ -180,12 +173,20 @@ class Symbols(db.Model):
 
 
 class Prices(db.Model):
-
     __tablename__ = "prices"
 
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.Text)
     price = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32))
+
+
+class Indexes(db.Model):
+    __tablename__ = "indexes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    value = db.Column(db.Float(precision=32))
     timestamp = db.Column(db.Float(precision=32))
 
 
@@ -223,34 +224,25 @@ class Winners(db.Model):
     timestamp = db.Column(db.Float(precision=32))
 
 
-class PaymentTypes(Enum):
-    start = "start"
-    refund = "refund"
-    sidebet = "sidebet"
-    overall = "overall"
+class ExternalInviteStatus(Enum):
+    invited = "Invited"
+    accepted = "Accepted"
+    error = "error"
+    declined = "Declined"
 
 
-class PaymentDirection(Enum):
-    inflow = "inflow"
-    outflow = "outflow"
+class ExternalInviteTypes(Enum):
+    platform = "Platform"
+    game = "Game"
 
 
-class Processors(Enum):
-    paypal = "paypal"
-
-
-class Payments(db.Model):
-    """This table handles real payments -- this isn't virtual currency, but an actual record of cash liabilities vis-a-
-    vis the platform=
-    """
-    __tablename__ = "payments"
+class ExternalInvites(db.Model):
+    __tablename__ = "external_invites"
 
     id = db.Column(db.Integer, primary_key=True)
-    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    processor = db.Column(db.Enum(Processors))
-    uuid = db.Column(db.Text)
-    winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"))
-    type = db.Column(db.Enum(PaymentTypes))
-    direction = db.Column(db.Enum(PaymentDirection))
+    requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    invited_email = db.Column(db.Text)
+    status = db.Column(db.Enum(ExternalInviteStatus))
     timestamp = db.Column(db.Float(precision=32))
+    type = db.Column(db.Enum(ExternalInviteTypes))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)

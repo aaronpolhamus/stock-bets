@@ -1,27 +1,32 @@
 import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
-import { Form } from 'react-bootstrap'
+import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
 import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { SectionTitle } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
 
-const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
+const BaseChart = forwardRef(({ data, height, yScaleType = 'count', maxXticks = 25, legends = true }, ref) => {
   // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
-
   return (
     <Line
       ref={ref}
       data={data}
+      height={height || 'auto'}
       options={{
         spanGaps: true,
         legend: {
           position: 'bottom',
-          align: 'left',
+          align: 'start',
           labels: {
-            usePointStyle: true
+            usePointStyle: true,
+            padding: 10
           },
           display: legends
+        },
+        legendCallback: (chart) => {
+          return '<p>hey hey</p>'
         },
         elements: {
           point: {
@@ -42,7 +47,7 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
                   }
                   if (yScaleType === 'dollar') {
                     if (parseInt(value) >= 1000) {
-                      return simplifyCurrency(value)
+                      return simplifyCurrency(value, false, false)
                     } else {
                       return '$' + value
                     }
@@ -58,7 +63,7 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
           xAxes: [{
             ticks: {
               autoSkip: true,
-              maxTicksLimit: maxXticks
+              autoSkipPadding: 5
             }
           }]
         },
@@ -102,11 +107,34 @@ const BaseChart = forwardRef(({ data, yScaleType = 'count', maxXticks = 25, lege
   )
 })
 
-const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) => {
-  const [data, setData] = useState([])
+const VanillaChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  // A simple chart for single player games -- no drop-down menus or fancy effects
+  const [chartData, setChartData] = useState({})
+  useEffect(() => {
+    const getChartData = async () => {
+      const data = await fetchGameData(gameId, endpoint)
+      setChartData(data)
+    }
+    getChartData()
+  }, [])
+  return (
+    <>
+      <Row>
+        <Col xs={6} sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>}
+        </Col>
+      </Row>
+      <BaseChart data={chartData} height={height} yScaleType={yScaleType} />
+    </ >
+  )
+}
+
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+  const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
-  const { user, setUser } = useContext(UserContext)
+  const { user } = useContext(UserContext)
 
   useEffect(() => {
     const getSidebarStats = async () => {
@@ -114,19 +142,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
       setUsernames(data.records.map((entry) => entry.username))
     }
     getSidebarStats()
-
-    if (Object.keys(user).length === 0) {
-      const getUserInfo = async () => {
-        const data = await apiPost('get_user_info', { withCredentials: true })
-        setUser({
-          username: data.username,
-          name: data.name,
-          email: data.email,
-          profile_pic: data.profile_pic
-        })
-      }
-      getUserInfo()
-    }
 
     const getGameData = async () => {
       const data = await apiPost(endpoint, {
@@ -137,39 +152,62 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar' }) 
       setData(data)
     }
     getGameData()
-  }, [gameId, username, endpoint, setUser, user])
+
+    if (username === null) {
+      setUsername(user.username)
+    }
+  }, [gameId, username, endpoint])
 
   return (
     <>
-      <Form.Control
-        name='username'
-        as='select'
-        defaultValue={null}
-        onChange={(e) => setUsername(e.target.value)}
-        defalutValue={user.username}
-      >
-        {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
-      </Form.Control>
+      <Row>
+        <Col sm={9}>
+          {title &&
+            <SectionTitle>{title}</SectionTitle>}
+        </Col>
+        <Col sm={3}>
+          <Form.Control
+            name='username'
+            as='select'
+            size='sm'
+            onChange={(e) => setUsername(e.target.value)}
+            value={username || user.username}
+          >
+            {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
+          </Form.Control>
+        </Col>
+      </Row>
       <BaseChart data={data} height={height} yScaleType={yScaleType} />
-    </ >
+    </>
   )
 }
 
 BaseChart.propTypes = {
-  data: PropTypes.array,
+  data: PropTypes.object,
   height: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool,
+  maxXticks: PropTypes.number
 }
 
-BaseChart.displayName = 'BaseChartComponent'
+BaseChart.displayName = 'BaseChart'
 
 UserDropDownChart.propTypes = {
   gameId: PropTypes.string,
   height: PropTypes.string,
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
-  legends: PropTypes.bool
+  legends: PropTypes.bool,
+  title: PropTypes.string
 }
 
-export { BaseChart, UserDropDownChart }
+VanillaChart.propTypes = {
+  gameId: PropTypes.string,
+  height: PropTypes.string,
+  endpoint: PropTypes.string,
+  yScaleType: PropTypes.string,
+  legends: PropTypes.bool,
+  title: PropTypes.string
+}
+
+export { BaseChart, UserDropDownChart, VanillaChart }

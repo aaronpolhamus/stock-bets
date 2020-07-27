@@ -30,11 +30,12 @@ $color-success: #3fa46d;
   --font-size-min: 0.75rem;
   --font-size-small: 0.875rem;
   --font-size-normal: 1rem;
-  --font-size-medium: 1.5rem;
-  --font-size-large: 2rem;
+  --font-size-medium: 1.125rem;
+  --font-size-large: 1.3rem;
+  --font-size-larger: 2rem;
   --font-size-xlarge: 3rem;
 
-  --letter-spacing-smallcaps: 0.03em;
+  --letter-spacing-smallcaps: 0.05em;
 
   --space-50: 0.25rem;
   --space-100: 0.5rem;
@@ -68,6 +69,14 @@ $headings-font-weight: 100;
 $table-hover-bg: $color-light-gray;
 $table-border-color: $color-cool-gray;
 $badge-pill-padding-x: 0.75em;
+
+$btn-border-radius: 5rem!default;
+$btn-border-radius-lg: 5rem!default;
+$btn-border-radius-sm: 5rem!default;
+$input-btn-padding-x: 1.5rem !default;
+$input-padding-x: .75rem !default;
+$input-btn-font-size: 16px!default;
+$btn-font-size: 1rem!default;
 
 
 /* import bootstrap to set changes */

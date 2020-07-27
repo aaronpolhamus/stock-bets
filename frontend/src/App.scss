@@ -39,17 +39,21 @@ label {
 
 //Tabs
 .nav-tabs {
-  border: none;
+  border-bottom: 1px solid var(--color-light-gray);
   .nav-link {
+    border-bottom: 2px solid transparent;
     border: none;
+    color: var(--color-text-gray);
     font-size: var(--font-size-small);
     font-weight: bold;
+    letter-spacing: var(--letter-spacing-smallcaps);
     line-height: 1rem;
     text-transform: uppercase;
-    letter-spacing: var(--letter-spacing-smallcaps);
-    color: var(--color-text-gray);
-    border-bottom: 2px solid transparent;
     transition: all 0.2s;
+    @include media-breakpoint-down(md) {
+      font-size: var(--font-size-min);
+      padding: var(--space-100);
+    }
   }
   .nav-link:focus {
     outline: none;
@@ -63,16 +67,23 @@ label {
 }
 
 .tab-pane{
-  padding: var(--space-400) 0;
+  padding: var(--space-400) var(--space-200);
+  @include media-breakpoint-down(md) {
+    padding: var(--space-400) var(--space-100);
+
+  }
 }
 
 //Buttons
 .btn {
+  margin-bottom: 0.25em;
+  margin-top: 0.25em;
+  font-weight: bold;
   & + & {
     margin-left: 0.5em;
   }
   &-link {
-    color: inherit;
+    color: var(--color-text-gray);
     font-size: inherit;
     padding: 0;
     &:hover {
@@ -80,6 +91,20 @@ label {
       text-decoration: underline;
     }
   }
+  &-alt {
+    border: 1px solid var(--color-text-gray);
+    color: #fff;
+    svg{
+      stroke: var(--color-primary);
+    } 
+    &:hover{
+      color: var(--color-primary);
+    }
+  }
+}
+
+input.form-control{
+  font-size: 16px;
 }
 
 //Modals
@@ -92,7 +117,7 @@ label {
 
 //Table
 .table {
-  margin-top: var(--space-400);
+  margin: 0 -0.75rem;
   thead th {
     font-size: var(--font-size-min);
     text-transform: uppercase;
@@ -109,7 +134,14 @@ label {
   }
   td {
     font-size: var(--font-size-small);
+
   }
+  @include media-breakpoint-down(md) {
+    td, th{
+      padding: var(--space-100);
+    }
+  }
+
 }
 
 // Autosuggest
@@ -178,6 +210,27 @@ label {
   font-weight: bold;
   color: var(--color-text-gray);
 }
+
+.home-layout{
+  @include media-breakpoint-down(md) {
+    padding-bottom: 10vh;
+  }
+}
+
+.toast-header {
+  justify-content: space-between;
+  &::first-letter,
+  *::first-letter{
+    text-transform: uppercase;
+  }
+}
+
+@media screen and (max-width: 26rem){
+  html{
+    font-size: 15px;
+  }
+}
+
 
 @media (prefers-reduced-motion: no-preference) {
   .App-logo {

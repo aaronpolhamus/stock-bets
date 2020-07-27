@@ -4,50 +4,94 @@ import GoogleLogin from 'react-google-login'
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
 import api from 'services/api'
 
-import { Container, Row } from 'react-bootstrap'
+import { Container, Row, Col } from 'react-bootstrap'
 import { Content } from 'components/layout/Layout'
 import { ReactComponent as Logo } from 'assets/logo.svg'
 import { SmallText } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
+import { breakpoints } from 'design-tokens'
 
-const RightCol = styled.div`
-  padding: 8vw;
+const RightCol = styled(Col)`
+  padding: 0vw 8vw 8vw;
+  height: 50vh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
   &::before {
+    background: var(--color-secondary);
+    border-radius: 50% 50% 0 60%/ 50% 50% 0 50%;
     content: "";
     display: block;
-    width: 150vh;
     height: 120vh;
-    background: var(--color-secondary);
-    position: fixed;
-    bottom: 6vh;
-    left: 50vw;
-    border-radius: 50% 50% / 45% 50%;
+    position: absolute;
+    top: 0;
+    width: 150vh;
     z-index: -1;
+
   }
   &::after {
+    background: var(--color-primary);
+    border-radius: 50% 50% / 45% 50%;
     content: "";
     display: block;
+    height: 50vh;
+    position: absolute;
+    top: 35vh;
+    left: -25vw;
     width: 100vh;
-    height: 100vh;
-    background: var(--color-primary);
-    position: fixed;
-    top: 50vh;
-    left: 60vw;
-    border-radius: 50% 50% / 45% 50%;
-    z-index: -2;
+    z-index: -1;
   }
-  a {
+
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: left;
+    padding: 8vw;
+    justify-content: flex-start;
+
+    button {
+      display: block;
+    }
+    br{
+      display: none;
+    }
+    &::before {
+      position: fixed;
+      top: -25vh;
+      bottom: 6vh;
+      left: 50vw;
+    }
+    &::after {
+      position: fixed;
+      left: 60vw;
+      top: 50vh;
+      height: 100vh;
+      z-index: -2;
+    }
+  }
+  @media screen and (max-width: ${breakpoints.md}){
     position: fixed;
-    bottom: 2vh;
-    right: 2vw;
+    height: 47vh;
+    bottom: 0;
+    left: 0;
+    width: 100%;
   }
 `
 
-const LeftCol = styled.div`
+const LeftCol = styled(Col)`
   display: flex;
+  height: 50vh;
+  flex-wrap: wrap;
   align-items: center;
+  @media screen and (max-width: ${breakpoints.md}){
+    width: 90%;
+    position: fixed;
+    top: 0;
+    left: 5%;
+  }
 `
 
 const LoginButton = styled.button`
@@ -71,7 +115,7 @@ const LoginButton = styled.button`
 
 const StyledLogo = styled(Logo)`
   max-width: 460px;
-  width: 90%;
+  width: 100%;
 `
 
 const StyledFaIcon = styled(FontAwesomeIcon)`
@@ -79,11 +123,42 @@ const StyledFaIcon = styled(FontAwesomeIcon)`
   top: 1px;
 `
 
+const LeftColContent = styled.div`
+  width: 100%;
+  text-align: center;
+  p {
+    color: var(--color-text-gray)
+  }
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: left;
+    p{
+      margin-top: var(--space-200);
+      font-size: var(--font-size-large)
+    }
+  }
+`
+
+const FooterLinks = styled.div`
+  position: fixed;
+  bottom: 3vh;
+  width: 80%;
+  line-height: 1.2;
+  a{
+    color: inherit;
+    font-weight: bold;
+  }
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: right;
+    right: 2vw;
+  }
+
+`
+
 function responseError (response) {
   return response
 }
 
-export default function AlphabetLogin () {
+export default function Login () {
   const [redirect, setRedirect] = useState(false)
 
   const detectProvider = (response) => {
@@ -110,11 +185,19 @@ export default function AlphabetLogin () {
   return (
     <Content height='100vh' alignItems='center' display='flex'>
       <Container fluid>
-        <Row noGutters sm={2}>
-          <LeftCol>
-            <StyledLogo />
+        <Row>
+          <LeftCol md={6}>
+            <LeftColContent>
+              <StyledLogo />
+              <p>
+                <span>Trade as a pro, </span>
+                <em>
+                  just for fun.
+                </em>
+              </p>
+            </LeftColContent>
           </LeftCol>
-          <RightCol>
+          <RightCol md={6}>
             <p>
               <GoogleLogin
                 clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
@@ -132,8 +215,6 @@ export default function AlphabetLogin () {
                   </LoginButton>
                 )}
               />
-            </p>
-            <p>
               <FacebookLogin
                 appId={process.env.REACT_APP_FACEBOOK_APP_ID}
                 disableMobileRedirect
@@ -150,12 +231,14 @@ export default function AlphabetLogin () {
                 )}
               />
             </p>
-            <Link to='/privacy'>
+            <FooterLinks>
               <SmallText color='var(--color-secondary)'>
                 Have a look at our
-                <strong> privacy policy </strong>before getting started.
+                <Link to='/terms' target='_blank'> terms and conditions </Link>
+                <br />
+                and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
               </SmallText>
-            </Link>
+            </FooterLinks>
           </RightCol>
         </Row>
       </Container>

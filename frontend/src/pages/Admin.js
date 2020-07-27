@@ -55,7 +55,6 @@ const Admin = () => {
   }
 
   const handleChange = (e) => {
-    console.log(e.target.value)
     setStock(e.target.value)
   }
   if (redirect) return <Redirect to='/' />
@@ -89,9 +88,9 @@ const Admin = () => {
         </Button>
       </Row>
       <br />
-      <BaseChart data={gamesPerUserData} />
+      {gamesPerUserData && <BaseChart data={gamesPerUserData} />}
       <br />
-      {/* <BaseChart data={ordersPerUserData} /> */}
+      {ordersPerUserData && <BaseChart data={ordersPerUserData} />}
     </>
   )
 }

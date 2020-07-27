@@ -6,12 +6,14 @@ const axiosWrapper = axios.create({
 })
 
 axiosWrapper.interceptors.response.use(
-  response => response,
+  response => {
+    return response
+  },
   error => {
     if (error.response.status === 401) {
       window.location.href = '/login'
     } else {
-      return error
+      return Promise.reject(error)
     }
   }
 )

@@ -1,3 +1,4 @@
+import os
 import unittest
 import time
 
@@ -6,7 +7,6 @@ import requests
 from backend.database.helpers import reset_db
 from backend.database.db import engine
 from backend.logic.auth import create_jwt
-from backend.database.fixtures.mock_data import make_mock_data
 from tasks.redis import rds
 
 
@@ -23,7 +23,7 @@ class BaseTestCase(unittest.TestCase):
         self.requests_session = requests.Session()
         rds.flushall()
         reset_db()
-        make_mock_data()
+        os.system("mysql -h db -uroot main < mockdata.sql")
 
     def tearDown(self):
         self.requests_session.close()

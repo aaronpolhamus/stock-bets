@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form } from 'react-bootstrap'
 import styled from 'styled-components'
-
+import PropTypes from 'prop-types'
 // This is a helper function to render radio buttons
 // It's very important to define a name for radio buttons to work as expected and avoid collisions with other radios
 
@@ -23,7 +23,7 @@ const StyledRadio = styled(Form.Check)`
       height: 16px;
       margin-right: var(--space-50);
       position: relative;
-      top: 2px;
+      top: .22rem;
       width: 16px;
     }
   }
@@ -33,7 +33,7 @@ const StyledRadio = styled(Form.Check)`
   }
 
   input:checked + label {
-    color: ${(props) => props.colorChecked || 'var(--color-text-primary)'};
+    color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
     &::before {
       border-color: var(--color-primary-darken);
       background: radial-gradient(
@@ -71,7 +71,7 @@ const TabbedRadio = styled(Form.Check)`
   }
 
   input:checked + label {
-    color: ${(props) => props.colorChecked || 'var(--color-text-primary)'};
+    color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
     border-bottom-color: ${(props) => props.colorTab || 'var(--color-primary)'};
   }
 `
@@ -85,7 +85,7 @@ const buildRadios = (props, mode) => {
       value: key,
       key: index,
       id: `${props.name}-${index}`,
-      checked: props.defaultValue === key,
+      checked: props.defaultChecked === key,
       ...props
     }
 
@@ -106,5 +106,13 @@ const RadioButtons = (props) => (
 const TabbedRadioButtons = (props) => (
   <>{props.options && buildRadios(props, 'tabbed')}</>
 )
+
+RadioButtons.propTypes = {
+  options: PropTypes.object
+}
+
+TabbedRadioButtons.propTypes = {
+  options: PropTypes.object
+}
 
 export { RadioButtons, TabbedRadioButtons }

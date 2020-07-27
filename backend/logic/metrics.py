@@ -2,28 +2,30 @@
 """
 from datetime import datetime as dt, timedelta
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     during_trading_day,
-    get_all_game_users_ids,
+    get_active_game_user_ids,
     get_payouts_meta_data,
     n_sidebets_in_game,
     posix_to_datetime,
     datetime_to_posix,
-    make_historical_balances_and_prices_table
-)
-from backend.tasks.redis import rds
-from backend.logic.visuals import (
-    STARTING_SHARPE_RATIO,
+    make_historical_balances_and_prices_table,
     get_expected_sidebets_payout_dates
 )
 
+# -------- #
+# Defaults #
+# -------- #
+STARTING_SHARPE_RATIO = 0
+STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -48,13 +50,16 @@ def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date:
 
 
 def portfolio_return_ratio(df: pd.DataFrame):
+    if df.empty:
+        return STARTING_RETURN_RATIO
     start_val = df.iloc[0]["value"]
     end_val = df.iloc[-1]["value"]
     return 100 * (end_val - start_val) / start_val
 
 
 def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
-    # TODO: risk-free rate may need to vary in time at some point
+    if df.empty:
+        return STARTING_SHARPE_RATIO
     df["returns"] = (df["value"] - df.iloc[0]["value"]) / df.iloc[0]["value"]
     value = (df["returns"].mean() - rf) / df["returns"].std()
     if np.isnan(value):
@@ -72,17 +77,6 @@ def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_dat
     return return_ratio, sharpe_ratio
 
 
-def calculate_and_pack_metrics(game_id, user_id, start_date=None, end_date=None):
-    return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
-    if start_date is None and end_date is None:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}"
-    else:
-        return_ratio_label = f"return_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-        sharpe_ratio_label = f"sharpe_ratio_{game_id}_{user_id}_{start_date}-{end_date}"
-    rds.set(return_ratio_label, return_ratio)
-    rds.set(sharpe_ratio_label, sharpe_ratio)
-
 # ------------------- #
 # Winners and payouts #
 # ------------------- #
@@ -92,9 +86,9 @@ def get_last_sidebet_payout(game_id: int):
     # when was the last time that a payout was made/that the game was started?
     with engine.connect() as conn:
         last_payout_date = conn.execute("""
-            SELECT timestamp FROM winners
+            SELECT end_time FROM winners
             WHERE game_id = %s AND type = 'sidebet'
-            ORDER BY timestamp DESC LIMIT 0, 1
+            ORDER BY end_time DESC LIMIT 0, 1
         """, game_id).fetchone()
     if last_payout_date:
         return last_payout_date[0]
@@ -107,7 +101,7 @@ def get_winner(game_id: int, start_time: float, end_time: float, benchmark: str)
     end_date = posix_to_datetime(end_time)
     ids_and_scores = []
 
-    user_ids = get_all_game_users_ids(game_id)
+    user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
         metric = return_ratio
@@ -158,7 +152,11 @@ def log_winners(game_id: int, current_time: float):
         payout_time = datetime_to_posix(last_interval_dt + offset)
         if check_if_payout_time(current_time, payout_time):
             curr_time_dt = posix_to_datetime(current_time)
-            curr_interval_end = [date for date in expected_sidebet_dates if last_interval_dt < date <= curr_time_dt][0]
+            # the presence of second/millisecond info can cause the line below to select two times, where the first time
+            # is the end of the last sidebet. To prevent this, we'll extend the last interval time by one day to prevent
+            # it from matching on the boundary. This works for now, since sidebets are paid weekly and monthly.
+            anchor_time = last_interval_dt + timedelta(days=1)
+            curr_interval_end = [date for date in expected_sidebet_dates if anchor_time < date <= curr_time_dt][0]
             curr_interval_posix = datetime_to_posix(curr_interval_end)
             winner_id, score = get_winner(game_id, last_interval_end, curr_interval_posix, benchmark)
             n_sidebets = n_sidebets_in_game(game_start_posix, game_end_posix, offset)
@@ -179,7 +177,7 @@ def log_winners(game_id: int, current_time: float):
 
         # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
         # completed
-        user_ids = get_all_game_users_ids(game_id)
+        user_ids = get_active_game_user_ids(game_id)
         add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
 
     return update_performed

@@ -1,50 +1,37 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Redirect } from 'react-router-dom'
 import api from 'services/api'
-import { Form, Button, Modal, Row, Col } from 'react-bootstrap'
-import { Typeahead } from 'react-bootstrap-typeahead'
+import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
 import { optionBuilder } from 'components/functions/forms'
 import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
-import styled from 'styled-components'
+import { MultiInvite } from 'components/forms/AddFriends'
 
-const StyledTypeahead = styled(Typeahead)`
-  .rbt-input-wrapper {
-    display: flex;
-    flex-direction: row-reverse;
-    flex-wrap: wrap-reverse;
-  }
-  .rbt-input-wrapper div {
-    flex: 1 0 100% !important;
-  }
-  .rbt-input-wrapper [option] {
-    margin-top: var(--space-300);
-  }
-`
-
-const MakeGame = () => {
+const MakeGame = ({ gameMode }) => {
   const [defaults, setDefaults] = useState({})
   const [sidePotPct, setSidePotPct] = useState(0)
   const [formValues, setFormValues] = useState({})
   const [redirect, setRedirect] = useState(false)
   const [showModal, setShowModal] = useState(false)
 
-  const fetchData = async () => {
-    const response = await api.post('/api/game_defaults')
-    if (response.status === 200) {
-      setDefaults(response.data)
-      setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
-    }
-  }
-
   useEffect(() => {
+    const fetchData = async () => {
+      const response = await api.post('/api/game_defaults', { game_mode: gameMode })
+      if (response.status === 200) {
+        setDefaults(response.data)
+        setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
+      }
+    }
+
     fetchData()
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.game_mode = gameMode
     await api
-      .post('/api/create_game', formValues)
+      .post('/api/create_game', formValuesCopy)
       .then()
       .catch((e) => {})
     setShowModal(true)
@@ -74,6 +61,12 @@ const MakeGame = () => {
   const handleInviteesChange = (inviteesInput) => {
     const formValuesCopy = { ...formValues }
     formValuesCopy.invitees = inviteesInput
+    setFormValues(formValuesCopy)
+  }
+
+  const handleEmailInviteesChange = (_emails) => {
+    const formValuesCopy = { ...formValues }
+    formValuesCopy.email_invitees = _emails
     setFormValues(formValuesCopy)
   }
 
@@ -112,119 +105,125 @@ const MakeGame = () => {
                 </Form.Group>
               </Col>
             </Row>
-            <Row>
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label>
+            {gameMode === 'multi_player' &&
+              <Row>
+                <Col xs={6}>
+                  <Form.Group>
+                    <Form.Label>
                     Buy-in
-                    <Tooltip message='How many dollars does each player need to put in to join the game?' />
-                  </Form.Label>
-                  <Form.Control
-                    name='buy_in'
-                    type='input'
-                    defaultValue={defaults.buy_in}
-                    onChange={handleChange}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
+                      <Tooltip message='How many dollars does each player need to put in to join the game?' />
+                    </Form.Label>
+                    <Form.Control
+                      name='buy_in'
+                      type='input'
+                      defaultValue={defaults.buy_in}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>}
+            {gameMode === 'multi_player' &&
+              <Row>
+                <Col xs={6}>
+                  <Form.Group>
+                    <Form.Label>
+                    Invite window
+                      <Tooltip message='For how many days would you like your game to be open for before kicking off automatically?' />
+                    </Form.Label>
+                    <Form.Control
+                      name='invite_window'
+                      type='input'
+                      defaultValue={defaults.invite_window}
+                      onChange={handleChange}
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>}
             <Form.Group>
               <Form.Label>
                 Benchmark
-                <Tooltip message="If you're not sure what a Sharpe ratio is, go with simple return, which simply  divides the money you have at the end by the amount you started with." />
+                <Tooltip message="Simple return is your total portfolio value at the end of your game divided by what you started with. The Sharpe ratio is trickier, and it's important to understand it if you're going to use it as a benchmark. It's possible, for example, to have a positive Sharpe ratio even if your total return is negative. Check out this video for the details of how we calculate the Sharpe ratio: https://www.youtube.com/watch?v=s0bxoD_0fAU" />
               </Form.Label>
 
               <RadioButtons
                 options={defaults.benchmarks}
                 name='benchmark'
                 onChange={handleChange}
-                defaultValue={formValues.benchmark}
-              />
-            </Form.Group>
-            <Form.Group>
-              <Form.Label>
-                Stakes
-                <Tooltip message="You can have 1 'just for fun' game going at any time. For real stakes games, you'll stake the buy-in right away via PayPal. We'll refund you immediately and in full if your game doesn't get started for any reason." />
-              </Form.Label>
-
-              <RadioButtons
-                options={defaults.stakes}
-                name='stakes'
-                onChange={handleChange}
-                defaultValue={formValues.default_stakes}
+                defaultChecked={formValues.benchmark}
               />
             </Form.Group>
           </Col>
-          <Col lg={4}>
-            <Form.Group>
-              <Form.Label>
-                Add Participant
-                <Tooltip message="Which of your friends do you want to invite to this game? If you haven't added friends, yet, do this first." />
-              </Form.Label>
-              <StyledTypeahead
-                id='typeahead-particpants'
-                name='invitees'
-                labelKey='name'
-                multiple
-                options={
-                  defaults.available_invitees &&
-                  Object.values(defaults.available_invitees)
-                }
-                placeholder="Who's playing?"
-                onChange={handleInviteesChange}
-              />
-            </Form.Group>
-          </Col>
-          <Col lg={4}>
-            <Form.Group>
-              <Form.Label>
-                Sidebet % of pot
-                <Tooltip message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.' />
-              </Form.Label>
-              <Form.Control
-                name='side_bets_perc'
-                type='input'
-                defaultValue={defaults.side_bets_perc}
-                value={sidePotPct}
-                onChange={handleSideBetChange}
-              />
-            </Form.Group>
-            {sidePotPct > 0 && (
+          {gameMode === 'multi_player' &&
+            <Col lg={4}>
+              <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
+            </Col>}
+          {gameMode === 'multi_player' &&
+            <Col lg={4}>
               <Form.Group>
                 <Form.Label>
-                  Sidebet period
-                  <Tooltip message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. ' />
+                Sidebet % of pot
+                  <Tooltip
+                    message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
+                  />
                 </Form.Label>
                 <Form.Control
-                  name='side_bets_period'
-                  as='select'
-                  defaultValue={defaults.side_bets_period}
-                  onChange={handleChange}
-                >
-                  {defaults.sidebet_periods &&
-                    optionBuilder(defaults.sidebet_periods)}
-                </Form.Control>
+                  name='side_bets_perc'
+                  type='input'
+                  defaultValue={defaults.side_bets_perc}
+                  value={sidePotPct}
+                  onChange={handleSideBetChange}
+                />
               </Form.Group>
-            )}
-          </Col>
+              {sidePotPct > 0 && (
+                <Form.Group>
+                  <Form.Label>
+                  Sidebet period
+                    <Tooltip
+                      message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
+                    />
+                  </Form.Label>
+                  <Form.Control
+                    name='side_bets_period'
+                    as='select'
+                    defaultValue={defaults.side_bets_period}
+                    onChange={handleChange}
+                  >
+                    {defaults.sidebet_periods &&
+                  optionBuilder(defaults.sidebet_periods)}
+                  </Form.Control>
+                </Form.Group>
+              )}
+            </Col>}
         </Row>
         <div className='text-right'>
           <Button variant='primary' type='submit'>
-            Create New Game
+            Create new game
           </Button>
         </div>
       </Form>
       <Modal show={showModal} onHide={handleClose}>
-        <Modal.Body>
-          <div className='text-center'>
+        {gameMode === 'multi_player' &&
+          <Modal.Body>
+            <div className='text-center'>
             You've sent a game invite! We'll let your friends know.
-            <div>
-              <small>
+              <div>
+                <small>
                 You can check who's accepted your game from your dashboard
-              </small>
+                </small>
+              </div>
             </div>
-          </div>
-        </Modal.Body>
+          </Modal.Body>}
+        {gameMode === 'single_player' &&
+          <Modal.Body>
+            <div className='text-center'>
+            Your single player game is live!
+              <div>
+                <small>
+                They say the market is tough to beat...
+                </small>
+              </div>
+            </div>
+          </Modal.Body>}
         <Modal.Footer className='centered'>
           <Button variant='primary' onClick={handleClose}>
             Awesome!

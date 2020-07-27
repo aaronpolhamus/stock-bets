@@ -1,7 +1,11 @@
-from functools import wraps
 import time
+from functools import wraps
 
 import jwt
+from backend.bi.report_logic import (
+    GAMES_PER_USER_PREFIX,
+    ORDERS_PER_ACTIVE_USER_PREFIX
+)
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
@@ -10,12 +14,31 @@ from backend.logic.auth import (
     make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user_if_first_visit,
-    check_against_whitelist,
-    WhiteListException,
-    ADMIN_USERS
+    register_user,
+    ADMIN_USERS, check_against_invited_users
+)
+from backend.logic.base import (
+    get_user_ids,
+    get_game_info,
+    get_pending_buy_order_value,
+    fetch_price,
+    get_user_information
+)
+from backend.logic.friends import (
+    get_friend_invites_list,
+    suggest_friends,
+    get_friend_details,
+    respond_to_friend_invite,
+    invite_friend,
+    email_platform_invitation,
+    InvalidEmailError
 )
 from backend.logic.games import (
+    get_external_invite_list_by_status,
+    add_user_via_platform,
+    add_user_via_email,
+    leave_game,
+    DEFAULT_INVITE_OPEN_WINDOW,
     respond_to_game_invite,
     get_user_invite_statuses_for_pending_game,
     get_user_invite_status_for_game,
@@ -27,11 +50,8 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding,
     make_random_game_title,
-    DEFAULT_GAME_MODE,
-    GAME_MODES,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
-    DEFAULT_REBUYS,
     DEFAULT_BENCHMARK,
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
@@ -44,23 +64,7 @@ from backend.logic.games import (
     ORDER_TYPES,
     TIME_IN_FORCE_TYPES,
     QUANTITY_DEFAULT,
-    QUANTITY_OPTIONS,
-    GAME_STAKES,
-    DEFAULT_GAME_STAKES
-)
-from backend.logic.base import (
-    get_game_info,
-    get_user_id,
-    get_pending_buy_order_value,
-    fetch_price,
-    get_user_information
-)
-from backend.logic.friends import (
-    get_friend_invites_list,
-    suggest_friends,
-    get_friend_details,
-    respond_to_friend_invite,
-    invite_friend
+    QUANTITY_OPTIONS
 )
 from backend.logic.visuals import (
     format_time_for_response,
@@ -78,11 +82,7 @@ from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
     async_update_game_data,
-    async_calculate_metrics
-)
-from backend.bi.report_logic import (
-    GAMES_PER_USER_PREFIX,
-    ORDERS_PER_ACTIVE_USER_PREFIX
+    async_calculate_key_metrics
 )
 from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
@@ -107,6 +107,10 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
+NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
+LEAVE_GAME_MESSAGE = "You've left the game"
+EMAIL_SENT_MESSAGE = "Emails sent to your friends"
+INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
 
 
 # -------------- #
@@ -137,6 +141,7 @@ def admin(f):
         if user_email not in ADMIN_USERS:
             return make_response(ADMIN_BLOCK_MSG, 401)
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -152,10 +157,15 @@ def login():
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
     if provider == "google":
-        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data)
+        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data["tokenId"],
+                                                                             oauth_data["googleId"])
 
     if provider == "facebook":
-        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data)
+        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data["accessToken"],
+                                                                               oauth_data["userID"],
+                                                                               oauth_data["name"],
+                                                                               oauth_data["email"],
+                                                                               oauth_data["picture"]["data"]["url"])
 
     if provider == "twitter":
         pass
@@ -164,12 +174,10 @@ def login():
         return make_response(OAUTH_ERROR_MSG, status_code)
 
     if Config.CHECK_WHITE_LIST:
-        try:
-            check_against_whitelist(user_entry["email"])
-        except WhiteListException as err:
-            return make_response(str(err), 401)
+        if not check_against_invited_users(user_entry["email"]):
+            return make_response(NOT_INVITED_EMAIL, 401)
 
-    register_user_if_first_visit(user_entry)
+    register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
@@ -205,6 +213,7 @@ def set_username():
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
+
 # --------- #
 # User info #
 # --------- #
@@ -227,6 +236,7 @@ def home():
     user_info["game_info"] = get_game_info_for_user(user_id)
     return jsonify(user_info)
 
+
 # ---------------- #
 # Games management #
 # ---------------- #
@@ -239,25 +249,25 @@ def game_defaults():
     to render fields correctly
     """
     user_id = decode_token(request)
+    game_mode = request.json.get("game_mode")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
     friend_details = get_friend_details(user_id)
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
-        mode=DEFAULT_GAME_MODE,
-        game_modes=GAME_MODES,
         duration=DEFAULT_GAME_DURATION,
-        buy_in=DEFAULT_BUYIN,
-        n_rebuys=DEFAULT_REBUYS,
         benchmark=DEFAULT_BENCHMARK,
-        side_bets_perc=DEFAULT_SIDEBET_PERCENT,
-        side_bets_period=DEFAULT_SIDEBET_PERIOD,
-        sidebet_periods=SIDE_BET_PERIODS,
         benchmarks=BENCHMARKS,
-        available_invitees=available_invitees,
-        stakes=GAME_STAKES,
-        default_stakes=DEFAULT_GAME_STAKES
     )
+    if game_mode == "multi_player":
+        resp.update(dict(
+            buy_in=DEFAULT_BUYIN,
+            side_bets_perc=DEFAULT_SIDEBET_PERCENT,
+            side_bets_period=DEFAULT_SIDEBET_PERIOD,
+            sidebet_periods=SIDE_BET_PERIODS,
+            available_invitees=available_invitees,
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW
+        ))
     return jsonify(resp)
 
 
@@ -266,18 +276,19 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    n_rebuys = 0  # this is not a popular user feature, and it  adds a lot of complexity.
     add_game(
         user_id,
         game_settings["title"],
-        game_settings["mode"],
+        game_settings["game_mode"],
         game_settings["duration"],
-        game_settings["buy_in"],
-        n_rebuys,
         game_settings["benchmark"],
-        game_settings["side_bets_perc"],
-        game_settings["side_bets_period"],
-        game_settings["invitees"])
+        game_settings.get("buy_in"),
+        game_settings.get("side_bets_perc"),
+        game_settings.get("side_bets_period"),
+        game_settings.get("invitees"),
+        game_settings.get("invite_window"),
+        game_settings.get("email_invitees")
+    )
     return make_response(GAME_CREATED_MSG, 200)
 
 
@@ -295,7 +306,43 @@ def api_respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-    return jsonify(get_user_invite_statuses_for_pending_game(game_id))
+
+    records = dict()
+    records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
+    records["email_invites"] = get_external_invite_list_by_status(game_id, "pending")
+    return jsonify(records)
+
+
+@routes.route("/api/leave_game", methods=["POST"])
+@authenticate
+def api_leave_game():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    leave_game(game_id, user_id)
+    return make_response(LEAVE_GAME_MESSAGE, 200)
+
+
+@routes.route("/api/invite_users_to_pending_game", methods=["POST"])
+@authenticate
+def invite_users_to_pending_game():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    invitee_emails = request.json.get("email_invitees")
+    invitees = request.json.get("invitees")
+
+    if invitees is not None:
+        invited_ids = get_user_ids(invitees)
+        for invited_id in invited_ids:
+            add_user_via_platform(game_id, invited_id)
+
+    if invitee_emails is not None:
+        try:
+            for email in invitee_emails:
+                add_user_via_email(game_id, user_id, email)
+        except InvalidEmailError as e:
+            make_response(f"{email} : {str(e)}", 400)
+
+    return make_response(INVITED_MORE_USERS_MESSAGE, 200)
 
 # --------------------------- #
 # Order management and prices #
@@ -308,8 +355,9 @@ def api_game_info():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     game_info = get_game_info(game_id)
+    game_info["is_host"] = game_info["creator_id"] == user_id
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
-    if game_info["game_status"] == "active":
+    if game_info["game_status"] in ["active", "finished"]:
         game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
@@ -408,6 +456,7 @@ def api_suggest_symbols():
     buy_or_sell = request.json["buy_or_sell"]
     return jsonify(suggest_symbols(game_id, user_id, text, buy_or_sell))
 
+
 # ------- #
 # Friends #
 # ------- #
@@ -418,8 +467,22 @@ def api_suggest_symbols():
 def send_friend_request():
     user_id = decode_token(request)
     invited_username = request.json.get("friend_invitee")
-    invite_friend(user_id, invited_username)
+    invited_id = get_user_ids([invited_username])[0]
+    invite_friend(user_id, invited_id)
     return make_response(FRIEND_INVITE_SENT_MSG, 200)
+
+
+@routes.route("/api/invite_users_by_email", methods=["POST"])
+@authenticate
+def invite_friend_by_email():
+    user_id = decode_token(request)
+    emails = request.json.get('friend_emails')
+    for email in emails:
+        try:
+            email_platform_invitation(user_id, email)
+        except InvalidEmailError as e:
+            make_response(f"{email} : {str(e)}", 400)
+    return make_response(EMAIL_SENT_MESSAGE, 200)
 
 
 @routes.route("/api/respond_to_friend_request", methods=["POST"])
@@ -456,6 +519,7 @@ def suggest_friend_invites():
     text = request.json.get("text")
     return jsonify(suggest_friends(user_id, text))
 
+
 # ------- #
 # Visuals #
 # ------- #
@@ -471,7 +535,7 @@ def balances_chart():
     game_id = request.json.get("game_id")
     username = request.json.get("username")
     if username:
-        user_id = get_user_id(username)
+        user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
@@ -485,7 +549,7 @@ def order_performance_chart():
     game_id = request.json.get("game_id")
     username = request.json.get("username")
     if username:
-        user_id = get_user_id(username)
+        user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))
@@ -521,6 +585,7 @@ def get_payouts_table():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
 
+
 # ----- #
 # Stats #
 # ----- #
@@ -542,6 +607,7 @@ def get_cash_balances():
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+
 
 # ----- #
 # Admin #
@@ -567,7 +633,7 @@ def refresh_visuals():
 @authenticate
 @admin
 def refresh_metrics():
-    async_calculate_metrics.delay()
+    async_calculate_key_metrics.delay()
     return make_response("refreshing metrics...", 200)
 
 

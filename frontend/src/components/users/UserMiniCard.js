@@ -1,6 +1,7 @@
 import React from 'react'
 import styled from 'styled-components'
 import { UserAvatar } from 'components/users/UserAvatar'
+import PropTypes from 'prop-types'
 
 const infoBuilder = (info) => {
   return info.map((part, index) => {
@@ -70,6 +71,20 @@ const UserMiniCard = ({
       </UserInfo>
     </MiniCard>
   )
+}
+
+UserMiniCard.propTypes = {
+  className: PropTypes.string,
+  name: PropTypes.string,
+  username: PropTypes.string,
+  avatarSrc: PropTypes.string,
+  avatarSize: PropTypes.string,
+  nameColor: PropTypes.string,
+  nameFontSize: PropTypes.string,
+  dataColor: PropTypes.string,
+  dataFontSize: PropTypes.string,
+  email: PropTypes.string,
+  info: PropTypes.array
 }
 
 export { UserMiniCard }

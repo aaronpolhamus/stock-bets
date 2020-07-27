@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { AutoTable } from 'components/functions/tables'
 import { fetchGameData } from 'components/functions/api'
+import PropTypes from 'prop-types'
+import styled from 'styled-components'
+import { breakpoints } from 'design-tokens'
+
+const StyledBalancesTable = styled(AutoTable)`
+  @media screen and (max-width: ${breakpoints.md}){
+    th#balances-last-order-price,
+    td[headers='balances-last-order-price'], 
+    th#balances-market-price,
+    td[headers='balances-market-price'], 
+    th#balances-updated-at,
+    td[headers='balances-updated-at']{
+      display: none;
+    }
+  }
+`
 
 const BalancesTable = ({ gameId }) => {
   const [tableData, setTableData] = useState({})
@@ -11,7 +27,18 @@ const BalancesTable = ({ gameId }) => {
     }
     getGameData()
   }, [gameId])
-  return <AutoTable hover tabledata={tableData} />
+  return (
+    <StyledBalancesTable
+      className
+      classhover
+      tabledata={tableData}
+      name='balances'
+    />
+  )
+}
+
+BalancesTable.propTypes = {
+  gameId: PropTypes.number
 }
 
 export { BalancesTable }

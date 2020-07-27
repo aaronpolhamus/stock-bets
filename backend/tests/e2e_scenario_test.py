@@ -13,7 +13,7 @@ A few important things about this test:
 import json
 
 from backend.config import Config
-from backend.database.fixtures.mock_data import refresh_table
+from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import query_to_dict, reset_db
 
 from backend.logic.friends import get_user_details_from_ids
@@ -27,8 +27,9 @@ if __name__ == '__main__':
     btc.setUp()
     rds.flushall()
     reset_db()
-    refresh_table("users")
-    refresh_table("symbols")
+    populate_table("users")
+    populate_table("symbols")
+    populate_table("indexes")
 
     # setup user tokens
     user_id = 1
@@ -93,14 +94,14 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "test game",
-        "mode": "winner_takes_all",
         "duration": 90,
         "buy_in": 100,
-        "n_rebuys": 3,
+        "game_mode": "multi_player",
         "benchmark": "sharpe_ratio",
         "side_bets_perc": 50,
         "side_bets_period": "weekly",
         "invitees": ["miguel", "toofast", "jadis", "jack"],
+        "invite_window": 7
     }
 
     value = input(f"""
@@ -113,13 +114,7 @@ if __name__ == '__main__':
         res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": user_token}, verify=False,
                                         json=game_settings)
 
-    game_entry = query_to_dict("SELECT * FROM games WHERE id = 1")
-    for k, v in game_settings.items():
-        if k in ["invitees", "n_rebuys"]:
-            continue
-        assert game_entry[k] == v
-
-    game_entry = query_to_dict("SELECT * FROM main.game_status WHERE game_id = 1")
+    game_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = 1")[0]
     user_id_list = json.loads(game_entry["users"])
     details = get_user_details_from_ids(user_id_list)
     assert set([x["username"] for x in details]) == {"cheetos", "miguel", "toofast", "jack", "jadis"}
@@ -158,14 +153,14 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jadice's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
         "invitees": ["cheetos", "jack"],
+        "invite_window": 3
     }
     res = btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jadis_token}, verify=False,
                                     json=game_settings)
@@ -177,14 +172,14 @@ if __name__ == '__main__':
 
     game_settings = {
         "title": "jack's game",
-        "mode": "return_weighted",
+        "game_mode": "multi_player",
         "duration": 365,
         "buy_in": 20,
-        "n_rebuys": 0,
         "benchmark": "return_ratio",
         "side_bets_perc": 0,
         "side_bets_period": "weekly",
         "invitees": ["cheetos", "miguel", "johnnie"],
+        "invite_window": 4
     }
     btc.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": jack_token}, verify=False,
                               json=game_settings)
