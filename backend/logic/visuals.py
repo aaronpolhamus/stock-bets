@@ -477,7 +477,7 @@ def relabel_aggregated_portfolios(df: pd.DataFrame) -> pd.DataFrame:
     del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
     df = build_labels(df)
     df.sort_values("timestamp", inplace=True)
-    return df.groupby(["username", "t_index"], as_index=False)[["label", "value", "timestamp"]].agg("last")
+    return df.groupby(["username", "label"], as_index=False)[["value", "timestamp"]].agg("last")
 
 
 def make_the_field_charts(game_id: int):
