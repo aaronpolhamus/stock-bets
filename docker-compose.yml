@@ -26,11 +26,12 @@ services:
     ports:
       - 6379:6379
 
-  localstack:
+  s3:
     image: localstack/localstack:latest
     container_name: s3
     ports:
       - 4563-4599:4563-4599
+      - 8080:8080
     environment:
       - SERVICES=s3
       - DEBUG=1
@@ -54,7 +55,7 @@ services:
       - backend
       - redis
       - rabbitmq
-      - localstack
+      - s3
 
   scheduler:
     image: backend
@@ -86,7 +87,7 @@ services:
       - worker
       - redis
       - rabbitmq
-      - localstack
+      - s3
 
     ports:
       - 5000:5000
