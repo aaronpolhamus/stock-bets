@@ -27,7 +27,7 @@ services:
       - 6379:6379
 
   s3:
-    image: localstack/localstack:latest
+    image: localstack/localstack:0.10.0
     container_name: s3
     ports:
       - 4563-4599:4563-4599
