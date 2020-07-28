@@ -268,7 +268,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           $colorChecked='var(--color-lightest)'
         />
       </OrderFormHeader>
-      <CashInfo cashData={cashData} balance={false}/>
+      <CashInfo cashData={cashData} balance buyingPower />
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (

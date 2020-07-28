@@ -31,7 +31,7 @@ from backend.bi.report_logic import (
 from backend.tasks.redis import task_lock
 
 CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
-PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 15
+PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 60
 REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
 
 # -------------------------- #
