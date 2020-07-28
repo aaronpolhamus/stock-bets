@@ -225,9 +225,18 @@ input.form-control{
   }
 }
 
-@media screen and (max-width: 26rem){
+@media screen 
+  and (max-width: 375px){
   html{
     font-size: 15px;
+  }
+}
+
+@media screen 
+  and (max-width: 375px)
+  and (-webkit-device-pixel-ratio: 2){
+  html{
+    font-size: 14px;
   }
 }
 
