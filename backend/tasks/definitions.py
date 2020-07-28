@@ -32,7 +32,7 @@ from backend.tasks.redis import task_lock
 
 CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 60
-REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
+UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * 60
 
 # -------------------------- #
 # Price fetching and caching #
@@ -147,6 +147,7 @@ def async_update_all_games(self):
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
+@task_lock(key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
 def async_update_game_data(self, game_id):
     refresh_game_data(game_id)
 
