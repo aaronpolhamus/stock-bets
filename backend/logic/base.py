@@ -472,27 +472,31 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
     return add_bookends(balances)
 
 
+def handle_cash_only(balances: pd.DataFrame) -> pd.DataFrame:
+    row = balances.iloc[0]
+    row["timestamp"] = time.time()
+    balances = balances.append([row], ignore_index=True)
+    df = resample_values(balances)
+    df = df.reset_index().rename(columns={"index": "timestamp"})
+    df["price"] = 1
+    df["value"] = df["balance"] * df["price"]
+    candidate_df = filter_for_trade_time(df)
+    if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
+        df = candidate_df
+    df["symbol"] = "Cash"
+    return df
+
+
 def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
     plotting and calculating winners. It's the reason the 7 functions above exist
     """
-    balance_history = get_user_balance_history(game_id, user_id)
+    balances = get_user_balance_history(game_id, user_id)
     # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if set(balance_history["symbol"].unique()) == {'Cash'}:
-        row = balance_history.iloc[0]
-        row["timestamp"] = time.time()
-        balance_history = balance_history.append([row], ignore_index=True)
-        df = resample_values(balance_history)
-        df = df.reset_index().rename(columns={"index": "timestamp"})
-        df["price"] = 1
-        df["value"] = df["balance"] * df["price"]
-        candidate_df = filter_for_trade_time(df)
-        if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
-            df = candidate_df
-        df["symbol"] = "Cash"
-        return df
+    if set(balances["symbol"].unique()) == {'Cash'}:
+        return handle_cash_only(balances)
     # ...otherwise we'll append price data for the more detailed breakout
-    df = append_price_data_to_balance_histories(balance_history)
+    df = append_price_data_to_balance_histories(balances)
     return filter_for_trade_time(df)
 
 
