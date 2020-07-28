@@ -435,7 +435,7 @@ def make_bookend_time():
     max_time_val = time.time()
     if max_time_val > close_of_last_trade_day:
         max_time_val = close_of_last_trade_day
-    return max_time_val
+    return posix_to_datetime(max_time_val)
 
 
 def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
@@ -469,34 +469,16 @@ def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
     with engine.connect() as conn:
         balances = pd.read_sql(sql, conn, params=[game_id, user_id])
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
-    return add_bookends(balances)
-
-
-def handle_cash_only(balances: pd.DataFrame) -> pd.DataFrame:
-    row = balances.iloc[0]
-    row["timestamp"] = time.time()
-    balances = balances.append([row], ignore_index=True)
-    df = resample_values(balances)
-    df = df.reset_index().rename(columns={"index": "timestamp"})
-    df["price"] = 1
-    df["value"] = df["balance"] * df["price"]
-    candidate_df = filter_for_trade_time(df)
-    if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
-        df = candidate_df
-    df["symbol"] = "Cash"
-    return df
+    return balances
 
 
 def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
     plotting and calculating winners. It's the reason the 7 functions above exist
     """
-    balances = get_user_balance_history(game_id, user_id)
-    # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if set(balances["symbol"].unique()) == {'Cash'}:
-        return handle_cash_only(balances)
-    # ...otherwise we'll append price data for the more detailed breakout
-    df = append_price_data_to_balance_histories(balances)
+    df = get_user_balance_history(game_id, user_id)
+    df = append_price_data_to_balance_histories(df)
+    df = add_bookends(df)
     return filter_for_trade_time(df)
 
 
