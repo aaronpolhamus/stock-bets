@@ -10,9 +10,10 @@ import pandas as pd
 
 
 class FailedValidation(Exception):
+    def __init__(self, message="Failed schema validation"):
 
-    def __str__(self):
-        return "Failed schema validation"
+        # Call the base class constructor with the parameters it needs
+        super().__init__(message)
 
 
 def apply_validation(df: pd.DataFrame, schema_definition: dict):
@@ -22,7 +23,8 @@ def apply_validation(df: pd.DataFrame, schema_definition: dict):
     target_columns = schema_definition.keys()
     set_diff = set(target_columns) - set(df.columns)
     if not len(set_diff) == 0:
-        raise FailedValidation(f"This dataframe is missing the following target columns: {set_diff}")
+        msg = f"This dataframe is missing the following target columns: {','.join(set_diff)}"
+        raise FailedValidation(msg)
 
     for column in target_columns:
         type_targets = schema_definition[column][0]

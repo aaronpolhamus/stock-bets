@@ -53,7 +53,6 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
     SHARPE_RATIO_PREFIX,
-    RETURN_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
     NA_TEXT_SYMBOL

@@ -495,6 +495,7 @@ def make_the_field_charts(game_id: int):
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])[0]
+        # import ipdb;ipdb.set_trace()
         apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio[portfolio_table_keys])
 
