@@ -27,6 +27,12 @@ if [ $SERVICE == "scheduler" ]; then
     celery -A tasks.celery.celery beat --loglevel=info
 fi
 
-if [ $SERVICE == "airflow" ]; then
-    celery -A tasks.celery.celery beat --loglevel=info
+if [ $SERVICE == "airflow-webserver" ]; then
+    airflow initdb
+    exec airflow webserver -p 8080
+fi
+
+if [ $SERVICE == "airflow-scheduler" ]; then
+    airflow initdb
+    exec airflow scheduler
 fi

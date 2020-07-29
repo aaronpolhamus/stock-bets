@@ -71,19 +71,36 @@ redis-mock-data:
 redis-clear:
 	docker-compose exec api python -c "from backend.tasks.redis import rds;rds.flushall()"
 
-# airflow
-# -------
-make airflow-build:
-	docker-compose build airflow
+# airflow-webserver
+# -----------------
+make airflow-webserver-up:
+	docker-compose up -d airflow-webserver
 
-make airflow-up:
-	docker-compose up airflow
+make airflow-webserver-start:
+	docker-compose start airflow-webserver
 
-make airflow-start:
-	docker-compose start airflow
+make airflow-webserver-stop:
+	docker-compose stop airflow-webserver
 
-make airflow-stop:
-	docker-compose stop airflow
+airflow-webserver-logs:
+	docker-compose logs -f airflow-webserver
+
+# airflow-scheduler
+# -----------------
+make airflow-scheduler-up:
+	docker-compose up -d airflow-scheduler
+
+make airflow-scheduler-start:
+	docker-compose start airflow-scheduler
+
+make airflow-scheduler-stop:
+	docker-compose stop airflow-scheduler
+
+airflow-scheduler-logs:
+	docker-compose logs -f airflow-scheduler
+
+airflow-scheduler-bash:
+	docker-compose exec airflow-scheduler bash
 
 # backend
 # -------
@@ -141,6 +158,11 @@ destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you
 
 	# prune all volumes
 	docker volume prune -f
+
+remove-dangling:
+	# good hygiene to free up some hard drive every now and again
+	docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+
 
 # e2e testing
 # -----------

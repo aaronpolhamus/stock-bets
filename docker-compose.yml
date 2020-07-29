@@ -26,6 +26,45 @@ services:
     ports:
       - 6379:6379
 
+  airflow-webserver:
+    image: backend
+    container_name: airflow
+    environment:
+      - SERVICE=airflow-webserver
+    env_file:
+      - backend/.env
+      - backend/.env.dev
+    depends_on:
+      - backend
+      - db
+      - worker
+      - rabbitmq
+      - redis
+    ports:
+      - 8080:8080
+    volumes:
+      - ./backend:/home/backend
+
+  airflow-scheduler:
+    image: backend
+    container_name: airflow-scheduler
+    environment:
+      - SERVICE=airflow-webserver
+    env_file:
+      - backend/.env
+      - backend/.env.dev
+    depends_on:
+      - backend
+      - db
+      - worker
+      - rabbitmq
+      - redis
+    ports:
+      - 8793:9793
+      - 5555:5555
+    volumes:
+      - ./backend:/home/backend
+
   worker:
     image: backend
     container_name: worker
@@ -71,7 +110,8 @@ services:
       - worker
       - redis
       - rabbitmq
-      - airflow
+      - airflow-webserver
+      - airflow-scheduler
 
     ports:
       - 5000:5000
@@ -88,28 +128,6 @@ services:
       - backend/.env
       - backend/.env.dev
       - backend/.flaskenv
-
-  airflow:
-    image: airflow
-    container_name: airflow
-    build:
-      context: "./backend"
-      dockerfile: "docker/airflow.Dockerfile"
-    depends_on:
-      - backend
-      - db
-      - worker
-      - rabbitmq
-    ports:
-      - 8080:8080
-      - 8793:9793
-      - 5555:5555
-    env_file:
-      - backend/.env.dev
-    volumes:
-      - ./backend/airflow:/usr/local/airflow
-      - ./backend:/usr/local/backend
-
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
   flower:
