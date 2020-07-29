@@ -26,3 +26,7 @@ fi
 if [ $SERVICE == "scheduler" ]; then
     celery -A tasks.celery.celery beat --loglevel=info
 fi
+
+if [ $SERVICE == "airflow" ]; then
+    celery -A tasks.celery.celery beat --loglevel=info
+fi

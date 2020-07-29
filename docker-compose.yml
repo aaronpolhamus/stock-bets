@@ -71,6 +71,7 @@ services:
       - worker
       - redis
       - rabbitmq
+      - airflow
 
     ports:
       - 5000:5000
@@ -87,6 +88,28 @@ services:
       - backend/.env
       - backend/.env.dev
       - backend/.flaskenv
+
+  airflow:
+    image: airflow
+    container_name: airflow
+    build:
+      context: "./backend"
+      dockerfile: "docker/airflow.Dockerfile"
+    depends_on:
+      - backend
+      - db
+      - worker
+      - rabbitmq
+    ports:
+      - 8080:8080
+      - 8793:9793
+      - 5555:5555
+    env_file:
+      - backend/.env.dev
+    volumes:
+      - ./backend/airflow:/usr/local/airflow
+      - ./backend:/usr/local/backend
+
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
   flower:

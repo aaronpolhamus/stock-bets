@@ -1,3 +1,4 @@
+apache-airflow==1.10.11
 celery==4.4.2
 Flask==1.0.2
 Flask_Cors==3.0.8

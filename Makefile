@@ -71,6 +71,20 @@ redis-mock-data:
 redis-clear:
 	docker-compose exec api python -c "from backend.tasks.redis import rds;rds.flushall()"
 
+# airflow
+# -------
+make airflow-build:
+	docker-compose build airflow
+
+make airflow-up:
+	docker-compose up airflow
+
+make airflow-start:
+	docker-compose start airflow
+
+make airflow-stop:
+	docker-compose stop airflow
+
 # backend
 # -------
 backend-up:
