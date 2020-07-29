@@ -435,7 +435,7 @@ def make_bookend_time():
     max_time_val = time.time()
     if max_time_val > close_of_last_trade_day:
         max_time_val = close_of_last_trade_day
-    return posix_to_datetime(max_time_val)
+    return max_time_val
 
 
 def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
@@ -477,8 +477,8 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.
     plotting and calculating winners. It's the reason the 7 functions above exist
     """
     df = get_user_balance_history(game_id, user_id)
-    df = append_price_data_to_balance_histories(df)
     df = add_bookends(df)
+    df = append_price_data_to_balance_histories(df)
     return filter_for_trade_time(df)
 
 

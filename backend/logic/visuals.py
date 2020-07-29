@@ -344,6 +344,7 @@ def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
 def make_user_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
     df = make_historical_balances_and_prices_table(game_id, user_id)
     if df.empty:  # this should only happen outside of trading hours
+        df["label"] = None  # for downstream compliance with schema validation
         return df
     df = build_labels(df)
     return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
@@ -495,7 +496,6 @@ def make_the_field_charts(game_id: int):
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])[0]
-        # import ipdb;ipdb.set_trace()
         apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio[portfolio_table_keys])
 
@@ -536,7 +536,8 @@ def make_order_performance_table(game_id: int, user_id: int):
     cum_sum_df.columns = ['symbol', 'cum_buys']
     order_df = order_df.merge(cum_sum_df)
     order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
-    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
+    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
+        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
     order_df.set_index("timestamp_fulfilled", inplace=True)
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
     order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
@@ -550,6 +551,7 @@ def make_order_performance_table(game_id: int, user_id: int):
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
+
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
