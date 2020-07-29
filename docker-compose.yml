@@ -41,6 +41,7 @@ services:
       - ./.localstack:/tmp/localstack
       - /var/run/docker.sock:/var/run/docker.sock
 
+
   worker:
     image: backend
     container_name: worker
@@ -56,6 +57,7 @@ services:
       - redis
       - rabbitmq
       - s3
+    network_mode: "host"
 
   scheduler:
     image: backend
@@ -88,6 +90,7 @@ services:
       - redis
       - rabbitmq
       - s3
+    network_mode: "host"
 
     ports:
       - 5000:5000
