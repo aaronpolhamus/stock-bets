@@ -2,6 +2,8 @@
 """
 import json
 import os
+from io import BytesIO
+
 import boto3
 import pandas as pd
 from typing import List
@@ -71,9 +73,18 @@ def aws_client(service='s3', region='us-east-1'):
 
 def upload_image_from_url_to_s3(url, key):
     s3 = aws_client()
+    extension = '.' + url.split('.')[-1]
+    key += extension
     bucket_name = Config.AWS_BUCKET_NAME
-    data = requests.get(url, stream=True)
-    response = s3.put_object(Body=data.content, Bucket=bucket_name, Key=key)
+    try:
+        data = requests.get(url, stream=True)
+    except requests.exceptions.TooManyRedirects:
+        data = requests.get(
+            'https://www.pngfind.com/pngs/m/676-6764065_default-profile-picture-transparent-hd-png-download.png',
+            stream=True)
+    out_img = BytesIO(data.content)
+    out_img.seek(0)
+    response = s3.put_object(Body=out_img, Bucket=bucket_name, Key=key)
     return response
 
 

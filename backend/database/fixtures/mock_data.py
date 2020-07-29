@@ -40,6 +40,8 @@ from backend.tasks.redis import rds
 from config import Config
 from sqlalchemy import MetaData
 
+from database.helpers import upload_image_from_url_to_s3
+
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
 simulation_end_time = max([record["timestamp"] for record in price_records])
@@ -592,6 +594,11 @@ def make_db_mocks():
     for table in table_names:
         if MOCK_DATA.get(table):
             populate_table(table)
+        if table == 'users':
+            for user in MOCK_DATA[table]:
+                username = user['username']
+                profile_picture = user['profile_pic']
+                upload_image_from_url_to_s3(profile_picture, f"user_data/profile_pictures/{username}")
 
 
 def make_redis_mocks():

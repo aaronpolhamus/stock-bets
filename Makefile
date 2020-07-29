@@ -24,7 +24,11 @@ db-logs:
 # s3
 # --
 local-infra:
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
+	docker-compose exec api aws --endpoint-url=http://localhost:4572 s3 mb s3://stockbets
+
+s3-mock-data:
+	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
+
 
 # celery worker
 # -------------
