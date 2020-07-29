@@ -26,11 +26,11 @@ services:
     ports:
       - 6379:6379
 
-  airflow-webserver:
+  airflow:
     image: backend
     container_name: airflow
     environment:
-      - SERVICE=airflow-webserver
+      - SERVICE=airflow
     env_file:
       - backend/.env
       - backend/.env.dev
@@ -42,24 +42,6 @@ services:
       - redis
     ports:
       - 8080:8080
-    volumes:
-      - ./backend:/home/backend
-
-  airflow-scheduler:
-    image: backend
-    container_name: airflow-scheduler
-    environment:
-      - SERVICE=airflow-webserver
-    env_file:
-      - backend/.env
-      - backend/.env.dev
-    depends_on:
-      - backend
-      - db
-      - worker
-      - rabbitmq
-      - redis
-    ports:
       - 8793:9793
       - 5555:5555
     volumes:
@@ -110,8 +92,7 @@ services:
       - worker
       - redis
       - rabbitmq
-      - airflow-webserver
-      - airflow-scheduler
+      - airflow
 
     ports:
       - 5000:5000

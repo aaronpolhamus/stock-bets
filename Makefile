@@ -71,36 +71,23 @@ redis-mock-data:
 redis-clear:
 	docker-compose exec api python -c "from backend.tasks.redis import rds;rds.flushall()"
 
-# airflow-webserver
+# airflow
 # -----------------
-make airflow-webserver-up:
-	docker-compose up -d airflow-webserver
+make airflow-up:
+	docker-compose up -d airflow
 
-make airflow-webserver-start:
-	docker-compose start airflow-webserver
+make airflow-start:
+	docker-compose start airflow
 
-make airflow-webserver-stop:
-	docker-compose stop airflow-webserver
+make airflow-stop:
+	docker-compose stop airflow
 
-airflow-webserver-logs:
-	docker-compose logs -f airflow-webserver
+airflow-logs:
+	docker-compose logs -f airflow
 
-# airflow-scheduler
-# -----------------
-make airflow-scheduler-up:
-	docker-compose up -d airflow-scheduler
+airflow-bash:
+	docker-compose exec airflow bash
 
-make airflow-scheduler-start:
-	docker-compose start airflow-scheduler
-
-make airflow-scheduler-stop:
-	docker-compose stop airflow-scheduler
-
-airflow-scheduler-logs:
-	docker-compose logs -f airflow-scheduler
-
-airflow-scheduler-bash:
-	docker-compose exec airflow-scheduler bash
 
 # backend
 # -------

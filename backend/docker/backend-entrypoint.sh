@@ -27,12 +27,8 @@ if [ $SERVICE == "scheduler" ]; then
     celery -A tasks.celery.celery beat --loglevel=info
 fi
 
-if [ $SERVICE == "airflow-webserver" ]; then
+if [ $SERVICE == "airflow" ]; then
     airflow initdb
-    exec airflow webserver -p 8080
-fi
-
-if [ $SERVICE == "airflow-scheduler" ]; then
-    airflow initdb
-    exec airflow scheduler
+    nohup airflow scheduler > scheduler.log &
+    nohup airflow webserver
 fi
