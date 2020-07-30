@@ -36,6 +36,7 @@ const PlayGame = () => {
   const [gameMode, setGameMode] = useState(null)
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
+  const [updateTables, setUpdateTables] = useState('')
 
   const getOrdersData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -45,6 +46,7 @@ const PlayGame = () => {
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
     setShowToast(true)
+    setUpdateTables(new Date())
     getOrdersData()
   }
 
@@ -142,22 +144,26 @@ const PlayGame = () => {
                 <Header>
                   <SectionTitle> Your balances </SectionTitle>
                 </Header>
-                <BalancesTable gameId={gameId} />
+                <BalancesTable
+                  gameId={gameId}
+                  update={updateTables}
+                />
               </PageSection>
               <PageSection>
-
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
                     endpoint='get_order_performance_chart'
                     yScaleType='percent'
                     title='Order Performance'
+                    update={updateTables}
                   />
                   : <VanillaChart
                     gameId={gameId}
                     endpoint='get_order_performance_chart'
                     yScaleType='percent'
                     title='Order Performance'
+                    update={updateTables}
                   />}
               </PageSection>
               <PageSection>
@@ -169,7 +175,10 @@ const PlayGame = () => {
                 />
               </PageSection>
               <PageSection>
-                <OpenOrdersTable gameId={gameId} />
+                <OpenOrdersTable
+                  gameId={gameId}
+                  update={updateTables}
+                />
               </PageSection>
             </Tab>
             {gameMode === 'multi_player' &&

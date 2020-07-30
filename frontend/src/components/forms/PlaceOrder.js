@@ -163,6 +163,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
         clearInterval(intervalId)
       })
       .catch(error => {
+        setOrderProcessing(false)
         window.alert(error.response.data)
       })
   }

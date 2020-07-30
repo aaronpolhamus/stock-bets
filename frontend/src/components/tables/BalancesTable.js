@@ -18,15 +18,24 @@ const StyledBalancesTable = styled(AutoTable)`
   }
 `
 
-const BalancesTable = ({ gameId }) => {
+const BalancesTable = ({ gameId, update }) => {
   const [tableData, setTableData] = useState({})
+  const [lastUpdate, setLastUpdate] = useState('')
+
+  const getGameData = async () => {
+    const data = await fetchGameData(gameId, 'get_current_balances_table')
+    setTableData(data)
+    console.log('Balances TableData set')
+  }
+
   useEffect(() => {
-    const getGameData = async () => {
-      const data = await fetchGameData(gameId, 'get_current_balances_table')
-      setTableData(data)
-    }
     getGameData()
   }, [gameId])
+
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getGameData()
+  }
   return (
     <StyledBalancesTable
       className
@@ -38,7 +47,8 @@ const BalancesTable = ({ gameId }) => {
 }
 
 BalancesTable.propTypes = {
-  gameId: PropTypes.number
+  gameId: PropTypes.number,
+  update: PropTypes.string
 }
 
 export { BalancesTable }
