@@ -10,12 +10,15 @@ services:
       - 3306:3306
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    command: --init-file /init.sql
+    volumes:
+      - ./backend/docker/init.sql:/init.sql
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
     env_file:
-      - backend/.env.dev
+      - ./backend/.env.dev
     ports:
       - 5672:5672
       - 15672:15672
@@ -32,12 +35,12 @@ services:
     environment:
       - SERVICE=airflow
     env_file:
-      - backend/.env
-      - backend/.env.dev
+      - ./backend/.env
+      - ./backend/.env.dev
     depends_on:
       - backend
       - db
-      - worker
+      - airflow-worker
       - rabbitmq
       - redis
     ports:
@@ -47,14 +50,30 @@ services:
     volumes:
       - ./backend:/home/backend
 
+  airflow-worker:
+    image: backend
+    container_name: airflow-worker
+    environment:
+      - SERVICE=airflow-worker
+    env_file:
+      - ./backend/.env
+      - ./backend/.env.dev
+    depends_on:
+      - backend
+      - db
+      - rabbitmq
+      - redis
+    volumes:
+      - ./backend:/home/backend
+
   worker:
     image: backend
     container_name: worker
     environment:
       - SERVICE=worker
     env_file:
-      - backend/.env
-      - backend/.env.dev
+      - ./backend/.env
+      - ./backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
@@ -68,8 +87,8 @@ services:
     environment:
       - SERVICE=scheduler
     env_file:
-      - backend/.env
-      - backend/.env.dev
+      - ./backend/.env
+      - ./backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
@@ -83,9 +102,9 @@ services:
     environment:
       - SERVICE=api
     env_file:
-      - backend/.env
-      - backend/.env.dev
-      - backend/.flaskenv
+      - ./backend/.env
+      - ./backend/.env.dev
+      - ./backend/.flaskenv
     depends_on:
       - db
       - backend
@@ -106,9 +125,9 @@ services:
       context: "./backend"
       dockerfile: "docker/backend.Dockerfile"
     env_file:
-      - backend/.env
-      - backend/.env.dev
-      - backend/.flaskenv
+      - ./backend/.env
+      - ./backend/.env.dev
+      - ./backend/.flaskenv
 
   # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
   flower:

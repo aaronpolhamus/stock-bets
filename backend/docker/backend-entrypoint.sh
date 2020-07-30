@@ -5,7 +5,6 @@ do
   sleep 1
 done
 
-# TODO refactor according to this pattern at some point: https://gist.github.com/mathop/37d817e720460b6689f9887b16e339f7
 
 # would be ideal not to worry about this, since we use Chromium instead of Firefox, but the webscraping
 # has been fragile due to versioning and this creates some redundancy
@@ -29,6 +28,11 @@ fi
 
 if [ $SERVICE == "airflow" ]; then
     airflow initdb
-    nohup airflow scheduler > scheduler.log &
+    nohup airflow scheduler &
+    rm -rf $AIRFLOW_HOME/airflow-webserver.pid
     nohup airflow webserver
+fi
+
+if [ $SERVICE == "airflow-worker" ]; then
+    airflow worker
 fi
