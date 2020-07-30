@@ -107,16 +107,24 @@ const BaseChart = forwardRef(({ data, height, yScaleType = 'count', maxXticks = 
   )
 })
 
-const VanillaChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+const VanillaChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title, update }) => {
   // A simple chart for single player games -- no drop-down menus or fancy effects
   const [chartData, setChartData] = useState({})
+  const [lastUpdate, setLastUpdate] = useState('')
+
+  const getChartData = async () => {
+    const data = await fetchGameData(gameId, endpoint)
+    setChartData(data)
+  }
   useEffect(() => {
-    const getChartData = async () => {
-      const data = await fetchGameData(gameId, endpoint)
-      setChartData(data)
-    }
     getChartData()
   }, [])
+
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getChartData()
+  }
+
   return (
     <>
       <Row>
@@ -130,11 +138,21 @@ const VanillaChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }
   )
 }
 
-const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title }) => {
+const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', title, update }) => {
   const [data, setData] = useState({})
   const [usernames, setUsernames] = useState([])
   const [username, setUsername] = useState(null)
   const { user } = useContext(UserContext)
+  const [lastUpdate, setLastUpdate] = useState('')
+
+  const getGameData = async () => {
+    const data = await apiPost(endpoint, {
+      game_id: gameId,
+      username: username,
+      withCredentials: true
+    })
+    setData(data)
+  }
 
   useEffect(() => {
     const getSidebarStats = async () => {
@@ -142,21 +160,17 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
       setUsernames(data.records.map((entry) => entry.username))
     }
     getSidebarStats()
-
-    const getGameData = async () => {
-      const data = await apiPost(endpoint, {
-        game_id: gameId,
-        username: username,
-        withCredentials: true
-      })
-      setData(data)
-    }
     getGameData()
 
     if (username === null) {
       setUsername(user.username)
     }
   }, [gameId, username, endpoint])
+
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getGameData()
+  }
 
   return (
     <>
@@ -198,7 +212,8 @@ UserDropDownChart.propTypes = {
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
   legends: PropTypes.bool,
-  title: PropTypes.string
+  title: PropTypes.string,
+  update: PropTypes.string
 }
 
 VanillaChart.propTypes = {
@@ -207,7 +222,8 @@ VanillaChart.propTypes = {
   endpoint: PropTypes.string,
   yScaleType: PropTypes.string,
   legends: PropTypes.bool,
-  title: PropTypes.string
+  title: PropTypes.string,
+  update: PropTypes.string
 }
 
 export { BaseChart, UserDropDownChart, VanillaChart }
