@@ -598,7 +598,7 @@ def make_db_mocks():
             for user in MOCK_DATA[table]:
                 username = user['username']
                 profile_picture = user['profile_pic']
-                upload_image_from_url_to_s3(profile_picture, f"user_data/profile_pictures/{username}")
+                upload_image_from_url_to_s3(profile_picture, f"profile_pics/{username}")
 
 
 def make_redis_mocks():
