@@ -338,7 +338,7 @@ def get_user_information(user_id):
     user_info = query_to_dict("SELECT * FROM users WHERE id = %s", user_id)
     if user_info:
         user_info = user_info[0]
-        user_info['profile_pic'] = create_presigned_url(f"profile_pics/{user_info['id']}")
+        user_info['profile_pic'] = create_presigned_url(f"profile_pics/{user_info['username']}")
         return user_info
 
 

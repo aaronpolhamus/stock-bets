@@ -84,7 +84,7 @@ def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
 def setup_new_user(inbound_entry: dict, uuid: str) -> int:
     add_row("users", **inbound_entry)
     db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)[0]
-    upload_image_from_url_to_s3(url=db_entry["profile_pic"], key=f"profile_pics/{db_entry['id']}")
+    upload_image_from_url_to_s3(url=db_entry["profile_pic"], key=f"profile_pics/{db_entry['username']}")
     requester_friends_ids = get_requester_ids_from_email(db_entry['email'])
     for requester_id in requester_friends_ids:
         add_row("external_invites", requester_id=requester_id, invited_email=db_entry["email"], status="accepted",
