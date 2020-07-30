@@ -302,7 +302,6 @@ class TestWinnerPayouts(BaseTestCase):
         have a week of test data, we'll effectively recycle the same information via mocks
         """
         game_id = 3
-        import ipdb; ipdb.set_trace()
         user_ids = get_active_game_user_ids(game_id)
         self.assertEqual(user_ids, [1, 3, 4])
         game_info = get_game_info(game_id)
