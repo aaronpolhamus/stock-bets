@@ -9,7 +9,7 @@ from backend.database.helpers import add_row, query_to_dict
 from backend.logic.friends import invite_friend, get_requester_ids_from_email
 from backend.logic.base import standardize_email
 
-ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com"]
+ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com", "charly@captec.io", "jsanchezcastillejos@gmail.com"]
 
 
 def check_against_invited_users(email):
