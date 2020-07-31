@@ -19,7 +19,7 @@ if [ $SERVICE == "api" ]; then
 fi
 
 if [ $SERVICE == "worker" ]; then
-    celery -A tasks.celery.celery worker --loglevel=info --uid=nobody
+    celery -A tasks.celery.celery worker --loglevel=info --uid=nobody --concurrency=${CELERY_WORKER_CONCURRENCY}
 fi
 
 if [ $SERVICE == "scheduler" ]; then
