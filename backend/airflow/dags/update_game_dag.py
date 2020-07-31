@@ -3,7 +3,10 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.models import DAG
 from datetime import datetime
 
-from backend.logic.base import get_active_game_user_ids
+from backend.logic.base import (
+    get_time_defaults,
+    get_active_game_user_ids,
+)
 from backend.logic.visuals import (
     make_the_field_charts,
     compile_and_pack_player_leaderboard,
@@ -14,6 +17,7 @@ from backend.logic.visuals import (
     serialize_and_pack_winners_table
 )
 from backend.logic.metrics import log_winners
+from backend.airflow import context_parser
 
 
 dag = DAG(
@@ -23,60 +27,63 @@ dag = DAG(
 )
 
 
-def update_balances_and_prices_cache_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
+def update_balances_and_prices_cache_with_context(**context):
+    game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     pass
 
 
-def make_metrics_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
-    calculate_and_pack_game_metrics(game_id)
+def make_metrics_with_context(**context):
+    game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    calculate_and_pack_game_metrics(game_id, start_time, end_time)
 
 
-def make_leaderboard_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
-    compile_and_pack_player_leaderboard(game_id)
+def make_leaderboard_with_context(**context):
+    game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    compile_and_pack_player_leaderboard(game_id, start_time, end_time)
 
 
-def update_field_chart_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
-    make_the_field_charts(game_id)
+def update_field_chart_with_context(**context):
+    game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    make_the_field_charts(game_id, start_time, end_time)
 
 
-def refresh_order_details_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
+def refresh_order_details_with_context(**context):
+    game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # print(f"updating order details for user_id {user_id} out of [{', '.join(user_ids)}]")
         serialize_and_pack_order_details(game_id, user_id)
 
 
-def refresh_portfolio_details_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
+def refresh_portfolio_details_with_context(**context):
+    game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # print(f"updating portfolio details for user_id {user_id} out of [{', '.join(user_ids)}]")
         serialize_and_pack_portfolio_details(game_id, user_id)
 
 
-def make_order_performance_chart_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
+def make_order_performance_chart_with_context(**context):
+    game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # print(f"updating order performance chart for user_id {user_id} out of [{', '.join(user_ids)}]")
-        serialize_and_pack_order_performance_chart(game_id, user_id)
+        serialize_and_pack_order_performance_chart(game_id, user_id, start_time, end_time)
 
 
-def log_multiplayer_winners_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
-    # current_time = kwargs['dag_run'].conf['current_time']
-    import time
-    log_winners(game_id, time.time())
+def log_multiplayer_winners_with_context(**context):
+    game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
+    _, end_time = get_time_defaults(game_id, start_time, end_time)
+    log_winners(game_id, end_time)
 
 
-def make_winners_table_with_context(**kwargs):
-    game_id = kwargs['dag_run'].conf['game_id']
+def make_winners_table_with_context(**context):
+    game_id, = context_parser(context, "game_id")
     serialize_and_pack_winners_table(game_id)
 
 
