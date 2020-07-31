@@ -111,7 +111,7 @@ const OrderFormHeader = styled(Form.Group)`
   }
 `
 
-const PlaceOrder = ({ gameId, onPlaceOrder }) => {
+const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
   const [gameInfo, setGameInfo] = useState({})
   const [orderTicket, setOrderTicket] = useState({})
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
@@ -120,6 +120,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [priceData, setPriceData] = useState({})
   const [cashData, setCashData] = useState({})
   const [orderProcessing, setOrderProcessing] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState('')
 
   const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
@@ -131,9 +132,15 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
     setOrderTicket(data)
     setGameInfo(data)
   }
+
   const getCashInfo = async () => {
     const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
     setCashData(cashInfo)
+  }
+
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getCashInfo()
   }
 
   useEffect(() => {
@@ -389,7 +396,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
 
 PlaceOrder.propTypes = {
   gameId: PropTypes.string,
-  onPlaceOrder: PropTypes.func
+  onPlaceOrder: PropTypes.func,
+  update: PropTypes.string
 }
 
 export { PlaceOrder }
