@@ -111,7 +111,7 @@ const OrderFormHeader = styled(Form.Group)`
   }
 `
 
-const PlaceOrder = ({ gameId, onPlaceOrder }) => {
+const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
   const [gameInfo, setGameInfo] = useState({})
   const [orderTicket, setOrderTicket] = useState({})
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
@@ -120,22 +120,31 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const [priceData, setPriceData] = useState({})
   const [cashData, setCashData] = useState({})
   const [orderProcessing, setOrderProcessing] = useState(false)
+  const [lastUpdate, setLastUpdate] = useState('')
 
   const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
   const formRef = useRef(null)
   const autosugestRef = useRef(null)
 
+  const getFormInfo = async () => {
+    const data = await fetchGameData(gameId, 'order_form_defaults')
+    setOrderTicket(data)
+    setGameInfo(data)
+  }
+
+  const getCashInfo = async () => {
+    const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
+    setCashData(cashInfo)
+  }
+
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getCashInfo()
+  }
+
   useEffect(() => {
-    const getFormInfo = async () => {
-      const data = await fetchGameData(gameId, 'order_form_defaults')
-
-      const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
-
-      setCashData(cashInfo)
-      setOrderTicket(data)
-      setGameInfo(data)
-    }
+    getCashInfo()
     getFormInfo()
   }, [gameId])
 
@@ -159,6 +168,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
+        getCashInfo()
         formRef.current.reset()
         clearInterval(intervalId)
       })
@@ -269,7 +279,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           $colorChecked='var(--color-lightest)'
         />
       </OrderFormHeader>
-      <CashInfo cashData={cashData} balance buyingPower />
+      <CashInfo
+        cashData={cashData}
+        balance
+        buyingPower />
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
@@ -383,7 +396,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
 
 PlaceOrder.propTypes = {
   gameId: PropTypes.string,
-  onPlaceOrder: PropTypes.func
+  onPlaceOrder: PropTypes.func,
+  update: PropTypes.string
 }
 
 export { PlaceOrder }

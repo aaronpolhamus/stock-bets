@@ -37,6 +37,7 @@ const PlayGame = () => {
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
   const [updateTables, setUpdateTables] = useState('')
+  const [updateCashInfo, setUpdateCashInfo] = useState('')
 
   const getOrdersData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -48,6 +49,11 @@ const PlayGame = () => {
     setShowToast(true)
     setUpdateTables(new Date())
     getOrdersData()
+  }
+
+  const handleCancelOrder = () => {
+    getOrdersData()
+    setUpdateCashInfo(new Date())
   }
 
   useEffect(() => {
@@ -93,6 +99,7 @@ const PlayGame = () => {
         <PlaceOrder
           gameId={gameId}
           onPlaceOrder={handlePlacedOrder}
+          update={updateCashInfo}
         />
       </Sidebar>
       <Column md={9}>
@@ -119,7 +126,7 @@ const PlayGame = () => {
                   tableData={ordersData}
                   gameId={gameId}
                   title='Pending Orders'
-                  onCancelOrder={getOrdersData}
+                  onCancelOrder={handleCancelOrder}
                 />
 
               </PageSection>
