@@ -266,7 +266,6 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
     or expired
     """
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
-
     query = """
         SELECT
             o.id as order_id, 
@@ -386,7 +385,7 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
           symbol IN ({','.join(['%s'] * len(symbols))}) AND 
           timestamp >= %s AND timestamp <= %s;
     """
-    params_list = symbols + [min_time, max_time]
+    params_list = list(symbols) + [min_time, max_time]
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params=params_list)
     return df.sort_values("timestamp")

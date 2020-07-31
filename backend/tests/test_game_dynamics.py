@@ -9,7 +9,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from backend.database.fixtures.mock_data import simulation_end_time
+from backend.database.fixtures.mock_data import (
+    simulation_start_time,
+    simulation_end_time
+)
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
     make_user_entry_from_google,
@@ -279,8 +282,8 @@ class TestGameLogic(BaseTestCase):
                             mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
-        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. Since buying power
-        is current cash balance - pendin
+        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. We exect to see
+        outstanding buy order value being the sum of the  MELI order + the value of the new NVDA order
         """
         user_id = 1
         game_id = 3
@@ -289,8 +292,9 @@ class TestGameLogic(BaseTestCase):
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        new_order_time = simulation_start_time + 60 * 60 * 12  # after hours
         with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = base_time_mock.time.return_value = 1592202332
+            game_time_mock.time.return_value = base_time_mock.time.return_value = new_order_time
             place_order(user_id,
                         game_id,
                         symbol=buy_stock,
@@ -304,7 +308,7 @@ class TestGameLogic(BaseTestCase):
                         time_in_force="until_cancelled")
 
         with patch("backend.logic.base.fetch_price") as fetch_price_mock:
-            fetch_price_mock.return_value = (market_price, 1592202332)
+            fetch_price_mock.return_value = (market_price, new_order_time)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
         mock_data_meli_order_id = 9

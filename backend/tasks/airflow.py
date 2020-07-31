@@ -1,3 +1,8 @@
+"""This module has some helper functions for working with externally triggered DAGs. Though it would be nice to locate
+this code in the backend/airflow directory, it turns out that we basically need to leave this directory alone apart from
+putting tests and DAGs in it according to airflow's specifications
+"""
+
 from airflow.api.client.local_client import Client
 
 afc = Client(None, None)

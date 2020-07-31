@@ -852,7 +852,7 @@ def refresh_game_data(game_id: int, start_time: float = None, end_time: float = 
             serialize_and_pack_winners_table(game_id)
 
 
-def calculate_and_pack_game_metrics(game_id: int, start_time: float, end_time: float):
+def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_time: float = None):
     for user_id in get_active_game_user_ids(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_time, end_time)
         rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)

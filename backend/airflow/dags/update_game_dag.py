@@ -1,6 +1,6 @@
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.models import DAG
+from airflow import DAG
 from datetime import datetime
 
 from backend.logic.base import (
@@ -17,7 +17,7 @@ from backend.logic.visuals import (
     serialize_and_pack_winners_table
 )
 from backend.logic.metrics import log_winners
-from backend.airflow import context_parser
+from backend.tasks.airflow import context_parser
 
 
 dag = DAG(

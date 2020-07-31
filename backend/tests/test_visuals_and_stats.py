@@ -323,13 +323,13 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(n_sidebets, 2)
 
         # we'll mock in daily portfolio values to speed up the time this test takes
-        start_dt = posix_to_datetime(start_time)
-        end_dt = posix_to_datetime(end_time)
-        user_1_portfolio = portfolio_value_by_day(game_id, 1, start_dt, end_dt)
-        user_3_portfolio = portfolio_value_by_day(game_id, 3, start_dt, end_dt)
-        user_4_portfolio = portfolio_value_by_day(game_id, 4, start_dt, end_dt)
+        user_1_portfolio = portfolio_value_by_day(game_id, 1, start_time, end_time)
+        user_3_portfolio = portfolio_value_by_day(game_id, 3, start_time, end_time)
+        user_4_portfolio = portfolio_value_by_day(game_id, 4, start_time, end_time)
 
         # expected sidebet dates
+        start_dt = posix_to_datetime(start_time)
+        end_dt = posix_to_datetime(end_time)
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 
