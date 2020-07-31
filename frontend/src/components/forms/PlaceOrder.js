@@ -126,16 +126,18 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
   const formRef = useRef(null)
   const autosugestRef = useRef(null)
 
+  const getFormInfo = async () => {
+    const data = await fetchGameData(gameId, 'order_form_defaults')
+    setOrderTicket(data)
+    setGameInfo(data)
+  }
+  const getCashInfo = async () => {
+    const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
+    setCashData(cashInfo)
+  }
+
   useEffect(() => {
-    const getFormInfo = async () => {
-      const data = await fetchGameData(gameId, 'order_form_defaults')
-
-      const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
-
-      setCashData(cashInfo)
-      setOrderTicket(data)
-      setGameInfo(data)
-    }
+    getCashInfo()
     getFormInfo()
   }, [gameId])
 
@@ -159,6 +161,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
+        getCashInfo()
         formRef.current.reset()
         clearInterval(intervalId)
       })
@@ -269,7 +272,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder }) => {
           $colorChecked='var(--color-lightest)'
         />
       </OrderFormHeader>
-      <CashInfo cashData={cashData} balance buyingPower />
+      <CashInfo
+        cashData={cashData}
+        balance
+        buyingPower />
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
