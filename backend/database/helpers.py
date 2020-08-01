@@ -8,6 +8,7 @@ import boto3
 import pandas as pd
 from typing import List
 import requests
+from requests import RequestException
 from sqlalchemy import MetaData
 
 from backend.database.db import engine
@@ -76,7 +77,7 @@ def upload_image_from_url_to_s3(url, key):
     bucket_name = Config.AWS_BUCKET_NAME
     try:
         data = requests.get(url, stream=True)
-    except requests.exceptions.TooManyRedirects:
+    except RequestException:
         data = requests.get(
             'https://www.pngfind.com/pngs/m/676-6764065_default-profile-picture-transparent-hd-png-download.png',
             stream=True)
@@ -85,13 +86,3 @@ def upload_image_from_url_to_s3(url, key):
     response = s3.put_object(Body=out_img, Bucket=bucket_name, Key=key)
     return response
 
-
-def create_presigned_url(key, bucket=Config.AWS_BUCKET_NAME, expiration=3600):
-    """Generate a presigned URL to share an S3 object, this saves the trouble of making a policy of
-    a public bucket or a public folder, making only temporary URLs, saver too since it's impossible
-    for someone to just scrap stockbet's bucket
-    """
-    url = f"{Config.AWS_ENDPOINT_URL}/{Config.AWS_BUCKET_NAME}/{key}"
-    if Config.AWS_PUBLIC_ENDPOINT:
-        url = url.replace(Config.AWS_ENDPOINT_URL, Config.AWS_PUBLIC_ENDPOINT)
-    return url
