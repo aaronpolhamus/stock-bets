@@ -594,11 +594,14 @@ def make_db_mocks():
     for table in table_names:
         if MOCK_DATA.get(table):
             populate_table(table)
-        if table == 'users':
-            for user in MOCK_DATA[table]:
-                username = user['username']
-                profile_picture = user['profile_pic']
-                upload_image_from_url_to_s3(profile_picture, f"profile_pics/{username}")
+
+
+def make_s3_mocks():
+    table = 'users'
+    for user in MOCK_DATA[table]:
+        username = user['username']
+        profile_picture = user['profile_pic']
+        upload_image_from_url_to_s3(profile_picture, f"profile_pics/{username}")
 
 
 def make_redis_mocks():

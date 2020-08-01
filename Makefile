@@ -17,6 +17,9 @@ db-mock-data: db-reset
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
+s3-reset:
+	rm .localstack/data/*.json
+
 s3-mock-data:
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
 
@@ -86,8 +89,8 @@ backend-test: db-mock-data worker-restart
 # ---
 api-up:
 	docker-compose up -d api
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s://stockbets
-	docker-compose exec api aws --endpoint-url=http://localhost:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
 
 api-logs:
 	docker-compose logs -f api
