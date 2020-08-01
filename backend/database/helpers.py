@@ -96,4 +96,6 @@ def create_presigned_url(key, bucket=Config.AWS_BUCKET_NAME, expiration=3600):
                                            Params={'Bucket': bucket,
                                                    'Key': key},
                                            ExpiresIn=expiration)
+    if Config.AWS_PUBLIC_ENDPOINT:
+        url = url.replace(Config.AWS_ENDPOINT_URL, Config.AWS_PUBLIC_ENDPOINT)
     return url

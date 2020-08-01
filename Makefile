@@ -119,6 +119,8 @@ destroy-everything: stop # (DANGER: this can be good hygiene/troubleshooting, bu
 
 	# prune all volumes
 	docker volume prune -f
+aggressive-stop:
+	docker rm -f $$(docker ps -a -q)
 
 # e2e testing
 # -----------
