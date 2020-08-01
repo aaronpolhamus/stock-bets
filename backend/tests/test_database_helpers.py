@@ -101,21 +101,18 @@ class TestDerivedDataCaching(BaseTestCase):
         _ = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, first_segment_end)
 
         start = time.time()
-        second_segment_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, simulation_end_time)
+        second_segment_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time,
+                                                                      simulation_end_time)
         partial_load_time = time.time() - start
         df1 = original_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
         df2 = second_segment_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
-        # this isn't ideal -- for some reason pandas doesn't think that the timestamp column for df1 is tz-aware, even
-        # though on inspection it definitely is...
-        del df1["timestamp"]
-        del df2["timestamp"]
         pd.testing.assert_frame_equal(df1, df2)
 
         start = time.time()
-        cache_loaded_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, simulation_end_time)
+        cache_loaded_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time,
+                                                                    simulation_end_time)
         cache_load_time = time.time() - start
         df3 = cache_loaded_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
-        del df3["timestamp"]
         pd.testing.assert_frame_equal(df1, df3)
 
         self.assertLess(partial_load_time, fresh_load_time)

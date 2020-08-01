@@ -505,16 +505,17 @@ def handle_balances_cache(game_id: int, user_id: int, start_time: float = None, 
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     cached_df = read_table_cache("balances_and_prices_cache", start_time, end_time, game_id=game_id, user_id=user_id)
     cached_df.drop(["game_id", "user_id"], axis=1, inplace=True)
+    cache_end = 0
     if not cached_df.empty:
         cache_end = float(cached_df["timestamp"].max())
-        balances_df = get_user_balance_history(game_id, user_id, cache_end, end_time)
-        balances_df = balances_df[balances_df["timestamp"] > cached_df["timestamp"].max()]
+
+    balances_df = get_user_balance_history(game_id, user_id, cache_end, end_time)
+    if not balances_df.empty:
+        balances_df = balances_df[balances_df["timestamp"] > cache_end]
         prepend_df = cached_df.loc[
             cached_df["timestamp"] == cached_df["timestamp"].max(), ["symbol", "timestamp", "balance"]]
         balances_df = pd.concat([prepend_df, balances_df])
-    else:
-        balances_df = get_user_balance_history(game_id, user_id, start_time, end_time)
-        cache_end = 0
+
     return balances_df, cached_df, cache_end
 
 
@@ -536,14 +537,15 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     testing env where you need to "freeze" time to the test fixture window.
     """
     balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
+    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
         return cached_df.reset_index(drop=True)
     balances_df = add_bookends(balances_df, end_time=end_time)
     update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
     update_df = filter_for_trade_time(update_df)
     apply_validation(update_df, balances_and_prices_table_schema, strict=True)
-    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     df = pd.concat([cached_df, update_df], axis=0)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])  # this ensure datetime dtype for when cached_df is empty
     df = df[~df.duplicated(["symbol", "timestamp"])]
     if not update_df.empty:
         cache_update = df[df["timestamp"] > posix_to_datetime(cache_end)]

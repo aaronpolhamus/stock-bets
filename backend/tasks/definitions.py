@@ -106,7 +106,6 @@ def async_update_symbols_table(self, n_rows=None):
     if symbols_table.empty:
         raise SeleniumDriverError
 
-    print("writing to db...")
     with engine.connect() as conn:
         conn.execute("TRUNCATE TABLE symbols;")
 
