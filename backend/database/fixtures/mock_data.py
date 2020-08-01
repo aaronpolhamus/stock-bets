@@ -1,7 +1,7 @@
 """mock_data.py is our test data factory. running it for ever test is expensive, so we use it at the very beginning of
 test runner to construct a .sql data dump that we can quickly scan into the DB.
 """
-
+import hashlib
 import json
 from datetime import timedelta
 from unittest.mock import patch
@@ -37,6 +37,7 @@ from backend.logic.visuals import (
     serialize_and_pack_winners_table
 )
 from backend.tasks.redis import rds
+from backend.logic.auth import setup_new_user
 from config import Config
 from sqlalchemy import MetaData
 
@@ -592,16 +593,19 @@ def make_db_mocks():
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     for table in table_names:
-        if MOCK_DATA.get(table):
+        if MOCK_DATA.get(table) and table != 'users':
             populate_table(table)
+        if table == 'users':
+            for user in MOCK_DATA.get(table):
+                setup_new_user(user)
 
 
 def make_s3_mocks():
     table = 'users'
     for user in MOCK_DATA[table]:
-        username = user['username']
+        profile_pic_hash = hashlib.sha224(bytes(user['uuid'], encoding='utf-8')).hexdigest()
         profile_picture = user['profile_pic']
-        upload_image_from_url_to_s3(profile_picture, f"profile_pics/{username}")
+        upload_image_from_url_to_s3(profile_picture, f"profile_pics/{profile_pic_hash}")
 
 
 def make_redis_mocks():

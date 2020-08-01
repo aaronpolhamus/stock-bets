@@ -4,7 +4,7 @@ from typing import List
 import pandas as pd
 from backend.config import Config
 from backend.database.db import engine
-from backend.database.helpers import add_row, create_presigned_url
+from backend.database.helpers import add_row
 from backend.logic.base import (
     get_user_ids,
     get_user_information
@@ -31,7 +31,7 @@ def get_user_details_from_ids(user_id_list: List[int], label: str = None):
         return []
 
     sql = f"""
-        SELECT id, username, name
+        SELECT id, username, profile_pic, name
         FROM users
         WHERE id IN ({','.join(['%s'] * len(user_id_list))})
     """
@@ -39,8 +39,6 @@ def get_user_details_from_ids(user_id_list: List[int], label: str = None):
         df = pd.read_sql(sql, conn, params=user_id_list)
     if label is not None:
         df["label"] = label
-    df['profile_pic'] = 'profile_pics/' + df['username'].astype(str)
-    df['profile_pic'] = df['profile_pic'].apply(create_presigned_url)
     return df.to_dict(orient="records")
 
 

@@ -17,7 +17,7 @@ import requests
 from backend.config import Config
 from backend.database.helpers import (
     query_to_dict,
-    add_row, create_presigned_url
+    add_row
 )
 from backend.tasks.redis import (
     rds,
@@ -335,11 +335,7 @@ def get_all_game_usernames(game_id: int):
 
 
 def get_user_information(user_id):
-    user_info = query_to_dict("SELECT * FROM users WHERE id = %s", user_id)
-    if user_info:
-        user_info = user_info[0]
-        user_info['profile_pic'] = create_presigned_url(f"profile_pics/{user_info['username']}")
-        return user_info
+    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
