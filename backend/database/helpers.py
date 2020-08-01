@@ -91,11 +91,7 @@ def create_presigned_url(key, bucket=Config.AWS_BUCKET_NAME, expiration=3600):
     a public bucket or a public folder, making only temporary URLs, saver too since it's impossible
     for someone to just scrap stockbet's bucket
     """
-    s3_client = aws_client()
-    url = s3_client.generate_presigned_url('get_object',
-                                           Params={'Bucket': bucket,
-                                                   'Key': key},
-                                           ExpiresIn=expiration)
+    url = f"{Config.AWS_ENDPOINT_URL}/{Config.AWS_BUCKET_NAME}/{key}"
     if Config.AWS_PUBLIC_ENDPOINT:
         url = url.replace(Config.AWS_ENDPOINT_URL, Config.AWS_PUBLIC_ENDPOINT)
     return url

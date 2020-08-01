@@ -86,7 +86,8 @@ backend-test: db-mock-data worker-restart
 # ---
 api-up:
 	docker-compose up -d api
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s://stockbets
+	docker-compose exec api aws --endpoint-url=http://localhost:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
 
 api-logs:
 	docker-compose logs -f api
@@ -119,6 +120,7 @@ destroy-everything: stop # (DANGER: this can be good hygiene/troubleshooting, bu
 
 	# prune all volumes
 	docker volume prune -f
+
 aggressive-stop:
 	docker rm -f $$(docker ps -a -q)
 
