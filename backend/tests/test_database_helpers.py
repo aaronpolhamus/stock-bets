@@ -1,19 +1,26 @@
 import json
 import time
+from unittest.mock import patch
 
 import pandas as pd
-
-from backend.tests import BaseTestCase
-from backend.logic.base import get_game_info
-from backend.logic.base import get_user_information
-from backend.database.helpers import (
-    add_row,
-    query_to_dict
-)
 from backend.database.fixtures.mock_data import (
     simulation_start_time,
     simulation_end_time
 )
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
+from backend.logic.base import (
+    get_game_info,
+    make_date_offset,
+    posix_to_datetime,
+    datetime_to_posix,
+    get_user_information,
+    make_historical_balances_and_prices_table
+)
+from backend.logic.metrics import calculate_metrics
+from backend.tests import BaseTestCase
 
 
 class TestDBHelpers(BaseTestCase):
@@ -73,3 +80,53 @@ class TestDBHelpers(BaseTestCase):
 
         self.assertEqual(df["timestamp"].min(), simulation_start_time)
         self.assertEqual(df["timestamp"].max(), simulation_end_time)
+
+
+class TestDerivedDataCaching(BaseTestCase):
+
+    def test_make_historical_balances_and_prices_table_caching(self):
+        """We'll test that make_historical_balances_and_prices_table is able to operate effectively on different time
+        segments, and then we'll verify the integrity of the output by repeating the test result from TestMetrics."""
+        game_id = 3
+        user_id = 1
+
+        start = time.time()
+        original_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time,
+                                                                simulation_end_time)
+        fresh_load_time = time.time() - start
+        with self.engine.connect() as conn:
+            conn.execute("TRUNCATE balances_and_prices_cache;")
+
+        first_segment_end = simulation_start_time + (simulation_end_time - simulation_start_time) / 2
+        _ = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, first_segment_end)
+
+        start = time.time()
+        second_segment_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, simulation_end_time)
+        partial_load_time = time.time() - start
+        df1 = original_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        df2 = second_segment_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        # this isn't ideal -- for some reason pandas doesn't think that the timestamp column for df1 is tz-aware, even
+        # though on inspection it definitely is...
+        del df1["timestamp"]
+        del df2["timestamp"]
+        pd.testing.assert_frame_equal(df1, df2)
+
+        start = time.time()
+        cache_loaded_df = make_historical_balances_and_prices_table(game_id, user_id, simulation_start_time, simulation_end_time)
+        cache_load_time = time.time() - start
+        df3 = cache_loaded_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        del df3["timestamp"]
+        pd.testing.assert_frame_equal(df1, df3)
+
+        self.assertLess(partial_load_time, fresh_load_time)
+        self.assertLess(cache_load_time, partial_load_time)
+
+        with patch("backend.logic.base.time") as base_time_mock:
+            game_info = get_game_info(game_id)
+            offset = make_date_offset(game_info["side_bets_period"])
+            end_time = datetime_to_posix(posix_to_datetime(simulation_start_time) + offset)
+            base_time_mock.time.return_value = end_time
+            return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, end_time)
+
+            self.assertAlmostEqual(return_ratio, -0.6133719, 4)
+            self.assertAlmostEqual(sharpe_ratio, -0.5490682, 4)

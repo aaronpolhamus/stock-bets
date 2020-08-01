@@ -737,6 +737,7 @@ class TestSchemaValidation(TestCase):
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
+        # a column is missing
         df = pd.DataFrame(
             dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
@@ -751,6 +752,13 @@ class TestSchemaValidation(TestCase):
         df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
+
+        # strict mode is on, and there is an extra column
+        df = pd.DataFrame(
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()], bad_column=["x", "y", "z"]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema, strict=True)
 
 
 class TestGameExpiration(BaseTestCase):

@@ -15,16 +15,22 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
+from backend.database.db import engine
 from backend.database.helpers import (
     query_to_dict,
-    add_row
+    add_row,
+    read_table_cache,
+    write_table_cache
+)
+from backend.logic.schemas import (
+    apply_validation,
+    balances_and_prices_table_schema
 )
 from backend.tasks.redis import (
     rds,
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
-from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -443,7 +449,8 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     df["mask"] = False
     for start, end in zip(schedule_df['start'], schedule_df['end']):
         df["mask"] = df["mask"] | mask_time_creator(df, start, end)
-    return df[df["mask"]]
+    df = df[df["mask"]]
+    return df.drop(["timestamp_utc", "timestamp_epoch", "mask"], axis=1)
 
 
 def make_bookend_time(max_time_val: float = None):
@@ -490,7 +497,25 @@ def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_
     with engine.connect() as conn:
         balances = pd.read_sql(sql, conn, params=[game_id, user_id, start_time, end_time])
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
+    balances.drop("balance_type", inplace=True, axis=1)
     return balances
+
+
+def handle_balances_cache(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    cached_df = read_table_cache("balances_and_prices_cache", start_time, end_time, game_id=game_id, user_id=user_id)
+    cached_df.drop(["game_id", "user_id"], axis=1, inplace=True)
+    if not cached_df.empty:
+        cache_end = float(cached_df["timestamp"].max())
+        balances_df = get_user_balance_history(game_id, user_id, cache_end, end_time)
+        balances_df = balances_df[balances_df["timestamp"] > cached_df["timestamp"].max()]
+        prepend_df = cached_df.loc[
+            cached_df["timestamp"] == cached_df["timestamp"].max(), ["symbol", "timestamp", "balance"]]
+        balances_df = pd.concat([prepend_df, balances_df])
+    else:
+        balances_df = get_user_balance_history(game_id, user_id, start_time, end_time)
+        cache_end = 0
+    return balances_df, cached_df, cache_end
 
 
 def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_time: float = None,
@@ -504,17 +529,32 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     the end_time argument determines the reference date for calculating the "bookends" of the running balances series.
     if this is passed as its default value, None, it will use the present time as the bookend reference. being able to
     control this value explicitly lets us "freeze time" when running DAG tests.
-    """
 
-    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
-    df = get_user_balance_history(game_id, user_id, start_time, end_time)
-    df = add_bookends(df, end_time=end_time)
-    df = append_price_data_to_balance_histories(df)
-    return filter_for_trade_time(df)
+    another quick note about this function -- while you can technical pass in any start_time, the internal logic here
+    requires prior knowledge of past balances to run properly, othwerwise you'll likely end up ignoring users' past
+    purchases. for the best outcome, generally leave the start_time default behavior alone, unless working in a
+    testing env where you need to "freeze" time to the test fixture window.
+    """
+    balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
+    if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
+        return cached_df.reset_index(drop=True)
+    balances_df = add_bookends(balances_df, end_time=end_time)
+    update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
+    update_df = filter_for_trade_time(update_df)
+    apply_validation(update_df, balances_and_prices_table_schema, strict=True)
+    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
+    df = pd.concat([cached_df, update_df], axis=0)
+    df = df[~df.duplicated(["symbol", "timestamp"])]
+    if not update_df.empty:
+        cache_update = df[df["timestamp"] > posix_to_datetime(cache_end)]
+        cache_update["timestamp"] = cache_update["timestamp"].apply(lambda x: datetime_to_posix(x))
+        write_table_cache("balances_and_prices_cache", cache_update, game_id=game_id, user_id=user_id)
+    return df.reset_index(drop=True)
 
 
 # Price and stock data harvesting tools
 # -------------------------------------
+
 
 class SeleniumDriverError(Exception):
 

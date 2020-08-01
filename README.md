@@ -38,6 +38,7 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 ### Notes on business logic
 The business logic modules stored in `/backend/logic` have an order that is important preserve. That logic is: 
 ```
+- schemas.py
 - base.py
 - metrics.py
 - visuals.py
