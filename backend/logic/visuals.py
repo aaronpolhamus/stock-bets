@@ -546,7 +546,6 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     del order_df["level_0"]
     # get historical balances and prices
     bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
-    bp_df.to_csv("bpdf2.csv", index=False)
 
     def _make_cumulative_sales(subset):
         sales_diffs = subset["balance"].diff(1).fillna(0)
@@ -828,8 +827,8 @@ def serialize_and_pack_winners_table(game_id: int):
     rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
 
 
-def init_game_assets(game_id: int, start_time: float = None, end_time: float = None):
-    calculate_and_pack_game_metrics(game_id, start_time, end_time)
+def init_game_assets(game_id: int):
+    calculate_and_pack_game_metrics(game_id)
 
     # leaderboard
     compile_and_pack_player_leaderboard(game_id)

@@ -22,8 +22,6 @@ def get_dag_run_state(dag_id: str, run_id: str):
 
 
 def trigger_dag(dag_id: str, **kwargs):
-    """triggers an externally-called dag run, passing in the parameters listed in **kwargs as DAG context. Returns
-    True upon successful completion, False otherwise"""
     run_id = '%030x' % random.randrange(16**30)
     afc.trigger_dag(dag_id, run_id=run_id, conf=kwargs)
     while get_dag_run_state(dag_id, run_id) == "running":

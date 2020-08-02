@@ -14,8 +14,6 @@ VALID_TIME_TYPES = [pd.Timedelta, np.dtype('<M8[ns]'), pd.DatetimeTZDtype]
 
 class FailedValidation(Exception):
     def __init__(self, message="Failed schema validation"):
-
-        # Call the base class constructor with the parameters it needs
         super().__init__(message)
 
 

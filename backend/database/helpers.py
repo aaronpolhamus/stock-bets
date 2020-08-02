@@ -88,8 +88,8 @@ def upload_image_from_url_to_s3(url, key):
 
 
 def write_table_cache(cache_table_name: str, df: pd.DataFrame, **identifiers):
-    """cache_table_name is required, along with the dataframe containing values. additional identifiers for the cache,
-    such as game_id and user_id, are supplied as **identifiers keyword args
+    """cache_table_name is where we want to save the dataframe to. additional identifiers for the cache, such as game_id
+    and user_id, are supplied as **identifiers keyword args
     """
     for key, value in identifiers.items():
         df[key] = value
@@ -99,9 +99,8 @@ def write_table_cache(cache_table_name: str, df: pd.DataFrame, **identifiers):
 
 
 def read_table_cache(cache_table_name: str, start_time: float, end_time: float, **conditions):
-    """generic method for caching expensive derived intermediate tables to DB. time boundaries for the cache are always
-    required. **conditions is a set of keyword args that can be used to define additional select conditions from the
-    cache, such as game_id=x and user_id=y"""
+    """time boundaries for the cache are always required. **conditions is a set of keyword args that can be used to
+    define additional select conditions from the cache, such as game_id=x and user_id=y"""
     sql = f"""
         SELECT * FROM {cache_table_name}
         WHERE 
