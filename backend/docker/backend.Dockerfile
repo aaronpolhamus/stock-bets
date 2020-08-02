@@ -3,8 +3,10 @@ FROM ubuntu:18.04
 # Operating system dependencies
 # -----------------------------
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends \
   build-essential \
+  groff \
   curl \
   unzip \
   gnupg \
