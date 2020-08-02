@@ -34,7 +34,8 @@ RISK_FREE_RATE_DEFAULT = 0
 def portfolio_value_by_day(game_id: int, user_id: int, start_time: float, end_time: float) -> pd.DataFrame:
     df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
     df = df.groupby(["symbol", "timestamp"], as_index=False)["value"].agg("last")
-    return df.groupby("timestamp", as_index=False)["value"].sum()
+    df = df.groupby("timestamp", as_index=False)["value"].sum()
+    return df
 
 
 def portfolio_return_ratio(df: pd.DataFrame):
