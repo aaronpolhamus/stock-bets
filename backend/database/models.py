@@ -246,3 +246,17 @@ class ExternalInvites(db.Model):
     timestamp = db.Column(db.Float(precision=32))
     type = db.Column(db.Enum(ExternalInviteTypes))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+
+
+class BalancesAndPricesCache(db.Model):
+    """Note: the defined fields here track the balances_and_prices_table_schema definition in schemas.py"""
+    __tablename__ = "balances_and_prices_cache"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    symbol = db.Column(db.Text)
+    timestamp = db.Column(db.Float(precision=32))
+    balance = db.Column(db.Float(precision=32))
+    price = db.Column(db.Float(precision=32))
+    value = db.Column(db.Float(precision=32))

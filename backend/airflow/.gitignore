@@ -1,0 +1,6 @@
+logs/*
+airflow.cfg
+*err
+*log
+*out
+*pid

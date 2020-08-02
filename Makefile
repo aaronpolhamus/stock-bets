@@ -9,7 +9,7 @@ db-stop:
 db-mysql:
 	docker-compose exec db mysql -uroot
 
-db-reset:
+db-reset: s3-reset
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
 db-mock-data: db-reset
@@ -18,7 +18,7 @@ db-mock-data: db-reset
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
 s3-reset:
-	rm .localstack/data/*.json
+	rm -rf .localstack/data/*.json
 
 s3-mock-data:
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
@@ -71,6 +71,26 @@ redis-mock-data:
 redis-clear:
 	docker-compose exec api python -c "from backend.tasks.redis import rds;rds.flushall()"
 
+# airflow
+# -----------------
+make airflow-up:
+	docker-compose up -d airflow
+
+make airflow-start:
+	docker-compose start airflow
+
+make airflow-stop:
+	docker-compose stop airflow
+
+make airflow-restart: airflow-stop airflow-start
+
+airflow-logs:
+	docker-compose logs -f airflow
+
+airflow-bash:
+	docker-compose exec airflow bash
+
+
 # backend
 # -------
 backend-up:
@@ -79,7 +99,7 @@ backend-up:
 backend-build:
 	docker-compose build backend
 
-backend-test: db-mock-data worker-restart
+backend-test: db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v
@@ -126,6 +146,11 @@ destroy-everything: stop # (DANGER: this can be good hygiene/troubleshooting, bu
 
 aggressive-stop:
 	docker rm -f $$(docker ps -a -q)
+
+remove-dangling:
+	# good hygiene to free up some hard drive every now and again
+	docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+
 
 # e2e testing
 # -----------

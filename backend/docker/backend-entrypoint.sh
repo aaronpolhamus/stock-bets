@@ -5,7 +5,6 @@ do
   sleep 1
 done
 
-# TODO refactor according to this pattern at some point: https://gist.github.com/mathop/37d817e720460b6689f9887b16e339f7
 
 # would be ideal not to worry about this, since we use Chromium instead of Firefox, but the webscraping
 # has been fragile due to versioning and this creates some redundancy
@@ -20,9 +19,17 @@ if [ $SERVICE == "api" ]; then
 fi
 
 if [ $SERVICE == "worker" ]; then
-    celery -A tasks.celery.celery worker --loglevel=info --uid=nobody --concurrency=${CELERY_WORKER_CONCURRENCY}
+    nohup celery -A tasks.celery.celery worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY} -n primary@%h &
+    airflow worker --concurrency=${CELERY_WORKER_CONCURRENCY}
 fi
 
 if [ $SERVICE == "scheduler" ]; then
     celery -A tasks.celery.celery beat --loglevel=info
+fi
+
+if [ $SERVICE == "airflow" ]; then
+    airflow initdb
+    nohup airflow scheduler &
+    rm -rf $AIRFLOW_HOME/airflow-webserver.pid
+    nohup airflow webserver
 fi

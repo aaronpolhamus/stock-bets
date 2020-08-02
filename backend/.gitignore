@@ -131,13 +131,11 @@ dmypy.json
 # Project-specific ignores 
 # ------------------------
 # Related to SSL certs
-*cert.pem
-*key.pem
 *geckodriver*
 celerybeat-schedule.db
 *csv
 *ipynb
 .env.prod
-*sql
+mockdata.sql
 *RHistory
 .localstack

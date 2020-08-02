@@ -1,3 +1,4 @@
+apache-airflow[celery,redis,rabbitmq]==1.10.11
 awscli==1.18.101
 boto3==1.14.24
 celery==4.4.2

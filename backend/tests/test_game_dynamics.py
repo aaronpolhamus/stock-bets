@@ -9,7 +9,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from backend.database.fixtures.mock_data import simulation_end_time
+from backend.database.fixtures.mock_data import (
+    simulation_start_time,
+    simulation_end_time
+)
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
     make_user_entry_from_google,
@@ -29,7 +32,6 @@ from backend.logic.games import (
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
-    get_order_ticket,
     process_order,
     execute_order,
     make_random_game_title,
@@ -279,8 +281,8 @@ class TestGameLogic(BaseTestCase):
                             mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
-        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. Since buying power
-        is current cash balance - pendin
+        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. We exect to see
+        outstanding buy order value being the sum of the  MELI order + the value of the new NVDA order
         """
         user_id = 1
         game_id = 3
@@ -289,8 +291,9 @@ class TestGameLogic(BaseTestCase):
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        new_order_time = simulation_start_time + 60 * 60 * 12  # after hours
         with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = base_time_mock.time.return_value = 1592202332
+            game_time_mock.time.return_value = base_time_mock.time.return_value = new_order_time
             place_order(user_id,
                         game_id,
                         symbol=buy_stock,
@@ -304,11 +307,11 @@ class TestGameLogic(BaseTestCase):
                         time_in_force="until_cancelled")
 
         with patch("backend.logic.base.fetch_price") as fetch_price_mock:
-            fetch_price_mock.return_value = (market_price, 1592202332)
+            fetch_price_mock.return_value = (market_price, new_order_time)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
         mock_data_meli_order_id = 9
-        meli_ticket = get_order_ticket(mock_data_meli_order_id)
+        meli_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", mock_data_meli_order_id)[0]
 
         # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
         self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
@@ -487,7 +490,7 @@ class TestGameLogic(BaseTestCase):
         init_order_details(game_id, user_id)
         test_data_array = [(13, 1592573410.15422, "SQQQ", 7.990), (14, 1592573410.71635, "SPXU", 11.305)]
         for order_id, timestamp, symbol, market_price in test_data_array:
-            order_ticket = get_order_ticket(order_id)
+            order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id)[0]
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
                     "backend.logic.games.fetch_price") as fetch_price_mock, patch(
@@ -733,6 +736,7 @@ class TestSchemaValidation(TestCase):
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
+        # a column is missing
         df = pd.DataFrame(
             dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
@@ -747,6 +751,13 @@ class TestSchemaValidation(TestCase):
         df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
+
+        # strict mode is on, and there is an extra column
+        df = pd.DataFrame(
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()], bad_column=["x", "y", "z"]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema, strict=True)
 
 
 class TestGameExpiration(BaseTestCase):

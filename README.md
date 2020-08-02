@@ -32,7 +32,7 @@ to do a `aws --entrypoint-url=https://localstack:4572 s3 ls`. where the port wou
 to be testing. Add to your envs the following variables
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
-  - `AWS_BUCKET_NAME` 
+  - `AWS_PUBLIC_BUCKET_NAME` 
 
 
 ### Troubleshooting
@@ -48,6 +48,7 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 ### Notes on business logic
 The business logic modules stored in `/backend/logic` have an order that is important preserve. That logic is: 
 ```
+- schemas.py
 - base.py
 - metrics.py
 - visuals.py

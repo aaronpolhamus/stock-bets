@@ -24,7 +24,6 @@ from backend.logic.base import (
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
-    refresh_game_data,
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
     DEFAULT_BENCHMARK,
@@ -42,6 +41,7 @@ from backend.logic.visuals import (
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
     serialize_and_pack_order_details,
+    calculate_and_pack_game_metrics,
     LEADERBOARD_PREFIX,
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
@@ -51,10 +51,11 @@ from backend.logic.visuals import (
 )
 from backend.tasks.redis import (
     rds,
-    unpack_redis_json)
+    unpack_redis_json
+)
+from backend.tasks.airflow import trigger_dag
 from backend.tests import BaseTestCase
-from config import Config
-from logic.visuals import calculate_and_pack_game_metrics
+from backend.config import Config
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -112,7 +113,7 @@ class TestUserManagement(BaseTestCase):
 
         # logout -- this should blow away the previously created session token, logging out the user
         res = self.requests_session.post(f"{HOST_URL}/logout", cookies={"session_token": session_token}, verify=False)
-        msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; Secure; HttpOnly; Path=/; SameSite=None'
+        msg = 'session_token=; Expires=Thu, 01-Jan-1970 00:00:00 GMT; Secure; HttpOnly; Path=/'
         self.assertEqual(res.headers['Set-Cookie'], msg)
 
         # expired token...
@@ -350,7 +351,7 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        refresh_game_data(game_id)
+        trigger_dag("update_game_dag", game_id=game_id)
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
                                          verify=False)
