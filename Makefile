@@ -85,6 +85,8 @@ make airflow-stop:
 	docker-compose stop airflow
 	docker-compose stop airflow-worker
 
+make airflow-restart: airflow-stop airflow-start
+
 airflow-logs:
 	docker-compose logs -f airflow
 
@@ -103,9 +105,7 @@ backend-up:
 backend-build:
 	docker-compose build backend
 
-backend-test:
-	make db-mock-data
-	make worker-restart
+backend-test: db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v

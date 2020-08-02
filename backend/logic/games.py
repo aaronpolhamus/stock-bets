@@ -44,7 +44,7 @@ from backend.logic.friends import (
 from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_portfolio_details,
-    refresh_game_data
+    init_game_assets
 )
 from funkybob import RandomNameGenerator
 from logic.base import get_user_ids
@@ -317,7 +317,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
-    refresh_game_data(game_id)
+    init_game_assets(game_id)
 
 
 def leave_game(game_id: int, user_id: int):
@@ -679,17 +679,13 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     return order_id
 
 
-def get_order_ticket(order_id):
-    return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
-
-
 def process_order(order_id):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
         add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
-    order_ticket = get_order_ticket(order_id)
+    order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
     symbol = order_ticket["symbol"]
     game_id = order_ticket["game_id"]
     user_id = order_ticket["user_id"]

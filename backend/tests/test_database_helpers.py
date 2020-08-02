@@ -116,7 +116,7 @@ class TestDerivedDataCaching(BaseTestCase):
         pd.testing.assert_frame_equal(df1, df3)
 
         self.assertLess(partial_load_time, fresh_load_time)
-        self.assertLess(cache_load_time, partial_load_time)
+        self.assertLess(cache_load_time, fresh_load_time)
 
         with patch("backend.logic.base.time") as base_time_mock:
             game_info = get_game_info(game_id)

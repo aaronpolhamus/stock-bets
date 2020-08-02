@@ -32,7 +32,6 @@ from backend.logic.games import (
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
-    get_order_ticket,
     process_order,
     execute_order,
     make_random_game_title,
@@ -312,7 +311,7 @@ class TestGameLogic(BaseTestCase):
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
         mock_data_meli_order_id = 9
-        meli_ticket = get_order_ticket(mock_data_meli_order_id)
+        meli_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", mock_data_meli_order_id)[0]
 
         # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
         self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
@@ -491,7 +490,7 @@ class TestGameLogic(BaseTestCase):
         init_order_details(game_id, user_id)
         test_data_array = [(13, 1592573410.15422, "SQQQ", 7.990), (14, 1592573410.71635, "SPXU", 11.305)]
         for order_id, timestamp, symbol, market_price in test_data_array:
-            order_ticket = get_order_ticket(order_id)
+            order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id)[0]
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
                     "backend.logic.games.fetch_price") as fetch_price_mock, patch(

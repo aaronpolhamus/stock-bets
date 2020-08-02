@@ -554,7 +554,7 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
         cache_update = df[df["timestamp"] > posix_to_datetime(cache_end)]
         cache_update["timestamp"] = cache_update["timestamp"].apply(lambda x: datetime_to_posix(x))
         write_table_cache("balances_and_prices_cache", cache_update, game_id=game_id, user_id=user_id)
-    return df.reset_index(drop=True)
+    return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
 
 # Price and stock data harvesting tools

@@ -27,12 +27,6 @@ dag = DAG(
 )
 
 
-def update_balances_and_prices_cache_with_context(**context):
-    game_id, = context_parser(context, "game_id")
-    user_ids = get_active_game_user_ids(game_id)
-    pass
-
-
 def make_metrics_with_context(**context):
     game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
@@ -55,7 +49,6 @@ def refresh_order_details_with_context(**context):
     game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
-        # print(f"updating order details for user_id {user_id} out of [{', '.join(user_ids)}]")
         serialize_and_pack_order_details(game_id, user_id)
 
 
@@ -63,7 +56,6 @@ def refresh_portfolio_details_with_context(**context):
     game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
-        # print(f"updating portfolio details for user_id {user_id} out of [{', '.join(user_ids)}]")
         serialize_and_pack_portfolio_details(game_id, user_id)
 
 
@@ -72,7 +64,6 @@ def make_order_performance_chart_with_context(**context):
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
-        # print(f"updating order performance chart for user_id {user_id} out of [{', '.join(user_ids)}]")
         serialize_and_pack_order_performance_chart(game_id, user_id, start_time, end_time)
 
 
@@ -89,14 +80,6 @@ def make_winners_table_with_context(**context):
 
 start_task = DummyOperator(
     task_id="start",
-    dag=dag
-)
-
-
-update_balance_and_prices_cache = PythonOperator(
-    task_id='update_balance_and_prices_cache',
-    provide_context=True,
-    python_callable=update_balances_and_prices_cache_with_context,
     dag=dag
 )
 
@@ -170,10 +153,9 @@ end_task = DummyOperator(
     dag=dag
 )
 
-start_task >> update_balance_and_prices_cache
-update_balance_and_prices_cache >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
-update_balance_and_prices_cache >> log_multiplayer_winners >> make_winners_table >> end_task
+start_task >> make_order_performance_chart
+make_order_performance_chart >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
+make_order_performance_chart >> log_multiplayer_winners >> make_winners_table >> end_task
 start_task >> refresh_order_details >> end_task
 start_task >> refresh_portfolio_details >> end_task
-start_task >> make_order_performance_chart >> end_task
 
