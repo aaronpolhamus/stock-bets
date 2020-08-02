@@ -75,23 +75,17 @@ redis-clear:
 # -----------------
 make airflow-up:
 	docker-compose up -d airflow
-	docker-compose up -d airflow-worker
 
 make airflow-start:
 	docker-compose start airflow
-	docker-compose start airflow-worker
 
 make airflow-stop:
 	docker-compose stop airflow
-	docker-compose stop airflow-worker
 
 make airflow-restart: airflow-stop airflow-start
 
 airflow-logs:
 	docker-compose logs -f airflow
-
-airflow-worker-logs:
-	docker-compose logs -f airflow-worker
 
 airflow-bash:
 	docker-compose exec airflow bash
