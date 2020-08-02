@@ -559,7 +559,6 @@ def order_performance_chart():
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")
-    f"field_chart_{game_id}"
     return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 

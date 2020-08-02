@@ -1,3 +1,4 @@
+import hashlib
 import time
 from datetime import datetime as dt, timedelta
 
@@ -5,7 +6,7 @@ import jwt
 import requests
 from backend.config import Config
 from backend.database.db import engine
-from backend.database.helpers import add_row, query_to_dict
+from backend.database.helpers import add_row, query_to_dict, upload_image_from_url_to_s3
 from backend.logic.friends import invite_friend, get_requester_ids_from_email
 from backend.logic.base import standardize_email
 
@@ -81,9 +82,13 @@ def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
             conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", new_profile_pic, user_id)
 
 
-def setup_new_user(inbound_entry: dict, uuid: str) -> int:
+def setup_new_user(inbound_entry: dict) -> int:
+    profile_pic_hash = hashlib.sha224(bytes(inbound_entry['resource_uuid'], encoding='utf-8')).hexdigest()
+    upload_image_from_url_to_s3(url=inbound_entry["profile_pic"], key=f"profile_pics/{profile_pic_hash}")
+    inbound_entry[
+        'profile_pic'] = f"{Config.AWS_PUBLIC_ENDPOINT}/{Config.AWS_BUCKET_NAME}/profile_pics/{profile_pic_hash}"
     add_row("users", **inbound_entry)
-    db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)[0]
+    db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", inbound_entry['resource_uuid'])[0]
     requester_friends_ids = get_requester_ids_from_email(db_entry['email'])
     for requester_id in requester_friends_ids:
         add_row("external_invites", requester_id=requester_id, invited_email=db_entry["email"], status="accepted",
@@ -111,16 +116,8 @@ def get_pending_external_game_invites(invited_email: str):
 def register_user(inbound_entry):
     uuid = inbound_entry["resource_uuid"]
     db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", uuid)
-    returning_user = False
-    if db_entry:
-        db_entry = db_entry[0]
-        # make any necessary update to the user's profile data
-        update_profile_pic(db_entry["id"], inbound_entry["profile_pic"], db_entry["profile_pic"])
-        returning_user = True
-
-    # register first-time users
-    if not returning_user:
-        db_entry = setup_new_user(inbound_entry, uuid)
+    if not db_entry:
+        db_entry = setup_new_user(inbound_entry)
 
     # for both classes of user, check if there are any outstanding game invites to create invitations for
     external_game_invites = get_pending_external_game_invites(inbound_entry["email"])

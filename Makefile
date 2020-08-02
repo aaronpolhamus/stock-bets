@@ -12,11 +12,16 @@ db-mysql:
 db-reset:
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
-db-mock-data:
+db-mock-data: db-reset
 	rm -f backend/mockdata.sql
-	make db-reset
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
+
+s3-reset:
+	rm .localstack/data/*.json
+
+s3-mock-data:
+	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
 
 db-logs:
 	docker-compose logs -f db
@@ -32,9 +37,7 @@ worker-up:
 worker-stop:
 	docker-compose stop worker
 
-worker-restart:
-	make worker-stop
-	make worker-up
+worker-restart: worker-stop worker-up
 
 # celery scheduler
 # ----------------
@@ -43,7 +46,6 @@ scheduler-logs:
 
 scheduler-up:
 	docker-compose up -d scheduler
-	make scheduler-logs
 
 scheduler-build:
 	docker-compose build scheduler
@@ -51,9 +53,7 @@ scheduler-build:
 scheduler-stop:
 	docker-compose stop scheduler
 
-scheduler-restart:
-	make scheduler-stop
-	make scheduler-up
+scheduler-restart: scheduler-stop scheduler-up
 
 # flower
 # ------
@@ -115,6 +115,8 @@ backend-test: db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
 
 api-logs:
 	docker-compose logs -f api
@@ -130,8 +132,7 @@ api-stop:
 
 # all containers
 # --------------
-up:
-	make api-up
+up: api-up
 	./backend/docker/mock-data-runner.sh
 	npm install --prefix frontend
 	npm start --prefix frontend
@@ -142,15 +143,15 @@ down:
 stop:
 	docker-compose stop
 
-destroy-everything: # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
-	# Remove all containers
-	make stop
-
+destroy-everything: stop # (DANGER: this can be good hygiene/troubleshooting, but you'll need to rebuild your entire env)
 	# remove all images
 	docker rmi $(docker images -a -q) -f
 
 	# prune all volumes
 	docker volume prune -f
+
+aggressive-stop:
+	docker rm -f $$(docker ps -a -q)
 
 remove-dangling:
 	# good hygiene to free up some hard drive every now and again
@@ -159,9 +160,7 @@ remove-dangling:
 
 # e2e testing
 # -----------
-make mock-data:
-	make db-mock-data
-	make redis-mock-data
+make mock-data: db-mock-data redis-mock-data
 
 make e2e-test:
 	docker-compose exec api python -m tests.e2e_scenario_test
@@ -171,8 +170,7 @@ make e2e-test:
 ecr-login:
 	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 781982251500.dkr.ecr.us-east-1.amazonaws.com
 
-ecr-push:
-	make backend-build
+ecr-push: backend-build
 	docker tag backend:latest 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/backend:latest
 	docker push 781982251500.dkr.ecr.us-east-1.amazonaws.com/stockbets/backend:latest
 

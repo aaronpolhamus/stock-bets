@@ -25,6 +25,16 @@ If all environmental variables are properly defined this should be about all the
 * All backend containers have local volume mounts. On the flask API server, this means that your local changes are immediately reflected, and the server restarts whenever you change something (note that if you make a breaking change it will crash, and you'll need to fix what's broken before calling `make api-up` again). The celery worker is less flexible, and needs to be rebuilt from the updated backend image before it will reflect local changes to business logic. To do othis call `make worker-restart`. Keep this in mind when you're iterating and re-testing on the backend. 
 * To run the frontend during local development run `npm start` from the `/frontend` directory. `make up` does this by default, and re-loads all dependencies. If you're working locally and just want to update the backend, just run `make worker-restart` and you should be good. 
 
+### localstack
+We use localstack to test and develop locally without need of any real-world credentials. This means that we have the power 
+of the whole aws cloud local, with the disadvantage that if needed, you cannot call `aws s3 ls` for example, you will need 
+to do a `aws --entrypoint-url=https://localstack:4572 s3 ls`. where the port would be whatever service from aws you are going 
+to be testing. Add to your envs the following variables
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_BUCKET_NAME` 
+
+
 ### Troubleshooting
 * _MySQL db won't fire up:_ 
 Sometimes the volume gets corrupted or some other problem that errors out the containers startup crops up. When this happens the easiest way to deal with the problem is to remove the MySQL image, prune all volumes, restart docker (for good measure), and then invoke `make db-up` to rebuild the container. [See this guide](https://github.com/Radu-Raicea/Dockerized-Flask/wiki/%5BDocker%5D-Remove-all-Docker-volumes-to-delete-the-database).

@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 
 services:
   db:
@@ -66,6 +66,20 @@ services:
     volumes:
       - ./backend:/home/backend
 
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - 4563-4599:4563-4599
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - HOSTNAME_EXTERNAL=localstack
+    volumes:
+      - ./.localstack:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
   worker:
     image: backend
     container_name: worker
@@ -80,6 +94,7 @@ services:
       - backend
       - redis
       - rabbitmq
+      - localstack
 
   scheduler:
     image: backend
@@ -112,7 +127,7 @@ services:
       - redis
       - rabbitmq
       - airflow
-
+      - localstack
     ports:
       - 5000:5000
     volumes:
