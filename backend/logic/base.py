@@ -753,8 +753,10 @@ def get_index_reference(game_id: int, symbol: str) -> float:
         ref_val = conn.execute("""
             SELECT value FROM indexes 
             WHERE symbol = %s AND timestamp <= %s
-            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()[0]
-    return ref_val
+            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()
+    if not ref_val:
+        return 1
+    return ref_val[0]
 
 
 def make_index_start_time(game_start: float) -> float:

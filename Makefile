@@ -9,7 +9,7 @@ db-stop:
 db-mysql:
 	docker-compose exec db mysql -uroot
 
-db-reset:
+db-reset: s3-reset
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
 db-mock-data: db-reset
