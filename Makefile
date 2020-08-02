@@ -18,7 +18,7 @@ db-mock-data: db-reset
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
 s3-reset:
-	rm .localstack/data/*.json
+	rm -rf .localstack/data/*.json
 
 s3-mock-data:
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"

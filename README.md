@@ -32,7 +32,7 @@ to do a `aws --entrypoint-url=https://localstack:4572 s3 ls`. where the port wou
 to be testing. Add to your envs the following variables
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
-  - `AWS_BUCKET_NAME` 
+  - `AWS_PUBLIC_BUCKET_NAME` 
 
 
 ### Troubleshooting

@@ -595,7 +595,6 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start
 
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
-
 # ------ #
 # Tables #
 # ------ #

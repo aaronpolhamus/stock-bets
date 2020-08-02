@@ -86,7 +86,7 @@ def setup_new_user(inbound_entry: dict) -> int:
     profile_pic_hash = hashlib.sha224(bytes(inbound_entry['resource_uuid'], encoding='utf-8')).hexdigest()
     upload_image_from_url_to_s3(url=inbound_entry["profile_pic"], key=f"profile_pics/{profile_pic_hash}")
     inbound_entry[
-        'profile_pic'] = f"{Config.AWS_PUBLIC_ENDPOINT}/{Config.AWS_BUCKET_NAME}/profile_pics/{profile_pic_hash}"
+        'profile_pic'] = f"{Config.AWS_PUBLIC_ENDPOINT}/{Config.AWS_PUBLIC_BUCKET_NAME}/profile_pics/{profile_pic_hash}"
     add_row("users", **inbound_entry)
     db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", inbound_entry['resource_uuid'])[0]
     requester_friends_ids = get_requester_ids_from_email(db_entry['email'])

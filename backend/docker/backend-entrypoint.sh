@@ -19,7 +19,8 @@ if [ $SERVICE == "api" ]; then
 fi
 
 if [ $SERVICE == "worker" ]; then
-    celery -A tasks.celery.celery worker --loglevel=info --uid=nobody --concurrency=${CELERY_WORKER_CONCURRENCY}
+    nohup celery -A tasks.celery.celery worker --loglevel=info --concurrency=${CELERY_WORKER_CONCURRENCY} -n primary@%h &
+    airflow worker --concurrency=${CELERY_WORKER_CONCURRENCY}
 fi
 
 if [ $SERVICE == "scheduler" ]; then
@@ -31,8 +32,4 @@ if [ $SERVICE == "airflow" ]; then
     nohup airflow scheduler &
     rm -rf $AIRFLOW_HOME/airflow-webserver.pid
     nohup airflow webserver
-fi
-
-if [ $SERVICE == "airflow-worker" ]; then
-    airflow worker
 fi

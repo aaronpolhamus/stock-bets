@@ -40,29 +40,13 @@ services:
     depends_on:
       - backend
       - db
-      - airflow-worker
       - rabbitmq
       - redis
+      - worker
     ports:
       - 8080:8080
       - 8793:9793
       - 5555:5555
-    volumes:
-      - ./backend:/home/backend
-
-  airflow-worker:
-    image: backend
-    container_name: airflow-worker
-    environment:
-      - SERVICE=airflow-worker
-    env_file:
-      - ./backend/.env
-      - ./backend/.env.dev
-    depends_on:
-      - backend
-      - db
-      - rabbitmq
-      - redis
     volumes:
       - ./backend:/home/backend
 

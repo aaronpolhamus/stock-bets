@@ -67,14 +67,14 @@ def aws_client(service='s3', region='us-east-1'):
     boto_config = {'service_name': service, 'endpoint_url': Config.AWS_ENDPOINT_URL, 'region_name': region,
                    'aws_access_key_id': Config.AWS_ACCESS_KEY_ID, 'aws_secret_access_key': Config.AWS_SECRET_ACCESS_KEY}
     if Config.AWS_ENDPOINT_URL is None:
-        del boto_config['entrypoint_url']
+        del boto_config['endpoint_url']
     client = boto3.client(**boto_config)
     return client
 
 
 def upload_image_from_url_to_s3(url, key):
     s3 = aws_client()
-    bucket_name = Config.AWS_BUCKET_NAME
+    bucket_name = Config.AWS_PUBLIC_BUCKET_NAME
     try:
         data = requests.get(url, stream=True)
     except RequestException:
