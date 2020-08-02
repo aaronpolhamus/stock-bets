@@ -471,13 +471,12 @@ def expire_finished_game(game_id: int):
 # ------------------------------------------------------
 
 
-def suggest_symbols(game_id, user_id, text, buy_or_sell):
-    # TODO: Take this of task definitions, move it down to logic, a use a NoSQL backend
+def suggest_symbols(game_id: int, user_id: int, text: str, buy_or_sell: str):
     if buy_or_sell == "buy":
         to_match = f"{text.upper()}%"
         symbol_suggestions = query_to_dict("""
                 SELECT * FROM symbols
-                WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", to_match, to_match)
+                WHERE symbol LIKE %s OR name LIKE %s;""", to_match, to_match)
 
     if buy_or_sell == "sell":
         balances = get_active_balances(game_id, user_id)
@@ -486,8 +485,7 @@ def suggest_symbols(game_id, user_id, text, buy_or_sell):
         params_list = [to_match] * 2 + symbols
         symbol_suggestions = query_to_dict(f"""
             SELECT * FROM symbols
-            WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))})
-            LIMIT 20;""", params_list)
+            WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))});""", params_list)
 
     suggestions = [{"symbol": entry["symbol"], "label": f"{entry['symbol']} ({entry['name']})",
                     "dist": hamming(text, entry['symbol'])} for entry in symbol_suggestions]
@@ -495,7 +493,7 @@ def suggest_symbols(game_id, user_id, text, buy_or_sell):
     return sorted(suggestions, key=lambda i: i["dist"])
 
 
-def get_current_stock_holding(user_id, game_id, symbol):
+def get_current_stock_holding(user_id: int, game_id: int, symbol: str):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
