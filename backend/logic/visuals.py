@@ -251,9 +251,10 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
         stocks_held = list(balances["symbol"].unique())
+        portfolio_value=get_portfolio_value(game_id, user_id)
         stat_info = make_stat_entry(color=user_colors[user_info["username"]],
                                     cash_balance=cash_balance,
-                                    portfolio_value=get_portfolio_value(game_id, user_id),
+                                    portfolio_value=portfolio_value,
                                     stocks_held=stocks_held,
                                     return_ratio=rds.get(f"return_ratio_{game_id}_{user_id}"),
                                     sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))

@@ -6,6 +6,7 @@ from datetime import datetime
 from backend.logic.base import (
     get_time_defaults,
     get_active_game_user_ids,
+    check_single_player_mode
 )
 from backend.logic.visuals import (
     make_the_field_charts,
@@ -49,6 +50,7 @@ def refresh_order_details_with_context(**context):
     game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
+        print(f"*** user id: {user_id} ***")
         serialize_and_pack_order_details(game_id, user_id)
 
 
@@ -56,6 +58,7 @@ def refresh_portfolio_details_with_context(**context):
     game_id, = context_parser(context, "game_id")
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
+        print(f"*** user id: {user_id} ***")
         serialize_and_pack_portfolio_details(game_id, user_id)
 
 
@@ -64,18 +67,21 @@ def make_order_performance_chart_with_context(**context):
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
+        print(f"*** user id: {user_id} ***")
         serialize_and_pack_order_performance_chart(game_id, user_id, start_time, end_time)
 
 
 def log_multiplayer_winners_with_context(**context):
     game_id, start_time, end_time = context_parser(context, "game_id", "start_time", "end_time")
-    _, end_time = get_time_defaults(game_id, start_time, end_time)
-    log_winners(game_id, end_time)
+    if not check_single_player_mode(game_id):
+        _, end_time = get_time_defaults(game_id, start_time, end_time)
+        log_winners(game_id, end_time)
 
 
 def make_winners_table_with_context(**context):
     game_id, = context_parser(context, "game_id")
-    serialize_and_pack_winners_table(game_id)
+    if not check_single_player_mode(game_id):
+        serialize_and_pack_winners_table(game_id)
 
 
 start_task = DummyOperator(
