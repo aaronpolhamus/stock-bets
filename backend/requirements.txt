@@ -27,3 +27,4 @@ textdistance==4.2.0
 coverage==5.1
 ipdb==0.13.2
 ipython==7.13.0
+jupyter==1.0.0

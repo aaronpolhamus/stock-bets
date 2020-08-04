@@ -113,6 +113,7 @@ services:
       - localstack
     ports:
       - 5000:5000
+      - 8050:8050
     volumes:
       - ./backend:/home/backend
       - ./backend/docker/.my.cnf:/root/.my.cnf

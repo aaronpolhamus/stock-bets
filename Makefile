@@ -172,3 +172,8 @@ frontend-deploy:
 	NODE_ENV=production npm run-script build --prefix frontend
 	aws s3 sync frontend/build s3://app.stockbets.io --delete
 	aws cloudfront create-invalidation --distribution-id E2PFNY4LEJWBAH --paths "/*"
+
+# local debugging helpers
+# ------------------------
+make jupyter:
+	docker-compose exec api jupyter notebook --ip=0.0.0.0 --allow-root --port 8050
