@@ -109,8 +109,8 @@ backend-test: db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
 api-logs:
 	docker-compose logs -f api

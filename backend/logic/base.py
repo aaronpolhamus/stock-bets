@@ -540,13 +540,14 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     testing env where you need to "freeze" time to the test fixture window.
     """
     balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
-    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
-        return cached_df.reset_index(drop=True)
-    balances_df = add_bookends(balances_df, end_time=end_time)
+        balances_df = add_bookends(cached_df, end_time=end_time)
+    else:
+        balances_df = add_bookends(balances_df, end_time=end_time)
     update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
     update_df = filter_for_trade_time(update_df)
     apply_validation(update_df, balances_and_prices_table_schema, strict=True)
+    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     df = pd.concat([cached_df, update_df], axis=0)
     df["timestamp"] = pd.to_datetime(df["timestamp"])  # this ensure datetime dtype for when cached_df is empty
     df = df[~df.duplicated(["symbol", "timestamp"])]

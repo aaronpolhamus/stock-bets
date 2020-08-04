@@ -8,11 +8,9 @@ services:
       - backend/.env.dev
     ports:
       - 3306:3306
-    environment:
-      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
-    command: --init-file /init.sql
     volumes:
       - ./backend/docker/init.sql:/init.sql
+      - ./backend/docker/.my.cnf:/root/.my.cnf
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -116,6 +114,7 @@ services:
       - 5000:5000
     volumes:
       - ./backend:/home/backend
+      - ./backend/docker/.my.cnf:/root/.my.cnf
 
   backend:
     image: backend
