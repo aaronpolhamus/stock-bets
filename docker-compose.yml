@@ -8,6 +8,7 @@ services:
       - backend/.env.dev
     ports:
       - 3306:3306
+    command: --init-file /init.sql
     volumes:
       - ./backend/docker/init.sql:/init.sql
       - ./backend/docker/.my.cnf:/root/.my.cnf
