@@ -615,24 +615,26 @@ def get_order_quantity(order_price, amount, quantity_type):
     raise Exception("Invalid quantity type for this ticket")
 
 
-def get_all_open_orders():
-    """Get all open orders, and the timestamp that they were placed at for when we cross-check against the time-in-force
-    field. This query is written implicitly assumes that any given order will only ever have one "pending" entry.
+def get_all_open_orders(game_id: int):
+    """Get all open orders in a game, and the timestamp that they were placed at for when we cross-check against the
+    time-in-force field. This query is written implicitly assumes that any given order will only ever have one "pending"
+    entry.
     """
     sql_query = """
         SELECT os.order_id, os.timestamp
         FROM order_status os
         INNER JOIN
-        (SELECT order_id, max(id) as max_id
-          FROM order_status
-          GROUP BY order_id) grouped_os
+          (SELECT order_id, max(id) as max_id FROM order_status GROUP BY order_id) grouped_os
         ON
           os.id = grouped_os.max_id
+        INNER JOIN
+           (SELECT * FROM orders WHERE game_id = %s) o
+        ON o.id = os.order_id
         WHERE os.status = 'pending'
         ORDER BY os.order_id;
     """
     with engine.connect() as conn:
-        result = conn.execute(sql_query).fetchall()
+        result = conn.execute(sql_query, game_id).fetchall()
     return {order_id: ts for order_id, ts in result}
 
 

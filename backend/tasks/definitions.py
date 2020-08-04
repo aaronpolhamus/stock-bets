@@ -113,14 +113,21 @@ def async_update_symbols_table(self, n_rows=None):
         symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
+@celery.task(name="async_process_all_orders_in_game", bind=True, base=BaseTask)
+@task_lock(key="process_all_orders_in_game", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
+def async_process_all_orders_in_game(self, game_id: int):
+    open_orders = get_all_open_orders(game_id)
+    for order_id, _ in open_orders.items():
+        process_order(order_id)
+
+
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
-@task_lock(key="process_all_open_orders", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_open_orders(self):
     """Scheduled to update all orders across all games throughout the trading day
     """
-    open_orders = get_all_open_orders()
-    for order_id, _ in open_orders.items():
-        process_order(order_id)
+    active_ids = get_game_ids_by_status()
+    for game_id in active_ids:
+        async_process_all_orders_in_game.delay(game_id)
 
 
 # ------------- #

@@ -33,10 +33,10 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tasks.definitions import (
-    async_process_all_open_orders,
     async_update_symbols_table,
     async_cache_price,
-    async_update_all_index_values
+    async_update_all_index_values,
+    async_process_all_orders_in_game
 )
 from backend.tasks.redis import (
     rds,
@@ -580,11 +580,11 @@ class TestVisualAssetsTasks(BaseTestCase):
                         mock_buy_order["time_in_force"],
                         mock_buy_order["stop_limit_price"])
 
-            open_orders = get_all_open_orders()
+            open_orders = get_all_open_orders(game_id)
             starting_open_orders = len(open_orders)
             self.assertEqual(starting_open_orders, 6)
-            async_process_all_open_orders.apply()
-            new_open_orders = get_all_open_orders()
+            async_process_all_orders_in_game.apply(game_id)
+            new_open_orders = get_all_open_orders(game_id)
             self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
 
 
@@ -662,12 +662,13 @@ class TestTaskLocking(BaseTestCase):
         """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
+        game_id = 3
         rds.flushall()
-        res1 = async_process_all_open_orders.delay()
-        res2 = async_process_all_open_orders.delay()
-        res3 = async_process_all_open_orders.delay()
-        res4 = async_process_all_open_orders.delay()
-        res5 = async_process_all_open_orders.delay()
+        res1 = async_process_all_orders_in_game.delay(game_id)
+        res2 = async_process_all_orders_in_game.delay(game_id)
+        res3 = async_process_all_orders_in_game.delay(game_id)
+        res4 = async_process_all_orders_in_game.delay(game_id)
+        res5 = async_process_all_orders_in_game.delay(game_id)
         while not res1.ready():
             continue
         self.assertIsNone(res1.get())
