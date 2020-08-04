@@ -647,8 +647,9 @@ def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, c
             balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
 
 
-def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
-                market_price, amount, time_in_force, stop_limit_price=None):
+def place_order(user_id: int, game_id: int, symbol: str, buy_or_sell: str, cash_balance: float, current_holding: int,
+                order_type: str, quantity_type: str, market_price: float, amount: float, time_in_force: str,
+                stop_limit_price: float = None):
     timestamp = time.time()
     order_price = get_order_price(order_type, market_price, stop_limit_price)
     order_quantity = get_order_quantity(order_price, amount, quantity_type)
@@ -677,7 +678,7 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     return order_id
 
 
-def process_order(order_id):
+def process_order(order_id: int):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
         add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
@@ -689,25 +690,34 @@ def process_order(order_id):
     user_id = order_ticket["user_id"]
     buy_or_sell = order_ticket["buy_or_sell"]
     quantity = order_ticket["quantity"]
+    order_type = order_ticket["order_type"]
 
     market_price, _ = fetch_price(symbol)
 
     # Only process active outstanding orders during trading day
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(user_id, game_id, symbol)
-    if during_trading_day() and execute_order(buy_or_sell, order_ticket["order_type"], market_price,
-                                              order_ticket["price"], cash_balance, current_holding, quantity):
-        order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
-                                  clear_price=market_price)
-        update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
-                        market_price, quantity, symbol)
+    if during_trading_day():
+        if execute_order(buy_or_sell, order_type, market_price, order_ticket["price"], cash_balance, current_holding, quantity):
+            order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
+                                      clear_price=market_price)
+            update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                            market_price, quantity, symbol)
+            update_order_details_table(game_id, user_id, order_id, "remove")  # remove the pending entry
+            update_order_details_table(game_id, user_id, order_id, "add")  # add add the fulfilled one
+            serialize_and_pack_portfolio_details(game_id, user_id)
+        else:
+            # if a market order was placed after hours, there may not be enough cash on hand to clear it at the new
+            # market price. If this happens, cancel the order and recalculate the purchase quantity with the new price
+            if order_type == "market":
+                cancel_order(order_id)
+                updated_quantity = cash_balance // market_price
+                if updated_quantity <= 0:
+                    return
 
-        # update orders table
-        update_order_details_table(game_id, user_id, order_id, "remove")
-        update_order_details_table(game_id, user_id, order_id, "add")
-
-        # update balances table
-        serialize_and_pack_portfolio_details(game_id, user_id)
+                place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, "Shares",
+                            market_price, updated_quantity, order_ticket["time_in_force"])
+                serialize_and_pack_portfolio_details(game_id, user_id)
 
 
 def get_order_expiration_status(order_id):
@@ -783,8 +793,10 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
     return False
 
 
-def cancel_order(order_id):
+def cancel_order(order_id: int):
+    order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
     add_row("order_status", order_id=order_id, timestamp=time.time(), status="cancelled")
+    update_order_details_table(order_ticket["game_id"], order_ticket["user_id"], order_id, "remove")
 
 
 # Functions for serving information about games

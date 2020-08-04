@@ -71,7 +71,7 @@ class GameStatus(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
-    status = db.Column(db.Enum(GameStatusTypes))
+    status = db.Column(db.Enum(GameStatusTypes), index=True)
     users = db.Column(db.JSON)
     timestamp = db.Column(db.Float(precision=32))  # When was the game opened
 
@@ -90,8 +90,8 @@ class GameInvites(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    status = db.Column(db.Enum(GameInviteStatusTypes))
-    timestamp = db.Column(db.Float(precision=32))
+    status = db.Column(db.Enum(GameInviteStatusTypes), index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
 
 
 class BuyOrSell(Enum):
@@ -116,7 +116,7 @@ class Orders(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
-    symbol = db.Column(db.Text)
+    symbol = db.Column(db.Text, index=True)
     buy_or_sell = db.Column(db.Enum(BuyOrSell))
     quantity = db.Column(db.Integer)
     price = db.Column(db.Float(precision=32))
@@ -136,8 +136,8 @@ class Transactions(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey("orders.id"), nullable=True)
-    timestamp = db.Column(db.Float(precision=32))
-    status = db.Column(db.Enum(OrderStatusTypes))
+    timestamp = db.Column(db.Float(precision=32), index=True)
+    status = db.Column(db.Enum(OrderStatusTypes), index=True)
     clear_price = db.Column(db.Float(precision=32), nullable=True)
 
 
@@ -153,10 +153,10 @@ class GameBalances(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
     order_status_id = db.Column(db.Integer, db.ForeignKey("order_status.id"))
-    timestamp = db.Column(db.Float(precision=32))
-    balance_type = db.Column(db.Enum(GameBalanceTypes))
-    balance = db.Column(db.Float(precision=32))
-    symbol = db.Column(db.Text)
+    timestamp = db.Column(db.Float(precision=32), index=True)
+    balance_type = db.Column(db.Enum(GameBalanceTypes), index=True)
+    balance = db.Column(db.Float(precision=32), index=True)
+    symbol = db.Column(db.Text, index=True)
 
 
 class Symbols(db.Model):
@@ -168,26 +168,26 @@ class Symbols(db.Model):
     __tablename__ = "symbols"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
-    name = db.Column(db.Text)
+    symbol = db.Column(db.Text, index=True)
+    name = db.Column(db.Text, index=True)
 
 
 class Prices(db.Model):
     __tablename__ = "prices"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
-    price = db.Column(db.Float(precision=32))
-    timestamp = db.Column(db.Float(precision=32))
+    symbol = db.Column(db.Text, index=True)
+    price = db.Column(db.Float(precision=32), index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
 
 
 class Indexes(db.Model):
     __tablename__ = "indexes"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
-    value = db.Column(db.Float(precision=32))
-    timestamp = db.Column(db.Float(precision=32))
+    symbol = db.Column(db.Text, index=True)
+    value = db.Column(db.Float(precision=32), index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
 
 
 class FriendStatuses(Enum):
@@ -200,8 +200,8 @@ class Friends(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     invited_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    status = db.Column(db.Enum(FriendStatuses))
-    timestamp = db.Column(db.Float(precision=32))
+    status = db.Column(db.Enum(FriendStatuses), index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
 
 
 class PayoutType(Enum):
@@ -241,10 +241,10 @@ class ExternalInvites(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     requester_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    invited_email = db.Column(db.Text)
-    status = db.Column(db.Enum(ExternalInviteStatus))
-    timestamp = db.Column(db.Float(precision=32))
-    type = db.Column(db.Enum(ExternalInviteTypes))
+    invited_email = db.Column(db.Text, index=True)
+    status = db.Column(db.Enum(ExternalInviteStatus), index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
+    type = db.Column(db.Enum(ExternalInviteTypes), index=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
 
 
@@ -255,8 +255,8 @@ class BalancesAndPricesCache(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    symbol = db.Column(db.Text)
-    timestamp = db.Column(db.Float(precision=32))
+    symbol = db.Column(db.Text, index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
     balance = db.Column(db.Float(precision=32))
     price = db.Column(db.Float(precision=32))
     value = db.Column(db.Float(precision=32))

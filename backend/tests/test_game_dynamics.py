@@ -56,7 +56,8 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    get_external_invite_list_by_status
+    get_external_invite_list_by_status,
+    init_game_assets
 )
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -500,6 +501,56 @@ class TestGameLogic(BaseTestCase):
                 process_order(order_id)
                 new_cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
                 self.assertAlmostEqual(new_cash_balance, cash_balance - market_price * order_ticket["quantity"], 3)
+
+
+class TestRebookMarketOrder(BaseTestCase):
+
+    def test_rebook_market_order(self):
+        """A market order's clear price and quantity after hours is calculated based on the previous day's close. In
+        some cases the price moves enough that the order is no longer valid. This test behavior to automatically adjust
+        the purchase quantity and clear the order"""
+        user_id = 1
+        game_id = 3
+        init_game_assets(game_id)
+
+        symbol = "JPM"
+        cash_on_hand = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, symbol)
+        day_1_market_price = 100
+        original_order_quantity = cash_on_hand // day_1_market_price
+        with patch("backend.logic.base.time") as base_time_mock:
+            base_time_mock.time.return_value = 1596485499.580801
+
+            order_id = place_order(
+                user_id,
+                game_id,
+                symbol,
+                "buy",
+                cash_on_hand,
+                current_holding,
+                "market",
+                "Shares",
+                day_1_market_price,
+                original_order_quantity,
+                "until_cancelled")
+
+        with patch("backend.logic.base.time") as base_time_mock, patch(
+                "backend.logic.games.fetch_price") as fetch_price_mock:
+            base_time_mock.time.return_value = 1596557499.580801
+            mock_price = 150
+            fetch_price_mock.return_value = mock_price, 1596557499.580801
+            process_order(order_id)
+
+        original_order_status = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)[0]
+        self.assertEqual(original_order_status["status"], "cancelled")
+
+        updated_order_status = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id + 1)[0]
+        self.assertEqual(updated_order_status["status"], "fulfilled")
+
+        updated_order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id + 1)[0]
+        self.assertEqual(updated_order_ticket["quantity"], cash_on_hand // mock_price)
 
 
 class TestOrderLogic(unittest.TestCase):

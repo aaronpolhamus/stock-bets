@@ -14,7 +14,7 @@ afc = Client(None, None)
 
 def log_headline(keys: tuple, values: List):
     headline_ls = [f"{key} = {value}" for key, value in zip(keys, values)]
-    print("\n \n***ARGUMENTS ***\n----------------\n" + ", ".join(headline_ls) + "\n----------------\n")
+    print("\n \n*** ARGUMENTS ***\n-----------------\n" + ", ".join(headline_ls) + "\n-----------------\n")
 
 
 def context_parser(context: dict, *args: str):

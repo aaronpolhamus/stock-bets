@@ -430,11 +430,8 @@ def api_place_order():
 @routes.route("/api/cancel_order", methods=["POST"])
 @authenticate
 def api_cancel_order():
-    user_id = decode_token(request)
-    game_id = request.json.get("game_id")
     order_id = request.json.get("order_id")
     cancel_order(order_id)
-    update_order_details_table(game_id, user_id, order_id, "remove")
     return make_response(f"Cancelled orderId: {order_id}", 200)
 
 
