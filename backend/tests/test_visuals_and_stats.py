@@ -294,7 +294,7 @@ class TestVisuals(BaseTestCase):
 
 class TestWinnerPayouts(BaseTestCase):
 
-    def test_winnner_payouts(self):
+    def test_winner_payouts(self):
         """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
         have a week of test data, we'll effectively recycle the same information via mocks
         """

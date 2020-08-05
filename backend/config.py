@@ -23,9 +23,9 @@ class Config:
     # Game settings:
     # --------------
     # The n-minute interval on which to refresh all active game statuses
-    GAME_STATUS_UPDATE_RATE = getenv("GAME_STATUS_UPDATE_RATE")
+    GAME_STATUS_UPDATE_RATE = float(getenv("GAME_STATUS_UPDATE_RATE"))
     # The n-minute interval on which to process all open orders (careful, this costs $$$)
-    OPEN_ORDER_PROCESS_RATE = getenv("OPEN_ORDER_PROCESS_RATE")
+    OPEN_ORDER_PROCESS_RATE = float(getenv("OPEN_ORDER_PROCESS_RATE"))
 
     # Security
     # --------

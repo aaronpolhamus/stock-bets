@@ -449,9 +449,9 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
             return df
 
         # this bit of logic checks whether any trading hours have happened, if if the user hasn't ordered
-        last_day_open = trade_days_df.iloc[-1]["market_open"]
-        last_day_close = trade_days_df.iloc[-1]["market_close"]
-        if not (max_time >= last_day_open and min_time <= last_day_close):
+        trade_days_df = trade_days_df[
+            (trade_days_df["market_close"] >= min_time) & (trade_days_df["market_open"] <= max_time)]
+        if trade_days_df.empty:
             return df
 
     days = df["timestamp"].dt.normalize().unique()
