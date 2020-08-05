@@ -52,7 +52,6 @@ const PlayGame = () => {
   }
 
   const handleCancelOrder = () => {
-    getOrdersData()
     setUpdateCashInfo(new Date())
   }
 
@@ -70,7 +69,6 @@ const PlayGame = () => {
       }
       getUserInfo()
     }
-    getOrdersData()
 
     const getGameData = async () => {
       const data = await fetchGameData(gameId, 'game_info')
@@ -123,7 +121,7 @@ const PlayGame = () => {
               </PageSection>
               <PageSection>
                 <PendingOrdersTable
-                  tableData={ordersData}
+                  update={updateTables}
                   gameId={gameId}
                   title='Pending Orders'
                   onCancelOrder={handleCancelOrder}
@@ -131,31 +129,30 @@ const PlayGame = () => {
 
               </PageSection>
             </Tab>
-            <Tab eventKey='balances-chart' title='Balances and Orders'>
+            <Tab eventKey='balances-chart' title='Balances'>
               <PageSection>
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart
                     gameId={gameId}
                     endpoint='get_balances_chart'
                     yScaleType='dollar'
-                    title='Balances Chart'
                   />
                   : <VanillaChart
                     gameId={gameId}
                     endpoint='get_balances_chart'
                     yScaleType='dollar'
-                    title='Balances Chart'
                   />}
               </PageSection>
               <PageSection>
-                <Header>
-                  <SectionTitle> Your balances </SectionTitle>
-                </Header>
                 <BalancesTable
                   gameId={gameId}
                   update={updateTables}
                 />
               </PageSection>
+            </Tab>
+            <Tab
+              eventKey='orders-chart' title='Orders'
+            >
               <PageSection>
                 {gameMode === 'multi_player'
                   ? <UserDropDownChart

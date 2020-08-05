@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Table, Button, Modal } from 'react-bootstrap'
-import { apiPost } from 'components/functions/api'
+import { fetchGameData, apiPost } from 'components/functions/api'
 import { ArrowDownLeft, ArrowUpRight } from 'react-feather'
 import { SectionTitle, SmallCaps } from 'components/textComponents/Text'
 import {
@@ -9,6 +9,7 @@ import {
   CancelButton
 } from 'components/tables/TableStyledComponents'
 import { makeCustomHeader } from 'components/functions/tables'
+
 import PropTypes from 'prop-types'
 
 const OrderTypeIcon = ({ type, ...props }) => {
@@ -52,21 +53,33 @@ const tableHeaders = [
   }
 ]
 
-const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
+const PendingOrdersTable = ({ gameId, title, onCancelOrder, update }) => {
   const [cancelableOrder, setCancelableOrder] = useState(null)
+  const [ordersData, setOrdersData] = useState({})
   const btnCancelRef = useRef()
 
   // Methods and settings for modal component
   const [show, setShow] = useState(false)
   const handleClose = () => setShow(false)
+
+  const getOrdersData = async () => {
+    const data = await fetchGameData(gameId, 'get_order_details_table')
+    setOrdersData(data)
+  }
+
   const handleCancelOrder = async (gameId, orderId) => {
     await apiPost('cancel_order', {
       game_id: gameId,
       order_id: orderId
     })
+    getOrdersData()
     onCancelOrder()
     setShow(false)
   }
+
+  useEffect(() => {
+    getOrdersData()
+  }, [update])
 
   const renderRows = (rows) => {
     return rows.map((row, index) => {
@@ -109,7 +122,7 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
     })
   }
 
-  if (tableData.orders) {
+  if (ordersData.orders) {
     return (
       <>
         {title && <SectionTitle>{title}</SectionTitle>}
@@ -117,7 +130,7 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
           <thead>
             <tr>{makeCustomHeader(tableHeaders)}</tr>
           </thead>
-          <tbody>{renderRows(tableData.orders.pending, gameId)}</tbody>
+          <tbody>{renderRows(ordersData.orders.pending, gameId)}</tbody>
         </Table>
         <Modal centered show={show} onHide={handleClose}>
           <Modal.Header>
@@ -159,10 +172,11 @@ const PendingOrdersTable = ({ tableData, gameId, title, onCancelOrder }) => {
 }
 
 PendingOrdersTable.propTypes = {
-  tableData: PropTypes.object,
+  ordersData: PropTypes.object,
   onCancelOrder: PropTypes.func,
   gameId: PropTypes.number,
-  title: PropTypes.string
+  title: PropTypes.string,
+  update: PropTypes.string
 }
 
 OrderTypeIcon.propTypes = {

@@ -20,22 +20,16 @@ const StyledBalancesTable = styled(AutoTable)`
 
 const BalancesTable = ({ gameId, update }) => {
   const [tableData, setTableData] = useState({})
-  const [lastUpdate, setLastUpdate] = useState('')
 
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'get_current_balances_table')
     setTableData(data)
-    console.log('Balances TableData set')
   }
 
   useEffect(() => {
     getGameData()
-  }, [gameId])
+  }, [gameId, update])
 
-  if (update !== undefined && update !== lastUpdate) {
-    setLastUpdate(update)
-    getGameData()
-  }
   return (
     <StyledBalancesTable
       className

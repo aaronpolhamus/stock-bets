@@ -69,7 +69,6 @@ const renderFulfilledRows = (rows) => {
 
 const OpenOrdersTable = ({ gameId, update }) => {
   const [tableData, setTableData] = useState({})
-  const [lastUpdate, setLastUpdate] = useState('')
 
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
@@ -78,12 +77,7 @@ const OpenOrdersTable = ({ gameId, update }) => {
 
   useEffect(() => {
     getGameData()
-  }, [])
-
-  if (update !== undefined && update !== lastUpdate) {
-    setLastUpdate(update)
-    getGameData()
-  }
+  }, [update])
 
   if (tableData.orders) {
     return (
