@@ -69,7 +69,6 @@ const PendingOrdersTable = ({ gameId, title, onCancelOrder, update }) => {
 
   const handleCancelOrder = async (gameId, orderId) => {
     await apiPost('cancel_order', {
-      game_id: gameId,
       order_id: orderId
     })
     getOrdersData()

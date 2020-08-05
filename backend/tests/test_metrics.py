@@ -7,8 +7,8 @@ from backend.logic.metrics import (
     check_if_payout_time
 )
 from backend.logic.base import (
-    posix_to_datetime,
     datetime_to_posix,
+    posix_to_datetime,
     get_game_info
 )
 from backend.logic.base import make_date_offset
@@ -27,10 +27,9 @@ class TestMetrics(BaseTestCase):
 
         game_info = get_game_info(game_id)
         offset = make_date_offset(game_info["side_bets_period"])
-        start_date = posix_to_datetime(simulation_start_time)
-        end_date = posix_to_datetime(simulation_start_time) + offset
-        base_time_mock.time.return_value = datetime_to_posix(end_date)
-        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
+        end_time = datetime_to_posix(posix_to_datetime(simulation_start_time) + offset)
+        base_time_mock.time.return_value = end_time
+        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, end_time)
 
         self.assertAlmostEqual(return_ratio, -0.6133719, 4)
         self.assertAlmostEqual(sharpe_ratio, -0.5490682, 4)

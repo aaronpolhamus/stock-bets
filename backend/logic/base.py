@@ -2,12 +2,12 @@
 as we build out the logic library.
 """
 import calendar
+import json
 import sys
 import time
 from datetime import datetime as dt, timedelta
 from re import sub
 from typing import List, Union
-import json
 
 import numpy as np
 import pandas as pd
@@ -15,16 +15,22 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
+from backend.database.db import engine
 from backend.database.helpers import (
     query_to_dict,
-    add_row
+    add_row,
+    read_table_cache,
+    write_table_cache
+)
+from backend.logic.schemas import (
+    apply_validation,
+    balances_and_prices_table_schema
 )
 from backend.tasks.redis import (
     rds,
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
-from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -64,6 +70,7 @@ def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]
         return [x[0] for x in res]
     return []
 
+
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
 # and those mocks need to be redirected if this code goes elsewhere, so move with care and test often               #
@@ -93,16 +100,16 @@ def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
     return utc_dt.astimezone(tz)
 
 
-def get_end_of_last_trading_day(ref_day=None) -> float:
+def get_end_of_last_trading_day(ref_time=None) -> float:
     """Note, if any trading happens during this day this will return the end of the current day
     """
-    if ref_day is None:
-        ref_day = time.time()
-    ref_day = posix_to_datetime(ref_day).date()
-    schedule = get_trading_calendar(ref_day, ref_day)
+    if ref_time is None:
+        ref_time = time.time()
+    ref_date = posix_to_datetime(ref_time).date()
+    schedule = get_trading_calendar(ref_date, ref_date)
     while schedule.empty:
-        ref_day -= timedelta(days=1)
-        schedule = get_trading_calendar(ref_day, ref_day)
+        ref_date -= timedelta(days=1)
+        schedule = get_trading_calendar(ref_date, ref_date)
     _, end_day = get_schedule_start_and_end(schedule)
     return end_day
 
@@ -110,8 +117,8 @@ def get_end_of_last_trading_day(ref_day=None) -> float:
 def during_trading_day(posix_time: float = None) -> bool:
     if posix_time is None:
         posix_time = time.time()
-    ref_time = posix_to_datetime(posix_time).date()
-    schedule = get_trading_calendar(ref_time, ref_time)
+    ref_date = posix_to_datetime(posix_time).date()
+    schedule = get_trading_calendar(ref_date, ref_date)
     if schedule.empty:
         return False
     start_day, end_day = get_schedule_start_and_end(schedule)
@@ -149,6 +156,19 @@ def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset) -
         count += 1
         t += offset
     return count
+
+
+def get_time_defaults(game_id: int, start_time: float = None, end_time: float = None):
+    """There are several places in the code that deal with time where we optionally set a time window as [game_start,
+    present_time], depending on whether the user has passed those values in manually. This code wraps that operation.
+    """
+    if start_time is None:
+        start_time, _ = get_game_start_and_end(game_id)
+
+    if end_time is None:
+        end_time = time.time()
+
+    return start_time, end_time
 
 
 # ------------ #
@@ -247,10 +267,11 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
     return pivot_df
 
 
-def get_order_details(game_id: int, user_id: int):
+def get_order_details(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     """Retrieves order and fulfillment information for all orders for a game/user that have not been either cancelled
     or expired
     """
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     query = """
         SELECT
             o.id as order_id, 
@@ -281,10 +302,10 @@ def get_order_details(game_id: int, user_id: int):
           ON os_relevant.order_id = os_full.order_id
         ) relevant_orders
         ON relevant_orders.order_id = o.id
-        WHERE game_id = %s and user_id = %s;
+        WHERE game_id = %s AND user_id = %s AND relevant_orders.timestamp >= %s AND relevant_orders.timestamp <= %s;
     """
     with engine.connect() as conn:
-        df = pd.read_sql(query, conn, params=[game_id, user_id])
+        df = pd.read_sql(query, conn, params=[game_id, user_id, start_time, end_time])
     df = pivot_order_details(df)
     df["status"] = "fulfilled"
     df.loc[df["timestamp_fulfilled"].isna(), "status"] = "pending"
@@ -329,6 +350,7 @@ def get_all_game_usernames(game_id: int):
     user_ids = get_active_game_user_ids(game_id)
     return get_usernames(user_ids)
 
+
 # --------- #
 # User info #
 # --------- #
@@ -362,7 +384,7 @@ def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
 # --------------- #
 
 
-def get_price_histories(symbols: List[str], min_time: float, max_time: float):
+def get_price_histories(symbols: List, min_time: float, max_time: float):
     sql = f"""
         SELECT timestamp, price, symbol FROM prices
         WHERE 
@@ -418,6 +440,9 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
+    # if we only observe cash in the balances, that means the game has only just kicked off.
+    if set(df["symbol"].unique()) == {'Cash'}:
+        return df
     days = df["timestamp"].dt.normalize().unique()
     schedule_df = get_trading_calendar(min(days).date(), max(days).date())
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
@@ -427,19 +452,22 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     df["mask"] = False
     for start, end in zip(schedule_df['start'], schedule_df['end']):
         df["mask"] = df["mask"] | mask_time_creator(df, start, end)
-    return df[df["mask"]]
+    df = df[df["mask"]]
+    return df.drop(["timestamp_utc", "timestamp_epoch", "mask"], axis=1)
 
 
-def make_bookend_time():
-    close_of_last_trade_day = get_end_of_last_trading_day()
-    max_time_val = time.time()
-    if max_time_val > close_of_last_trade_day:
-        max_time_val = close_of_last_trade_day
+def make_bookend_time(max_time_val: float = None):
+    if max_time_val is None:
+        max_time_val = time.time()
+
+    end_of_last_trade_day = get_end_of_last_trading_day(max_time_val)
+    if max_time_val > end_of_last_trade_day:
+        max_time_val = end_of_last_trade_day
     return max_time_val
 
 
 def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
-                 time_var: str = "timestamp") -> pd.DataFrame:
+                 time_var: str = "timestamp", end_time: float = None) -> pd.DataFrame:
     """If the final balance entry that we have for a position is not 0, then we'll extend that position out
     until the current date.
 
@@ -448,56 +476,90 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param condition_var: We only add bookends when there is still a non-zero quantity for the final observation. Which
       column defines that rule?
     :param time_var: the posix time column that contains time information
+    :param end_time: reference time for bookend. defaults to present time if passed in as None
     """
-    bookend_time = make_bookend_time()
+    bookend_time = make_bookend_time(end_time)
     last_entry_df = balances.groupby(group_var, as_index=False).last()
     to_append = last_entry_df[(last_entry_df[condition_var] > 0) & (last_entry_df[time_var] < bookend_time)]
     to_append[time_var] = bookend_time
     return pd.concat([balances, to_append]).reset_index(drop=True)
 
 
-def get_user_balance_history(game_id: int, user_id: int) -> pd.DataFrame:
+def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_time: float) -> pd.DataFrame:
     """Extracts a running record of a user's balances through time.
     """
     sql = """
             SELECT timestamp, balance_type, symbol, balance FROM game_balances
             WHERE
               game_id = %s AND
-              user_id = %s
+              user_id = %s AND
+              timestamp >= %s AND
+              timestamp <= %s
             ORDER BY id;            
         """
     with engine.connect() as conn:
-        balances = pd.read_sql(sql, conn, params=[game_id, user_id])
+        balances = pd.read_sql(sql, conn, params=[game_id, user_id, start_time, end_time])
     balances.loc[balances["balance_type"] == "virtual_cash", "symbol"] = "Cash"
-    return add_bookends(balances)
+    balances.drop("balance_type", inplace=True, axis=1)
+    return balances
 
 
-def make_historical_balances_and_prices_table(game_id: int, user_id: int) -> pd.DataFrame:
+def handle_balances_cache(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    cached_df = read_table_cache("balances_and_prices_cache", start_time, end_time, game_id=game_id, user_id=user_id)
+    cached_df.drop(["game_id", "user_id"], axis=1, inplace=True)
+    cache_end = 0
+    if not cached_df.empty:
+        cache_end = float(cached_df["timestamp"].max())
+
+    balances_df = get_user_balance_history(game_id, user_id, cache_end, end_time)
+    if not balances_df.empty:
+        balances_df = balances_df[balances_df["timestamp"] > cache_end]
+        prepend_df = cached_df.loc[
+            cached_df["timestamp"] == cached_df["timestamp"].max(), ["symbol", "timestamp", "balance"]]
+        balances_df = pd.concat([prepend_df, balances_df])
+
+    return balances_df, cached_df, cache_end
+
+
+def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_time: float = None,
+                                              end_time: float = None) -> pd.DataFrame:
     """This is a very important function that aggregates user balance and price information and is used both for
-    plotting and calculating winners. It's the reason the 7 functions above exist
+    plotting and calculating winners. It's the reason the 7 functions above exist.
+
+    start_time and end_time control the window that the function will construct a merged series of running balances
+    and price for. if left as None, respective, they will default to the game start and the current time
+
+    the end_time argument determines the reference date for calculating the "bookends" of the running balances series.
+    if this is passed as its default value, None, it will use the present time as the bookend reference. being able to
+    control this value explicitly lets us "freeze time" when running DAG tests.
+
+    another quick note about this function -- while you can technical pass in any start_time, the internal logic here
+    requires prior knowledge of past balances to run properly, othwerwise you'll likely end up ignoring users' past
+    purchases. for the best outcome, generally leave the start_time default behavior alone, unless working in a
+    testing env where you need to "freeze" time to the test fixture window.
     """
-    balance_history = get_user_balance_history(game_id, user_id)
-    # if the user has never bought anything then her cash balance has never changed, simplifying the problem a bit...
-    if set(balance_history["symbol"].unique()) == {'Cash'}:
-        row = balance_history.iloc[0]
-        row["timestamp"] = time.time()
-        balance_history = balance_history.append([row], ignore_index=True)
-        df = resample_values(balance_history)
-        df = df.reset_index().rename(columns={"index": "timestamp"})
-        df["price"] = 1
-        df["value"] = df["balance"] * df["price"]
-        candidate_df = filter_for_trade_time(df)
-        if not candidate_df.empty:  # games started after trading hours will be empty after applying a filter.
-            df = candidate_df
-        df["symbol"] = "Cash"
-        return df
-    # ...otherwise we'll append price data for the more detailed breakout
-    df = append_price_data_to_balance_histories(balance_history)
-    return filter_for_trade_time(df)
+    balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
+    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
+    if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
+        return cached_df.reset_index(drop=True)
+    balances_df = add_bookends(balances_df, end_time=end_time)
+    update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
+    update_df = filter_for_trade_time(update_df)
+    apply_validation(update_df, balances_and_prices_table_schema, strict=True)
+    df = pd.concat([cached_df, update_df], axis=0)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])  # this ensure datetime dtype for when cached_df is empty
+    df = df[~df.duplicated(["symbol", "timestamp"])]
+    if not update_df.empty:
+        cache_update = df[df["timestamp"] > posix_to_datetime(cache_end)]
+        cache_update["timestamp"] = cache_update["timestamp"].apply(lambda x: datetime_to_posix(x))
+        write_table_cache("balances_and_prices_cache", cache_update, game_id=game_id, user_id=user_id)
+    return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
 
 # Price and stock data harvesting tools
 # -------------------------------------
+
 
 class SeleniumDriverError(Exception):
 
@@ -679,18 +741,22 @@ def check_single_player_mode(game_id: int) -> bool:
         return False
     return game_mode[0] == "single_player"
 
+
 # -------------------------------------------------- #
 # Methods for handling indexes in single-player mode #
 # -------------------------------------------------- #
 
 
-def get_index_reference(symbol: str, ref_time: float) -> float:
+def get_index_reference(game_id: int, symbol: str) -> float:
+    ref_time, _ = get_game_start_and_end(game_id)
     with engine.connect() as conn:
         ref_val = conn.execute("""
             SELECT value FROM indexes 
             WHERE symbol = %s AND timestamp <= %s
-            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()[0]
-    return ref_val
+            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()
+    if not ref_val:
+        return 1
+    return ref_val[0]
 
 
 def make_index_start_time(game_start: float) -> float:
@@ -706,28 +772,24 @@ def make_index_start_time(game_start: float) -> float:
     return trade_start
 
 
-def get_index_portfolio_value_data(game_id: int, symbol: str, start: float = None, end: float = None) -> pd.DataFrame:
+def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float = None,
+                                   end_time: float = None) -> pd.DataFrame:
     """In single-player mode a player competes against the indexes. This function just normalizes a dataframe of index
     values by the starting value for when the game began
     """
-    game_start, _ = get_game_start_and_end(game_id)
-    base_value = get_index_reference(symbol, game_start)
-    if start is None:
-        start = game_start
-
-    if end is None:
-        end = time.time()
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    base_value = get_index_reference(game_id, symbol)
 
     with engine.connect() as conn:
         df = pd.read_sql("""
             SELECT symbol as username, timestamp, value FROM indexes 
-            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start, end])
+            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
 
     # normalizes index to the same starting scale as the user
     df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
-    trade_start = make_index_start_time(start)
+    trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
 
 

@@ -235,14 +235,14 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
     )
 
 
-def get_index_portfolio_value(game_id: int, index: str):
-    df = get_index_portfolio_value_data(game_id, index)
+def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
+    df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
     if df.empty:
         return DEFAULT_VIRTUAL_CASH
     return df.iloc[-1]["value"]
 
 
-def compile_and_pack_player_leaderboard(game_id: int):
+def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, end_time: float = None):
     user_ids = get_active_game_user_ids(game_id)
     user_colors = assign_user_colors(game_id)
     records = []
@@ -251,9 +251,10 @@ def compile_and_pack_player_leaderboard(game_id: int):
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
         stocks_held = list(balances["symbol"].unique())
+        portfolio_value=get_portfolio_value(game_id, user_id)
         stat_info = make_stat_entry(color=user_colors[user_info["username"]],
                                     cash_balance=cash_balance,
-                                    portfolio_value=get_portfolio_value(game_id, user_id),
+                                    portfolio_value=portfolio_value,
                                     stocks_held=stocks_held,
                                     return_ratio=rds.get(f"return_ratio_{game_id}_{user_id}"),
                                     sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
@@ -261,7 +262,7 @@ def compile_and_pack_player_leaderboard(game_id: int):
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
-            portfolio_value = get_index_portfolio_value(game_id, index)
+            portfolio_value = get_index_portfolio_value(game_id, index, start_time, end_time)
             stat_info = make_stat_entry(color=user_colors[index],
                                         cash_balance=None,
                                         portfolio_value=portfolio_value,
@@ -341,9 +342,11 @@ def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
     return df.merge(labels, how="inner", on="t_index")
 
 
-def make_user_balances_chart_data(game_id: int, user_id: int) -> pd.DataFrame:
-    df = make_historical_balances_and_prices_table(game_id, user_id)
+def make_user_balances_chart_data(game_id: int, user_id: int, start_time: float = None,
+                                  end_time: float = None) -> pd.DataFrame:
+    df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
     if df.empty:  # this should only happen outside of trading hours
+        df["label"] = None  # for downstream compliance with schema validation
         return df
     df = build_labels(df)
     return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
@@ -483,7 +486,7 @@ def relabel_aggregated_portfolios(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(["username", "label"], as_index=False)[["value", "timestamp"]].agg("last")
 
 
-def make_the_field_charts(game_id: int):
+def make_the_field_charts(game_id: int, start_time: float = None, end_time: float = None):
     """This function wraps a loop that produces the balances chart for each user and the field chart for the game. This
     will run every time a user places and order, and periodically as prices are collected
     """
@@ -491,7 +494,7 @@ def make_the_field_charts(game_id: int):
     portfolios = []
     portfolio_table_keys = list(portfolio_comps_schema.keys())
     for user_id in user_ids:
-        df = make_user_balances_chart_data(game_id, user_id)
+        df = make_user_balances_chart_data(game_id, user_id, start_time, end_time)
         serialize_and_pack_balances_chart(df, game_id, user_id)
         portfolio = aggregate_portfolio_value(df)
         portfolio["username"] = get_usernames([user_id])[0]
@@ -500,23 +503,22 @@ def make_the_field_charts(game_id: int):
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
-            df = get_index_portfolio_value_data(game_id, index)
+            df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
             df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
             df = build_labels(df)
             df = df.groupby("t_index", as_index=False).agg(
                 {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
             apply_validation(df, portfolio_comps_schema)
             portfolios.append(df[portfolio_table_keys])
-
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
     relabelled_df.sort_values("timestamp", inplace=True)
     serialize_and_pack_portfolio_comps_chart(relabelled_df, game_id)
 
 
-def make_order_performance_table(game_id: int, user_id: int):
+def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     # get historical order details
-    order_df = get_order_details(game_id, user_id)
+    order_df = get_order_details(game_id, user_id, start_time, end_time)
     order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["buy_or_sell"] == "buy")]
     if order_df.empty:
         return order_df
@@ -534,21 +536,24 @@ def make_order_performance_table(game_id: int, user_id: int):
     cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
     cum_sum_df.columns = ['symbol', 'cum_buys']
     order_df = order_df.merge(cum_sum_df)
-    order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled")
-    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
+    order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled",
+                            end_time=end_time)
+    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
+        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
     order_df.set_index("timestamp_fulfilled", inplace=True)
     order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
     order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
     order_df.reset_index(inplace=True)
     del order_df["level_0"]
     # get historical balances and prices
-    bp_df = make_historical_balances_and_prices_table(game_id, user_id)
+    bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
 
     def _make_cumulative_sales(subset):
         sales_diffs = subset["balance"].diff(1).fillna(0)
         sales_diffs[sales_diffs > 0] = 0
         subset["cum_sales"] = sales_diffs.abs().cumsum()
         return subset.reset_index(drop=True)
+
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
 
     # merge running balance  information with order history
@@ -575,9 +580,10 @@ def make_order_performance_table(game_id: int, user_id: int):
     return df
 
 
-def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
+def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,
+                                               end_time: float = None):
     # TODO: clean this up a bit with make_chart_json
-    table = make_order_performance_table(game_id, user_id)
+    table = make_order_performance_table(game_id, user_id, start_time, end_time)
     order_perf = table
     if order_perf.empty:
         chart_json = make_null_chart("Waiting for orders...")
@@ -589,7 +595,6 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int):
         chart_json = make_chart_json(order_perf, "order_label", "return", "label")
 
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
-
 
 # ------ #
 # Tables #
@@ -822,7 +827,7 @@ def serialize_and_pack_winners_table(game_id: int):
     rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
 
 
-def refresh_game_data(game_id: int):
+def init_game_assets(game_id: int):
     calculate_and_pack_game_metrics(game_id)
 
     # leaderboard
@@ -846,15 +851,15 @@ def refresh_game_data(game_id: int):
             serialize_and_pack_winners_table(game_id)
 
 
-def calculate_and_pack_game_metrics(game_id):
+def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_time: float = None):
     for user_id in get_active_game_user_ids(game_id):
-        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id)
+        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_time, end_time)
         rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
         rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
-            df = get_index_portfolio_value_data(game_id, index)
+            df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
             index_return_ratio = portfolio_return_ratio(df)
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
             rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)

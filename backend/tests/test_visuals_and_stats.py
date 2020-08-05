@@ -53,7 +53,6 @@ from backend.logic.visuals import (
     BALANCES_CHART_PREFIX,
     PAYOUTS_PREFIX,
     SHARPE_RATIO_PREFIX,
-    RETURN_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
     NA_TEXT_SYMBOL
@@ -136,13 +135,13 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(a_balances_chart["datasets"][0]["label"], "Cash")
         self.assertEqual(a_balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
-        # now have a user put in a couple orders. These should go straight to the queue and be reflected in the open
-        # orders table, but they should not have any impact on the user's balances
+        # now have a user put an order. It should go straight to the queue and be reflected in the open orders table,
+        # but they should not have any impact on the user's balances if the order is placed outside of trading day
         self.stock_pick = "TSLA"
         self.market_price = 1_000
         with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.side_effect = [start_time] * 2
-            base_time_mock.time.return_value = start_time
+            game_time_mock.time.side_effect = [start_time + 1] * 2
+            base_time_mock.time.return_value = start_time + 1
             stock_pick = self.stock_pick
             cash_balance = get_current_game_cash_balance(self.user_id, game_id)
             current_holding = get_current_stock_holding(self.user_id, game_id, stock_pick)
@@ -205,7 +204,6 @@ class TestGameKickoff(BaseTestCase):
 
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders
-        # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
         open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         # since the order has been filled, we expect a clear price to be present
@@ -219,11 +217,10 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(current_balances["data"]), 1)
 
         with patch("backend.logic.base.time") as base_time_mock:
-            base_time_mock.time.side_effect = [start_time] * 2 * 2
+            base_time_mock.time.side_effect = [start_time + 10] * 2 * 2
             df = make_user_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
             balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
-
             self.assertEqual(len(balances_chart["datasets"]), 2)
             stocks = set([x["label"] for x in balances_chart["datasets"]])
             self.assertEqual(stocks, {"Cash", self.stock_pick})
@@ -324,13 +321,13 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(n_sidebets, 2)
 
         # we'll mock in daily portfolio values to speed up the time this test takes
-        start_dt = posix_to_datetime(start_time)
-        end_dt = posix_to_datetime(end_time)
-        user_1_portfolio = portfolio_value_by_day(game_id, 1, start_dt, end_dt)
-        user_3_portfolio = portfolio_value_by_day(game_id, 3, start_dt, end_dt)
-        user_4_portfolio = portfolio_value_by_day(game_id, 4, start_dt, end_dt)
+        user_1_portfolio = portfolio_value_by_day(game_id, 1, start_time, end_time)
+        user_3_portfolio = portfolio_value_by_day(game_id, 3, start_time, end_time)
+        user_4_portfolio = portfolio_value_by_day(game_id, 4, start_time, end_time)
 
         # expected sidebet dates
+        start_dt = posix_to_datetime(start_time)
+        end_dt = posix_to_datetime(end_time)
         sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, game_info["side_bets_perc"], offset)
         sidebet_dates_posix = [datetime_to_posix(x) for x in sidebet_dates]
 

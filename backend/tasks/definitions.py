@@ -19,7 +19,6 @@ from backend.logic.games import (
     service_open_game,
     expire_finished_game
 )
-from backend.logic.visuals import refresh_game_data
 from backend.tasks.celery import (
     celery,
     BaseTask
@@ -29,6 +28,7 @@ from backend.bi.report_logic import (
     serialize_and_pack_orders_per_active_user
 )
 from backend.tasks.redis import task_lock
+from backend.tasks.airflow import trigger_dag
 
 REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
 CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
@@ -106,7 +106,6 @@ def async_update_symbols_table(self, n_rows=None):
     if symbols_table.empty:
         raise SeleniumDriverError
 
-    print("writing to db...")
     with engine.connect() as conn:
         conn.execute("TRUNCATE TABLE symbols;")
 
@@ -150,7 +149,7 @@ def async_update_all_games(self):
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 @task_lock(key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
 def async_update_game_data(self, game_id):
-    refresh_game_data(game_id)
+    trigger_dag("update_game_dag", game_id=game_id)
 
 # ----------- #
 # Key metrics #

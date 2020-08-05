@@ -180,7 +180,7 @@ def login():
     register_user(user_entry)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
+    resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
     return resp
 
 
@@ -190,7 +190,7 @@ def logout():
     """Log user out of the backend by blowing away their session token
     """
     resp = make_response()
-    resp.set_cookie("session_token", "", httponly=True, samesite="None", secure=True, expires=0)
+    resp.set_cookie("session_token", "", httponly=True, samesite=None, secure=True, expires=0)
     return resp
 
 
@@ -208,7 +208,7 @@ def set_username():
     session_token = register_username_with_token(user_id, user_email, candidate_username)
     if session_token is not None:
         resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
+        resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
         return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
@@ -430,11 +430,8 @@ def api_place_order():
 @routes.route("/api/cancel_order", methods=["POST"])
 @authenticate
 def api_cancel_order():
-    user_id = decode_token(request)
-    game_id = request.json.get("game_id")
     order_id = request.json.get("order_id")
     cancel_order(order_id)
-    update_order_details_table(game_id, user_id, order_id, "remove")
     return make_response(f"Cancelled orderId: {order_id}", 200)
 
 
@@ -559,7 +556,6 @@ def order_performance_chart():
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")
-    f"field_chart_{game_id}"
     return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 
