@@ -440,9 +440,20 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
-    # if we only observe cash in the balances, that means the game has only just kicked off.
+    # if we only observe cash in the balances, that means the game has only just kicked off or they haven't ordered.
     if set(df["symbol"].unique()) == {'Cash'}:
-        return df
+        min_time = df["timestamp"].min()
+        max_time = df["timestamp"].max()
+        trade_days_df = get_trading_calendar(min_time, max_time)
+        if trade_days_df.empty:
+            return df
+
+        # this bit of logic checks whether any trading hours have happened, if if the user hasn't ordered
+        last_day_open = trade_days_df.iloc[-1]["market_open"]
+        last_day_close = trade_days_df.iloc[-1]["market_close"]
+        if not (max_time >= last_day_open and min_time <= last_day_close):
+            return df
+
     days = df["timestamp"].dt.normalize().unique()
     schedule_df = get_trading_calendar(min(days).date(), max(days).date())
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)

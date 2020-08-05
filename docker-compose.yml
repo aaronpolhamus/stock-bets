@@ -117,6 +117,7 @@ services:
     volumes:
       - ./backend:/home/backend
       - ./backend/docker/.my.cnf:/root/.my.cnf
+      - ./sandbox/scratch.ipynb:/home/backend/scratch.ipynb
 
   backend:
     image: backend
