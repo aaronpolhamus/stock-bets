@@ -83,7 +83,7 @@ def upload_image_from_url_to_s3(url, key):
             stream=True)
     out_img = BytesIO(data.content)
     out_img.seek(0)
-    response = s3.put_object(Body=out_img, Bucket=bucket_name, Key=key)
+    response = s3.put_object(Body=out_img, Bucket=bucket_name, Key=key, ACL="public-read")
     return response
 
 
