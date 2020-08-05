@@ -6,6 +6,7 @@ import { PlayGame } from 'pages/PlayGame'
 import { JoinGame } from 'pages/JoinGame'
 import { NewGame } from 'pages/NewGame'
 import { Admin } from 'pages/Admin'
+import { Playground } from 'pages/Playground'
 import { PrivacyPolicy } from 'pages/PrivacyPolicy'
 import { TermsAndConditions } from 'pages/TermsAndConditions'
 import { UserContext } from 'Contexts'
@@ -26,6 +27,7 @@ export default function App () {
       <Route path='/privacy/' component={PrivacyPolicy} />
       <Route path='/terms/' component={TermsAndConditions} />
       <Route path='/admin/' component={Admin} />
+      <Route path='/playground/' component={Playground} />
 
     </Router>
   )
