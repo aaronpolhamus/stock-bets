@@ -108,7 +108,7 @@ OrderTypeIcon.propTypes = {
 }
 
 OpenOrdersTable.propTypes = {
-  gameId: PropTypes.number, 
+  gameId: PropTypes.number,
   update: PropTypes.string
 }
 export { OpenOrdersTable }

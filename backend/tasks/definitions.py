@@ -43,9 +43,6 @@ UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * 60
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
 @task_lock(key="async_cache_price", timeout=CACHE_PRICE_LOCK_TIMEOUT)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
-    """We'll store the last-updated price of each monitored stock in redis. In the short-term this will save us some
-    unnecessary data API call.
-    """
     cache_price, cache_time = get_cache_price(symbol)
     if cache_price is not None and cache_time == last_updated:
         return

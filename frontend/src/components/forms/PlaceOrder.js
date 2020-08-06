@@ -248,7 +248,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
     })
     setPriceData(response.data)
   }
-
   return (
     <StyledOrderForm
       onSubmit={handleSubmit}
@@ -282,7 +281,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
       <CashInfo
         cashData={cashData}
         balance
-        buyingPower />
+        buyingPower
+      />
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
