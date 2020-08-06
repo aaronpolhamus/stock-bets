@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_active_game_user_ids,
     SECONDS_IN_A_DAY,
     fetch_price,
     get_end_of_last_trading_day,
@@ -37,6 +38,10 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_update_all_index_values,
     async_process_all_orders_in_game
+)
+from backend.logic.visuals import (
+    serialize_and_pack_order_details,
+    serialize_and_pack_portfolio_details
 )
 from backend.tasks.redis import (
     rds,
@@ -519,73 +524,79 @@ class TestGameIntegration(BaseTestCase):
 
 class TestVisualAssetsTasks(BaseTestCase):
 
-    def test_async_process_all_open_orders(self):
-        # TODO: this task can only run during trading hours, but since it's so critical to the app we allow it to be
-        # here, in spite of being time-dependent
-        if during_trading_day():
-            user_id = 1
-            game_id = 3
+    @patch("backend.logic.base.time")
+    def test_async_process_all_open_orders(self, base_time_mock):
+        base_time_mock.time.return_value = 1596738863.111858
+        user_id = 1
+        game_id = 3
 
-            # Place a guaranteed-to-clear order
-            buy_stock = "MSFT"
-            mock_buy_order = {"amount": 1,
-                              "buy_or_sell": "buy",
-                              "game_id": 3,
-                              "order_type": "stop",
-                              "stop_limit_price": 1,
-                              "market_price": 0.5,
-                              "quantity_type": "Shares",
-                              "symbol": buy_stock,
-                              "time_in_force": "until_cancelled"
-                              }
-            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
-            place_order(user_id,
-                        game_id,
-                        mock_buy_order["symbol"],
-                        mock_buy_order["buy_or_sell"],
-                        current_cash_balance,
-                        current_holding,
-                        mock_buy_order["order_type"],
-                        mock_buy_order["quantity_type"],
-                        mock_buy_order["market_price"],
-                        mock_buy_order["amount"],
-                        mock_buy_order["time_in_force"],
-                        mock_buy_order["stop_limit_price"])
+        # seed the open orders and portfolio table
+        user_ids = get_active_game_user_ids(game_id)
+        for user_id in user_ids:
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
 
-            # Place a guaranteed-to-clear order
-            buy_stock = "AAPL"
-            mock_buy_order = {"amount": 1,
-                              "buy_or_sell": "buy",
-                              "game_id": 3,
-                              "order_type": "stop",
-                              "stop_limit_price": 1,
-                              "market_price": 0.5,
-                              "quantity_type": "Shares",
-                              "symbol": buy_stock,
-                              "time_in_force": "until_cancelled"
-                              }
-            current_cash_balance = get_current_game_cash_balance(user_id, game_id)
-            current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
-            place_order(user_id,
-                        game_id,
-                        mock_buy_order["symbol"],
-                        mock_buy_order["buy_or_sell"],
-                        current_cash_balance,
-                        current_holding,
-                        mock_buy_order["order_type"],
-                        mock_buy_order["quantity_type"],
-                        mock_buy_order["market_price"],
-                        mock_buy_order["amount"],
-                        mock_buy_order["time_in_force"],
-                        mock_buy_order["stop_limit_price"])
+        # Place a guaranteed-to-clear order
+        buy_stock = "MSFT"
+        mock_buy_order = {"amount": 1,
+                          "buy_or_sell": "buy",
+                          "game_id": 3,
+                          "order_type": "stop",
+                          "stop_limit_price": 1,
+                          "market_price": 0.5,
+                          "quantity_type": "Shares",
+                          "symbol": buy_stock,
+                          "time_in_force": "until_cancelled"
+                          }
+        current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        place_order(user_id,
+                    game_id,
+                    mock_buy_order["symbol"],
+                    mock_buy_order["buy_or_sell"],
+                    current_cash_balance,
+                    current_holding,
+                    mock_buy_order["order_type"],
+                    mock_buy_order["quantity_type"],
+                    mock_buy_order["market_price"],
+                    mock_buy_order["amount"],
+                    mock_buy_order["time_in_force"],
+                    mock_buy_order["stop_limit_price"])
 
-            open_orders = get_all_open_orders(game_id)
-            starting_open_orders = len(open_orders)
-            self.assertEqual(starting_open_orders, 6)
-            async_process_all_orders_in_game.apply(game_id)
-            new_open_orders = get_all_open_orders(game_id)
-            self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
+        # Place a guaranteed-to-clear order
+        buy_stock = "AAPL"
+        mock_buy_order = {"amount": 1,
+                          "buy_or_sell": "buy",
+                          "game_id": 3,
+                          "order_type": "stop",
+                          "stop_limit_price": 1,
+                          "market_price": 0.5,
+                          "quantity_type": "Shares",
+                          "symbol": buy_stock,
+                          "time_in_force": "until_cancelled"
+                          }
+        current_cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        place_order(user_id,
+                    game_id,
+                    mock_buy_order["symbol"],
+                    mock_buy_order["buy_or_sell"],
+                    current_cash_balance,
+                    current_holding,
+                    mock_buy_order["order_type"],
+                    mock_buy_order["quantity_type"],
+                    mock_buy_order["market_price"],
+                    mock_buy_order["amount"],
+                    mock_buy_order["time_in_force"],
+                    mock_buy_order["stop_limit_price"])
+
+        open_orders = get_all_open_orders(game_id)
+        starting_open_orders = len(open_orders)
+        self.assertEqual(starting_open_orders, 4)
+        for order_id, _ in open_orders.items():
+            process_order(order_id)
+        new_open_orders = get_all_open_orders(game_id)
+        self.assertLessEqual(starting_open_orders - len(new_open_orders), 4)
 
 
 class TestStatsProduction(BaseTestCase):
@@ -662,8 +673,15 @@ class TestTaskLocking(BaseTestCase):
         """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
         want this to happen because it can result in an order being cleared multiple times
         """
-        game_id = 3
         rds.flushall()
+        game_id = 3
+
+        # seed the open orders and portfolio table
+        user_ids = get_active_game_user_ids(game_id)
+        for user_id in user_ids:
+            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
+
         res1 = async_process_all_orders_in_game.delay(game_id)
         res2 = async_process_all_orders_in_game.delay(game_id)
         res3 = async_process_all_orders_in_game.delay(game_id)

@@ -69,6 +69,7 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     format_time_for_response,
     update_order_details_table,
+    serialize_and_pack_portfolio_details,
     ORDER_DETAILS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -81,7 +82,6 @@ from backend.logic.visuals import (
 from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
-    async_update_game_data,
     async_calculate_key_metrics
 )
 from backend.tasks.redis import unpack_redis_json
@@ -400,7 +400,6 @@ def api_place_order():
     stop_limit_price = order_ticket.get("stop_limit_price")
     if stop_limit_price:
         stop_limit_price = float(stop_limit_price)
-
     try:
         symbol = order_ticket["symbol"].upper()  # ensure upper casing
         market_price, _ = fetch_price(symbol)
@@ -423,7 +422,7 @@ def api_place_order():
         return make_response(str(e), 400)
 
     update_order_details_table(game_id, user_id, order_id, "add")
-    async_update_game_data.delay(game_id)
+    serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 

@@ -12,6 +12,8 @@ services:
     volumes:
       - ./backend/docker/init.sql:/init.sql
       - ./backend/docker/.my.cnf:/root/.my.cnf
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
 
   rabbitmq:
     image: rabbitmq:3-management-alpine

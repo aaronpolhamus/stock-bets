@@ -100,7 +100,7 @@ def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
     return utc_dt.astimezone(tz)
 
 
-def get_end_of_last_trading_day(ref_time=None) -> float:
+def get_end_of_last_trading_day(ref_time: float = None) -> float:
     """Note, if any trading happens during this day this will return the end of the current day
     """
     if ref_time is None:
