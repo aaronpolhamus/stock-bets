@@ -116,10 +116,8 @@ class TestGameLogic(BaseTestCase):
         for stock, holding in all_test_user_holdings.items():
             self.assertEqual(expctd[stock], holding)
 
-        # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
-        # all games on the platform
-        expected = [9, 10, 13, 14]
-        all_open_orders = get_all_open_orders()
+        expected = [9, 10]
+        all_open_orders = get_all_open_orders(game_id)
         self.assertEqual(len(expected), len(all_open_orders))
 
         with self.engine.connect() as conn:
@@ -128,7 +126,7 @@ class TestGameLogic(BaseTestCase):
             """, expected)
 
         stocks = [x[0] for x in res]
-        self.assertEqual(stocks, ["MELI", "SPXU", "SQQQ", "SPXU"])
+        self.assertEqual(stocks, ["MELI", "SPXU"])
 
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games

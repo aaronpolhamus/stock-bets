@@ -161,8 +161,7 @@ const GameSettings = ({ gameInfo }) => {
                 </Form>
               </Modal.Body>
             </Modal>
-          </>
-        }
+          </>}
       </Row>
     </>
   )
