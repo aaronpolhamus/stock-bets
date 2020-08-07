@@ -193,14 +193,10 @@ export default function Login () {
   }
 
   const handleLoginError = (error) => {
-    if (error.response.status === 401) {
-      window && window.alert(
-        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of August, but email contact@stockbets.io for access before that :)"
-      )
-    } else if (error.response.status === 403) {
+    if (error.response.status === 403) {
       window && window.alert(error.response.data)
     } else {
-      window && window.alert(error.response.data)
+      window.alert("Something seems to have gone terribly wrong. We apologize for that! Please send us an email at contact@stockbets.io and we'll sort it out right away.")
     }
   }
 
