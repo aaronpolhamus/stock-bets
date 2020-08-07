@@ -200,7 +200,7 @@ export default function Login () {
     } else if (error.response.status === 403) {
       window && window.alert(error.response.data)
     } else {
-      window.alert("Something seems to have gone terribly wrong. We apologize for that! Please send us an email at contact@stockbets.io and we'll sort it out right away.")
+      window && window.alert(error.response.data)
     }
   }
 
