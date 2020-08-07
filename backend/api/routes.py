@@ -158,7 +158,7 @@ def login():
     """
     current_time = time.time()
     login_data = request.json  # in the case of a different platform provider, this is just the oauth response
-    is_signup = login_data.get("is_signup")
+    is_sign_up = login_data.get("is_sign_up")
     provider = login_data.get("provider")
     password = login_data.get("password")
     name = login_data.get("name")
@@ -203,7 +203,7 @@ def login():
         if not check_against_invited_users(email):
             return make_response(NOT_INVITED_EMAIL, 401)
 
-    if is_signup:
+    if is_sign_up:
         user_id = setup_new_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
         add_external_game_invites(email, user_id)
 

@@ -193,7 +193,7 @@ export default function Login () {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
     responseCopy.provider = provider
-    responseCopy.is_signup = loginSelection === 'signUp'
+    responseCopy.is_sign_up = loginSelection === 'signUp'
     try {
       await api
         .post('/api/login', responseCopy)
@@ -209,7 +209,7 @@ export default function Login () {
     e.preventDefault()
     try {
       await api
-        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, is_signup: loginSelection === 'signUp' })
+        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, is_sign_up: loginSelection === 'signUp' })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
       window && window.alert(
