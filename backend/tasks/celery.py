@@ -63,6 +63,11 @@ celery.conf.beat_schedule = {
         "task": "async_fetch_active_symbol_prices",
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
     },
+    # make sure that we have EOD_closing prices for all symbols
+    "fetch_active_symbol_prices_eod": {
+        "task": "async_fetch_active_symbol_prices",
+        "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
+    },
     "update_index_values": {
         "task": "async_update_all_index_values",
         "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
@@ -75,10 +80,10 @@ celery.conf.beat_schedule = {
         "task": "async_update_all_games",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-15", day_of_week="1-5")
     },
-    # final EOD check 5 mins after close just to make sure that all statuses are fully updated
+    # final EOD check 10 mins after close just to make sure that all statuses are fully updated
     "update_all_games_eod": {
         "task": "async_update_all_games",
-        "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
+        "schedule": crontab(minute="10", hour="16", day_of_week="1-5")
     },
     # we need to keep updating games on the weekend, but only four times a day for now
     "update_all_games_weekend": {

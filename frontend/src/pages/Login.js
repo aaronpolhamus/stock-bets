@@ -4,7 +4,7 @@ import GoogleLogin from 'react-google-login'
 import FacebookLogin from 'react-facebook-login/dist/facebook-login-render-props'
 import api from 'services/api'
 
-import { Container, Row, Col } from 'react-bootstrap'
+import { Container, Row, Col, Form, Button } from 'react-bootstrap'
 import { Content } from 'components/layout/Layout'
 import { ReactComponent as Logo } from 'assets/logo.svg'
 import { SmallText } from 'components/textComponents/Text'
@@ -151,7 +151,12 @@ const FooterLinks = styled.div`
     text-align: right;
     right: 2vw;
   }
+`
 
+const LoginText = styled.div`
+  p {
+    color: var(--color-text-primart)
+  }
 `
 
 function responseError (response) {
@@ -160,19 +165,34 @@ function responseError (response) {
 
 export default function Login () {
   const [redirect, setRedirect] = useState(false)
+  const [loginEmail, setLoginEmail] = useState(null)
+  const [loginPassword, setLoginPassword] = useState(null)
 
   const detectProvider = (response) => {
     if (Object.keys(response).includes('googleId')) return 'google'
     if (response.graphDomain === 'facebook') return 'facebook'
   }
 
-  const handleSubmit = async (response) => {
+  const handleOAuthSubmit = async (response) => {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
     responseCopy.provider = provider
     try {
       await api
         .post('/api/login', responseCopy)
+        .then((r) => console.log({ r }) || setRedirect(true))
+    } catch (error) {
+      window && window.alert(
+        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email contact@stockbets.io for access before that :)"
+      )
+    }
+  }
+
+  const handleUserPasswordSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      await api
+        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
       window && window.alert(
@@ -189,20 +209,15 @@ export default function Login () {
           <LeftCol md={6}>
             <LeftColContent>
               <StyledLogo />
-              <p>
-                <span>Trade as a pro, </span>
-                <em>
-                  just for fun.
-                </em>
-              </p>
             </LeftColContent>
           </LeftCol>
           <RightCol md={6}>
+            <LoginText>Welcome! If this is your visit we'll automatically create your account for you</LoginText>
             <p>
               <GoogleLogin
                 clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
                 buttonText='Login with Google'
-                onSuccess={handleSubmit}
+                onSuccess={handleOAuthSubmit}
                 onFailure={responseError}
                 cookiePolicy='single_host_origin'
                 render={(renderProps) => (
@@ -219,7 +234,7 @@ export default function Login () {
                 appId={process.env.REACT_APP_FACEBOOK_APP_ID}
                 disableMobileRedirect
                 fields='name,email,picture'
-                callback={handleSubmit}
+                callback={handleOAuthSubmit}
                 render={(renderProps) => (
                   <LoginButton onClick={renderProps.onClick}>
                     <StyledFaIcon
@@ -230,6 +245,19 @@ export default function Login () {
                   </LoginButton>
                 )}
               />
+              <hr />
+              <LoginText>Or if you prefer, login with a password...</LoginText>
+              <Form onSubmit={handleUserPasswordSubmit}>
+                <Form.Group>
+                  <Form.Control type='email' placeholder='Enter email' onChange={(e) => setLoginEmail(e.target.value)} />
+                </Form.Group>
+                <Form.Group>
+                  <Form.Control type='text' placeholder='Enter password (pick a good one if this is your first visit)' onChange={(e) => setLoginPassword(e.target.value)} />
+                </Form.Group>
+                <Button type='submit'>
+                  Login
+                </Button>
+              </Form>
             </p>
             <FooterLinks>
               <SmallText color='var(--color-secondary)'>

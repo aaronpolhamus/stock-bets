@@ -100,7 +100,7 @@ def posix_to_datetime(ts: float, divide_by: int = 1, timezone=TIMEZONE) -> dt:
     return utc_dt.astimezone(tz)
 
 
-def get_end_of_last_trading_day(ref_time=None) -> float:
+def get_end_of_last_trading_day(ref_time: float = None) -> float:
     """Note, if any trading happens during this day this will return the end of the current day
     """
     if ref_time is None:
@@ -440,9 +440,20 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
-    # if we only observe cash in the balances, that means the game has only just kicked off.
+    # if we only observe cash in the balances, that means the game has only just kicked off or they haven't ordered.
     if set(df["symbol"].unique()) == {'Cash'}:
-        return df
+        min_time = df["timestamp"].min()
+        max_time = df["timestamp"].max()
+        trade_days_df = get_trading_calendar(min_time, max_time)
+        if trade_days_df.empty:
+            return df
+
+        # this bit of logic checks whether any trading hours have happened, if if the user hasn't ordered
+        trade_days_df = trade_days_df[
+            (trade_days_df["market_close"] >= min_time) & (trade_days_df["market_open"] <= max_time)]
+        if trade_days_df.empty:
+            return df
+
     days = df["timestamp"].dt.normalize().unique()
     schedule_df = get_trading_calendar(min(days).date(), max(days).date())
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
@@ -540,13 +551,14 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     testing env where you need to "freeze" time to the test fixture window.
     """
     balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
-    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
-        return cached_df.reset_index(drop=True)
-    balances_df = add_bookends(balances_df, end_time=end_time)
+        balances_df = add_bookends(cached_df, end_time=end_time)
+    else:
+        balances_df = add_bookends(balances_df, end_time=end_time)
     update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
     update_df = filter_for_trade_time(update_df)
     apply_validation(update_df, balances_and_prices_table_schema, strict=True)
+    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     df = pd.concat([cached_df, update_df], axis=0)
     df["timestamp"] = pd.to_datetime(df["timestamp"])  # this ensure datetime dtype for when cached_df is empty
     df = df[~df.duplicated(["symbol", "timestamp"])]

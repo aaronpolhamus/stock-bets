@@ -11,11 +11,13 @@ from backend.api.routes import (
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
 )
+from backend.config import Config
 from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
     query_to_dict,
+    aws_client
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
@@ -49,13 +51,12 @@ from backend.logic.visuals import (
     USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
+from backend.tasks.airflow import trigger_dag
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
-from backend.tasks.airflow import trigger_dag
 from backend.tests import BaseTestCase
-from backend.config import Config
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -63,7 +64,6 @@ HOST_URL = 'https://localhost:5000/api'
 class TestUserManagement(BaseTestCase):
 
     def test_jwt_and_authentication(self):
-        # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
         res = self.requests_session.post(f"{HOST_URL}/login",
                                          json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
@@ -165,6 +165,16 @@ class TestUserManagement(BaseTestCase):
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
+
+    def test_username_and_pwd_login(self):
+        email = "me@example.com"
+        password = "secret"
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email),
+                                         verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_entry = query_to_dict("SELECT * FROM users WHERE email = %s;", email)[0]
+        self.assertEqual(user_entry["password"], password)
 
 
 class TestCreateGame(BaseTestCase):
@@ -330,7 +340,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 8)
+        self.assertEqual(len(init_balances_entry["headers"]), 9)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
@@ -452,9 +462,12 @@ class TestPlayGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
                                          verify=False, json=order_ticket)
         self.assertEqual(res.status_code, 200)
-        res = rds.get(f"open_orders_{game_id}_{user_id}")
-        while res is None:
-            res = rds.get(f"open_orders_{game_id}_{user_id}")
+
+        # these assets update in real time
+        self.assertIsNotNone(rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(rds.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+
+        trigger_dag("update_game_dag", game_id=game_id)
 
         with self.engine.connect() as conn:
             last_order = conn.execute("""
@@ -567,6 +580,21 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
         self.assertNotIn("JETS", stocks_in_table_response)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table",
+                                         cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table",
+                                         cookies={"session_token": session_token}, verify=False,
+                                         json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        # this just test that last close is at least producing something -- the backgroun test data isn't setup to
+        # produce meaningful results, yet.
+        nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
+        self.assertEqual(nvda_entry, "0.00%")
 
 
 class TestGetGameStats(BaseTestCase):

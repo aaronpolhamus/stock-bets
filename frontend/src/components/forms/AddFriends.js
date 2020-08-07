@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react'
+import React, {useState} from 'react'
 import {Button, Form, Modal} from 'react-bootstrap'
 import {AuxiliarText, FlexRow} from 'components/textComponents/Text'
 import {AsyncTypeahead, Typeahead} from 'react-bootstrap-typeahead'
@@ -10,7 +10,6 @@ import {isEmail, ReactMultiEmail} from 'react-multi-email';
 import 'react-multi-email/style.css';
 import PropTypes from 'prop-types'
 import styled from "styled-components";
-import {breakpoints} from "../../design-tokens";
 import {Tooltip} from "./Tooltips";
 
 const AddFriends = ({variant}) => {

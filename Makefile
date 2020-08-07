@@ -109,8 +109,8 @@ backend-test: db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets --acl public-read
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
 api-logs:
 	docker-compose logs -f api
@@ -172,3 +172,8 @@ frontend-deploy:
 	NODE_ENV=production npm run-script build --prefix frontend
 	aws s3 sync frontend/build s3://app.stockbets.io --delete
 	aws cloudfront create-invalidation --distribution-id E2PFNY4LEJWBAH --paths "/*"
+
+# local debugging helpers
+# ------------------------
+make jupyter:
+	docker-compose exec api jupyter notebook --ip=0.0.0.0 --allow-root --port 8050

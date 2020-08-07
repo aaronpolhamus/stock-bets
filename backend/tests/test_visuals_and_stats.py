@@ -123,7 +123,6 @@ class TestGameKickoff(BaseTestCase):
 
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
-        self.assertEqual(len(a_current_balance_table["headers"]), 8)
 
         an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["orders"]["pending"], [])
@@ -294,7 +293,7 @@ class TestVisuals(BaseTestCase):
 
 class TestWinnerPayouts(BaseTestCase):
 
-    def test_winnner_payouts(self):
+    def test_winner_payouts(self):
         """Use canonical game #3 to simulate a series of winner calculations on the test data. Note that since we only
         have a week of test data, we'll effectively recycle the same information via mocks
         """
