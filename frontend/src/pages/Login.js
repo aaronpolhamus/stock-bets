@@ -71,11 +71,8 @@ const RightCol = styled(Col)`
     }
   }
   @media screen and (max-width: ${breakpoints.md}){
-    position: fixed;
-    height: 47vh;
-    bottom: 0;
-    left: 0;
-    width: 100%;
+    height: auto;
+    padding: 0;
   }
 `
 
@@ -85,10 +82,7 @@ const LeftCol = styled(Col)`
   flex-wrap: wrap;
   align-items: center;
   @media screen and (max-width: ${breakpoints.md}){
-    width: 90%;
-    position: fixed;
-    top: 0;
-    left: 5%;
+    height: 25vh;
   }
 `
 
@@ -137,16 +131,17 @@ const LeftColContent = styled.div`
 `
 
 const FooterLinks = styled.div`
-  position: fixed;
-  bottom: 3vh;
   width: 80%;
+  margin-top: 2rem;
   line-height: 1.2;
   a{
     color: inherit;
     font-weight: bold;
   }
   @media screen and (min-width: ${breakpoints.md}){
+    bottom: 3vh;
     text-align: right;
+    position: fixed;
     right: 2vw;
   }
 `
@@ -225,7 +220,7 @@ export default function Login () {
 
   if (redirect) return <Redirect to='/' />
   return (
-    <Content height='100vh' alignItems='center' display='flex'>
+    <Content minHeight='100vh' alignItems='center' display='flex'>
       <Container fluid>
         <Row>
           <LeftCol md={6}>
