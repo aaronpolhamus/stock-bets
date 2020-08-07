@@ -724,15 +724,17 @@ def get_most_recent_prices(symbols):
 def get_last_close_prices(symbols: List):
     current_time = time.time()
     end_time = get_end_of_last_trading_day(current_time - SECONDS_IN_A_DAY)
+    sql = f"""
+    SELECT p.symbol, p.price as close_price
+    FROM prices p
+    INNER JOIN (
+    SELECT symbol, max(id) as max_id
+      FROM prices
+      WHERE symbol IN ({', '.join(["%s"] * len(symbols))}) AND timestamp <= %s
+      GROUP BY symbol) max_price
+    ON p.id = max_price.max_id;"""
     with engine.connect() as conn:
-        return pd.read_sql(f"""
-            SELECT symbol, price as close_price
-            FROM prices
-            WHERE 
-              symbol IN ({', '.join(["%s"] * len(symbols))}) AND
-              timestamp <= %s
-            ORDER BY timestamp DESC LIMIT 1;
-        """, conn, params=list(symbols) + [end_time])
+        return pd.read_sql(sql, conn, params=list(symbols) + [end_time])
 
 
 def serialize_and_pack_portfolio_details(game_id: int, user_id: int):

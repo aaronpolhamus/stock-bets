@@ -15,9 +15,9 @@ from backend.database.fixtures.mock_data import (
 )
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
-    make_user_entry_from_google,
-    register_user,
-    register_username_with_token
+    setup_new_user,
+    register_username_with_token,
+    add_external_game_invites
 )
 from backend.logic.base import (
     get_user_ids_from_passed_emails,
@@ -1021,26 +1021,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         # external user from [A] has two email game invitations. when they sign in, they'll have two game invitations
         # waiting for them. their platform invitation will register as accepted. the game_invites table will reflect
         # their new entries, and the game_status 'pending' entry will update with their user ids
-        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
-            class GoogleOAuthMock:
-                status_code = 200
-
-                def __init__(self, email, uuid):
-                    self._email = email
-                    self._uuid = uuid
-
-                def json(self):
-                    return dict(given_name="frederick",
-                                email=self._email,
-                                picture="not_relevant",
-                                username=None,
-                                created_at=time.time(),
-                                provider="google",
-                                resource_uuid=self._uuid)
-
-            oauth_response_mock.return_value = GoogleOAuthMock(external_email_1, "unique1")
-            user_entry, resource_uuid, status_code = make_user_entry_from_google("abc123", "cde456")
-            register_user(user_entry)
+        user_id = setup_new_user("frederick", external_email_1, "not_relevant", time.time(), "google", "unique1", None)
+        add_external_game_invites(external_email_1, user_id)
 
         with self.engine.connect() as conn:
             updated_game_invite_count = conn.execute("""
@@ -1059,26 +1041,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         respond_to_game_invite(game_1_id, external_example_user_id, "joined", time.time())
 
         # finally, the last external user will join the game to kick it off
-        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
-            class GoogleOAuthMock(object):
-                status_code = 200
-
-                def __init__(self, email, uuid):
-                    self._email = email
-                    self._uuid = uuid
-
-                def json(self):
-                    return dict(given_name="frederick2",
-                                email=self._email,
-                                picture="not_relevant",
-                                username=None,
-                                created_at=time.time(),
-                                provider="google",
-                                resource_uuid=self._uuid)
-
-            oauth_response_mock.return_value = GoogleOAuthMock(second_external_user, "unique2")
-            user_entry, resource_uuid, status_code = make_user_entry_from_google("fgh789", "ijk101")
-            register_user(user_entry)
+        user_id = setup_new_user("frederick2", second_external_user, "not_relevant", time.time(), "google", "unique2", None)
+        add_external_game_invites(second_external_user, user_id)
 
         # quick patch to simulate that this user has successfuly picked a username
         with self.engine.connect() as conn:

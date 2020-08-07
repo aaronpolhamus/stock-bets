@@ -10,13 +10,15 @@ from backend.api.routes import (
     USERNAME_TAKE_ERROR_MSG,
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
+    EMAIL_NOT_FOUND_MSG,
+    EMAIL_ALREADY_LOGGED_MSG
 )
 from backend.config import Config
 from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
-    query_to_dict,
+    query_to_dict
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
@@ -63,7 +65,6 @@ HOST_URL = 'https://localhost:5000/api'
 class TestUserManagement(BaseTestCase):
 
     def test_jwt_and_authentication(self):
-        # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
         res = self.requests_session.post(f"{HOST_URL}/login",
                                          json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
@@ -78,7 +79,7 @@ class TestUserManagement(BaseTestCase):
 
         # token creation and landing
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, username, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
 
         session_token = create_jwt(email, user_id, username)
@@ -137,7 +138,7 @@ class TestUserManagement(BaseTestCase):
     def test_set_username(self):
         # set username endpoint test
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, username, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
 
         self.assertIsNone(username)
@@ -158,13 +159,39 @@ class TestUserManagement(BaseTestCase):
 
         # take username fails with 400 error
         with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, user_name, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
+
+    def test_username_and_pwd_login(self):
+        email = "me@example.com"
+        password = "secret"
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email),
+                                         verify=False)
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.text, EMAIL_NOT_FOUND_MSG)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email,
+                                                   is_sign_up=True), verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_entry = query_to_dict("SELECT * FROM users WHERE email = %s;", email)[0]
+        self.assertEqual(user_entry["password"], password)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email,
+                                                   is_sign_up=True), verify=False)
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.text, EMAIL_ALREADY_LOGGED_MSG)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email), verify=False)
+        self.assertEqual(res.status_code, 200)
 
 
 class TestCreateGame(BaseTestCase):
@@ -576,7 +603,9 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table", cookies={"session_token": session_token}, verify=False, json={"game_id": game_id})
+        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table",
+                                         cookies={"session_token": session_token}, verify=False,
+                                         json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
         # this just test that last close is at least producing something -- the backgroun test data isn't setup to

@@ -152,8 +152,8 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 @task_lock(key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
-def async_update_game_data(self, game_id):
-    trigger_dag("update_game_dag", game_id=game_id)
+def async_update_game_data(self, game_id, start_time=None, end_time=None):
+    trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
 # ----------- #
 # Key metrics #
