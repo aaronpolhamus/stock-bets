@@ -7,7 +7,7 @@ import api from 'services/api'
 import { Container, Row, Col, Form, Button } from 'react-bootstrap'
 import { Content } from 'components/layout/Layout'
 import { ReactComponent as Logo } from 'assets/logo.svg'
-import { SmallText } from 'components/textComponents/Text'
+import { Subtext, SmallText, AlignText } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
@@ -53,9 +53,6 @@ const RightCol = styled(Col)`
     padding: 8vw;
     justify-content: flex-start;
 
-    button {
-      display: block;
-    }
     br{
       display: none;
     }
@@ -103,7 +100,7 @@ const LoginButton = styled.button`
   font-size: var(--font-size-normal);
   font-weight: bold;
   border: none;
-  padding: var(--space-100);
+  padding: 0 var(--space-100) var(--space-100) 0;
   span {
     position: relative;
     transition: all 0.2s;
@@ -154,21 +151,33 @@ const FooterLinks = styled.div`
   }
 `
 
-const LoginText = styled.div`
-  p {
-    color: var(--color-text-primary)
+const LoginDialog = styled.div`
+  background-color: #fff;
+  width: 90vw;
+  max-width: 344px;
+  border-radius: var(--space-100);
+  box-shadow: var(--shadow-area);
+  form small {
+    margin-top: var(--space-300);
+    margin-bottom: var(--space-400);
+  }
+`
+const LoginDialogContent = styled.div`
+  padding: var(--space-400);
+  padding-bottom: var(--space-500);
+`
+const LoginDialogHeader = styled.div`
+  .form-check{
+    width: 50%;
+    label{
+      height: var(--space-700);
+      align-items: center;
+      justify-content: center;
+    }
   }
 `
 
-const LoginDialog = styled.div`
-  background-color: #fff;
-  padding: 0 var(--space-400) var(--space-400);
-  width: 90vw;
-  max-width: 344px;
-  min-height: 540px;
-  border-radius: var(--space-100);
-  box-shadow: var(--shadow-area);
-`
+const LoginDialogAuths = styled.div``
 
 function responseError (response) {
   return response
@@ -189,7 +198,7 @@ export default function Login () {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
     responseCopy.provider = provider
-    responseCopy.isLogin = true
+    responseCopy.isSignUp = loginSelection === 'signUp'
     try {
       await api
         .post('/api/login', responseCopy)
@@ -205,7 +214,7 @@ export default function Login () {
     e.preventDefault()
     try {
       await api
-        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, isLogin: true })
+        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, isSignUp: loginSelection === 'signUp' })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
       window && window.alert(
@@ -226,65 +235,71 @@ export default function Login () {
           </LeftCol>
           <RightCol md={6}>
             <LoginDialog>
-              <TabbedRadioButtons
-                defaultChecked={loginSelection}
-                onClick={(e) => {
-                  setLoginSelection(e.target.value)
-                }}
-                options={{
-                  signUp: 'Sign Up',
-                  logIn: 'Log In'
-                }}
-              />
-              <p>
-                <GoogleLogin
-                  clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
-                  buttonText='Login with Google'
-                  onSuccess={handleOAuthSubmit}
-                  onFailure={responseError}
-                  cookiePolicy='single_host_origin'
-                  render={(renderProps) => (
-                    <LoginButton onClick={renderProps.onClick}>
-                      <StyledFaIcon
-                        icon={faGoogle}
-                        color='var(--color-primary)'
-                      />{' '}
-                      <span>
-                        {loginSelection === 'signUp'
-                          ? 'Sign up with Google'
-                          : 'Login with Google'
-                        }
-                      </span>
-                    </LoginButton>
-                  )}
+              <LoginDialogHeader>
+                <TabbedRadioButtons
+                  defaultChecked={loginSelection}
+                  onClick={(e) => {
+                    setLoginSelection(e.target.value)
+                  }}
+                  options={{
+                    signUp: 'Sign Up',
+                    logIn: 'Log In'
+                  }}
                 />
-                <FacebookLogin
-                  appId={process.env.REACT_APP_FACEBOOK_APP_ID}
-                  disableMobileRedirect
-                  fields='name,email,picture'
-                  callback={handleOAuthSubmit}
-                  render={(renderProps) => (
-                    <LoginButton onClick={renderProps.onClick}>
-                      <StyledFaIcon
-                        icon={faFacebook}
-                        color='var(--color-primary)'
-                      />{' '}
-                      <span>
-                        {loginSelection === 'signUp'
-                          ? 'Sign up with Facebook'
-                          : 'Login with Facebook'
-                        }
-                      </span>
-                    </LoginButton>
-                  )}
-                />
-                <LoginText>
-                  {loginSelection === 'signUp'
-                    ? 'Or if you prefer create an account with an email an password'
-                    : 'Or login with your email and password'
-                  }
-                </LoginText>
-                <Form onSubmit={handleUserPasswordSubmit}>
+              </LoginDialogHeader>
+              <LoginDialogContent>
+                <LoginDialogAuths>
+                  <GoogleLogin
+                    clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
+                    buttonText='Login with Google'
+                    onSuccess={handleOAuthSubmit}
+                    onFailure={responseError}
+                    cookiePolicy='single_host_origin'
+                    render={(renderProps) => (
+                      <LoginButton onClick={renderProps.onClick}>
+                        <StyledFaIcon
+                          icon={faGoogle}
+                          color='var(--color-primary)'
+                        />{' '}
+                        <span>
+                          {loginSelection === 'signUp'
+                            ? 'Sign up with Google'
+                            : 'Login with Google'
+                          }
+                        </span>
+                      </LoginButton>
+                    )}
+                  />
+                  <FacebookLogin
+                    appId={process.env.REACT_APP_FACEBOOK_APP_ID}
+                    disableMobileRedirect
+                    fields='name,email,picture'
+                    callback={handleOAuthSubmit}
+                    render={(renderProps) => (
+                      <LoginButton onClick={renderProps.onClick}>
+                        <StyledFaIcon
+                          icon={faFacebook}
+                          color='var(--color-primary)'
+                        />{' '}
+                        <span>
+                          {loginSelection === 'signUp'
+                            ? 'Sign up with Facebook'
+                            : 'Login with Facebook'
+                          }
+                        </span>
+                      </LoginButton>
+                    )}
+                  />
+                </LoginDialogAuths>
+                <Form
+                  onSubmit={handleUserPasswordSubmit}
+                >
+                  <Subtext>
+                    {loginSelection === 'signUp'
+                      ? 'Or create an account with an email an password'
+                      : 'Or login with your email and password'
+                    }
+                  </Subtext>
                   <Form.Group>
                     <Form.Label>
                       Email
@@ -306,14 +321,16 @@ export default function Login () {
                       }
                       onChange={(e) => setLoginPassword(e.target.value)} />
                   </Form.Group>
-                  <Button type='submit'>
-                    {loginSelection === 'signUp'
-                      ? 'Create account'
-                      : 'Enter stockbets'
-                    }
-                  </Button>
+                  <AlignText align='center'>
+                    <Button type='submit'>
+                      {loginSelection === 'signUp'
+                        ? 'Create account'
+                        : 'Enter stockbets'
+                      }
+                    </Button>
+                  </AlignText>
                 </Form>
-              </p>
+              </LoginDialogContent>
             </LoginDialog>
             <FooterLinks>
               <SmallText color='var(--color-secondary)'>
