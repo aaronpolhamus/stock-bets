@@ -9,12 +9,15 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from backend.database.fixtures.mock_data import simulation_end_time
+from backend.database.fixtures.mock_data import (
+    simulation_start_time,
+    simulation_end_time
+)
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
-    make_user_entry_from_google,
-    register_user,
-    register_username_with_token
+    setup_new_user,
+    register_username_with_token,
+    add_external_game_invites
 )
 from backend.logic.base import (
     get_user_ids_from_passed_emails,
@@ -29,7 +32,6 @@ from backend.logic.games import (
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
-    get_order_ticket,
     process_order,
     execute_order,
     make_random_game_title,
@@ -54,7 +56,8 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    get_external_invite_list_by_status
+    get_external_invite_list_by_status,
+    init_game_assets
 )
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -113,10 +116,8 @@ class TestGameLogic(BaseTestCase):
         for stock, holding in all_test_user_holdings.items():
             self.assertEqual(expctd[stock], holding)
 
-        # For now game_id #3 is the only mocked game that has orders, but this should capture all open orders for
-        # all games on the platform
-        expected = [9, 10, 13, 14]
-        all_open_orders = get_all_open_orders()
+        expected = [9, 10]
+        all_open_orders = get_all_open_orders(game_id)
         self.assertEqual(len(expected), len(all_open_orders))
 
         with self.engine.connect() as conn:
@@ -125,7 +126,7 @@ class TestGameLogic(BaseTestCase):
             """, expected)
 
         stocks = [x[0] for x in res]
-        self.assertEqual(stocks, ["MELI", "SPXU", "SQQQ", "SPXU"])
+        self.assertEqual(stocks, ["MELI", "SPXU"])
 
     def test_game_management(self):
         """Tests of functions associated with starting, joining, and updating games
@@ -279,8 +280,8 @@ class TestGameLogic(BaseTestCase):
                             mock_sell_order["time_in_force"])
 
     def test_cash_balance_and_buying_power(self):
-        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. Since buying power
-        is current cash balance - pendin
+        """Here we have pre-staged orders for MELI from the mock data, and we'll add one for NVDA. We exect to see
+        outstanding buy order value being the sum of the  MELI order + the value of the new NVDA order
         """
         user_id = 1
         game_id = 3
@@ -289,8 +290,9 @@ class TestGameLogic(BaseTestCase):
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
+        new_order_time = simulation_start_time + 60 * 60 * 12  # after hours
         with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = base_time_mock.time.return_value = 1592202332
+            game_time_mock.time.return_value = base_time_mock.time.return_value = new_order_time
             place_order(user_id,
                         game_id,
                         symbol=buy_stock,
@@ -304,11 +306,11 @@ class TestGameLogic(BaseTestCase):
                         time_in_force="until_cancelled")
 
         with patch("backend.logic.base.fetch_price") as fetch_price_mock:
-            fetch_price_mock.return_value = (market_price, 1592202332)
+            fetch_price_mock.return_value = (market_price, new_order_time)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
         mock_data_meli_order_id = 9
-        meli_ticket = get_order_ticket(mock_data_meli_order_id)
+        meli_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", mock_data_meli_order_id)[0]
 
         # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
         self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
@@ -487,7 +489,7 @@ class TestGameLogic(BaseTestCase):
         init_order_details(game_id, user_id)
         test_data_array = [(13, 1592573410.15422, "SQQQ", 7.990), (14, 1592573410.71635, "SPXU", 11.305)]
         for order_id, timestamp, symbol, market_price in test_data_array:
-            order_ticket = get_order_ticket(order_id)
+            order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id)[0]
             cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
             with patch("backend.logic.games.time") as game_time_mock, patch(
                     "backend.logic.games.fetch_price") as fetch_price_mock, patch(
@@ -497,6 +499,56 @@ class TestGameLogic(BaseTestCase):
                 process_order(order_id)
                 new_cash_balance = get_current_game_cash_balance(user_id=user_id, game_id=game_id)
                 self.assertAlmostEqual(new_cash_balance, cash_balance - market_price * order_ticket["quantity"], 3)
+
+
+class TestRebookMarketOrder(BaseTestCase):
+
+    def test_rebook_market_order(self):
+        """A market order's clear price and quantity after hours is calculated based on the previous day's close. In
+        some cases the price moves enough that the order is no longer valid. This test behavior to automatically adjust
+        the purchase quantity and clear the order"""
+        user_id = 1
+        game_id = 3
+        init_game_assets(game_id)
+
+        symbol = "JPM"
+        cash_on_hand = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, symbol)
+        day_1_market_price = 100
+        original_order_quantity = cash_on_hand // day_1_market_price
+        with patch("backend.logic.base.time") as base_time_mock:
+            base_time_mock.time.return_value = 1596485499.580801
+
+            order_id = place_order(
+                user_id,
+                game_id,
+                symbol,
+                "buy",
+                cash_on_hand,
+                current_holding,
+                "market",
+                "Shares",
+                day_1_market_price,
+                original_order_quantity,
+                "until_cancelled")
+
+        with patch("backend.logic.base.time") as base_time_mock, patch(
+                "backend.logic.games.fetch_price") as fetch_price_mock:
+            base_time_mock.time.return_value = 1596557499.580801
+            mock_price = 150
+            fetch_price_mock.return_value = mock_price, 1596557499.580801
+            process_order(order_id)
+
+        original_order_status = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id)[0]
+        self.assertEqual(original_order_status["status"], "cancelled")
+
+        updated_order_status = query_to_dict(
+            "SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1", order_id + 1)[0]
+        self.assertEqual(updated_order_status["status"], "fulfilled")
+
+        updated_order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id + 1)[0]
+        self.assertEqual(updated_order_ticket["quantity"], cash_on_hand // mock_price)
 
 
 class TestOrderLogic(unittest.TestCase):
@@ -733,6 +785,7 @@ class TestSchemaValidation(TestCase):
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
+        # a column is missing
         df = pd.DataFrame(
             dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
@@ -747,6 +800,13 @@ class TestSchemaValidation(TestCase):
         df.loc[0, "value"] = np.nan
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
+
+        # strict mode is on, and there is an extra column
+        df = pd.DataFrame(
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+                 timestamp=[dt.now(), dt.now(), dt.now()], bad_column=["x", "y", "z"]))
+        with self.assertRaises(FailedValidation):
+            apply_validation(df, balances_chart_schema, strict=True)
 
 
 class TestGameExpiration(BaseTestCase):
@@ -961,26 +1021,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         # external user from [A] has two email game invitations. when they sign in, they'll have two game invitations
         # waiting for them. their platform invitation will register as accepted. the game_invites table will reflect
         # their new entries, and the game_status 'pending' entry will update with their user ids
-        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
-            class GoogleOAuthMock:
-                status_code = 200
-
-                def __init__(self, email, uuid):
-                    self._email = email
-                    self._uuid = uuid
-
-                def json(self):
-                    return dict(given_name="frederick",
-                                email=self._email,
-                                picture="not_relevant",
-                                username=None,
-                                created_at=time.time(),
-                                provider="google",
-                                resource_uuid=self._uuid)
-
-            oauth_response_mock.return_value = GoogleOAuthMock(external_email_1, "unique1")
-            user_entry, resource_uuid, status_code = make_user_entry_from_google("abc123", "cde456")
-            register_user(user_entry)
+        user_id = setup_new_user("frederick", external_email_1, "not_relevant", time.time(), "google", "unique1", None)
+        add_external_game_invites(external_email_1, user_id)
 
         with self.engine.connect() as conn:
             updated_game_invite_count = conn.execute("""
@@ -999,26 +1041,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         respond_to_game_invite(game_1_id, external_example_user_id, "joined", time.time())
 
         # finally, the last external user will join the game to kick it off
-        with patch("backend.logic.auth.verify_google_oauth") as oauth_response_mock:
-            class GoogleOAuthMock(object):
-                status_code = 200
-
-                def __init__(self, email, uuid):
-                    self._email = email
-                    self._uuid = uuid
-
-                def json(self):
-                    return dict(given_name="frederick2",
-                                email=self._email,
-                                picture="not_relevant",
-                                username=None,
-                                created_at=time.time(),
-                                provider="google",
-                                resource_uuid=self._uuid)
-
-            oauth_response_mock.return_value = GoogleOAuthMock(second_external_user, "unique2")
-            user_entry, resource_uuid, status_code = make_user_entry_from_google("fgh789", "ijk101")
-            register_user(user_entry)
+        user_id = setup_new_user("frederick2", second_external_user, "not_relevant", time.time(), "google", "unique2", None)
+        add_external_game_invites(second_external_user, user_id)
 
         # quick patch to simulate that this user has successfuly picked a username
         with self.engine.connect() as conn:

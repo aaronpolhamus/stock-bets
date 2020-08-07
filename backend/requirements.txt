@@ -1,3 +1,6 @@
+apache-airflow[celery,redis,rabbitmq]==1.10.11
+awscli==1.18.101
+boto3==1.14.24
 celery==4.4.2
 Flask==1.0.2
 Flask_Cors==3.0.8
@@ -24,3 +27,4 @@ textdistance==4.2.0
 coverage==5.1
 ipdb==0.13.2
 ipython==7.13.0
+jupyter==1.0.0

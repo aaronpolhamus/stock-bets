@@ -3,8 +3,10 @@ FROM ubuntu:18.04
 # Operating system dependencies
 # -----------------------------
 RUN apt-get update \
+  && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends \
   build-essential \
+  groff \
   curl \
   unzip \
   gnupg \
@@ -16,6 +18,7 @@ RUN apt-get update \
   python3.7 \
   python3-pip \
   python3-setuptools \
+  python3.7-dev \
   && cd /usr/local/bin \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*

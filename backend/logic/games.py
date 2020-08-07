@@ -44,7 +44,7 @@ from backend.logic.friends import (
 from backend.logic.visuals import (
     update_order_details_table,
     serialize_and_pack_portfolio_details,
-    refresh_game_data
+    init_game_assets
 )
 from funkybob import RandomNameGenerator
 from logic.base import get_user_ids
@@ -317,7 +317,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
-    refresh_game_data(game_id)
+    init_game_assets(game_id)
 
 
 def leave_game(game_id: int, user_id: int):
@@ -471,13 +471,12 @@ def expire_finished_game(game_id: int):
 # ------------------------------------------------------
 
 
-def suggest_symbols(game_id, user_id, text, buy_or_sell):
-    # TODO: Take this of task definitions, move it down to logic, a use a NoSQL backend
+def suggest_symbols(game_id: int, user_id: int, text: str, buy_or_sell: str):
     if buy_or_sell == "buy":
         to_match = f"{text.upper()}%"
         symbol_suggestions = query_to_dict("""
                 SELECT * FROM symbols
-                WHERE symbol LIKE %s OR name LIKE %s LIMIT 20;""", to_match, to_match)
+                WHERE symbol LIKE %s OR name LIKE %s;""", to_match, to_match)
 
     if buy_or_sell == "sell":
         balances = get_active_balances(game_id, user_id)
@@ -486,8 +485,7 @@ def suggest_symbols(game_id, user_id, text, buy_or_sell):
         params_list = [to_match] * 2 + symbols
         symbol_suggestions = query_to_dict(f"""
             SELECT * FROM symbols
-            WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))})
-            LIMIT 20;""", params_list)
+            WHERE (symbol LIKE %s OR name LIKE %s) AND symbol IN ({','.join(['%s'] * len(symbols))});""", params_list)
 
     suggestions = [{"symbol": entry["symbol"], "label": f"{entry['symbol']} ({entry['name']})",
                     "dist": hamming(text, entry['symbol'])} for entry in symbol_suggestions]
@@ -495,7 +493,7 @@ def suggest_symbols(game_id, user_id, text, buy_or_sell):
     return sorted(suggestions, key=lambda i: i["dist"])
 
 
-def get_current_stock_holding(user_id, game_id, symbol):
+def get_current_stock_holding(user_id: int, game_id: int, symbol: str):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
@@ -617,24 +615,26 @@ def get_order_quantity(order_price, amount, quantity_type):
     raise Exception("Invalid quantity type for this ticket")
 
 
-def get_all_open_orders():
-    """Get all open orders, and the timestamp that they were placed at for when we cross-check against the time-in-force
-    field. This query is written implicitly assumes that any given order will only ever have one "pending" entry.
+def get_all_open_orders(game_id: int):
+    """Get all open orders in a game, and the timestamp that they were placed at for when we cross-check against the
+    time-in-force field. This query is written implicitly assumes that any given order will only ever have one "pending"
+    entry.
     """
     sql_query = """
         SELECT os.order_id, os.timestamp
         FROM order_status os
         INNER JOIN
-        (SELECT order_id, max(id) as max_id
-          FROM order_status
-          GROUP BY order_id) grouped_os
+          (SELECT order_id, max(id) as max_id FROM order_status GROUP BY order_id) grouped_os
         ON
           os.id = grouped_os.max_id
+        INNER JOIN
+           (SELECT * FROM orders WHERE game_id = %s) o
+        ON o.id = os.order_id
         WHERE os.status = 'pending'
         ORDER BY os.order_id;
     """
     with engine.connect() as conn:
-        result = conn.execute(sql_query).fetchall()
+        result = conn.execute(sql_query, game_id).fetchall()
     return {order_id: ts for order_id, ts in result}
 
 
@@ -649,8 +649,9 @@ def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, c
             balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
 
 
-def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, quantity_type,
-                market_price, amount, time_in_force, stop_limit_price=None):
+def place_order(user_id: int, game_id: int, symbol: str, buy_or_sell: str, cash_balance: float, current_holding: int,
+                order_type: str, quantity_type: str, market_price: float, amount: float, time_in_force: str,
+                stop_limit_price: float = None):
     timestamp = time.time()
     order_price = get_order_price(order_type, market_price, stop_limit_price)
     order_quantity = get_order_quantity(order_price, amount, quantity_type)
@@ -679,41 +680,46 @@ def place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_hol
     return order_id
 
 
-def get_order_ticket(order_id):
-    return query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
-
-
-def process_order(order_id):
+def process_order(order_id: int):
     timestamp = time.time()
     if get_order_expiration_status(order_id):
         add_row("order_status", order_id=order_id, timestamp=timestamp, status="expired", clear_price=None)
         return
 
-    order_ticket = get_order_ticket(order_id)
+    order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
     symbol = order_ticket["symbol"]
     game_id = order_ticket["game_id"]
     user_id = order_ticket["user_id"]
     buy_or_sell = order_ticket["buy_or_sell"]
     quantity = order_ticket["quantity"]
+    order_type = order_ticket["order_type"]
 
     market_price, _ = fetch_price(symbol)
 
     # Only process active outstanding orders during trading day
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(user_id, game_id, symbol)
-    if during_trading_day() and execute_order(buy_or_sell, order_ticket["order_type"], market_price,
-                                              order_ticket["price"], cash_balance, current_holding, quantity):
-        order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
-                                  clear_price=market_price)
-        update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
-                        market_price, quantity, symbol)
+    if during_trading_day():
+        if execute_order(buy_or_sell, order_type, market_price, order_ticket["price"], cash_balance, current_holding, quantity):
+            order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
+                                      clear_price=market_price)
+            update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
+                            market_price, quantity, symbol)
+            update_order_details_table(game_id, user_id, order_id, "remove")  # remove the pending entry
+            update_order_details_table(game_id, user_id, order_id, "add")  # add add the fulfilled one
+            serialize_and_pack_portfolio_details(game_id, user_id)
+        else:
+            # if a market order was placed after hours, there may not be enough cash on hand to clear it at the new
+            # market price. If this happens, cancel the order and recalculate the purchase quantity with the new price
+            if order_type == "market":
+                cancel_order(order_id)
+                updated_quantity = cash_balance // market_price
+                if updated_quantity <= 0:
+                    return
 
-        # update orders table
-        update_order_details_table(game_id, user_id, order_id, "remove")
-        update_order_details_table(game_id, user_id, order_id, "add")
-
-        # update balances table
-        serialize_and_pack_portfolio_details(game_id, user_id)
+                place_order(user_id, game_id, symbol, buy_or_sell, cash_balance, current_holding, order_type, "Shares",
+                            market_price, updated_quantity, order_ticket["time_in_force"])
+                serialize_and_pack_portfolio_details(game_id, user_id)
 
 
 def get_order_expiration_status(order_id):
@@ -789,8 +795,10 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
     return False
 
 
-def cancel_order(order_id):
+def cancel_order(order_id: int):
+    order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
     add_row("order_status", order_id=order_id, timestamp=time.time(), status="cancelled")
+    update_order_details_table(order_ticket["game_id"], order_ticket["user_id"], order_id, "remove")
 
 
 # Functions for serving information about games

@@ -1,3 +1,4 @@
+import hashlib
 import time
 from functools import wraps
 
@@ -8,21 +9,27 @@ from backend.bi.report_logic import (
 )
 from backend.config import Config
 from backend.database.db import db
+from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
+    make_avatar_url,
+    setup_new_user,
+    verify_facebook_oauth,
+    verify_google_oauth,
     decode_token,
-    make_user_entry_from_google,
-    make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user,
-    ADMIN_USERS, check_against_invited_users
+    add_external_game_invites,
+    ADMIN_USERS,
+    check_against_invited_users,
+    upload_image_from_url_to_s3
 )
 from backend.logic.base import (
     get_user_ids,
     get_game_info,
     get_pending_buy_order_value,
     fetch_price,
-    get_user_information
+    get_user_information,
+    standardize_email
 )
 from backend.logic.friends import (
     get_friend_invites_list,
@@ -69,6 +76,7 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     format_time_for_response,
     update_order_details_table,
+    serialize_and_pack_portfolio_details,
     ORDER_DETAILS_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -81,7 +89,6 @@ from backend.logic.visuals import (
 from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
-    async_update_game_data,
     async_calculate_key_metrics
 )
 from backend.tasks.redis import unpack_redis_json
@@ -111,6 +118,8 @@ NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelist
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
+EMAIL_NOT_FOUND_MSG = "We can't find this email on file -- if this is your first time, be sure to click 'Sign Up' first. If this is an error get in touch at contact@stockbets.io"
+EMAIL_ALREADY_LOGGED_MSG = "We've already registered this email. Try logging in instead? Get in touch with us at contact@stockbets.io for a password reset or if you think your account has been compromised"
 
 
 # -------------- #
@@ -151,21 +160,46 @@ def login():
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
     response is the returned value from the React-Google-Login component.
     """
-    oauth_data = request.json
-    provider = oauth_data.get("provider")
-    if provider not in ["google", "facebook", "twitter"]:
+    current_time = time.time()
+    login_data = request.json  # in the case of a different platform provider, this is just the oauth response
+    is_sign_up = login_data.get("is_sign_up")
+    provider = login_data.get("provider")
+    password = login_data.get("password")
+    name = login_data.get("name")
+    email = login_data.get("email")
+    if provider not in ["google", "facebook", "twitter", "stockbets"]:
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
+    status_code = 401
+    profile_pic = None
+    resource_uuid = None
     if provider == "google":
-        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data["tokenId"],
-                                                                             oauth_data["googleId"])
+        response = verify_google_oauth(login_data["tokenId"])
+        resource_uuid = login_data.get("googleId")
+        status_code = response.status_code
+        if status_code == 200:
+            verification_json = response.json()
+            email = verification_json["email"]
+            if is_sign_up:
+                name = verification_json["given_name"]
+                profile_pic = upload_image_from_url_to_s3(verification_json["picture"])
 
     if provider == "facebook":
-        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data["accessToken"],
-                                                                               oauth_data["userID"],
-                                                                               oauth_data["name"],
-                                                                               oauth_data["email"],
-                                                                               oauth_data["picture"]["data"]["url"])
+        response = verify_facebook_oauth(login_data["accessToken"])
+        status_code = response.status_code
+        if status_code == 200:
+            resource_uuid = login_data["userID"]
+            email = login_data["email"]
+            if is_sign_up:
+                name = login_data["name"]
+                profile_pic = upload_image_from_url_to_s3(login_data["picture"]["data"]["url"])
+
+    if provider == "stockbets":
+        status_code = 200
+        if is_sign_up:
+            resource_uuid = hashlib.sha224(bytes(email, encoding='utf-8')).hexdigest()
+            url = make_avatar_url(email)
+            profile_pic = upload_image_from_url_to_s3(url, resource_uuid)
 
     if provider == "twitter":
         pass
@@ -174,13 +208,27 @@ def login():
         return make_response(OAUTH_ERROR_MSG, status_code)
 
     if Config.CHECK_WHITE_LIST:
-        if not check_against_invited_users(user_entry["email"]):
+        if not check_against_invited_users(email):
             return make_response(NOT_INVITED_EMAIL, 401)
 
-    register_user(user_entry)
+    if is_sign_up:
+        db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
+                                 standardize_email(email))
+        if db_entry:
+            return make_response(EMAIL_ALREADY_LOGGED_MSG, 403)
+
+        user_id = setup_new_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
+        add_external_game_invites(email, user_id)
+    else:
+        db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
+                                 standardize_email(email))
+        if not db_entry:
+            return make_response(EMAIL_NOT_FOUND_MSG, 403)
+        resource_uuid = db_entry[0]["resource_uuid"]
+
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
-    resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
+    resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
     return resp
 
 
@@ -190,7 +238,7 @@ def logout():
     """Log user out of the backend by blowing away their session token
     """
     resp = make_response()
-    resp.set_cookie("session_token", "", httponly=True, samesite="None", secure=True, expires=0)
+    resp.set_cookie("session_token", "", httponly=True, samesite=None, secure=True, expires=0)
     return resp
 
 
@@ -208,7 +256,7 @@ def set_username():
     session_token = register_username_with_token(user_id, user_email, candidate_username)
     if session_token is not None:
         resp = make_response()
-        resp.set_cookie("session_token", session_token, httponly=True, samesite="None", secure=True)
+        resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
         return resp
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
@@ -344,6 +392,7 @@ def invite_users_to_pending_game():
 
     return make_response(INVITED_MORE_USERS_MESSAGE, 200)
 
+
 # --------------------------- #
 # Order management and prices #
 # --------------------------- #
@@ -400,7 +449,6 @@ def api_place_order():
     stop_limit_price = order_ticket.get("stop_limit_price")
     if stop_limit_price:
         stop_limit_price = float(stop_limit_price)
-
     try:
         symbol = order_ticket["symbol"].upper()  # ensure upper casing
         market_price, _ = fetch_price(symbol)
@@ -423,18 +471,15 @@ def api_place_order():
         return make_response(str(e), 400)
 
     update_order_details_table(game_id, user_id, order_id, "add")
-    async_update_game_data.delay(game_id)
+    serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
 
 @routes.route("/api/cancel_order", methods=["POST"])
 @authenticate
 def api_cancel_order():
-    user_id = decode_token(request)
-    game_id = request.json.get("game_id")
     order_id = request.json.get("order_id")
     cancel_order(order_id)
-    update_order_details_table(game_id, user_id, order_id, "remove")
     return make_response(f"Cancelled orderId: {order_id}", 200)
 
 
@@ -559,7 +604,6 @@ def order_performance_chart():
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")
-    f"field_chart_{game_id}"
     return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 

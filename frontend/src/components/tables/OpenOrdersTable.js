@@ -67,8 +67,10 @@ const renderFulfilledRows = (rows) => {
   })
 }
 
-const OpenOrdersTable = ({ gameId }) => {
+const OpenOrdersTable = ({ gameId, update }) => {
   const [tableData, setTableData] = useState({})
+  const [lastUpdate, setLastUpdate] = useState('')
+
   const getGameData = async () => {
     const data = await fetchGameData(gameId, 'get_order_details_table')
     setTableData(data)
@@ -78,7 +80,10 @@ const OpenOrdersTable = ({ gameId }) => {
     getGameData()
   }, [])
 
-  // Methods and settings for modal component
+  if (update !== undefined && update !== lastUpdate) {
+    setLastUpdate(update)
+    getGameData()
+  }
 
   if (tableData.orders) {
     return (
@@ -103,6 +108,7 @@ OrderTypeIcon.propTypes = {
 }
 
 OpenOrdersTable.propTypes = {
-  gameId: PropTypes.number
+  gameId: PropTypes.number,
+  update: PropTypes.string
 }
 export { OpenOrdersTable }

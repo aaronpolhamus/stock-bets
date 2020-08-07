@@ -8,25 +8,28 @@ https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-
 from enum import Enum
 
 from backend.database.db import db
+from sqlalchemy.schema import Index
 
 
 class OAuthProviders(Enum):
     google = "Google"
     facebook = "Facebook"
     twitter = "Twitter"
+    stockbets = "stockbets"
 
 
 class Users(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.Text)
-    email = db.Column(db.Text)
+    name = db.Column(db.Text, index=True)
+    email = db.Column(db.Text, index=True)
     profile_pic = db.Column(db.Text)
-    username = db.Column(db.Text)
+    username = db.Column(db.Text, index=True)
     created_at = db.Column(db.Float(precision=32))
     provider = db.Column(db.Enum(OAuthProviders))
-    resource_uuid = db.Column(db.Text)
+    resource_uuid = db.Column(db.Text, index=True)
+    password = db.Column(db.Text, nullable=True)
 
 
 class GameModes(Enum):
@@ -176,9 +179,12 @@ class Prices(db.Model):
     __tablename__ = "prices"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
+    symbol = db.Column(db.Text, index=True)
     price = db.Column(db.Float(precision=32))
-    timestamp = db.Column(db.Float(precision=32))
+    timestamp = db.Column(db.Float(precision=32), index=True)
+
+
+Index("prices_symbol_timestamp_ix", Prices.symbol, Prices.timestamp)
 
 
 class Indexes(db.Model):
@@ -246,3 +252,21 @@ class ExternalInvites(db.Model):
     timestamp = db.Column(db.Float(precision=32))
     type = db.Column(db.Enum(ExternalInviteTypes))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+
+
+class BalancesAndPricesCache(db.Model):
+    """Note: the defined fields here track the balances_and_prices_table_schema definition in schemas.py"""
+    __tablename__ = "balances_and_prices_cache"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    symbol = db.Column(db.Text, index=True)
+    timestamp = db.Column(db.Float(precision=32), index=True)
+    balance = db.Column(db.Float(precision=32))
+    price = db.Column(db.Float(precision=32))
+    value = db.Column(db.Float(precision=32))
+
+
+Index("balances_and_prices_game_user_timestamp_ix", BalancesAndPricesCache.game_id, BalancesAndPricesCache.user_id,
+      BalancesAndPricesCache.timestamp)

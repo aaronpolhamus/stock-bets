@@ -26,27 +26,16 @@ STARTING_SHARPE_RATIO = 0
 STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
 
-
 # ------------------------------------ #
 # Base methods for calculating metrics #
 # ------------------------------------ #
 
 
-def get_data_and_clip_time(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None) -> pd.DataFrame:
-    df = make_historical_balances_and_prices_table(game_id, user_id)
-    if start_date is None:
-        start_date = df["timestamp"].min()
-
-    if end_date is None:
-        end_date = df["timestamp"].max()
-
-    return df[(df["timestamp"] >= start_date) & (df["timestamp"] <= end_date)]
-
-
-def portfolio_value_by_day(game_id: int, user_id: int, start_date: dt, end_date: dt) -> pd.DataFrame:
-    df = get_data_and_clip_time(game_id, user_id, start_date, end_date)
+def portfolio_value_by_day(game_id: int, user_id: int, start_time: float, end_time: float) -> pd.DataFrame:
+    df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
     df = df.groupby(["symbol", "timestamp"], as_index=False)["value"].agg("last")
-    return df.groupby("timestamp", as_index=False)["value"].sum()
+    df = df.groupby("timestamp", as_index=False)["value"].sum()
+    return df
 
 
 def portfolio_return_ratio(df: pd.DataFrame):
@@ -69,9 +58,9 @@ def portfolio_sharpe_ratio(df: pd.DataFrame, rf: float):
     return value
 
 
-def calculate_metrics(game_id: int, user_id: int, start_date: dt = None, end_date: dt = None,
+def calculate_metrics(game_id: int, user_id: int, start_time: float = None, end_time: float = None,
                       rf: float = RISK_FREE_RATE_DEFAULT):
-    df = portfolio_value_by_day(game_id, user_id, start_date, end_date)
+    df = portfolio_value_by_day(game_id, user_id, start_time, end_time)
     return_ratio = portfolio_return_ratio(df)
     sharpe_ratio = portfolio_sharpe_ratio(df, rf)
     return return_ratio, sharpe_ratio
@@ -97,13 +86,11 @@ def get_last_sidebet_payout(game_id: int):
 
 def get_winner(game_id: int, start_time: float, end_time: float, benchmark: str):
     assert benchmark in ["return_ratio", "sharpe_ratio"]
-    start_date = posix_to_datetime(start_time)
-    end_date = posix_to_datetime(end_time)
     ids_and_scores = []
 
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
-        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_date, end_date)
+        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_time, end_time)
         metric = return_ratio
         if benchmark == "sharpe_ratio":
             metric = sharpe_ratio

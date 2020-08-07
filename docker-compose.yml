@@ -1,4 +1,4 @@
-version: "3"
+version: "3.8"
 
 services:
   db:
@@ -8,6 +8,10 @@ services:
       - backend/.env.dev
     ports:
       - 3306:3306
+    command: --init-file /init.sql
+    volumes:
+      - ./backend/docker/init.sql:/init.sql
+      - ./backend/docker/.my.cnf:/root/.my.cnf
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=yes
 
@@ -15,7 +19,7 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: rabbitmq
     env_file:
-      - backend/.env.dev
+      - ./backend/.env.dev
     ports:
       - 5672:5672
       - 15672:15672
@@ -26,20 +30,56 @@ services:
     ports:
       - 6379:6379
 
+  airflow:
+    image: backend
+    container_name: airflow
+    environment:
+      - SERVICE=airflow
+    env_file:
+      - ./backend/.env
+      - ./backend/.env.dev
+    depends_on:
+      - backend
+      - db
+      - rabbitmq
+      - redis
+      - worker
+    ports:
+      - 8080:8080
+      - 8793:9793
+      - 5555:5555
+    volumes:
+      - ./backend:/home/backend
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - 4563-4599:4563-4599
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - HOSTNAME_EXTERNAL=localstack
+    volumes:
+      - ./.localstack:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+
   worker:
     image: backend
     container_name: worker
     environment:
       - SERVICE=worker
     env_file:
-      - backend/.env
-      - backend/.env.dev
+      - ./backend/.env
+      - ./backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
       - backend
       - redis
       - rabbitmq
+      - localstack
 
   scheduler:
     image: backend
@@ -47,8 +87,8 @@ services:
     environment:
       - SERVICE=scheduler
     env_file:
-      - backend/.env
-      - backend/.env.dev
+      - ./backend/.env
+      - ./backend/.env.dev
     volumes:
       - ./backend:/home/backend
     depends_on:
@@ -62,20 +102,24 @@ services:
     environment:
       - SERVICE=api
     env_file:
-      - backend/.env
-      - backend/.env.dev
-      - backend/.flaskenv
+      - ./backend/.env
+      - ./backend/.env.dev
+      - ./backend/.flaskenv
     depends_on:
       - db
       - backend
       - worker
       - redis
       - rabbitmq
-
+      - airflow
+      - localstack
     ports:
       - 5000:5000
+      - 8050:8050
     volumes:
       - ./backend:/home/backend
+      - ./backend/docker/.my.cnf:/root/.my.cnf
+      - ./sandbox/scratch.ipynb:/home/backend/scratch.ipynb
 
   backend:
     image: backend
@@ -84,17 +128,6 @@ services:
       context: "./backend"
       dockerfile: "docker/backend.Dockerfile"
     env_file:
-      - backend/.env
-      - backend/.env.dev
-      - backend/.flaskenv
-
-  # flower isn't necessary -- it's just a nice service for checking out what's going on with rabbit MQ
-  flower:
-    container_name: flower
-    image: mher/flower
-    environment:
-      - CELERY_BROKER_URL=amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${RABBITMQ_HOST}:5672
-      - FLOWER_PORT=5555
-    ports:
-      - 5555:5555
-
+      - ./backend/.env
+      - ./backend/.env.dev
+      - ./backend/.flaskenv

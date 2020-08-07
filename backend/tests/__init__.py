@@ -4,7 +4,10 @@ import time
 
 import requests
 
-from backend.database.helpers import reset_db
+from backend.database.helpers import (
+    reset_db,
+    query_to_dict
+)
 from backend.database.db import engine
 from backend.logic.auth import create_jwt
 from tasks.redis import rds
@@ -32,8 +35,7 @@ class BaseTestCase(unittest.TestCase):
         with open("test_times.csv", "a") as outfile:
             outfile.write(f"{self.id()},{t}\n")
 
-    def make_test_token_from_email(self, user_email: str):
-        with self.engine.connect() as conn:
-            user_id, _, email, _, user_name, _, _, _ = conn.execute(
-                "SELECT * FROM users WHERE email = %s;", user_email).fetchone()
-        return create_jwt(email, user_id, user_name)
+    @staticmethod
+    def make_test_token_from_email(email: str):
+        user_entry = query_to_dict("SELECT * FROM users WHERE email = %s", email)[0]
+        return create_jwt(user_entry["email"], user_entry["id"], user_entry["username"])

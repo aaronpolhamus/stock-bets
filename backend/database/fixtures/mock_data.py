@@ -1,7 +1,7 @@
 """mock_data.py is our test data factory. running it for ever test is expensive, so we use it at the very beginning of
 test runner to construct a .sql data dump that we can quickly scan into the DB.
 """
-
+import hashlib
 import json
 from datetime import timedelta
 from unittest.mock import patch
@@ -11,13 +11,14 @@ from backend.bi.report_logic import (
     make_games_per_user_data,
     ORDERS_PER_ACTIVE_USER_PREFIX
 )
+from backend.config import Config
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
+from backend.database.helpers import add_row
+from backend.logic.auth import upload_image_from_url_to_s3
 from backend.logic.base import (
-    check_single_player_mode,
     DEFAULT_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
-    get_active_game_user_ids,
     get_schedule_start_and_end,
     get_trading_calendar,
     posix_to_datetime
@@ -26,18 +27,9 @@ from backend.logic.games import (
     expire_finished_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
-from backend.logic.visuals import (
-    calculate_and_pack_game_metrics,
-    make_chart_json,
-    compile_and_pack_player_leaderboard,
-    make_the_field_charts,
-    serialize_and_pack_order_details,
-    serialize_and_pack_portfolio_details,
-    serialize_and_pack_order_performance_chart,
-    serialize_and_pack_winners_table
-)
+from backend.logic.visuals import make_chart_json
+from backend.tasks.definitions import async_update_game_data
 from backend.tasks.redis import rds
-from config import Config
 from sqlalchemy import MetaData
 
 price_records, index_records = make_stock_data_records()
@@ -590,39 +582,30 @@ def make_db_mocks():
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     for table in table_names:
-        if MOCK_DATA.get(table):
+        if MOCK_DATA.get(table) and table != 'users':
             populate_table(table)
+        if table == 'users':
+            for user in MOCK_DATA.get(table):
+                add_row("users", name=user["name"], email=user["email"], profile_pic=user["profile_pic"],
+                        username=user["username"], created_at=user["created_at"], provider=user["provider"],
+                        password=None, resource_uuid=user["resource_uuid"])
+
+
+def make_s3_mocks():
+    table = 'users'
+    for user in MOCK_DATA[table]:
+        profile_pic_hash = hashlib.sha224(bytes(user['uuid'], encoding='utf-8')).hexdigest()
+        profile_picture = user['profile_pic']
+        upload_image_from_url_to_s3(profile_picture, f"profile_pics/{profile_pic_hash}")
 
 
 def make_redis_mocks():
-    def _build_assets(g_id):
-        # performance metrics
-        calculate_and_pack_game_metrics(g_id)
+    game_ids = [3, 6, 7, 8]
+    for game_id in game_ids:
+        async_update_game_data.delay(game_id, simulation_start_time, simulation_end_time)
 
-        # leaderboard
-        compile_and_pack_player_leaderboard(g_id)
-
-        # the field and balance charts
-        make_the_field_charts(g_id)
-
-        # tables and performance breakout charts
-        user_ids = get_active_game_user_ids(g_id)
-        for user_id in user_ids:
-            # game/user-level assets
-            serialize_and_pack_order_details(g_id, user_id)
-            serialize_and_pack_portfolio_details(g_id, user_id)
-            serialize_and_pack_order_performance_chart(g_id, user_id)
-
-        if not check_single_player_mode(g_id):
-            # winners/payouts table
-            serialize_and_pack_winners_table(g_id)
-
-    with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
-        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
-        game_ids = [3, 6, 7, 8]
-        for game_id in game_ids:
-            _build_assets(game_id)
-            expire_finished_game(game_id)
+    for game_id in game_ids:
+        expire_finished_game(game_id)
 
     # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()

@@ -22,8 +22,10 @@ class Config:
 
     # Game settings:
     # --------------
-    GAME_STATUS_UPDATE_RATE = 10  # The n-minute interval on which to refresh all active game statuses
-    OPEN_ORDER_PROCESS_RATE = 2  # The n-minute interval on which to process all open orders (careful, this costs $$$)
+    # The n-minute interval on which to refresh all active game statuses
+    GAME_STATUS_UPDATE_RATE = float(getenv("GAME_STATUS_UPDATE_RATE"))
+    # The n-minute interval on which to process all open orders (careful, this costs $$$)
+    OPEN_ORDER_PROCESS_RATE = float(getenv("OPEN_ORDER_PROCESS_RATE"))
 
     # Security
     # --------
@@ -68,6 +70,14 @@ class Config:
     IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
     IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
     IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
+
+    # S3 Credentials
+    # --------------
+    AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_ENDPOINT_URL = getenv('AWS_ENDPOINT_URL')
+    AWS_PUBLIC_BUCKET_NAME = getenv("AWS_PUBLIC_BUCKET_NAME")
+    AWS_PUBLIC_ENDPOINT = getenv("AWS_PUBLIC_ENDPOINT")
 
     # Payments
     # --------
