@@ -103,6 +103,10 @@ const RadioButtons = (props) => (
   <div>{props.options && buildRadios(props)}</div>
 )
 
+// -- Props
+// color: default tab color
+// colorChecked: selected tab color
+// colorTab: selected tab underline color
 const TabbedRadioButtons = (props) => (
   <>{props.options && buildRadios(props, 'tabbed')}</>
 )

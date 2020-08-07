@@ -12,6 +12,7 @@ import styled from 'styled-components'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faGoogle, faFacebook } from '@fortawesome/free-brands-svg-icons'
 import { breakpoints } from 'design-tokens'
+import { TabbedRadioButtons } from 'components/forms/Inputs'
 
 const RightCol = styled(Col)`
   padding: 0vw 8vw 8vw;
@@ -97,7 +98,7 @@ const LeftCol = styled(Col)`
 const LoginButton = styled.button`
   background-color: transparent;
   font-family: "proxima-nova", Avenir, sans-serif !important;
-  color: var(--color-light-gray) !important;
+  color: var(--color-text-primary) !important;
   text-transform: uppercase;
   font-size: var(--font-size-normal);
   font-weight: bold;
@@ -155,8 +156,18 @@ const FooterLinks = styled.div`
 
 const LoginText = styled.div`
   p {
-    color: var(--color-text-primart)
+    color: var(--color-text-primary)
   }
+`
+
+const LoginDialog = styled.div`
+  background-color: #fff;
+  padding: 0 var(--space-400) var(--space-400);
+  width: 90vw;
+  max-width: 344px;
+  min-height: 540px;
+  border-radius: var(--space-100);
+  box-shadow: var(--shadow-area);
 `
 
 function responseError (response) {
@@ -167,6 +178,7 @@ export default function Login () {
   const [redirect, setRedirect] = useState(false)
   const [loginEmail, setLoginEmail] = useState(null)
   const [loginPassword, setLoginPassword] = useState(null)
+  const [loginSelection, setLoginSelection] = useState('signUp')
 
   const detectProvider = (response) => {
     if (Object.keys(response).includes('googleId')) return 'google'
@@ -177,6 +189,7 @@ export default function Login () {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
     responseCopy.provider = provider
+    responseCopy.isLogin = true
     try {
       await api
         .post('/api/login', responseCopy)
@@ -192,7 +205,7 @@ export default function Login () {
     e.preventDefault()
     try {
       await api
-        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword })
+        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, isLogin: true })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
       window && window.alert(
@@ -212,53 +225,96 @@ export default function Login () {
             </LeftColContent>
           </LeftCol>
           <RightCol md={6}>
-            <LoginText>Welcome! If this is your visit we'll automatically create your account for you</LoginText>
-            <p>
-              <GoogleLogin
-                clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
-                buttonText='Login with Google'
-                onSuccess={handleOAuthSubmit}
-                onFailure={responseError}
-                cookiePolicy='single_host_origin'
-                render={(renderProps) => (
-                  <LoginButton onClick={renderProps.onClick}>
-                    <StyledFaIcon
-                      icon={faGoogle}
-                      color='var(--color-primary)'
-                    />{' '}
-                    <span>Login with Google</span>
-                  </LoginButton>
-                )}
+            <LoginDialog>
+              <TabbedRadioButtons
+                defaultChecked={loginSelection}
+                onClick={(e) => {
+                  setLoginSelection(e.target.value)
+                }}
+                options={{
+                  signUp: 'Sign Up',
+                  logIn: 'Log In'
+                }}
               />
-              <FacebookLogin
-                appId={process.env.REACT_APP_FACEBOOK_APP_ID}
-                disableMobileRedirect
-                fields='name,email,picture'
-                callback={handleOAuthSubmit}
-                render={(renderProps) => (
-                  <LoginButton onClick={renderProps.onClick}>
-                    <StyledFaIcon
-                      icon={faFacebook}
-                      color='var(--color-primary)'
-                    />{' '}
-                    <span>Login with Facebook</span>
-                  </LoginButton>
-                )}
-              />
-              <hr />
-              <LoginText>Or if you prefer, login with a password...</LoginText>
-              <Form onSubmit={handleUserPasswordSubmit}>
-                <Form.Group>
-                  <Form.Control type='email' placeholder='Enter email' onChange={(e) => setLoginEmail(e.target.value)} />
-                </Form.Group>
-                <Form.Group>
-                  <Form.Control type='text' placeholder='Enter password (pick a good one if this is your first visit)' onChange={(e) => setLoginPassword(e.target.value)} />
-                </Form.Group>
-                <Button type='submit'>
-                  Login
-                </Button>
-              </Form>
-            </p>
+              <p>
+                <GoogleLogin
+                  clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
+                  buttonText='Login with Google'
+                  onSuccess={handleOAuthSubmit}
+                  onFailure={responseError}
+                  cookiePolicy='single_host_origin'
+                  render={(renderProps) => (
+                    <LoginButton onClick={renderProps.onClick}>
+                      <StyledFaIcon
+                        icon={faGoogle}
+                        color='var(--color-primary)'
+                      />{' '}
+                      <span>
+                        {loginSelection === 'signUp'
+                          ? 'Sign up with Google'
+                          : 'Login with Google'
+                        }
+                      </span>
+                    </LoginButton>
+                  )}
+                />
+                <FacebookLogin
+                  appId={process.env.REACT_APP_FACEBOOK_APP_ID}
+                  disableMobileRedirect
+                  fields='name,email,picture'
+                  callback={handleOAuthSubmit}
+                  render={(renderProps) => (
+                    <LoginButton onClick={renderProps.onClick}>
+                      <StyledFaIcon
+                        icon={faFacebook}
+                        color='var(--color-primary)'
+                      />{' '}
+                      <span>
+                        {loginSelection === 'signUp'
+                          ? 'Sign up with Facebook'
+                          : 'Login with Facebook'
+                        }
+                      </span>
+                    </LoginButton>
+                  )}
+                />
+                <LoginText>
+                  {loginSelection === 'signUp'
+                    ? 'Or if you prefer create an account with an email an password'
+                    : 'Or login with your email and password'
+                  }
+                </LoginText>
+                <Form onSubmit={handleUserPasswordSubmit}>
+                  <Form.Group>
+                    <Form.Label>
+                      Email
+                    </Form.Label>
+                    <Form.Control
+                      type='email'
+                      placeholder='Your email'
+                      onChange={(e) => setLoginEmail(e.target.value)} />
+                  </Form.Group>
+                  <Form.Group>
+                    <Form.Label>
+                      Password
+                    </Form.Label>
+                    <Form.Control
+                      type='password'
+                      placeholder={loginSelection === 'signUp'
+                        ? 'Pick a good password ;)'
+                        : 'Your password'
+                      }
+                      onChange={(e) => setLoginPassword(e.target.value)} />
+                  </Form.Group>
+                  <Button type='submit'>
+                    {loginSelection === 'signUp'
+                      ? 'Create account'
+                      : 'Enter stockbets'
+                    }
+                  </Button>
+                </Form>
+              </p>
+            </LoginDialog>
             <FooterLinks>
               <SmallText color='var(--color-secondary)'>
                 Have a look at our
