@@ -152,7 +152,7 @@ const FooterLinks = styled.div`
 `
 
 const LoginDialog = styled.div`
-  background-color: #fff;
+  background-color: rgba(255, 255, 255, 1);
   width: 90vw;
   max-width: 344px;
   border-radius: var(--space-100);
@@ -241,6 +241,7 @@ export default function Login () {
                   onClick={(e) => {
                     setLoginSelection(e.target.value)
                   }}
+                  colorTab='var(--color-light-gray)'
                   options={{
                     signUp: 'Sign Up',
                     logIn: 'Log In'

@@ -72,7 +72,7 @@ const TabbedRadio = styled(Form.Check)`
 
   input:checked + label {
     color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
-    border-bottom-color: ${(props) => props.colorTab || 'var(--color-primary)'};
+    border-bottom-color: ${(props) => props.colorTabChecked || 'var(--color-primary)'};
   }
 `
 
@@ -106,7 +106,8 @@ const RadioButtons = (props) => (
 // -- Props
 // color: default tab color
 // colorChecked: selected tab color
-// colorTab: selected tab underline color
+// colorTab: tab underline color
+// colorTabChecked: selected tab underline color
 const TabbedRadioButtons = (props) => (
   <>{props.options && buildRadios(props, 'tabbed')}</>
 )
