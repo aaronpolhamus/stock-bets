@@ -13,6 +13,8 @@ from backend.bi.report_logic import (
 )
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
+from backend.logic.auth import setup_new_user
+from backend.logic.auth import upload_image_from_url_to_s3
 from backend.logic.base import (
     check_single_player_mode,
     DEFAULT_VIRTUAL_CASH,
@@ -37,11 +39,8 @@ from backend.logic.visuals import (
     serialize_and_pack_winners_table
 )
 from backend.tasks.redis import rds
-from backend.logic.auth import setup_new_user
 from config import Config
 from sqlalchemy import MetaData
-
-from database.helpers import upload_image_from_url_to_s3
 
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
@@ -597,7 +596,8 @@ def make_db_mocks():
             populate_table(table)
         if table == 'users':
             for user in MOCK_DATA.get(table):
-                setup_new_user(user)
+                setup_new_user(user["name"], user["email"], user["profile_pic"], user["created_at"], user["provider"],
+                               user["resource_uuid"])
 
 
 def make_s3_mocks():

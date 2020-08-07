@@ -17,6 +17,7 @@ from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
     query_to_dict,
+    aws_client
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
@@ -63,7 +64,6 @@ HOST_URL = 'https://localhost:5000/api'
 class TestUserManagement(BaseTestCase):
 
     def test_jwt_and_authentication(self):
-        # TODO: Missing a good test for routes.login -- OAuth dependency is trick
         # registration error with faked token
         res = self.requests_session.post(f"{HOST_URL}/login",
                                          json={"provider": "google", "tokenId": "bad", "googleId": "fake"},
@@ -165,6 +165,16 @@ class TestUserManagement(BaseTestCase):
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 400)
         self.assertEqual(res.text, USERNAME_TAKE_ERROR_MSG)
+
+    def test_username_and_pwd_login(self):
+        email = "me@example.com"
+        password = "secret"
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email),
+                                         verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_entry = query_to_dict("SELECT * FROM users WHERE email = %s;", email)[0]
+        self.assertEqual(user_entry["password"], password)
 
 
 class TestCreateGame(BaseTestCase):
@@ -576,7 +586,9 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table", cookies={"session_token": session_token}, verify=False, json={"game_id": game_id})
+        res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table",
+                                         cookies={"session_token": session_token}, verify=False,
+                                         json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
         # this just test that last close is at least producing something -- the backgroun test data isn't setup to

@@ -1,3 +1,4 @@
+import hashlib
 import time
 from functools import wraps
 
@@ -9,13 +10,15 @@ from backend.bi.report_logic import (
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
+    verify_facebook_oauth,
+    verify_google_oauth,
     decode_token,
-    make_user_entry_from_google,
-    make_user_entry_from_facebook,
     make_session_token_from_uuid,
     register_username_with_token,
     register_user,
-    ADMIN_USERS, check_against_invited_users
+    ADMIN_USERS,
+    check_against_invited_users,
+    make_profile_pic_on_s3
 )
 from backend.logic.base import (
     get_user_ids,
@@ -151,21 +154,41 @@ def login():
     back a SetCookie to allow for seamless interaction with the API. token_id comes from response.tokenId where the
     response is the returned value from the React-Google-Login component.
     """
-    oauth_data = request.json
-    provider = oauth_data.get("provider")
-    if provider not in ["google", "facebook", "twitter"]:
+    current_time = time.time()
+    login_data = request.json  # in the case of a different platform provider, this is just the oauth response
+    provider = login_data.get("provider")
+    password = login_data.get("password")
+    name = login_data.get("name")
+    email = login_data.get("email")
+    if provider not in ["google", "facebook", "twitter", "stockbets"]:
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
+    status_code = 401
+    profile_pic = None
+    resource_uuid = None
     if provider == "google":
-        user_entry, resource_uuid, status_code = make_user_entry_from_google(oauth_data["tokenId"],
-                                                                             oauth_data["googleId"])
+        response = verify_google_oauth(login_data["tokenId"])
+        resource_uuid = login_data.get("googleId")
+        status_code = response.status_code
+        if status_code == 200:
+            verification_json = response.json()
+            name = verification_json["given_name"]
+            email = verification_json["email"]
+            profile_pic = verification_json["picture"]
 
     if provider == "facebook":
-        user_entry, resource_uuid, status_code = make_user_entry_from_facebook(oauth_data["accessToken"],
-                                                                               oauth_data["userID"],
-                                                                               oauth_data["name"],
-                                                                               oauth_data["email"],
-                                                                               oauth_data["picture"]["data"]["url"])
+        response = verify_facebook_oauth(login_data["accessToken"])
+        status_code = response.status_code
+        if status_code == 200:
+            resource_uuid = login_data["userID"]
+            name = login_data["name"]
+            email = login_data["email"]
+            profile_pic = login_data["picture"]["data"]["url"]
+
+    if provider == "stockbets":
+        resource_uuid = hashlib.sha224(bytes(email + f"{time.time()}", encoding='utf-8')).hexdigest()
+        profile_pic = make_profile_pic_on_s3(email)
+        status_code = 200
 
     if provider == "twitter":
         pass
@@ -174,10 +197,10 @@ def login():
         return make_response(OAUTH_ERROR_MSG, status_code)
 
     if Config.CHECK_WHITE_LIST:
-        if not check_against_invited_users(user_entry["email"]):
+        if not check_against_invited_users(email):
             return make_response(NOT_INVITED_EMAIL, 401)
 
-    register_user(user_entry)
+    register_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
@@ -343,6 +366,7 @@ def invite_users_to_pending_game():
             make_response(f"{email} : {str(e)}", 400)
 
     return make_response(INVITED_MORE_USERS_MESSAGE, 200)
+
 
 # --------------------------- #
 # Order management and prices #
