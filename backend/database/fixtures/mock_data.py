@@ -600,14 +600,12 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-    with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
-        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
-        game_ids = [3, 6, 7, 8]
-        for game_id in game_ids:
-            async_update_game_data.delay(game_id)
+    game_ids = [3, 6, 7, 8]
+    for game_id in game_ids:
+        async_update_game_data.delay(game_id, simulation_start_time, simulation_end_time)
 
-        for game_id in game_ids:
-            expire_finished_game(game_id)
+    for game_id in game_ids:
+        expire_finished_game(game_id)
 
     # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()
