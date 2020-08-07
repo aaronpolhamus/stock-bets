@@ -2,38 +2,25 @@ import React, { useEffect, useState, useRef, useContext } from 'react'
 import PropTypes from 'prop-types'
 import { fetchGameData } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
-import { ResponsiveTable } from 'components/tables/ResponsiveTable'
 
-const CompoundChart = ({ gameId, chartDataEndpoint, tableDataEndpoint, tableOptions, tableId, selectableCell = 0, update }) => {
-  const [tableData, setTableData] = useState()
+const CompoundChart = ({ children, gameId, chartDataEndpoint, update }) => {
   const [chartData, setChartData] = useState()
   const chartRef = useRef()
-  const labelsRef = useRef()
 
   const getData = async () => {
-    const tableDataQuery = await fetchGameData(gameId, tableDataEndpoint)
     const chartDataQuery = await fetchGameData(gameId, chartDataEndpoint)
-
     setChartData(chartDataQuery)
-    setTableData(tableDataQuery)
   }
 
   const handleSelect = () => {
-
-  }
-
-  const formatLabelCell = (value) => {
-    return (
-      <label>
-        <input type='checkbox'/>
-        {value}
-      </label>
-    )
+    console.log('handled select')
   }
 
   useEffect(() => {
     getData()
   }, [update])
+
+  const Children = children
 
   return (
     <>
@@ -43,24 +30,8 @@ const CompoundChart = ({ gameId, chartDataEndpoint, tableDataEndpoint, tableOpti
         yScaleType='dollar'
         legends={false}
       />
-      <ResponsiveTable
-        ref={labelsRef}
-        tableData={tableData}
-        name={tableId}
-        onSelect={handleSelect}
-        tableOptions={{
-          cellFormatByIndex: {
-            [selectableCell]: formatLabelCell
-          },
-          showOnBreakpointDown: {
-            '768px': [
-              'symbol',
-              'balance',
-              'recent change',
-              'value'
-            ]
-          }
-        }}
+      <Children
+        handleSelect={handleSelect}
       />
     </>
   )
@@ -69,11 +40,15 @@ const CompoundChart = ({ gameId, chartDataEndpoint, tableDataEndpoint, tableOpti
 CompoundChart.propTypes = {
   chartDataEndpoint: PropTypes.string,
   gameId: PropTypes.string,
-  selectableCell: PropTypes.number,
+  tableCellCheckbox: PropTypes.number,
   tableDataEndpoint: PropTypes.string,
   tableId: PropTypes.string,
-  tableOptions: PropTypes.object,
-  update: PropTypes.string
+  tableCellFormat: PropTypes.object,
+  update: PropTypes.string,
+  children: PropTypes.oneOfType([
+    PropTypes.arrayOf(PropTypes.node),
+    PropTypes.node
+  ])
 }
 
 export { CompoundChart }
