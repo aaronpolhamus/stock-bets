@@ -170,7 +170,7 @@ const LoginDialogHeader = styled.div`
   .form-check{
     width: 50%;
     label{
-      height: var(--space-700);
+      height: var(--space-900);
       align-items: center;
       justify-content: center;
     }
@@ -187,7 +187,7 @@ export default function Login () {
   const [redirect, setRedirect] = useState(false)
   const [loginEmail, setLoginEmail] = useState(null)
   const [loginPassword, setLoginPassword] = useState(null)
-  const [loginSelection, setLoginSelection] = useState('signUp')
+  const [loginSelection, setLoginSelection] = useState('logIn')
 
   const detectProvider = (response) => {
     if (Object.keys(response).includes('googleId')) return 'google'
@@ -243,8 +243,8 @@ export default function Login () {
                   }}
                   colorTab='var(--color-light-gray)'
                   options={{
-                    signUp: 'Sign Up',
-                    logIn: 'Log In'
+                    logIn: 'Log In',
+                    signUp: 'Sign Up'
                   }}
                 />
               </LoginDialogHeader>
