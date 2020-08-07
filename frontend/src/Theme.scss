@@ -7,7 +7,7 @@ $color-terciary: #ff4a4b;
 $color-lightest: #ffffff;
 $color-cool-gray: #d7dbdf;
 $color-light-gray: #f0efed;
-$color-text-primary: #1d1b23;
+$color-text-primary: #2D263B;
 $color-text-gray: #7f7192;
 $color-text-light-gray: #abaac6;
 $color-success: #3fa46d;
@@ -51,6 +51,7 @@ $color-success: #3fa46d;
   --space-lg-200: 6rem;
   --space-lg-300: 7rem;
   --space-lg-400: 8rem;
+  --shadow-area: 5px 0px 27px rgba(17, 7, 60, 0.35);
 }
 
 // Bootstrap customization

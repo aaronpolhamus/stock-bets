@@ -25,16 +25,14 @@ const CashInfoWrapper = styled.div`
 const CashInfo = ({ cashData, balance = true, buyingPower = true }) => {
   return (
     <CashInfoWrapper>
-      { balance &&
+      {balance &&
         <p>
           <span>
             <strong>Cash Balance: </strong>
             {cashData.cash_balance && cashData.cash_balance}
           </span>
-        </p>
-
-      }
-      { buyingPower &&
+        </p>}
+      {buyingPower &&
         <p>
           <small>
             <strong>Buying power: </strong>
@@ -52,8 +50,7 @@ const CashInfo = ({ cashData, balance = true, buyingPower = true }) => {
               </>
             }
           />
-        </p>
-      }
+        </p>}
     </CashInfoWrapper>
   )
 }

@@ -2,13 +2,10 @@
 """
 import json
 import os
-from io import BytesIO
 
 import boto3
 import pandas as pd
 from typing import List
-import requests
-from requests import RequestException
 from sqlalchemy import MetaData
 
 from backend.database.db import engine
@@ -70,21 +67,6 @@ def aws_client(service='s3', region='us-east-1'):
         del boto_config['endpoint_url']
     client = boto3.client(**boto_config)
     return client
-
-
-def upload_image_from_url_to_s3(url, key):
-    s3 = aws_client()
-    bucket_name = Config.AWS_PUBLIC_BUCKET_NAME
-    try:
-        data = requests.get(url, stream=True)
-    except RequestException:
-        data = requests.get(
-            'https://www.pngfind.com/pngs/m/676-6764065_default-profile-picture-transparent-hd-png-download.png',
-            stream=True)
-    out_img = BytesIO(data.content)
-    out_img.seek(0)
-    response = s3.put_object(Body=out_img, Bucket=bucket_name, Key=key)
-    return response
 
 
 def write_table_cache(cache_table_name: str, df: pd.DataFrame, **identifiers):

@@ -11,37 +11,36 @@ from backend.bi.report_logic import (
     make_games_per_user_data,
     ORDERS_PER_ACTIVE_USER_PREFIX
 )
+from backend.config import Config
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
+from backend.database.helpers import add_row
+from backend.logic.auth import upload_image_from_url_to_s3
 from backend.logic.base import (
-    check_single_player_mode,
     DEFAULT_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
-    get_active_game_user_ids,
     get_schedule_start_and_end,
     get_trading_calendar,
-    posix_to_datetime
+    posix_to_datetime,
+    check_single_player_mode
 )
 from backend.logic.games import (
+    get_active_game_user_ids,
     expire_finished_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.visuals import (
     calculate_and_pack_game_metrics,
-    make_chart_json,
     compile_and_pack_player_leaderboard,
     make_the_field_charts,
-    serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
+    serialize_and_pack_order_details,
     serialize_and_pack_order_performance_chart,
+    make_chart_json,
     serialize_and_pack_winners_table
 )
 from backend.tasks.redis import rds
-from backend.logic.auth import setup_new_user
-from config import Config
 from sqlalchemy import MetaData
-
-from database.helpers import upload_image_from_url_to_s3
 
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
@@ -597,7 +596,9 @@ def make_db_mocks():
             populate_table(table)
         if table == 'users':
             for user in MOCK_DATA.get(table):
-                setup_new_user(user)
+                add_row("users", name=user["name"], email=user["email"], profile_pic=user["profile_pic"],
+                        username=user["username"], created_at=user["created_at"], provider=user["provider"],
+                        password=None, resource_uuid=user["resource_uuid"])
 
 
 def make_s3_mocks():

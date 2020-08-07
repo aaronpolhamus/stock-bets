@@ -35,7 +35,9 @@ from backend.logic.base import (
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
     get_expected_sidebets_payout_dates,
-    TIMEZONE
+    TIMEZONE,
+    get_end_of_last_trading_day,
+    SECONDS_IN_A_DAY
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -112,7 +114,8 @@ PORTFOLIO_DETAIL_MAPPINGS = {
     "timestamp": "Updated at",
     "last_change": "Recent change",
     "Value": "Value",
-    "Portfolio %": "Portfolio %"}
+    "Portfolio %": "Portfolio %",
+    "Change since last close": "Change since last close"}
 
 # ------ #
 # Colors #
@@ -251,7 +254,7 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
         stocks_held = list(balances["symbol"].unique())
-        portfolio_value=get_portfolio_value(game_id, user_id)
+        portfolio_value = get_portfolio_value(game_id, user_id)
         stat_info = make_stat_entry(color=user_colors[user_info["username"]],
                                     cash_balance=cash_balance,
                                     portfolio_value=portfolio_value,
@@ -596,6 +599,7 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start
 
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
+
 # ------ #
 # Tables #
 # ------ #
@@ -717,19 +721,20 @@ def get_most_recent_prices(symbols):
         return pd.read_sql(sql, conn, params=symbols)
 
 
-def make_trend_indicator(symbols: List[str]):
-    """The purpose of this function is to produce an indicator of a stock's trend for the balances table. For now it
-    shows the change from the last-observed price, but this is something that we can modify later"""
-    query_set = []
-    for symbol in symbols:
-        query_set.append(f"(SELECT * FROM prices WHERE symbol = '{symbol}' ORDER BY id DESC LIMIT 2)")
-    sql = " UNION ALL ".join(query_set)
+def get_last_close_prices(symbols: List):
+    current_time = time.time()
+    end_time = get_end_of_last_trading_day(current_time - SECONDS_IN_A_DAY)
+    sql = f"""
+    SELECT p.symbol, p.price as close_price
+    FROM prices p
+    INNER JOIN (
+    SELECT symbol, max(id) as max_id
+      FROM prices
+      WHERE symbol IN ({', '.join(["%s"] * len(symbols))}) AND timestamp <= %s
+      GROUP BY symbol) max_price
+    ON p.id = max_price.max_id;"""
     with engine.connect() as conn:
-        df = pd.read_sql(sql, conn)
-
-    df["last_price"] = df["price"].shift(-1)
-    df["last_change"] = 100 * (df["price"] - df["last_price"]) / df["last_price"]
-    return df.iloc[::2][["symbol", "last_change"]]
+        return pd.read_sql(sql, conn, params=list(symbols) + [end_time])
 
 
 def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
@@ -747,9 +752,12 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     df["Value"] = df["balance"] * df["price"]
     total_portfolio_value = df["Value"].sum() + cash_balance
     df["Portfolio %"] = (df["Value"] / total_portfolio_value).apply(lambda x: percent_formatter(x))
+    close_prices = get_last_close_prices(symbols)
+    df = df.merge(close_prices, how="left")
+    df["Change since last close"] = ((df["price"] - df["close_price"]) / df["close_price"]).apply(
+        lambda x: percent_formatter(x)).fillna(NA_TEXT_SYMBOL)
+    del df["close_price"]
     df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
-    trend_df = make_trend_indicator(symbols)
-    df = df.merge(trend_df, how="left")
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
     out_dict["data"] = df.to_dict(orient="records")
     rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
@@ -758,7 +766,7 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
 def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: float, type: str, benchmark: str = None,
                             score: float = None):
     if score is None:
-        formatted_score = " -- "
+        formatted_score = NA_TEXT_SYMBOL
     else:
         assert benchmark in ["return_ratio", "sharpe_ratio"]
         formatted_score = PCT_FORMAT.format(score / 100)
