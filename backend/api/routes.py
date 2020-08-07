@@ -9,7 +9,9 @@ from backend.bi.report_logic import (
 )
 from backend.config import Config
 from backend.database.db import db
+from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
+    make_avatar_url,
     setup_new_user,
     verify_facebook_oauth,
     verify_google_oauth,
@@ -19,14 +21,15 @@ from backend.logic.auth import (
     add_external_game_invites,
     ADMIN_USERS,
     check_against_invited_users,
-    make_profile_pic_on_s3
+    upload_image_from_url_to_s3
 )
 from backend.logic.base import (
     get_user_ids,
     get_game_info,
     get_pending_buy_order_value,
     fetch_price,
-    get_user_information
+    get_user_information,
+    standardize_email
 )
 from backend.logic.friends import (
     get_friend_invites_list,
@@ -89,7 +92,6 @@ from backend.tasks.definitions import (
     async_calculate_key_metrics
 )
 from backend.tasks.redis import unpack_redis_json
-from backend.database.helpers import query_to_dict
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -116,6 +118,8 @@ NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelist
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
+EMAIL_NOT_FOUND_MSG = "We can't find this email on file -- if this is your first time, be sure to click 'Sign Up' first. If this is an error get in touch at contact@stockbets.io"
+EMAIL_ALREADY_LOGGED_MSG = "We've already registered this email. Try logging in instead? Get in touch with us at contact@stockbets.io for a password reset or if you think your account has been compromised"
 
 
 # -------------- #
@@ -175,23 +179,27 @@ def login():
         status_code = response.status_code
         if status_code == 200:
             verification_json = response.json()
-            name = verification_json["given_name"]
             email = verification_json["email"]
-            profile_pic = verification_json["picture"]
+            if is_sign_up:
+                name = verification_json["given_name"]
+                profile_pic = upload_image_from_url_to_s3(verification_json["picture"])
 
     if provider == "facebook":
         response = verify_facebook_oauth(login_data["accessToken"])
         status_code = response.status_code
         if status_code == 200:
             resource_uuid = login_data["userID"]
-            name = login_data["name"]
             email = login_data["email"]
-            profile_pic = login_data["picture"]["data"]["url"]
+            if is_sign_up:
+                name = login_data["name"]
+                profile_pic = upload_image_from_url_to_s3(login_data["picture"]["data"]["url"])
 
     if provider == "stockbets":
-        resource_uuid = hashlib.sha224(bytes(email + f"{time.time()}", encoding='utf-8')).hexdigest()
-        profile_pic = make_profile_pic_on_s3(email)
         status_code = 200
+        if is_sign_up:
+            resource_uuid = hashlib.sha224(bytes(email, encoding='utf-8')).hexdigest()
+            url = make_avatar_url(email)
+            profile_pic = upload_image_from_url_to_s3(url, resource_uuid)
 
     if provider == "twitter":
         pass
@@ -204,8 +212,19 @@ def login():
             return make_response(NOT_INVITED_EMAIL, 401)
 
     if is_sign_up:
+        db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
+                                 standardize_email(email))
+        if db_entry:
+            return make_response(EMAIL_ALREADY_LOGGED_MSG, 403)
+
         user_id = setup_new_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
         add_external_game_invites(email, user_id)
+    else:
+        db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
+                                 standardize_email(email))
+        if not db_entry:
+            return make_response(EMAIL_NOT_FOUND_MSG, 403)
+        resource_uuid = db_entry[0]["resource_uuid"]
 
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()

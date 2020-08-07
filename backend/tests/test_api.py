@@ -10,14 +10,15 @@ from backend.api.routes import (
     USERNAME_TAKE_ERROR_MSG,
     OAUTH_ERROR_MSG,
     INVALID_OAUTH_PROVIDER_MSG,
+    EMAIL_NOT_FOUND_MSG,
+    EMAIL_ALREADY_LOGGED_MSG
 )
 from backend.config import Config
 from backend.database.fixtures.mock_data import populate_table
 from backend.database.helpers import (
     reset_db,
     unpack_enumerated_field_mappings,
-    query_to_dict,
-    aws_client
+    query_to_dict
 )
 from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
@@ -78,7 +79,7 @@ class TestUserManagement(BaseTestCase):
 
         # token creation and landing
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, username, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", Config.TEST_CASE_EMAIL).fetchone()
 
         session_token = create_jwt(email, user_id, username)
@@ -137,7 +138,7 @@ class TestUserManagement(BaseTestCase):
     def test_set_username(self):
         # set username endpoint test
         with self.engine.connect() as conn:
-            user_id, name, email, pic, username, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, username, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
 
         self.assertIsNone(username)
@@ -158,7 +159,7 @@ class TestUserManagement(BaseTestCase):
 
         # take username fails with 400 error
         with self.engine.connect() as conn:
-            user_id, name, email, pic, user_name, created_at, _, _ = conn.execute(
+            user_id, name, email, pic, user_name, created_at, _, _, _ = conn.execute(
                 "SELECT * FROM users WHERE email = %s;", "dummy@example.test").fetchone()
         session_token = create_jwt(email, user_id, user_name)
         res = self.requests_session.post(f"{HOST_URL}/set_username", json={"username": new_username},
@@ -172,9 +173,25 @@ class TestUserManagement(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/login",
                                          json=dict(provider="stockbets", password=password, email=email),
                                          verify=False)
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.text, EMAIL_NOT_FOUND_MSG)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email,
+                                                   is_sign_up=True), verify=False)
         self.assertEqual(res.status_code, 200)
         user_entry = query_to_dict("SELECT * FROM users WHERE email = %s;", email)[0]
         self.assertEqual(user_entry["password"], password)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email,
+                                                   is_sign_up=True), verify=False)
+        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.text, EMAIL_ALREADY_LOGGED_MSG)
+
+        res = self.requests_session.post(f"{HOST_URL}/login",
+                                         json=dict(provider="stockbets", password=password, email=email), verify=False)
+        self.assertEqual(res.status_code, 200)
 
 
 class TestCreateGame(BaseTestCase):

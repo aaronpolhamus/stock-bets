@@ -192,6 +192,18 @@ export default function Login () {
     if (response.graphDomain === 'facebook') return 'facebook'
   }
 
+  const handleLoginError = (error) => {
+    if (error.response.status === 401) {
+      window && window.alert(
+        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of August, but email contact@stockbets.io for access before that :)"
+      )
+    } else if (error.response.status === 403) {
+      window && window.alert(error.response.data)
+    } else {
+      window.alert("Something seems to have gone terribly wrong. We apologize for that! Please send us an email at contact@stockbets.io and we'll sort it out right away.")
+    }
+  }
+
   const handleOAuthSubmit = async (response) => {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
@@ -202,9 +214,7 @@ export default function Login () {
         .post('/api/login', responseCopy)
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
-      window && window.alert(
-        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email contact@stockbets.io for access before that :)"
-      )
+      handleLoginError(error)
     }
   }
 
@@ -215,9 +225,7 @@ export default function Login () {
         .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, is_sign_up: loginSelection === 'signUp' })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
-      window && window.alert(
-        "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of June, but email contact@stockbets.io for access before that :)"
-      )
+      handleLoginError(error)
     }
   }
 
