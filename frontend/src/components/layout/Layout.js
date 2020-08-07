@@ -48,6 +48,7 @@ const ColContent = styled.div`
 
 const Content = styled.div`
   padding: ${(props) => props.padding || 'var(--space-400)'};
+  position: relative;
   display: ${(props) => props.display || 'block'};
   height: ${(props) => props.height || 'auto'};
   min-height: ${(props) => props.minHeight || 0};

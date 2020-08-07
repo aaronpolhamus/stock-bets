@@ -16,7 +16,7 @@ import { TabbedRadioButtons } from 'components/forms/Inputs'
 
 const RightCol = styled(Col)`
   padding: 0vw 8vw 8vw;
-  height: 50vh;
+  min-height: 50vh;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -78,7 +78,7 @@ const RightCol = styled(Col)`
 
 const LeftCol = styled(Col)`
   display: flex;
-  height: 50vh;
+  min-height: 50vh;
   flex-wrap: wrap;
   align-items: center;
   @media screen and (max-width: ${breakpoints.md}){
@@ -139,10 +139,13 @@ const FooterLinks = styled.div`
     font-weight: bold;
   }
   @media screen and (min-width: ${breakpoints.md}){
-    bottom: 3vh;
+    bottom: 2.5vh;
     text-align: right;
-    position: fixed;
+    position: absolute;
     right: 2vw;
+    br{
+      display: none;
+    }
   }
 `
 
@@ -325,17 +328,17 @@ export default function Login () {
                 </Form>
               </LoginDialogContent>
             </LoginDialog>
-            <FooterLinks>
-              <SmallText color='var(--color-secondary)'>
-                Have a look at our
-                <Link to='/terms' target='_blank'> terms and conditions </Link>
-                <br />
-                and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
-              </SmallText>
-            </FooterLinks>
           </RightCol>
         </Row>
       </Container>
+      <FooterLinks>
+        <SmallText color='var(--color-secondary)'>
+          Have a look at our
+          <Link to='/terms' target='_blank'> terms and conditions </Link>
+          <br />
+          and <Link to='/privacy' target='_blank'> privacy policy </Link> before getting started.
+        </SmallText>
+      </FooterLinks>
     </Content>
   )
 }
