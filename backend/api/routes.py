@@ -10,12 +10,13 @@ from backend.bi.report_logic import (
 from backend.config import Config
 from backend.database.db import db
 from backend.logic.auth import (
+    setup_new_user,
     verify_facebook_oauth,
     verify_google_oauth,
     decode_token,
     make_session_token_from_uuid,
     register_username_with_token,
-    register_user,
+    add_external_game_invites,
     ADMIN_USERS,
     check_against_invited_users,
     make_profile_pic_on_s3
@@ -88,6 +89,7 @@ from backend.tasks.definitions import (
     async_calculate_key_metrics
 )
 from backend.tasks.redis import unpack_redis_json
+from backend.database.helpers import query_to_dict
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -156,6 +158,7 @@ def login():
     """
     current_time = time.time()
     login_data = request.json  # in the case of a different platform provider, this is just the oauth response
+    is_signup = login_data.get("is_signup")
     provider = login_data.get("provider")
     password = login_data.get("password")
     name = login_data.get("name")
@@ -200,7 +203,10 @@ def login():
         if not check_against_invited_users(email):
             return make_response(NOT_INVITED_EMAIL, 401)
 
-    register_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
+    if is_signup:
+        user_id = setup_new_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
+        add_external_game_invites(email, user_id)
+
     session_token = make_session_token_from_uuid(resource_uuid)
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)

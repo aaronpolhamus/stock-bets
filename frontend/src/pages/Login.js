@@ -193,7 +193,7 @@ export default function Login () {
     const provider = detectProvider(response)
     const responseCopy = { ...response }
     responseCopy.provider = provider
-    responseCopy.isSignUp = loginSelection === 'signUp'
+    responseCopy.is_signup = loginSelection === 'signUp'
     try {
       await api
         .post('/api/login', responseCopy)
@@ -209,7 +209,7 @@ export default function Login () {
     e.preventDefault()
     try {
       await api
-        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, isSignUp: loginSelection === 'signUp' })
+        .post('/api/login', { provider: 'stockbets', email: loginEmail, password: loginPassword, is_signup: loginSelection === 'signUp' })
         .then((r) => console.log({ r }) || setRedirect(true))
     } catch (error) {
       window && window.alert(
@@ -260,8 +260,7 @@ export default function Login () {
                         <span>
                           {loginSelection === 'signUp'
                             ? 'Sign up with Google'
-                            : 'Login with Google'
-                          }
+                            : 'Login with Google'}
                         </span>
                       </LoginButton>
                     )}
@@ -280,8 +279,7 @@ export default function Login () {
                         <span>
                           {loginSelection === 'signUp'
                             ? 'Sign up with Facebook'
-                            : 'Login with Facebook'
-                          }
+                            : 'Login with Facebook'}
                         </span>
                       </LoginButton>
                     )}
@@ -293,8 +291,7 @@ export default function Login () {
                   <Subtext>
                     {loginSelection === 'signUp'
                       ? 'Or create an account with an email an password'
-                      : 'Or login with your email and password'
-                    }
+                      : 'Or login with your email and password'}
                   </Subtext>
                   <Form.Group>
                     <Form.Label>
@@ -303,7 +300,8 @@ export default function Login () {
                     <Form.Control
                       type='email'
                       placeholder='Your email'
-                      onChange={(e) => setLoginEmail(e.target.value)} />
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                    />
                   </Form.Group>
                   <Form.Group>
                     <Form.Label>
@@ -312,17 +310,16 @@ export default function Login () {
                     <Form.Control
                       type='password'
                       placeholder={loginSelection === 'signUp'
-                        ? 'Pick a good password ;)'
-                        : 'Your password'
-                      }
-                      onChange={(e) => setLoginPassword(e.target.value)} />
+                        ? 'Pick a strong password ;)'
+                        : 'Your password'}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                    />
                   </Form.Group>
                   <AlignText align='center'>
                     <Button type='submit'>
                       {loginSelection === 'signUp'
                         ? 'Create account'
-                        : 'Enter stockbets'
-                      }
+                        : 'Enter stockbets'}
                     </Button>
                   </AlignText>
                 </Form>

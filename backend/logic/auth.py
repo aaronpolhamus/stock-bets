@@ -85,24 +85,11 @@ def get_pending_external_game_invites(invited_email: str):
 """, standardize_email(invited_email))
 
 
-def register_user(name: str, email: str, profile_pic: str, current_time: float, provider: str, resource_uuid: str,
-                  password: str = None):
-    db_entry = query_to_dict("SELECT * FROM users WHERE resource_uuid = %s", resource_uuid)
-    if not db_entry:
-        user_id = setup_new_user(name, email, profile_pic, current_time, provider, resource_uuid, password)
-    else:
-        user_id = db_entry["id"]
-
-    # for both classes of user, check if there are any outstanding game invites to create invitations for
+def add_external_game_invites(email: str, user_id: int):
+    # is this user already invited to a games?
     external_game_invites = get_pending_external_game_invites(email)
-    with engine.connect() as conn:
-        for entry in external_game_invites:
-            # is this user already invited to a game?
-            result = conn.execute("SELECT * FROM game_invites WHERE game_id = %s AND user_id = %s", entry["game_id"],
-                                  user_id).fetchone()
-            if not result:
-                add_row("game_invites", game_id=entry["game_id"], user_id=user_id, status="invited",
-                        timestamp=time.time())
+    for entry in external_game_invites:
+        add_row("game_invites", game_id=entry["game_id"], user_id=user_id, status="invited", timestamp=time.time())
 
 
 def make_session_token_from_uuid(resource_uuid):
