@@ -452,7 +452,7 @@ def api_place_order():
     try:
         symbol = order_ticket["symbol"].upper()  # ensure upper casing
         market_price, last_updated = fetch_price(symbol)
-        async_cache_price.apply(args=[symbol, market_price, last_updated])
+        async_cache_price.delay(symbol, market_price, last_updated)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         order_id = place_order(
