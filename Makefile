@@ -12,7 +12,7 @@ db-mysql:
 db-reset: s3-reset
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
-db-mock-data:
+db-mock-data: db-reset
 	rm -f backend/mockdata.sql
 	docker-compose exec api python -m database.fixtures.make_historical_price_data
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"

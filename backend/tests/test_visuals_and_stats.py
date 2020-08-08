@@ -55,7 +55,8 @@ from backend.logic.visuals import (
     SHARPE_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
-    NA_TEXT_SYMBOL
+    NA_TEXT_SYMBOL,
+    update_order_details_table
 )
 from backend.tasks.redis import (
     rds,
@@ -69,11 +70,12 @@ class TestGameKickoff(BaseTestCase):
     """
 
     def _start_game_runner(self, start_time, game_id):
+        rds.flushall()
         user_statuses = get_user_invite_statuses_for_pending_game(game_id)
         pending_user_usernames = [x["username"] for x in user_statuses if x["status"] == "invited"]
         pending_user_ids = get_user_ids(pending_user_usernames)
 
-        # get all user IDs for the game. For this test case everyone is going ot accept
+        # get all user IDs for the game. For this test case everyone is going or accept
         with self.engine.connect() as conn:
             result = conn.execute("SELECT DISTINCT user_id FROM game_invites WHERE game_id = %s", game_id).fetchall()
         all_ids = [x[0] for x in result]
@@ -144,8 +146,7 @@ class TestGameKickoff(BaseTestCase):
             stock_pick = self.stock_pick
             cash_balance = get_current_game_cash_balance(self.user_id, game_id)
             current_holding = get_current_stock_holding(self.user_id, game_id, stock_pick)
-            rds.flushall()  # clear out the initial and verify that it rebuilds visual assets properly
-            place_order(
+            order_id = place_order(
                 user_id=self.user_id,
                 game_id=game_id,
                 symbol=self.stock_pick,
@@ -158,6 +159,7 @@ class TestGameKickoff(BaseTestCase):
                 amount=1,
                 time_in_force="day"
             )
+            update_order_details_table(game_id, self.user_id, order_id, "add")
 
     def test_visuals_after_hours(self):
         game_id = 5
@@ -187,10 +189,6 @@ class TestGameKickoff(BaseTestCase):
             compile_and_pack_player_leaderboard(game_id)
             leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
-
-        # The number of cached transactions that we expect an order to refresh
-        asset_cache_keys = [x for x in rds.keys() if "rc:" not in x]
-        self.assertEqual(len(asset_cache_keys), 4)
 
     def test_visuals_during_trading(self):
         # TODO: Add a canonical test with fully populated data
@@ -232,9 +230,9 @@ class TestGameKickoff(BaseTestCase):
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
-        # The number of cached transactions that we expect an order to refresh
-        asset_cache_keys = [x for x in rds.keys() if "rc:" not in x]
-        self.assertEqual(len(asset_cache_keys), 4)
+        orders_table = unpack_redis_json(f'{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}')
+        self.assertIn("order_label", orders_table["orders"]["fulfilled"][0].keys())
+        self.assertIn("label_color", orders_table["orders"]["fulfilled"][0].keys())
 
 
 class TestVisuals(BaseTestCase):
@@ -275,7 +273,7 @@ class TestVisuals(BaseTestCase):
         order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
         df = pd.concat(
             [pd.DataFrame(order_details["orders"]["pending"]), pd.DataFrame(order_details["orders"]["fulfilled"])])
-        self.assertEqual(df.shape, (8, 14))
+        self.assertEqual(df.shape, (8, 16))
         self.assertNotIn("order_id", order_details["headers"])
         self.assertEqual(len(order_details["headers"]), 13)
 
