@@ -66,6 +66,7 @@ const FormattableTable = React.forwardRef((props, ref) => {
           type='checkbox'
           name={row.Symbol}
           value={row.Symbol}
+          color={row.color}
           onInput={handleRowSelect}
         />
         {cellContent}
@@ -111,7 +112,6 @@ const FormattableTable = React.forwardRef((props, ref) => {
       )
     })
   }
-
   if (tableData && tableData.data) {
     return (
       <Table
