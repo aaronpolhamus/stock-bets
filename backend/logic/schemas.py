@@ -81,11 +81,9 @@ portfolio_comps_schema = {
     "timestamp": (VALID_TIME_TYPES, False)
 }
 
-order_performance_schema = {
-    # a label for each individual purchase order containing quantity, time, and purchase price information
-    "order_label": ([pd.StringDtype], True),
-    # the return over time of each order based on the changing market price. series ends when that position is closed
-    "return": ([float, np.int64], False),
-    # the formatted x-axis label. trade_time_index and build_labels work together to make this
-    "label": ([pd.StringDtype], True)
+order_details_schema = {
+    "symbol": ([pd.StringDtype], False),
+    "timestamp_fulfilled": ([float, np.int64], True),
+    "quantity": ([float, np.int64], False),
+    "clear_price_fulfilled": ([float, np.int64], True)
 }
