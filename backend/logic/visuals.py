@@ -111,7 +111,6 @@ PORTFOLIO_DETAIL_MAPPINGS = {
     "clear_price": "Last order price",
     "price": "Market price",
     "timestamp": "Updated at",
-    "last_change": "Recent change",
     "Value": "Value",
     "Portfolio %": "Portfolio %",
     "Change since last close": "Change since last close"}

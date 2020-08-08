@@ -66,7 +66,7 @@ flower-stop:
 
 # redis
 # -----
-redis-mock-data:
+redis-mock-data: redis-clear
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_redis_mocks;make_redis_mocks()"
 
 redis-clear:
