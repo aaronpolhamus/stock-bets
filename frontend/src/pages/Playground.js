@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useRef} from 'react'
 import { CompoundChart } from 'components/charts/CompoundChart'
 
 import { Container } from 'react-bootstrap'
@@ -15,12 +15,13 @@ const symbolFormat = (value) => {
 const recentChangeFormat = (value) => {
   return (
     <strong>
-      {value.toFixed(3)}
+      {value}
     </strong>
   )
 }
 
 const Playground = () => {
+  const tableRef = useRef()
   return (
     <Container>
       <h1>
@@ -30,10 +31,13 @@ const Playground = () => {
         gameId='3'
         chartDataEndpoint='get_balances_chart'
         tableId='balances-table'
+        legends={false}
       >
         {
           ({ handleSelect }) => (
             <FormattableTable
+              hover
+              ref={tableRef}
               endpoint='get_current_balances_table'
               name='balances-table'
               gameId='3'
@@ -41,7 +45,7 @@ const Playground = () => {
               tableCellCheckbox={0}
               tableCellFormat={{
                 Symbol: symbolFormat,
-                'Recent change': recentChangeFormat
+                'Change since last close': recentChangeFormat
               }}
             />
           )

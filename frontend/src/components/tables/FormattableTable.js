@@ -9,50 +9,63 @@ const simpleTokenize = (string) => {
   return string.toLowerCase().replace(/\s/g, '-')
 }
 
-const FormattableTable = ({ endpoint, gameId, tableCellFormat, name, update, onRowSelect, tableCellCheckbox, exclude = ['order_id'], ...props }) => {
+const FormattableTable = React.forwardRef((props, ref) => {
   const [tableData, setTableData] = useState()
   const getData = async () => {
-    const tableDataQuery = await fetchGameData(gameId, endpoint)
+    const tableDataQuery = await fetchGameData(props.gameId, props.endpoint)
     setTableData(tableDataQuery)
   }
 
   useEffect(() => {
     getData()
-  }, [update])
+  }, [props.update])
   // The name option allows us to specify unique id's for the table headers. This for accesibility and for css manipulation in Formattable mode
 
   // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the
   // order id for order cancellations
   // This function formats the value of the cell according to the tableOptions Object
-  const formatCell = (key, value, index) => {
+  const formatCell = (key, value, index, row) => {
     // If there is no tableOptions or tableOptions has not a formatCell property the function returns the plain value
     let cellContent = value
-    if (tableCellFormat !== undefined) {
+    if (props.tableCellFormat !== undefined) {
       // We need to know if the key exists in the tableCellFormat Object
-      const index = Object.keys(tableCellFormat).indexOf(key)
+      const index = Object.keys(props.tableCellFormat).indexOf(key)
 
       if (index >= 0) {
         // If the key exists, we call the render function
-        cellContent = tableCellFormat[key](value)
+        cellContent = props.tableCellFormat[key](value)
       }
     }
 
-    if (tableCellCheckbox !== undefined && tableCellCheckbox === index) {
-      return addCheckboxToCell(cellContent, name)
+    if (props.tableCellCheckbox !== undefined && props.tableCellCheckbox === index) {
+      return addCheckboxToCell(cellContent, row)
     }
     return cellContent
   }
 
   const handleRowSelect = () => {
-    onRowSelect()
+    const selectedCheckboxes = ref.current.querySelectorAll('input:checked')
+
+    const selectedItems = Object.keys(selectedCheckboxes).reduce((agg, index) => {
+      const user = {
+        name: selectedCheckboxes[index].value,
+        color: selectedCheckboxes[index].getAttribute('color')
+      }
+
+      agg.push(user)
+      return agg
+    }, [])
+    console.log(selectedItems)
+    // props.onRowSelect()
   }
 
-  const addCheckboxToCell = (cellContent, name) => {
+  const addCheckboxToCell = (cellContent, row) => {
     return (
       <label>
         <input
           type='checkbox'
-          name={name}
+          name={row.Symbol}
+          value={row.Symbol}
           onInput={handleRowSelect}
         />
         {cellContent}
@@ -62,16 +75,16 @@ const FormattableTable = ({ endpoint, gameId, tableCellFormat, name, update, onR
 
   const renderRow = (row) => {
     return tableData.headers.map((key, index) => {
-      if (exclude.includes(key)) {
+      if (props.exclude && props.exclude.includes(key)) {
         return null
       }
       return (
         <td
           key={index}
-          headers={`${name}-${simpleTokenize(key)}`}
+          headers={`${props.name}-${simpleTokenize(key)}`}
         >
 
-          {formatCell(key, row[key], index)}
+          {formatCell(key, row[key], index, row)}
         </td>
       )
     })
@@ -85,13 +98,13 @@ const FormattableTable = ({ endpoint, gameId, tableCellFormat, name, update, onR
 
   const renderHeaders = (headers) => {
     return headers.map((key, index) => {
-      if (exclude.includes(key)) {
+      if (props.exclude && props.exclude.includes(key)) {
         return null
       }
       return (
         <th
           key={key}
-          id={`${name}-${simpleTokenize(key)}`}
+          id={`${props.name}-${simpleTokenize(key)}`}
         >
           {key}
         </th>
@@ -101,7 +114,11 @@ const FormattableTable = ({ endpoint, gameId, tableCellFormat, name, update, onR
 
   if (tableData && tableData.data) {
     return (
-      <Table {...props}>
+      <Table
+        {...props}
+        ref={ref}
+        id={props.name}
+      >
         <thead>
           <tr>{renderHeaders(tableData.headers)}</tr>
         </thead>
@@ -110,8 +127,9 @@ const FormattableTable = ({ endpoint, gameId, tableCellFormat, name, update, onR
     )
   }
   return null
-}
+})
 
+FormattableTable.displayName = 'FormattableTable'
 FormattableTable.propTypes = {
   tableData: PropTypes.object,
   tableCellFormat: PropTypes.object,

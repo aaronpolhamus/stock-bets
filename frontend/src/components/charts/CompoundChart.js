@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef, useContext } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { fetchGameData } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
 
-const CompoundChart = ({ children, gameId, chartDataEndpoint, update }) => {
+const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends }) => {
   const [chartData, setChartData] = useState()
   const chartRef = useRef()
 
@@ -28,11 +28,14 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update }) => {
         ref={chartRef}
         data={chartData}
         yScaleType='dollar'
-        legends={false}
+        legends={legends}
       />
-      <Children
-        handleSelect={handleSelect}
-      />
+      {
+        children &&
+        <Children
+          handleSelect={handleSelect}
+        />
+      }
     </>
   )
 }
@@ -45,6 +48,7 @@ CompoundChart.propTypes = {
   tableId: PropTypes.string,
   tableCellFormat: PropTypes.object,
   update: PropTypes.string,
+  legends: PropTypes.bool,
   children: PropTypes.oneOfType([
     PropTypes.arrayOf(PropTypes.node),
     PropTypes.node
