@@ -7,13 +7,56 @@ import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
 
-const MakeGame = ({ gameMode }) => {
+const PaypalButton = ({ buyIn }) => {
   // payment processing
   const [funded, setFunded] = useState(false)
+  const [error, setError] = useState(null)
   const [paypalLoaded, setPaypalLoaded] = useState(false)
 
   const paypalRef = useRef()
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.REACT_APP_PAYPAL_CLIENT_ID}`
+    script.addEventListener('load', () => setPaypalLoaded(true))
+    document.body.appendChild(script)
+    if (paypalLoaded) {
+      setTimeout(() => {
+        window.paypal
+          .Buttons({
+            createOrder: (data, actions) => {
+              return actions.order.create({
+                purchase_units: [
+                  {
+                    description: 'create game',
+                    amount: {
+                      currency_code: 'USD',
+                      value: buyIn
+                    }
+                  }
+                ]
+              })
+            },
+            onApprove: async (data, actions) => {
+              const order = await actions.order.capture()
+              setFunded(true)
+              console.log(order)
+            },
+            onError: err => {
+              setError(err)
+              console.error(err)
+            }
+          }).render(paypalRef.current)
+      })
+    }
+  }, [buyIn])
 
+  if (funded) console.log('funded!')
+  return (
+    <div ref={paypalRef} />
+  )
+}
+
+const MakeGame = ({ gameMode }) => {
   // game settings
   const [defaults, setDefaults] = useState({})
   const [sidePotPct, setSidePotPct] = useState(0)
@@ -31,42 +74,6 @@ const MakeGame = ({ gameMode }) => {
     }
     fetchData()
   }, [])
-
-  useEffect(() => {
-    const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.REACT_APP_PAYPAL_CLIENT_ID}`
-    script.addEventListener('load', () => setPaypalLoaded(true))
-    document.body.appendChild(script)
-    if (paypalLoaded) {
-      setTimeout(() => {
-        window.paypal
-          .Buttons({
-            createOrder: (data, actions) => {
-              return actions.order.create({
-                purchase_units: [
-                  {
-                    description: 'create game',
-                    amount: {
-                      currency_code: 'USD',
-                      value: formValues.buy_in
-                    }
-                  }
-                ]
-              })
-            },
-            onApprove: async (data, actions) => {
-              const order = await actions.order.capture()
-              setFunded(true)
-              console.log(order)
-            },
-            onError: err => {
-              console.error(err)
-            }
-          }).render(paypalRef)
-      }).render(paypalRef.current)
-    }
-  }, [])
-
   const handleFormSubmit = async (e) => {
     e.preventDefault()
     const formValuesCopy = { ...formValues }
@@ -258,7 +265,9 @@ const MakeGame = ({ gameMode }) => {
             Create game
           </Button>
         </div>
-        <div ref={paypalRef} />
+        <iframe>
+          <PaypalButton buyIn={formValues.buy_in} />
+        </iframe>
       </Form>
       <Modal show={showModal} onHide={handleClose}>
         {gameMode === 'multi_player' &&
