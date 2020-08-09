@@ -29,11 +29,12 @@ from backend.bi.report_logic import (
 )
 from backend.tasks.redis import task_lock
 from backend.tasks.airflow import trigger_dag
+from backend.config import Config
 
 REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
 CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
-PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 60
-UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * 60
+PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * Config.OPEN_ORDER_PROCESS_RATE * 2
+UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * Config.GAME_STATUS_UPDATE_RATE * 2
 
 # -------------------------- #
 # Price fetching and caching #

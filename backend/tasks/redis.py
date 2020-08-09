@@ -30,7 +30,8 @@ def task_lock(function=None, key="", timeout=None):
         def _caller(*args, **kwargs):
             ret_value = TASK_LOCK_MSG
             signature = argument_signature(*args, **kwargs)
-            lock = dlm.lock(f"{key}:{signature}", timeout)
+            lock = dlm.lock(signature, timeout)
+            print(f"lock: {lock} -- signature: {signature}")
             if lock:
                 ret_value = run_func(*args, **kwargs)
                 dlm.unlock(lock)

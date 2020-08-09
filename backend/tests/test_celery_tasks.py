@@ -37,7 +37,8 @@ from backend.tasks.definitions import (
     async_update_symbols_table,
     async_cache_price,
     async_update_all_index_values,
-    async_process_all_orders_in_game
+    async_process_all_orders_in_game,
+    async_update_game_data
 )
 from backend.logic.visuals import (
     serialize_and_pack_order_details,
@@ -667,12 +668,39 @@ class TestDataAccess(BaseTestCase):
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
 
+from unittest import TestCase
+from backend.tasks.redis import task_lock
+class TestLockSigning(TestCase):
+
+    def test_lock_signing(self):
+        rds.flushall()
+
+        @task_lock(key="foo", timeout=100_000)
+        def foo(**kwargs):
+            async_update_game_data.delay(3)
+            return kwargs
+
+        res1 = foo(a=1)
+        res2 = foo(c=3)
+        res3 = foo(c=3)
+        print(res1)
+        print(res2)
+        print(res3)
+
+
 class TestTaskLocking(BaseTestCase):
 
-    def test_process_open_orders(self):
-        """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
-        want this to happen because it can result in an order being cleared multiple times
-        """
+    def test_task_locking(self):
+        """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
+        this to happen because it can result in an order being cleared multiple times"""
+        rds.flushall()
+        res1 = async_update_game_data.delay(3)
+        res2 = async_update_game_data.delay(5)
+        self.assertIsNone(res1.get())
+        self.assertIsNone(res2.get())
+        res3 = async_update_game_data.delay(5)
+        self.assertEqual(res3.get(), TASK_LOCK_MSG)
+
         rds.flushall()
         game_id = 3
 
