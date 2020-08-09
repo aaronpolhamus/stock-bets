@@ -21,14 +21,24 @@ from backend.logic.base import (
     SECONDS_IN_A_DAY,
     get_schedule_start_and_end,
     get_trading_calendar,
-    posix_to_datetime
+    posix_to_datetime,
+    check_single_player_mode
 )
 from backend.logic.games import (
+    get_active_game_user_ids,
     expire_finished_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
-from backend.logic.visuals import make_chart_json
-from backend.tasks.definitions import async_update_game_data
+from backend.logic.visuals import (
+    calculate_and_pack_game_metrics,
+    compile_and_pack_player_leaderboard,
+    make_the_field_charts,
+    serialize_and_pack_portfolio_details,
+    serialize_and_pack_order_details,
+    serialize_and_pack_order_performance_chart,
+    make_chart_json,
+    serialize_and_pack_winners_table
+)
 from backend.tasks.redis import rds
 from sqlalchemy import MetaData
 
@@ -600,12 +610,34 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-    game_ids = [3, 6, 7, 8]
-    for game_id in game_ids:
-        async_update_game_data.delay(game_id, simulation_start_time, simulation_end_time)
+    def _build_assets(g_id):
+        # performance metrics
+        calculate_and_pack_game_metrics(g_id)
 
-    for game_id in game_ids:
-        expire_finished_game(game_id)
+        # leaderboard
+        compile_and_pack_player_leaderboard(g_id)
+
+        # the field and balance charts
+        make_the_field_charts(g_id)
+
+        # tables and performance breakout charts
+        user_ids = get_active_game_user_ids(g_id)
+        for user_id in user_ids:
+            # game/user-level assets
+            serialize_and_pack_order_details(g_id, user_id)
+            serialize_and_pack_portfolio_details(g_id, user_id)
+            serialize_and_pack_order_performance_chart(g_id, user_id)
+
+        if not check_single_player_mode(g_id):
+            # winners/payouts table
+            serialize_and_pack_winners_table(g_id)
+
+    with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
+        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+        game_ids = [3, 6, 7, 8]
+        for game_id in game_ids:
+            _build_assets(game_id)
+            expire_finished_game(game_id)
 
     # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()

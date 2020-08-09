@@ -114,7 +114,7 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
-NOT_INVITED_EMAIL = "The product is still in it's early beta and we're whitelisting. You'll get on soon!"
+NOT_INVITED_EMAIL = "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of August, but email contact@stockbets.io for access before that :)"
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
@@ -170,7 +170,7 @@ def login():
     if provider not in ["google", "facebook", "twitter", "stockbets"]:
         return make_response(INVALID_OAUTH_PROVIDER_MSG, 411)
 
-    status_code = 401
+    status_code = 400
     profile_pic = None
     resource_uuid = None
     if provider == "google":
@@ -182,7 +182,7 @@ def login():
             email = verification_json["email"]
             if is_sign_up:
                 name = verification_json["given_name"]
-                profile_pic = upload_image_from_url_to_s3(verification_json["picture"])
+                profile_pic = upload_image_from_url_to_s3(verification_json["picture"], resource_uuid)
 
     if provider == "facebook":
         response = verify_facebook_oauth(login_data["accessToken"])
@@ -192,7 +192,7 @@ def login():
             email = login_data["email"]
             if is_sign_up:
                 name = login_data["name"]
-                profile_pic = upload_image_from_url_to_s3(login_data["picture"]["data"]["url"])
+                profile_pic = upload_image_from_url_to_s3(login_data["picture"]["data"]["url"], resource_uuid)
 
     if provider == "stockbets":
         status_code = 200
@@ -209,7 +209,7 @@ def login():
 
     if Config.CHECK_WHITE_LIST:
         if not check_against_invited_users(email):
-            return make_response(NOT_INVITED_EMAIL, 401)
+            return make_response(NOT_INVITED_EMAIL, 403)
 
     if is_sign_up:
         db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
@@ -451,7 +451,8 @@ def api_place_order():
         stop_limit_price = float(stop_limit_price)
     try:
         symbol = order_ticket["symbol"].upper()  # ensure upper casing
-        market_price, _ = fetch_price(symbol)
+        market_price, last_updated = fetch_price(symbol)
+        async_cache_price.delay(symbol, market_price, last_updated)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
         order_id = place_order(

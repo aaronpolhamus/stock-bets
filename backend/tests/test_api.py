@@ -357,7 +357,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = unpack_redis_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
-        self.assertEqual(len(init_balances_entry["headers"]), 9)
+        self.assertEqual(len(init_balances_entry["headers"]), 8)
 
         open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
@@ -493,11 +493,6 @@ class TestPlayGame(BaseTestCase):
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
 
-        # TODO: Update these tests once we implement websockets
-        order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-        while stock_pick not in [x["Symbol"] for x in order_details_table["orders"]["pending"]]:
-            order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-            continue
         res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})

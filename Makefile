@@ -14,6 +14,7 @@ db-reset: s3-reset
 
 db-mock-data: db-reset
 	rm -f backend/mockdata.sql
+	docker-compose exec api python -m database.fixtures.make_historical_price_data
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_db_mocks;make_db_mocks()"
 	docker-compose exec db mysqldump -uroot main > backend/mockdata.sql
 
@@ -65,7 +66,7 @@ flower-stop:
 
 # redis
 # -----
-redis-mock-data:
+redis-mock-data: redis-clear
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_redis_mocks;make_redis_mocks()"
 
 redis-clear:
@@ -109,6 +110,7 @@ backend-test: db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
+	./backend/docker/await-db.sh
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
@@ -126,8 +128,7 @@ api-stop:
 
 # all containers
 # --------------
-up: api-up
-	./backend/docker/mock-data-runner.sh
+up: api-up mock-data
 	npm install --prefix frontend
 	npm start --prefix frontend
 
