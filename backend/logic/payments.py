@@ -8,7 +8,7 @@ from backend.config import Config
 def get_paypal_access_token(client_id=Config.PAYPAL_CLIENT_ID, secret=Config.PAYPAL_SECRET):
     url = "https://api.sandbox.paypal.com/v1/oauth2/token"
     payload = 'grant_type=client_credentials'
-    encoded_auth = base64.b64encode((Config.PAYPAL_CLIENT_ID + ':' + Config.PAYPAL_SECRET).encode())
+    encoded_auth = base64.b64encode((client_id + ':' + secret).encode())
     headers = {
       'Authorization': f'Basic {encoded_auth.decode()}',
       'Content-Type': 'application/x-www-form-urlencoded'

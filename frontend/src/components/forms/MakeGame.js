@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Redirect } from 'react-router-dom'
 import api from 'services/api'
 import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
@@ -8,6 +8,13 @@ import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
 
 const MakeGame = ({ gameMode }) => {
+  // payment processing
+  const [funded, setFunded] = useState(false)
+  const [paypalLoaded, setPaypalLoaded] = useState(false)
+
+  const paypalRef = useRef()
+
+  // game settings
   const [defaults, setDefaults] = useState({})
   const [sidePotPct, setSidePotPct] = useState(0)
   const [formValues, setFormValues] = useState({})
@@ -22,19 +29,61 @@ const MakeGame = ({ gameMode }) => {
         setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
       }
     }
-
     fetchData()
   }, [])
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    const script = document.createElement('script')
+    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.REACT_APP_PAYPAL_CLIENT_ID}`
+    script.addEventListener('load', () => setPaypalLoaded(true))
+    document.body.appendChild(script)
+    if (paypalLoaded) {
+      setTimeout(() => {
+        window.paypal
+          .Buttons({
+            createOrder: (data, actions) => {
+              return actions.order.create({
+                purchase_units: [
+                  {
+                    description: 'create game',
+                    amount: {
+                      currency_code: 'USD',
+                      value: formValues.buy_in
+                    }
+                  }
+                ]
+              })
+            },
+            onApprove: async (data, actions) => {
+              const order = await actions.order.capture()
+              setFunded(true)
+              console.log(order)
+            },
+            onError: err => {
+              console.error(err)
+            }
+          }).render(paypalRef)
+      }).render(paypalRef.current)
+    }
+  }, [])
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault()
     const formValuesCopy = { ...formValues }
     formValuesCopy.game_mode = gameMode
-    await api
-      .post('/api/create_game', formValuesCopy)
-      .then()
-      .catch((e) => {})
-    setShowModal(true)
+    if (formValuesCopy.stakes === 'real' && formValuesCopy.game_mode === 'multi_player') {
+      // do something with paypal checkout in here
+    }
+    const createGame = true
+    // if (formValuesCopy.stakes === 'real' && formValuesCopy.game_mode === 'multi_player' && !funded) createGame = false
+    if (createGame) {
+      await api
+        .post('/api/create_game', formValuesCopy)
+        .then()
+        .catch((e) => {
+        })
+      setShowModal(true)
+    }
   }
 
   const handleClose = () => {
@@ -73,7 +122,7 @@ const MakeGame = ({ gameMode }) => {
   if (redirect) return <Redirect to='/' />
   return (
     <>
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleFormSubmit}>
         {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
         <Row>
           <Col lg={4}>
@@ -109,17 +158,63 @@ const MakeGame = ({ gameMode }) => {
               <Row>
                 <Col xs={6}>
                   <Form.Group>
-                    <Form.Label>
-                    Buy-in
-                      <Tooltip message='How many dollars does each player need to put in to join the game?' />
-                    </Form.Label>
-                    <Form.Control
-                      name='buy_in'
-                      type='input'
-                      defaultValue={defaults.buy_in}
+                    <Form.Label>Choose the game stakes</Form.Label>
+                    <RadioButtons
+                      options={defaults.stakes_options}
+                      name='stakes'
                       onChange={handleChange}
+                      defaultChecked={formValues.stakes}
                     />
                   </Form.Group>
+                  {formValues.stakes === 'real' &&
+                    <>
+                      <Form.Group>
+                        <Form.Label>
+                      Buy-in
+                          <Tooltip message='How many dollars does each player need to put in to join the game?' />
+                        </Form.Label>
+                        <Form.Control
+                          name='buy_in'
+                          type='input'
+                          defaultValue={defaults.buy_in}
+                          onChange={handleChange}
+                        />
+                      </Form.Group>
+                      <Form.Group>
+                        <Form.Label>
+                    Sidebet % of pot
+                          <Tooltip
+                            message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
+                          />
+                        </Form.Label>
+                        <Form.Control
+                          name='side_bets_perc'
+                          type='input'
+                          defaultValue={defaults.side_bets_perc}
+                          value={sidePotPct}
+                          onChange={handleSideBetChange}
+                        />
+                      </Form.Group>
+                      {sidePotPct > 0 && (
+                        <Form.Group>
+                          <Form.Label>
+                    Sidebet period
+                            <Tooltip
+                              message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
+                            />
+                          </Form.Label>
+                          <Form.Control
+                            name='side_bets_period'
+                            as='select'
+                            defaultValue={defaults.side_bets_period}
+                            onChange={handleChange}
+                          >
+                            {defaults.sidebet_periods &&
+                    optionBuilder(defaults.sidebet_periods)}
+                          </Form.Control>
+                        </Form.Group>
+                      )}
+                    </>}
                 </Col>
               </Row>}
             {gameMode === 'multi_player' &&
@@ -127,7 +222,7 @@ const MakeGame = ({ gameMode }) => {
                 <Col xs={6}>
                   <Form.Group>
                     <Form.Label>
-                    Invite window
+                    Invite window (days)
                       <Tooltip message='For how many days would you like your game to be open for before kicking off automatically?' />
                     </Form.Label>
                     <Form.Control
@@ -157,49 +252,13 @@ const MakeGame = ({ gameMode }) => {
             <Col lg={4}>
               <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
             </Col>}
-          {gameMode === 'multi_player' &&
-            <Col lg={4}>
-              <Form.Group>
-                <Form.Label>
-                Sidebet % of pot
-                  <Tooltip
-                    message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
-                  />
-                </Form.Label>
-                <Form.Control
-                  name='side_bets_perc'
-                  type='input'
-                  defaultValue={defaults.side_bets_perc}
-                  value={sidePotPct}
-                  onChange={handleSideBetChange}
-                />
-              </Form.Group>
-              {sidePotPct > 0 && (
-                <Form.Group>
-                  <Form.Label>
-                  Sidebet period
-                    <Tooltip
-                      message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
-                    />
-                  </Form.Label>
-                  <Form.Control
-                    name='side_bets_period'
-                    as='select'
-                    defaultValue={defaults.side_bets_period}
-                    onChange={handleChange}
-                  >
-                    {defaults.sidebet_periods &&
-                  optionBuilder(defaults.sidebet_periods)}
-                  </Form.Control>
-                </Form.Group>
-              )}
-            </Col>}
         </Row>
         <div className='text-right'>
           <Button variant='primary' type='submit'>
-            Create new game
+            Create game
           </Button>
         </div>
+        <div ref={paypalRef} />
       </Form>
       <Modal show={showModal} onHide={handleClose}>
         {gameMode === 'multi_player' &&

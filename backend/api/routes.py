@@ -71,7 +71,9 @@ from backend.logic.games import (
     ORDER_TYPES,
     TIME_IN_FORCE_TYPES,
     QUANTITY_DEFAULT,
-    QUANTITY_OPTIONS
+    QUANTITY_OPTIONS,
+    DEFAULT_STAKES,
+    STAKES
 )
 from backend.logic.visuals import (
     format_time_for_response,
@@ -261,7 +263,6 @@ def set_username():
 
     return make_response(USERNAME_TAKE_ERROR_MSG, 400)
 
-
 # --------- #
 # User info #
 # --------- #
@@ -283,7 +284,6 @@ def home():
     user_info = get_user_information(user_id)
     user_info["game_info"] = get_game_info_for_user(user_id)
     return jsonify(user_info)
-
 
 # ---------------- #
 # Games management #
@@ -314,7 +314,9 @@ def game_defaults():
             side_bets_period=DEFAULT_SIDEBET_PERIOD,
             sidebet_periods=SIDE_BET_PERIODS,
             available_invitees=available_invitees,
-            invite_window=DEFAULT_INVITE_OPEN_WINDOW
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW,
+            stakes=DEFAULT_STAKES,
+            stakes_options=STAKES
         ))
     return jsonify(resp)
 
@@ -391,7 +393,6 @@ def invite_users_to_pending_game():
             make_response(f"{email} : {str(e)}", 400)
 
     return make_response(INVITED_MORE_USERS_MESSAGE, 200)
-
 
 # --------------------------- #
 # Order management and prices #
@@ -502,7 +503,6 @@ def api_suggest_symbols():
     buy_or_sell = request.json["buy_or_sell"]
     return jsonify(suggest_symbols(game_id, user_id, text, buy_or_sell))
 
-
 # ------- #
 # Friends #
 # ------- #
@@ -564,7 +564,6 @@ def suggest_friend_invites():
     user_id = decode_token(request)
     text = request.json.get("text")
     return jsonify(suggest_friends(user_id, text))
-
 
 # ------- #
 # Visuals #
@@ -630,7 +629,6 @@ def get_payouts_table():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
 
-
 # ----- #
 # Stats #
 # ----- #
@@ -653,6 +651,16 @@ def get_cash_balances():
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
+# -------- #
+# Payments #
+# -------- #
+
+
+@routes.route("/api/process_payment", methods=["POST"])
+@authenticate
+def process_payment():
+    user_id = decode_token(request)
+    pass
 
 # ----- #
 # Admin #
@@ -694,7 +702,6 @@ def api_games_per_users():
 @admin
 def api_orders_per_active_user():
     return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
-
 
 # ------ #
 # DevOps #

@@ -39,12 +39,17 @@ class GameModes(Enum):
 
 class Benchmarks(Enum):
     return_ratio = "Simple return"
-    sharpe_ratio = "Sharpe ratio-adjusted"
+    sharpe_ratio = "Sharpe ratio"
 
 
 class SideBetPeriods(Enum):
     weekly = "Weekly"
     monthly = "Monthly"
+
+
+class GameStakes(Enum):
+    real = "Real money"
+    monopoly = "Monopoly mode"
 
 
 class Games(db.Model):
@@ -60,6 +65,7 @@ class Games(db.Model):
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
     invite_window = db.Column(db.Float(precision=32))
+    stakes = db.Column(db.Enum(GameStakes))
 
 
 class GameStatusTypes(Enum):

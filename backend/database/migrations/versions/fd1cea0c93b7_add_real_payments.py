@@ -1,8 +1,8 @@
-"""add real payments table
+"""add real payments
 
-Revision ID: 848a9d3e8e2c
+Revision ID: fd1cea0c93b7
 Revises: 6a1fd042d869
-Create Date: 2020-08-09 04:32:40.990508
+Create Date: 2020-08-09 15:46:30.419724
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = '848a9d3e8e2c'
+revision = 'fd1cea0c93b7'
 down_revision = '6a1fd042d869'
 branch_labels = None
 depends_on = None
@@ -33,6 +33,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['winner_table_id'], ['winners.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.add_column('games', sa.Column('stakes', sa.Enum('real', 'monopoly', name='gamestakes'), nullable=True))
     op.alter_column('users', 'provider',
                existing_type=mysql.ENUM('google', 'facebook', 'twitter', 'stockbets'),
                nullable=True)
@@ -44,5 +45,6 @@ def downgrade():
     op.alter_column('users', 'provider',
                existing_type=mysql.ENUM('google', 'facebook', 'twitter', 'stockbets'),
                nullable=False)
+    op.drop_column('games', 'stakes')
     op.drop_table('payments')
     # ### end Alembic commands ###

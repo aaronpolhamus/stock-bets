@@ -19,7 +19,9 @@ from backend.database.models import (
     SideBetPeriods,
     OrderTypes,
     BuyOrSell,
-    TimeInForce)
+    TimeInForce,
+    GameStakes
+)
 from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
@@ -35,7 +37,8 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     during_trading_day,
     get_active_balances,
-    get_user_ids_from_passed_emails
+    get_user_ids_from_passed_emails,
+    get_user_ids
 )
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
@@ -47,7 +50,6 @@ from backend.logic.visuals import (
     init_game_assets
 )
 from funkybob import RandomNameGenerator
-from logic.base import get_user_ids
 from textdistance import hamming
 
 TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
@@ -55,13 +57,14 @@ TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
 # Default make game settings
 # --------------------------
 
-DEFAULT_GAME_DURATION = 30  # days
+DEFAULT_GAME_DURATION = 7  # days
 DEFAULT_BUYIN = 100  # dolllars
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
+DEFAULT_STAKES = "real"
 
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
@@ -72,6 +75,7 @@ in javascript. We handle value-label mapping concerns on the frontend.
 """
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
+STAKES = unpack_enumerated_field_mappings(GameStakes)
 
 # Default play game settings
 # --------------------------

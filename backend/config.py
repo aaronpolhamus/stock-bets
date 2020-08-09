@@ -7,9 +7,11 @@ class Config:
     ENV = getenv("ENV")
     if ENV == "dev":
         CORS_ORIGINS = "http://localhost:3000"
+        PAYPAL_URL = "https://api.sandbox.paypal.com"
 
     if ENV == "prod":
         CORS_ORIGINS = "https://app.stockbets.io"
+        PAYPAL_URL = "https://api.paypal.com"
 
     # External dependencies:
     # ----------------------
