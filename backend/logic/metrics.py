@@ -110,7 +110,7 @@ def check_if_payout_time(current_time: float, payout_time: float) -> bool:
     if current_time >= payout_time:
         return True
 
-    if during_trading_day():
+    if during_trading_day() and current_time < payout_time:
         return False
 
     next_day_schedule = get_next_trading_day_schedule(posix_to_datetime(current_time) + timedelta(days=1))
