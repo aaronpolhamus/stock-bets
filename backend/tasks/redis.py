@@ -1,3 +1,4 @@
+import base64
 from contextlib import contextmanager
 import json
 import pickle as pkl
@@ -42,6 +43,23 @@ def redis_lock(lock_name, expires=60):
         # (i.e. value inside is identical to what we put there originally)
         rds.eval(REMOVE_ONLY_IF_OWNER_SCRIPT, 1, lock_name, random_value)
         print(f'Lock {lock_name} released!')
+
+
+def argument_signature(*args, **kwargs):
+    arg_list = [str(x) for x in args]
+    kwarg_list = [f"{str(k)}:{str(v)}" for k, v in kwargs.items()]
+    return base64.b64encode(f"{'_'.join(arg_list)}-{'_'.join(kwarg_list)}".encode()).decode()
+
+
+def task_lock(func=None, main_key="", timeout=None):
+    def _dec(run_func):
+        def _caller(*args, **kwargs):
+            with redis_lock(f"{main_key}_{argument_signature(*args, **kwargs)}", timeout) as acquired:
+                if not acquired:
+                    return TASK_LOCK_MSG
+                return run_func(*args, **kwargs)
+        return _caller
+    return _dec(func) if func is not None else _dec
 
 
 def unpack_redis_json(key: str):
