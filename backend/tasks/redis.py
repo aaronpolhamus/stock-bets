@@ -34,15 +34,9 @@ def redis_lock(lock_name, expires=60):
     lock_acquired = bool(
         rds.set(lock_name, random_value, ex=expires, nx=True)
     )
-    print(f'Lock acquired? {lock_name} for {expires} - {lock_acquired}')
-
     yield lock_acquired
-
     if lock_acquired:
-        # if lock was acquired, then try to release it BUT ONLY if we are the owner
-        # (i.e. value inside is identical to what we put there originally)
         rds.eval(REMOVE_ONLY_IF_OWNER_SCRIPT, 1, lock_name, random_value)
-        print(f'Lock {lock_name} released!')
 
 
 def argument_signature(*args, **kwargs):

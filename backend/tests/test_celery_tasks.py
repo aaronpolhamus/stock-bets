@@ -37,7 +37,6 @@ from backend.tasks.definitions import (
     async_update_symbols_table,
     async_cache_price,
     async_update_all_index_values,
-    async_process_all_orders_in_game,
     async_test_task_lock,
     TASK_LOCK_TEST_SLEEP
 )
