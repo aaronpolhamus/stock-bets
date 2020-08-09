@@ -270,3 +270,36 @@ class BalancesAndPricesCache(db.Model):
 
 Index("balances_and_prices_game_user_timestamp_ix", BalancesAndPricesCache.game_id, BalancesAndPricesCache.user_id,
       BalancesAndPricesCache.timestamp)
+
+
+class PaymentTypes(Enum):
+    start = "start"
+    refund = "refund"
+    sidebet = "sidebet"
+    overall = "overall"
+
+
+class PaymentDirection(Enum):
+    inflow = "inflow"
+    outflow = "outflow"
+
+
+class Processors(Enum):
+    paypal = "paypal"
+
+
+class Payments(db.Model):
+    """This table handles real payments -- this isn't virtual currency, but an actual record of cash liabilities vis-a-
+    vis the platform=
+    """
+    __tablename__ = "payments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    processor = db.Column(db.Enum(Processors))
+    uuid = db.Column(db.Text)
+    winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"))
+    type = db.Column(db.Enum(PaymentTypes))
+    direction = db.Column(db.Enum(PaymentDirection))
+    timestamp = db.Column(db.Float(precision=32))
