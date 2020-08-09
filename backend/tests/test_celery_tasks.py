@@ -38,7 +38,8 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_update_all_index_values,
     async_process_all_orders_in_game,
-    async_update_game_data
+    async_test_task_lock,
+    TASK_LOCK_TEST_SLEEP
 )
 from backend.logic.visuals import (
     serialize_and_pack_order_details,
@@ -668,60 +669,23 @@ class TestDataAccess(BaseTestCase):
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
 
-from unittest import TestCase
-from backend.tasks.redis import task_lock
-class TestLockSigning(TestCase):
-
-    def test_lock_signing(self):
-        rds.flushall()
-
-        @task_lock(key="foo", timeout=100_000)
-        def foo(**kwargs):
-            async_update_game_data.delay(3)
-            return kwargs
-
-        res1 = foo(a=1)
-        res2 = foo(c=3)
-        res3 = foo(c=3)
-        print(res1)
-        print(res2)
-        print(res3)
-
-
-class TestTaskLocking(BaseTestCase):
+class TestTaskLocking(TestCase):
 
     def test_task_locking(self):
         """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
         this to happen because it can result in an order being cleared multiple times"""
         rds.flushall()
-        res1 = async_update_game_data.delay(3)
-        res2 = async_update_game_data.delay(5)
-        self.assertIsNone(res1.get())
-        self.assertIsNone(res2.get())
-        res3 = async_update_game_data.delay(5)
-        self.assertEqual(res3.get(), TASK_LOCK_MSG)
-
-        rds.flushall()
-        game_id = 3
-
-        # seed the open orders and portfolio table
-        user_ids = get_active_game_user_ids(game_id)
-        for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
-            serialize_and_pack_portfolio_details(game_id, user_id)
-
-        res1 = async_process_all_orders_in_game.delay(game_id)
-        res2 = async_process_all_orders_in_game.delay(game_id)
-        res3 = async_process_all_orders_in_game.delay(game_id)
-        res4 = async_process_all_orders_in_game.delay(game_id)
-        res5 = async_process_all_orders_in_game.delay(game_id)
-        while not res1.ready():
-            continue
-        self.assertIsNone(res1.get())
-        self.assertEqual(res2.get(), TASK_LOCK_MSG)
+        res1 = async_test_task_lock.delay(3)
+        res2 = async_test_task_lock.delay(5)
+        self.assertFalse(res1.ready())
+        self.assertFalse(res2.ready())
+        res3 = async_test_task_lock.delay(5)
+        res4 = async_test_task_lock.delay(5)
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
-        self.assertEqual(res5.get(), TASK_LOCK_MSG)
+        time.sleep(TASK_LOCK_TEST_SLEEP)
+        res5 = async_test_task_lock.delay(3)
+        self.assertFalse(res5.ready())
 
 
 class TestRedisCaching(TestCase):
