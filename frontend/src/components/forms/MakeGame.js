@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Redirect } from 'react-router-dom'
 import api from 'services/api'
 import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
@@ -6,55 +6,7 @@ import { optionBuilder } from 'components/functions/forms'
 import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
-
-const PaypalButton = ({ buyIn }) => {
-  // payment processing
-  const [funded, setFunded] = useState(false)
-  const [error, setError] = useState(null)
-  const [paypalLoaded, setPaypalLoaded] = useState(false)
-
-  const paypalRef = useRef()
-  useEffect(() => {
-    const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${process.env.REACT_APP_PAYPAL_CLIENT_ID}`
-    script.addEventListener('load', () => setPaypalLoaded(true))
-    document.body.appendChild(script)
-    if (paypalLoaded) {
-      setTimeout(() => {
-        window.paypal
-          .Buttons({
-            createOrder: (data, actions) => {
-              return actions.order.create({
-                purchase_units: [
-                  {
-                    description: 'create game',
-                    amount: {
-                      currency_code: 'USD',
-                      value: buyIn
-                    }
-                  }
-                ]
-              })
-            },
-            onApprove: async (data, actions) => {
-              const order = await actions.order.capture()
-              setFunded(true)
-              console.log(order)
-            },
-            onError: err => {
-              setError(err)
-              console.error(err)
-            }
-          }).render(paypalRef.current)
-      })
-    }
-  }, [buyIn])
-
-  if (funded) console.log('funded!')
-  return (
-    <div ref={paypalRef} />
-  )
-}
+import { PayPalButton } from 'react-paypal-button-v2'
 
 const MakeGame = ({ gameMode }) => {
   // game settings
@@ -62,7 +14,8 @@ const MakeGame = ({ gameMode }) => {
   const [sidePotPct, setSidePotPct] = useState(0)
   const [formValues, setFormValues] = useState({})
   const [redirect, setRedirect] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+  const [showConfirationModal, setShowConfirationModal] = useState(false)
+  const [showPaypalModal, setShowPaypalModal] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,28 +27,26 @@ const MakeGame = ({ gameMode }) => {
     }
     fetchData()
   }, [])
-  const handleFormSubmit = async (e) => {
-    e.preventDefault()
+
+  const createGame = () => {
     const formValuesCopy = { ...formValues }
     formValuesCopy.game_mode = gameMode
-    if (formValuesCopy.stakes === 'real' && formValuesCopy.game_mode === 'multi_player') {
-      // do something with paypal checkout in here
-    }
-    const createGame = true
-    // if (formValuesCopy.stakes === 'real' && formValuesCopy.game_mode === 'multi_player' && !funded) createGame = false
-    if (createGame) {
-      await api
-        .post('/api/create_game', formValuesCopy)
-        .then()
-        .catch((e) => {
-        })
-      setShowModal(true)
-    }
+    api
+      .post('/api/create_game', formValuesCopy)
+      .then()
+      .catch((e) => {
+      })
+    setShowConfirationModal(true)
   }
 
-  const handleClose = () => {
-    setShowModal(false)
-    setRedirect(true)
+  const handleFormSubmit = async () => {
+    if (gameMode === 'multi_player' && (!formValues.email_invitees && !formValues.invitees)) {
+      window.alert('In multiplayer mode you need to invite at least one other user via username or email. Switch to "You vs. The Market" if you meant to select single player mode')
+    } else if (gameMode === 'multi_player' && formValues.stakes === 'real') {
+      setShowPaypalModal(true)
+    } else {
+      createGame()
+    }
   }
 
   const handleChange = (e) => {
@@ -129,7 +80,7 @@ const MakeGame = ({ gameMode }) => {
   if (redirect) return <Redirect to='/' />
   return (
     <>
-      <Form onSubmit={handleFormSubmit}>
+      <Form>
         {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
         <Row>
           <Col lg={4}>
@@ -261,15 +212,12 @@ const MakeGame = ({ gameMode }) => {
             </Col>}
         </Row>
         <div className='text-right'>
-          <Button variant='primary' type='submit'>
+          <Button variant='primary' onClick={handleFormSubmit}>
             Create game
           </Button>
         </div>
-        <iframe>
-          <PaypalButton buyIn={formValues.buy_in} />
-        </iframe>
       </Form>
-      <Modal show={showModal} onHide={handleClose}>
+      <Modal show={showConfirationModal}>
         {gameMode === 'multi_player' &&
           <Modal.Body>
             <div className='text-center'>
@@ -293,10 +241,62 @@ const MakeGame = ({ gameMode }) => {
             </div>
           </Modal.Body>}
         <Modal.Footer className='centered'>
-          <Button variant='primary' onClick={handleClose}>
+          <Button
+            variant='primary' onClick={() => {
+              setShowConfirationModal(false)
+              setRedirect(true)
+            }}
+          >
             Awesome!
           </Button>
         </Modal.Footer>
+      </Modal>
+      <Modal show={showPaypalModal} onHide={() => {}} centered>
+        <Modal.Body>
+          <div className='text-center'>
+            Fund your buy-in to open a real-stakes game
+            <div>
+              <small>
+                We'll send you a full refund if the game doesn't kick off for any reason 👍
+              </small>
+            </div>
+          </div>
+          <PayPalButton
+            shippingPreference='NO_SHIPPING'
+            createOrder={(data, actions) => {
+              return actions.order.create({
+                purchase_units: [{
+                  amount: {
+                    currency_code: 'USD',
+                    value: formValues.buy_in
+                  }
+                }]
+              })
+            }}
+            onApprove={(data, actions) => {
+              // Capture the funds from the transaction
+              return actions.order.capture().then(function (details) {
+                setShowPaypalModal(false)
+                setShowConfirationModal(true)
+                createGame()
+              })
+            }}
+            onError={(err) => {
+              console.log(err)
+            }}
+            options={{
+              clientId: process.env.REACT_APP_PAYPAL_CLIENT_ID,
+              currency: 'USD'
+            }}
+          />
+          <Button
+            variant='secondary' onClick={() => {
+              setShowPaypalModal(false)
+            }}
+          >
+          Actually, take me back
+          </Button>
+        </Modal.Body>
       </Modal>
     </>
   )

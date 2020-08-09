@@ -86,6 +86,7 @@ const GameSettings = ({ gameInfo }) => {
           <SectionTitle>Game Host</SectionTitle>
           <UserMiniCard
             username={gameInfo.creator_username}
+            avatarSrc={gameInfo.creator_profile_pic}
             nameColor='var(--color-lighter)'
           />
         </Col>

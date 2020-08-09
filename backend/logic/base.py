@@ -205,7 +205,9 @@ def get_game_start_time(game_id: int):
 
 def get_game_info(game_id: int):
     info = query_to_dict("SELECT * FROM games WHERE id = %s;", game_id)[0]
-    info["creator_username"] = get_usernames([info["creator_id"]])[0]
+    creator_id = info["creator_id"]
+    info["creator_username"] = get_usernames([creator_id])[0]
+    info["creator_profile_pic"] = query_to_dict("SELECT * FROM users WHERE id = %s", creator_id)[0]["profile_pic"]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["game_status"] = get_current_game_status(game_id)
     start_time = get_game_start_time(game_id)
@@ -229,7 +231,6 @@ def get_current_game_cash_balance(user_id, game_id):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
-
     sql_query = """
         SELECT balance
         FROM game_balances gb
