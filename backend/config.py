@@ -72,8 +72,14 @@ class Config:
     IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
 
     # S3 Credentials
+    # --------------
     AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
     AWS_ENDPOINT_URL = getenv('AWS_ENDPOINT_URL')
     AWS_PUBLIC_BUCKET_NAME = getenv("AWS_PUBLIC_BUCKET_NAME")
     AWS_PUBLIC_ENDPOINT = getenv("AWS_PUBLIC_ENDPOINT")
+
+    # Payments
+    # --------
+    PAYPAL_CLIENT_ID = getenv("PAYPAL_CLIENT_ID")
+    PAYPAL_SECRET = getenv("PAYPAL_SECRET")
