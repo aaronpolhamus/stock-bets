@@ -1064,17 +1064,16 @@ class TestExternalInviteFunctionality(BaseTestCase):
 
 class TestPayoutTime(TestCase):
 
-    def test_payout_time(self):
+    @patch("backend.logic.base.time")
+    def test_payout_time(self, base_time_mock):
         friday_during_trading = 1596830280
         friday_after_close = 1596830500
         weekend_payout_time = 1596941402
         next_monday_payout_time = 1597089700
-        with patch("backend.logic.base.time") as base_time_mock:
-            base_time_mock.time.return_value = friday_during_trading
-            self.assertFalse(check_if_payout_time(friday_during_trading, weekend_payout_time))
-            self.assertTrue(check_if_payout_time(friday_during_trading, friday_during_trading - 10))
-            self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
+        base_time_mock.time.return_value = friday_during_trading
+        self.assertFalse(check_if_payout_time(friday_during_trading, weekend_payout_time))
+        self.assertTrue(check_if_payout_time(friday_during_trading, friday_during_trading - 10))
+        self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
 
-        with patch("backend.logic.base.time") as base_time_mock:
-            base_time_mock.time.return_value = friday_after_close
-            self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))
+        base_time_mock.time.return_value = friday_after_close
+        self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))
