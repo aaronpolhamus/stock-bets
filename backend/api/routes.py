@@ -671,6 +671,7 @@ def get_cash_balances():
 def process_payment():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
+    amount = request.json["amount"]
     processor = request.json["processor"]
     payment_type = request.json["type"]
     payer_email = request.json.get("payer_email")
@@ -682,7 +683,7 @@ def process_payment():
 
     # register payment
     add_row("payments", game_id=game_id, user_id=user_id, profile_id=profile_id, winner_table_id=winner_table_id,
-            type=payment_type, direction='inflow', timestamp=time.time())
+            type=payment_type, amount=amount, direction='inflow', timestamp=time.time())
 
     return make_response("Payment processed", 200)
 

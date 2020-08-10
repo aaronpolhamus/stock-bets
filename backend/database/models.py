@@ -305,6 +305,10 @@ class PaymentDirection(Enum):
     outflow = "outflow"
 
 
+class CurrencyTypes(Enum):
+    usd = "USD"
+
+
 class Payments(db.Model):
     """This table handles real payments -- this isn't virtual currency, but an actual record of cash liabilities vis-a-
     vis the platform=
@@ -312,11 +316,12 @@ class Payments(db.Model):
     __tablename__ = "payments"
 
     id = db.Column(db.Integer, primary_key=True)
-    game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     profile_id = db.Column(db.Integer, db.ForeignKey("payment_profiles.id"))
-    winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+    winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"), nullable=True)
     type = db.Column(db.Enum(PaymentTypes))
     amount = db.Column(db.Float(precision=32))
+    currency = db.Column(db.Enum(CurrencyTypes))
     direction = db.Column(db.Enum(PaymentDirection))
     timestamp = db.Column(db.Float(precision=32))
