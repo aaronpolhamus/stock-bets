@@ -209,6 +209,7 @@ def get_game_info(game_id: int):
     info["creator_username"] = get_usernames([creator_id])[0]
     info["creator_profile_pic"] = query_to_dict("SELECT * FROM users WHERE id = %s", creator_id)[0]["profile_pic"]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
+    info["stakes_formatted"] = USD_FORMAT.format(info["buy_in"]) if info["stakes"] == 'real' else "Just for fun"
     info["game_status"] = get_current_game_status(game_id)
     start_time = get_game_start_time(game_id)
     info["start_time"] = start_time
@@ -814,3 +815,6 @@ def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_p
             expected_sidebet_dates.append(payout_time)
             payout_time += offset
     return expected_sidebet_dates
+
+
+USD_FORMAT = "${:,.2f}"

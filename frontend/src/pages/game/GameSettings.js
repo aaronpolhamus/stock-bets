@@ -97,7 +97,7 @@ const GameSettings = ({ gameInfo }) => {
               <dt>
                 <Label>Buy In</Label>
               </dt>
-              <StyledDd>{gameInfo.buy_in}</StyledDd>
+              <StyledDd>{gameInfo.stakes_formatted}</StyledDd>
             </div>
             <div>
               <dt>

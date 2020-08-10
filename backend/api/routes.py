@@ -32,7 +32,8 @@ from backend.logic.base import (
     get_pending_buy_order_value,
     fetch_price,
     get_user_information,
-    standardize_email
+    standardize_email,
+    USD_FORMAT
 )
 from backend.logic.friends import (
     get_friend_invites_list,
@@ -89,7 +90,6 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT,
     ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
@@ -672,6 +672,7 @@ def process_payment():
     user_id = decode_token(request)
     game_id = request.json.get("game_id")
     amount = request.json["amount"]
+    currency = request.json["currency"]
     processor = request.json["processor"]
     payment_type = request.json["type"]
     payer_email = request.json.get("payer_email")
@@ -683,7 +684,7 @@ def process_payment():
 
     # register payment
     add_row("payments", game_id=game_id, user_id=user_id, profile_id=profile_id, winner_table_id=winner_table_id,
-            type=payment_type, amount=amount, direction='inflow', timestamp=time.time())
+            type=payment_type, amount=amount, currency=currency, direction='inflow', timestamp=time.time())
 
     return make_response("Payment processed", 200)
 

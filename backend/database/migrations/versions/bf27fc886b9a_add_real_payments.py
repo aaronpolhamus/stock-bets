@@ -1,8 +1,8 @@
 """add real payments
 
-Revision ID: d69fbd529f27
+Revision ID: bf27fc886b9a
 Revises: 6a1fd042d869
-Create Date: 2020-08-10 19:15:07.123918
+Create Date: 2020-08-10 19:49:18.513707
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = 'd69fbd529f27'
+revision = 'bf27fc886b9a'
 down_revision = '6a1fd042d869'
 branch_labels = None
 depends_on = None
@@ -36,7 +36,7 @@ def upgrade():
     sa.Column('profile_id', sa.Integer(), nullable=True),
     sa.Column('game_id', sa.Integer(), nullable=True),
     sa.Column('winner_table_id', sa.Integer(), nullable=True),
-    sa.Column('type', sa.Enum('start', 'refund', 'sidebet', 'overall', name='paymenttypes'), nullable=True),
+    sa.Column('type', sa.Enum('start', 'join', 'refund', 'sidebet', 'overall', name='paymenttypes'), nullable=True),
     sa.Column('amount', sa.Float(precision=32), nullable=True),
     sa.Column('currency', sa.Enum('usd', name='currencytypes'), nullable=True),
     sa.Column('direction', sa.Enum('inflow', 'outflow', name='paymentdirection'), nullable=True),

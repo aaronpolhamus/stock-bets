@@ -295,6 +295,7 @@ class PaymentProfiles(db.Model):
 
 class PaymentTypes(Enum):
     start = "start"
+    join = "join"
     refund = "refund"
     sidebet = "sidebet"
     overall = "overall"

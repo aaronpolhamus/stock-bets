@@ -35,7 +35,8 @@ from backend.logic.base import (
     get_expected_sidebets_payout_dates,
     TIMEZONE,
     get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY
+    SECONDS_IN_A_DAY,
+    USD_FORMAT
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -61,8 +62,6 @@ from backend.tasks.redis import (
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-
-
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
 ORDER_DETAILS_PREFIX = "open_orders"
@@ -81,7 +80,6 @@ CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/ch
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
 N_PLOT_POINTS = 100
-USD_FORMAT = "${:,.2f}"
 PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"

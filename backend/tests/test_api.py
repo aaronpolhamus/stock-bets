@@ -24,6 +24,7 @@ from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
+    USD_FORMAT,
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
@@ -49,7 +50,6 @@ from backend.logic.visuals import (
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
 from backend.tasks.airflow import trigger_dag
