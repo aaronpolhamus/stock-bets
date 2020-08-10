@@ -1,27 +1,11 @@
-import React, {useRef} from 'react'
+import React from 'react'
 import { CompoundChart } from 'components/charts/CompoundChart'
 
 import { Container } from 'react-bootstrap'
 import { FormattableTable } from 'components/tables/FormattableTable'
-
-const symbolFormat = (value) => {
-  return (
-    <strong>
-      {value}
-    </strong>
-  )
-}
-
-const recentChangeFormat = (value) => {
-  return (
-    <strong>
-      {value}
-    </strong>
-  )
-}
+import styled from 'styled-components'
 
 const Playground = () => {
-  const tableRef = useRef()
   return (
     <Container>
       <h1>
@@ -37,15 +21,32 @@ const Playground = () => {
           ({ handleSelect }) => (
             <FormattableTable
               hover
-              ref={tableRef}
               endpoint='get_current_balances_table'
               name='balances-table'
               gameId='3'
-              onRowSelect={handleSelect}
+              onRowSelect={(output) => {
+                console.log(output)
+              }}
               tableCellCheckbox={0}
+              tableRowOutput={{
+                name: 'Symbol',
+                color: 'color'
+              }}
               tableCellFormat={{
-                Symbol: symbolFormat,
-                'Change since last close': recentChangeFormat
+                Symbol: function renderSymbol (value, row) {
+                  return (
+                    <strong>
+                      {value}
+                    </strong>
+                  )
+                },
+                'Change since last close': function formatForNetChange (value) {
+                  return (
+                    <strong>
+                      {value}
+                    </strong>
+                  )
+                }
               }}
             />
           )
