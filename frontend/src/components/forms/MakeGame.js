@@ -7,6 +7,7 @@ import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
 import { PayPalButton } from 'react-paypal-button-v2'
+import { apiPost } from 'components/functions/api'
 
 const MakeGame = ({ gameMode }) => {
   // game settings
@@ -16,6 +17,7 @@ const MakeGame = ({ gameMode }) => {
   const [redirect, setRedirect] = useState(false)
   const [showConfirationModal, setShowConfirationModal] = useState(false)
   const [showPaypalModal, setShowPaypalModal] = useState(false)
+  const [gameId, setGameId] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,15 +30,11 @@ const MakeGame = ({ gameMode }) => {
     fetchData()
   }, [])
 
-  const createGame = () => {
+  const createGame = async () => {
     const formValuesCopy = { ...formValues }
     formValuesCopy.game_mode = gameMode
-    api
-      .post('/api/create_game', formValuesCopy)
-      .then()
-      .catch((e) => {
-      })
-    setShowConfirationModal(true)
+    const data = await apiPost('create_game', formValuesCopy)
+    setGameId(data.gameId)
   }
 
   const handleFormSubmit = async () => {
@@ -76,6 +74,12 @@ const MakeGame = ({ gameMode }) => {
     formValuesCopy.email_invitees = _emails
     setFormValues(formValuesCopy)
   }
+
+  // const bookPayment = () => {
+  //   api.post('/api/process_payment', {
+  //
+  //   })
+  // }
 
   if (redirect) return <Redirect to='/' />
   return (
@@ -274,11 +278,17 @@ const MakeGame = ({ gameMode }) => {
               })
             }}
             onApprove={(data, actions) => {
-              // Capture the funds from the transaction
               return actions.order.capture().then(function (details) {
                 setShowPaypalModal(false)
                 setShowConfirationModal(true)
                 createGame()
+                apiPost('process_payment', {
+                  game_id: gameId,
+                  processor: 'paypal',
+                  type: 'start',
+                  payer_email: details.payer.email_address,
+                  uuid: details.payer.payer_id
+                })
               })
             }}
             onError={(err) => {

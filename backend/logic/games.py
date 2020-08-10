@@ -132,9 +132,9 @@ def create_game_invites_entries(game_id: int, creator_id: int, user_ids: List[in
         add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
 
 
-def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, buy_in: float = None,
-             side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None, invite_window: int = None,
-             email_invitees: List[str] = None):
+def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, stakes: str = None,
+             buy_in: float = None, side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None,
+             invite_window: int = None, email_invitees: List[str] = None):
     if invitees is None:
         invitees = []
 
@@ -154,7 +154,8 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
                       buy_in=buy_in,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
-                      invite_window=invite_window_posix)
+                      invite_window=invite_window_posix,
+                      stakes=stakes)
 
     user_ids = [creator_id]
     if invitees:
@@ -172,6 +173,8 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
             email_game_invitation(creator_id, email, game_id)
     else:
         kick_off_game(game_id, user_ids, opened_at)
+
+    return game_id
 
 
 def update_pending_game_status_for_new_user(game_id: int, user_id: int):

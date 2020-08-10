@@ -65,7 +65,7 @@ class Games(db.Model):
     side_bets_perc = db.Column(db.Float(precision=32))
     side_bets_period = db.Column(db.Enum(SideBetPeriods))
     invite_window = db.Column(db.Float(precision=32))
-    stakes = db.Column(db.Enum(GameStakes))
+    stakes = db.Column(db.Enum(GameStakes), nullable=True)
 
 
 class GameStatusTypes(Enum):
@@ -278,6 +278,21 @@ Index("balances_and_prices_game_user_timestamp_ix", BalancesAndPricesCache.game_
       BalancesAndPricesCache.timestamp)
 
 
+class Processors(Enum):
+    paypal = "paypal"
+
+
+class PaymentProfiles(db.Model):
+    __tablename__ = "payment_profiles"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    processor = db.Column(db.Enum(Processors), index=True)
+    uuid = db.Column(db.VARCHAR(255), index=True)
+    payer_email = db.Column(db.Text, nullable=True)
+    timestamp = db.Column(db.Float(precision=32))
+
+
 class PaymentTypes(Enum):
     start = "start"
     refund = "refund"
@@ -290,10 +305,6 @@ class PaymentDirection(Enum):
     outflow = "outflow"
 
 
-class Processors(Enum):
-    paypal = "paypal"
-
-
 class Payments(db.Model):
     """This table handles real payments -- this isn't virtual currency, but an actual record of cash liabilities vis-a-
     vis the platform=
@@ -303,9 +314,9 @@ class Payments(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-    processor = db.Column(db.Enum(Processors))
-    uuid = db.Column(db.Text)
+    profile_id = db.Column(db.Integer, db.ForeignKey("payment_profiles.id"))
     winner_table_id = db.Column(db.Integer, db.ForeignKey("winners.id"))
     type = db.Column(db.Enum(PaymentTypes))
+    amount = db.Column(db.Float(precision=32))
     direction = db.Column(db.Enum(PaymentDirection))
     timestamp = db.Column(db.Float(precision=32))
