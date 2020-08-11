@@ -37,6 +37,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
+USD_FORMAT = "${:,.2f}"
+
 # -------- #
 # Defaults #
 # -------- #
@@ -69,7 +71,6 @@ def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]
     if res:
         return [x[0] for x in res]
     return []
-
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -815,6 +816,3 @@ def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_p
             expected_sidebet_dates.append(payout_time)
             payout_time += offset
     return expected_sidebet_dates
-
-
-USD_FORMAT = "${:,.2f}"

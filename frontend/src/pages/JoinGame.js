@@ -21,7 +21,7 @@ const JoinGame = () => {
   const [gameInfo, setGameInfo] = useState([])
   const [gameParticipants, setGameParticipants] = useState([])
   const [showPaypalModal, setShowPaypalModal] = useState(false)
-  const [showConfirationModal, setShowConfirationModal] = useState(false)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [redirect, setRedirect] = useState(false)
 
   const getGameData = async () => {
@@ -47,6 +47,7 @@ const JoinGame = () => {
         game_id: gameId,
         decision: decision
       })
+      showConfirmationModal(true)
     }
   }
 
@@ -113,7 +114,7 @@ const JoinGame = () => {
           </PageSection>
         </Column>
       </Layout>
-      <Modal show={showConfirationModal}>
+      <Modal show={showConfirmationModal}>
         <Modal.Body>
           <div className='text-center'>
             You're in!
@@ -127,7 +128,7 @@ const JoinGame = () => {
         <Modal.Footer className='centered'>
           <Button
             variant='primary' onClick={() => {
-              setShowConfirationModal(false)
+              setShowConfirmationModal(false)
               setRedirect(true)
             }}
           >
@@ -141,7 +142,7 @@ const JoinGame = () => {
         Fund the buy-in to join a real stakes game.
             <div>
               <small>
-            We'll send you a full refund if the game doesn't kick off for any reason 👍
+            We'll send you a full refund if the game doesn't kick off for any reason, including if you change your mind before the game starts 👍
               </small>
             </div>
           </div>
@@ -160,7 +161,7 @@ const JoinGame = () => {
             onApprove={(data, actions) => {
               return actions.order.capture().then(function (details) {
                 setShowPaypalModal(false)
-                setShowConfirationModal(true)
+                setShowConfirmationModal(true)
                 const joinGame = async () => {
                   await api
                     .post('/api/respond_to_game_invite', {

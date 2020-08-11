@@ -345,7 +345,7 @@ def create_game():
         game_settings.get("invite_window"),
         game_settings.get("email_invitees")
     )
-    return jsonify({"gameId": game_id})
+    return jsonify({"game_id": game_id})
 
 
 @routes.route("/api/respond_to_game_invite", methods=["POST"])
@@ -660,7 +660,6 @@ def get_cash_balances():
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
-
 # -------- #
 # Payments #
 # -------- #
@@ -728,7 +727,6 @@ def api_games_per_users():
 @admin
 def api_orders_per_active_user():
     return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
-
 
 # ------ #
 # DevOps #

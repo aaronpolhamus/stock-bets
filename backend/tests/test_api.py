@@ -259,13 +259,13 @@ class TestCreateGame(BaseTestCase):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_invitees = ["miguel", "toofast", "murcitdev"]
         buy_in = 1000
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": buy_in,
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "multi_player",
             "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
@@ -335,7 +335,7 @@ class TestCreateGame(BaseTestCase):
         # look good.
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        self.assertEqual(res.json()["days_left"], game_duation - 1)
+        self.assertEqual(res.json()["days_left"], game_duration - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
@@ -351,7 +351,7 @@ class TestCreateGame(BaseTestCase):
         side_bar_stats = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duation - 1)
+        self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
@@ -369,7 +369,7 @@ class TestCreateGame(BaseTestCase):
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
-        self.assertEqual(len(side_bet_payouts), game_duation // 7)
+        self.assertEqual(len(side_bet_payouts), game_duration // 7)
         # len(invitees) - 1 because one of the players declines the game
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
@@ -440,9 +440,9 @@ class TestCreateGame(BaseTestCase):
 
     def test_create_single_player_game(self):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_settings = {
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "single_player",
             "title": "jugando solo",
             "benchmark": "return_ratio"
@@ -804,12 +804,12 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(data["username"], username)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_invitees = ["miguel", "toofast", "murcitdev"]
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "multi_player",
             "n_rebuys": 3,
             "invitees": game_invitees,

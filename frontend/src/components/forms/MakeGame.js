@@ -23,7 +23,7 @@ const MakeGame = ({ gameMode }) => {
   const [inviteWindow, setInviteWindow] = useState(null)
   const [stakes, setStakes] = useState(null)
   const [redirect, setRedirect] = useState(false)
-  const [showConfirationModal, setShowConfirationModal] = useState(false)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [showPaypalModal, setShowPaypalModal] = useState(false)
 
   useEffect(() => {
@@ -63,7 +63,7 @@ const MakeGame = ({ gameMode }) => {
         stakes: stakes,
         game_mode: gameMode
       })
-      setShowConfirationModal(true)
+      setShowConfirmationModal(true)
     }
   }
 
@@ -206,7 +206,7 @@ const MakeGame = ({ gameMode }) => {
           </Button>
         </div>
       </Form>
-      <Modal show={showConfirationModal}>
+      <Modal show={showConfirmationModal}>
         {gameMode === 'multi_player' &&
           <Modal.Body>
             <div className='text-center'>
@@ -232,7 +232,7 @@ const MakeGame = ({ gameMode }) => {
         <Modal.Footer className='centered'>
           <Button
             variant='primary' onClick={() => {
-              setShowConfirationModal(false)
+              setShowConfirmationModal(false)
               setRedirect(true)
             }}
           >
@@ -265,7 +265,7 @@ const MakeGame = ({ gameMode }) => {
             onApprove={(data, actions) => {
               return actions.order.capture().then(function (details) {
                 setShowPaypalModal(false)
-                setShowConfirationModal(true)
+                setShowConfirmationModal(true)
                 const bookGame = async () => {
                   await api
                     .post('/api/create_game', {
@@ -283,7 +283,7 @@ const MakeGame = ({ gameMode }) => {
                     })
                     .then((r) => {
                       apiPost('process_payment', {
-                        game_id: r.data.gameId,
+                        game_id: r.data.game_id,
                         processor: 'paypal',
                         type: 'start',
                         payer_email: details.payer.email_address,
