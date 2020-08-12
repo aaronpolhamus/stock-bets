@@ -1,11 +1,14 @@
 """Logic for calculating and dispering payouts between invitees
 """
-from datetime import datetime as dt, timedelta
+from datetime import timedelta
 
 import numpy as np
 import pandas as pd
 from backend.database.db import engine
-from backend.database.helpers import add_row
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
 from backend.logic.base import (
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -16,7 +19,13 @@ from backend.logic.base import (
     posix_to_datetime,
     datetime_to_posix,
     make_historical_balances_and_prices_table,
-    get_expected_sidebets_payout_dates
+    get_expected_sidebets_payout_dates,
+    USD_FORMAT
+)
+from backend.logic.payments import (
+    send_paypal_payment,
+    get_payment_profile_uuids,
+    PERCENT_TO_USER
 )
 
 # -------- #
@@ -25,6 +34,7 @@ from backend.logic.base import (
 STARTING_SHARPE_RATIO = 0
 STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -122,6 +132,7 @@ def check_if_payout_time(current_time: float, payout_time: float) -> bool:
 
 
 def log_winners(game_id: int, current_time: float):
+    game_info = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
     update_performed = False
     pot_size, game_start_time, game_end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
     game_start_posix = datetime_to_posix(game_start_time)
@@ -147,24 +158,53 @@ def log_winners(game_id: int, current_time: float):
             curr_interval_posix = datetime_to_posix(curr_interval_end)
             winner_id, score = get_winner(game_id, last_interval_end, curr_interval_posix, benchmark)
             n_sidebets = n_sidebets_in_game(game_start_posix, game_end_posix, offset)
-            payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
-            add_row("winners", game_id=game_id, winner_id=winner_id, score=float(score), timestamp=current_time,
-                    payout=payout, type="sidebet", benchmark=benchmark, end_time=curr_interval_posix,
-                    start_time=last_interval_end)
+            payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2) * PERCENT_TO_USER
+            win_type = "sidebet"
+            winner_table_id = add_row("winners", game_id=game_id, winner_id=winner_id, score=float(score),
+                                      timestamp=current_time, payout=payout, type=win_type, benchmark=benchmark,
+                                      end_time=curr_interval_posix, start_time=last_interval_end)
             update_performed = True
+            if game_info["stakes"] == "real":
+                payment_profile = get_payment_profile_uuids([winner_id])[0]
+                send_paypal_payment(
+                    uuids=[payment_profile["uuid"]],
+                    amount=payout,
+                    payment_type="sidebet",
+                    email_subject=f"Congrats on winning the {game_info['side_bets_period']} sidebet!",
+                    email_content=f"You came out on top in {game_info['title']} this week. Here's your payment of {USD_FORMAT.format(payout)}",
+                    note_content="Keep on crushing it."
+                )
+                add_row("payments", user_id=winner_id, profile_id=payment_profile["id"], game_id=game_id,
+                        winner_table_id=winner_table_id, type=win_type, amount=payout, currency="USD",
+                        direction="outflow", timestamp=current_time)
 
     # if we've reached the end of our game, pay out the winner and mark the game as completed
     if current_time >= game_end_posix:
-        payout = pot_size * (1 - side_bets_perc / 100)
+        win_type = "overall"
+        payout = pot_size * (1 - side_bets_perc / 100) * PERCENT_TO_USER
         winner_id, score = get_winner(game_id, game_start_posix, game_end_posix, benchmark)
-        add_row("winners", game_id=game_id, winner_id=winner_id, benchmark=benchmark, score=float(score),
-                start_time=game_start_posix, end_time=game_end_posix, payout=payout, type="overall",
-                timestamp=current_time)
+        winner_table_id = add_row("winners", game_id=game_id, winner_id=winner_id, benchmark=benchmark,
+                                  score=float(score), start_time=game_start_posix, end_time=game_end_posix,
+                                  payout=payout, type=win_type, timestamp=current_time)
         update_performed = True
 
         # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
-        # completed
+        # completed and payout the overall winner
         user_ids = get_active_game_user_ids(game_id)
         add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
+
+        if game_info["stakes"] == "real":
+            payment_profile = get_payment_profile_uuids([winner_id])[0]
+            send_paypal_payment(
+                uuids=[payment_profile["uuid"]],
+                amount=payout,
+                payment_type="overall",
+                email_subject=f"Congrats on winning the {game_info['title']}!",
+                email_content=f"You were the overall winner of {game_info['title']}. Awesome work. Here's your payment of {USD_FORMAT.format(payout)}. Come back soon!",
+                note_content="Keep on crushing it."
+            )
+            add_row("payments", user_id=winner_id, profile_id=payment_profile["id"], game_id=game_id,
+                    winner_table_id=winner_table_id, type=win_type, amount=payout, currency="USD",
+                    direction="outflow", timestamp=current_time)
 
     return update_performed

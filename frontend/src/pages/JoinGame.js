@@ -47,7 +47,7 @@ const JoinGame = () => {
         game_id: gameId,
         decision: decision
       })
-      showConfirmationModal(true)
+      setShowConfirmationModal(true)
     }
   }
 

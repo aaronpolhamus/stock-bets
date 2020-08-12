@@ -51,6 +51,10 @@ def upgrade():
     op.alter_column('users', 'provider',
                existing_type=mysql.ENUM('google', 'facebook', 'twitter', 'stockbets'),
                nullable=True)
+
+    op.alter_column('game_status', 'status',
+               existing_type=mysql.ENUM('pending', 'active', 'finished', 'expired'),
+               nullable=False, type_=mysql.ENUM('pending', 'active', 'finished', 'expired', 'cancelled'))
     # ### end Alembic commands ###
 
 
@@ -64,4 +68,8 @@ def downgrade():
     op.drop_index(op.f('ix_payment_profiles_uuid'), table_name='payment_profiles')
     op.drop_index(op.f('ix_payment_profiles_processor'), table_name='payment_profiles')
     op.drop_table('payment_profiles')
+
+    op.alter_column('game_status', 'status',
+               existing_type=mysql.ENUM('pending', 'active', 'finished', 'expired', 'cancelled'),
+               nullable=False, type_=mysql.ENUM('pending', 'active', 'finished', 'expired'))
     # ### end Alembic commands ###

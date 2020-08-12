@@ -577,6 +577,14 @@ MOCK_DATA = {
         {"requester_id": 38, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time},
         {"requester_id": 39, "invited_id": 1, "status": "invited", "timestamp": simulation_start_time},
         {"requester_id": 39, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time}
+    ],
+    "payment_profiles": [
+        {"user_id": 1, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": Config.TEST_CASE_EMAIL,
+         "timestamp": simulation_start_time},
+        {"user_id": 3, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "eddie@example.test",
+         "timestamp": simulation_start_time},
+        {"user_id": 4, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "mike@example.test",
+         "timestamp": simulation_start_time}
     ]
 }
 
