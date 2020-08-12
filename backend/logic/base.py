@@ -190,11 +190,9 @@ def get_game_info(game_id: int):
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
     info["stakes_formatted"] = USD_FORMAT.format(info["buy_in"]) if info["stakes"] == 'real' else "Just for fun"
     info["game_status"] = get_current_game_status(game_id)
-    start_time, end_time = get_game_start_and_end(game_id)
-    info["start_time"] = start_time
-    info["end_time"] = None
-    if start_time:
-        info["end_time"] = end_time
+    info["start_time"] = info["end_time"] = None
+    if info["game_status"] in ["active", "finished"]:
+        info["start_time"], info["end_time"] = get_game_start_and_end(game_id)
     return info
 
 
