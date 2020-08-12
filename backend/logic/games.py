@@ -62,7 +62,7 @@ TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
 # --------------------------
 
 DEFAULT_GAME_DURATION = 7  # days
-DEFAULT_BUYIN = 100  # dolllars
+DEFAULT_BUYIN = 25  # dolllars
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
@@ -426,7 +426,7 @@ def update_game_if_all_invites_responded(game_id: int):
             refund_cancelled_game(game_id)
 
 
-def get_game_info_for_user(user_id):
+def get_game_info_for_user(user_id: int):
     """This big, ugly SQL query aggregates a bunch of information about a user's game invites and active games for
     display on the home page
     """

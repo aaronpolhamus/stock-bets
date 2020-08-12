@@ -1,5 +1,6 @@
 """Bundles tests relating to games, including celery task tests
 """
+from freezegun import freeze_time
 import json
 import time
 import unittest
@@ -9,10 +10,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from backend.database.fixtures.mock_data import (
-    simulation_start_time,
-    simulation_end_time
-)
+from backend.database.fixtures.mock_data import simulation_start_time
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
     setup_new_user,
@@ -20,6 +18,8 @@ from backend.logic.auth import (
     add_external_game_invites
 )
 from backend.logic.base import (
+    posix_to_datetime,
+    SECONDS_IN_A_DAY,
     get_user_ids_from_passed_emails,
     get_user_ids,
     get_pending_buy_order_value,
@@ -177,7 +177,7 @@ class TestGameLogic(BaseTestCase):
 
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=str(game_id))
-            self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined", "expired"])
+            self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined"])
             self.assertEqual(df[df["user_id"] == 1]["status"].to_list(), ["invited", "declined"])
 
             df = pd.read_sql(
@@ -821,8 +821,7 @@ class TestGameExpiration(BaseTestCase):
         expired_game_id = 7
         finished_ids = get_game_ids_by_status("finished")
         self.assertEqual(set(finished_ids), {visible_game_id, expired_game_id})
-        with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
-            mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+        with freeze_time(posix_to_datetime(simulation_start_time + 7 * SECONDS_IN_A_DAY)):
             for game_id in finished_ids:
                 expire_finished_game(game_id)
 

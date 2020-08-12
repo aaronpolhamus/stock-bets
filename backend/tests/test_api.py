@@ -272,7 +272,8 @@ class TestCreateGame(BaseTestCase):
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
-            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW,
+            "stakes": "monopoly"
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
                                          verify=False, json=game_settings)
@@ -639,7 +640,8 @@ class TestGetGameStats(BaseTestCase):
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
-                     "start_time", "benchmark_formatted", "leaderboard", "is_host"]:
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host", "creator_profile_pic",
+                     "stakes_formatted"]:
                 continue
             self.assertEqual(db_dict[k], v)
 

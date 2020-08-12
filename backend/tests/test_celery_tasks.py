@@ -159,7 +159,8 @@ class TestGameIntegration(BaseTestCase):
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "invitees": ["miguel", "murcitdev", "toofast"],
-            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW,
+            "stakes": "monopoly"
         }
 
         add_game(
@@ -168,6 +169,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["game_mode"],
             mock_game["duration"],
             mock_game["benchmark"],
+            mock_game["stakes"],
             mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
@@ -227,11 +229,11 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
+        self.assertEqual(gi_count_post - gi_count_pre, 4)
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
-            self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined", "expired"])
+            self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined"])
 
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------

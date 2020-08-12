@@ -53,6 +53,7 @@ from backend.logic.schemas import (
     order_details_schema,
     apply_validation
 )
+from backend.logic.payments import PERCENT_TO_USER
 from backend.tasks.redis import (
     unpack_redis_json,
     rds,
@@ -788,7 +789,7 @@ def serialize_and_pack_winners_table(game_id: int):
     data = []
     if side_bets_perc:
         n_sidebets = n_sidebets_in_game(datetime_to_posix(start_time), datetime_to_posix(end_time), offset)
-        payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
+        payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2) * PERCENT_TO_USER
         expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
         for _, row in winners_df.iterrows():
             if row["type"] == "sidebet":
@@ -803,7 +804,7 @@ def serialize_and_pack_winners_table(game_id: int):
             data.append(make_payout_table_entry(last_date, payout_date, "???", payout, "Sidebet"))
             last_date = payout_date
 
-    payout = pot_size * (1 - side_bets_perc / 100)
+    payout = pot_size * (1 - side_bets_perc / 100) * PERCENT_TO_USER
     if not game_finished:
         final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
     else:
