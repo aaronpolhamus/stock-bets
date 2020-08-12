@@ -23,6 +23,7 @@ const JoinGame = () => {
   const [showPaypalModal, setShowPaypalModal] = useState(false)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [redirect, setRedirect] = useState(false)
+  const [decision, setDecision] = useState(null)
 
   const getGameData = async () => {
     const gameData = await fetchGameData(gameId, 'game_info')
@@ -39,13 +40,14 @@ const JoinGame = () => {
     getGameData()
   }, [])
 
-  const handleRespondInvite = async (decision) => {
-    if (gameInfo.stakes === 'real' && decision === 'joined') {
+  const handleRespondInvite = async (choice) => {
+    setDecision(choice)
+    if (gameInfo.stakes === 'real' && choice === 'joined') {
       setShowPaypalModal(true)
     } else {
       await apiPost('respond_to_game_invite', {
         game_id: gameId,
-        decision: decision
+        decision: choice
       })
       setShowConfirmationModal(true)
     }
@@ -116,14 +118,25 @@ const JoinGame = () => {
       </Layout>
       <Modal show={showConfirmationModal}>
         <Modal.Body>
-          <div className='text-center'>
+          {decision === 'joined' &&
+            <div className='text-center'>
             You're in!
-            <div>
-              <small>
-                The game will start once the (a) the invite windows expires or (b) everyone has either joined or declined
-              </small>
-            </div>
-          </div>
+              <div>
+                <small>
+                The game will start once the (a) the invite windows expires or (b) everyone has either joined or
+                declined
+                </small>
+              </div>
+            </div>}
+          {decision === 'declined' &&
+            <div className='text-center'>
+            Looks like you're sitting this round out
+              <div>
+                <small>
+                Hope to see you in another game sometime soon!
+                </small>
+              </div>
+            </div>}
         </Modal.Body>
         <Modal.Footer className='centered'>
           <Button
@@ -132,7 +145,7 @@ const JoinGame = () => {
               setRedirect(true)
             }}
           >
-            Awesome!
+            Got it
           </Button>
         </Modal.Footer>
       </Modal>
