@@ -32,23 +32,12 @@ const CheckboxText = styled.span`
   }
 `
 
-const StyledTd = styled.td`
-  cursor: pointer;
-`
-
-const StyledTable = styled(Table)`
-  td, th{
-    &:first-child{
-      text-align: left;
-    }
-    text-align: right;
-  }
-`
-
 const simpleTokenize = (string) => {
-  return string.toLowerCase().replace(/\s/g, '-')
+  return string.toLowerCase().replace('%', '').replace(/\s/g, '-')
 }
 
+// The name option allows us to specify unique id's for the table headers. This for accesibility and for css manipulation in Formattable mode
+// The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the order id for order cancellations
 const FormattableTable = (props) => {
   const [tableData, setTableData] = useState()
 
@@ -62,12 +51,40 @@ const FormattableTable = (props) => {
   useEffect(() => {
     getData()
   }, [props.update])
-  // The name option allows us to specify unique id's for the table headers. This for accesibility and for css manipulation in Formattable mode
 
-  // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the
-  // order id for order cancellations
-  // This function formats the value of the cell according to the tableOptions Object
+  const createResponsiveStyles = () => {
+    let styles = ''
+    if (props.showColumns && tableData) {
+      tableData.headers.map((key, index) => {
+        Object.keys(props.showColumns).map((col, colIndex) => {
+          styles += `@media screen and (max-width: ${breakpoints[col]}){`
+          if (props.showColumns[col].indexOf(key) < 0) {
+            styles += `
+              #${props.name}-${simpleTokenize(key)},
+              [headers="${props.name}-${simpleTokenize(key)}"] {
+                display: none;
+              }
+            `
+          }
+          styles += '}'
+        })
+      })
+    }
+    return styles
+  }
 
+  const StyledTable = styled(Table)`
+    td{
+      cursor: pointer
+    }
+    td, th{
+      &:first-child{
+        text-align: left;
+      }
+      text-align: right;
+    }
+    ${createResponsiveStyles()}
+  `
   const handleRowClick = (rowIndex, add) => {
     const firstParam = Object.keys(tableOutputtableInfo[rowIndex])[0]
     const firstValue = tableOutputtableInfo[rowIndex][firstParam]
@@ -94,6 +111,7 @@ const FormattableTable = (props) => {
 
   const SelectableRow = props => {
     const [selected, setSelected] = useState(false)
+
     // if a tableCellCheckbox is defined, it adds a checkbox to the cell number
     const addCheckboxToCell = (cellContent, value, row) => {
       return (
@@ -110,6 +128,7 @@ const FormattableTable = (props) => {
       )
     }
 
+    // This function applies a render function to a cell, making it able to have any format
     const formatCell = (key, value, index, row) => {
       // If there is no tableOptions or tableOptions has not a formatCell property the function returns the plain value
       let cellContent = value
@@ -119,6 +138,7 @@ const FormattableTable = (props) => {
 
         if (index >= 0) {
           // If the key exists, we call the render function
+          // We can use the value of the cell and we can access the values of the whole rows
           cellContent = props.tableCellFormat[key](value, row)
         }
       }
@@ -134,8 +154,9 @@ const FormattableTable = (props) => {
         if (props.exclude && props.exclude.includes(key)) {
           return null
         }
+
         return (
-          <StyledTd
+          <td
             key={index}
             onClick={() => {
               if (selected) {
@@ -149,7 +170,7 @@ const FormattableTable = (props) => {
             headers={`${props.name}-${simpleTokenize(key)}`}
           >
             {formatCell(key, row[key], index, row)}
-          </StyledTd>
+          </td>
         )
       })
     }
@@ -167,8 +188,8 @@ const FormattableTable = (props) => {
     index: PropTypes.number
   }
 
-  const buildRows = () => {
-    return tableData.data.map((row, index) => {
+  const buildRows = (data) => {
+    return data.map((row, index) => {
       return (
         <SelectableRow
           key={index}
@@ -196,7 +217,12 @@ const FormattableTable = (props) => {
     })
   }
   if (tableData && tableData.data) {
-    // The data required when a row is selected, determined by the tableRowOutput prop
+    // The data outputted when a row is selected, determined by the tableRowOutput prop
+    if (props.sortBy) {
+      tableData.data.sort((a, b) => {
+        return a[props.sortBy] > b[props.sortBy] ? -1 : 1
+      })
+    }
     tableOutputtableInfo = tableData.data.map((row, index) => {
       return Object.keys(props.tableRowOutput).reduce((agg, curr) => {
         return {
@@ -217,7 +243,7 @@ const FormattableTable = (props) => {
             {buildHeaders(tableData.headers)}
           </tr>
         </thead>
-        <tbody>{buildRows()}</tbody>
+        <tbody>{buildRows(tableData.data)}</tbody>
       </StyledTable>
     )
   }
@@ -226,16 +252,20 @@ const FormattableTable = (props) => {
 
 FormattableTable.displayName = 'FormattableTable'
 FormattableTable.propTypes = {
-  tableData: PropTypes.object,
-  tableCellFormat: PropTypes.object,
-  tableCellCheckbox: PropTypes.number,
-  tableRowOutput: PropTypes.object,
-  exclude: PropTypes.array,
   endpoint: PropTypes.string,
-  onRowSelect: PropTypes.func,
+  exclude: PropTypes.array,
   gameId: PropTypes.string,
-  update: PropTypes.string,
-  name: PropTypes.string
+  hover: PropTypes.bool,
+  name: PropTypes.string,
+  onRowSelect: PropTypes.func,
+  showColumns: PropTypes.object,
+  sortBy: PropTypes.string,
+  striped: PropTypes.bool,
+  tableCellCheckbox: PropTypes.number,
+  tableCellFormat: PropTypes.object,
+  tableData: PropTypes.object,
+  tableRowOutput: PropTypes.object,
+  update: PropTypes.string
 }
 
 FormattableTable.defaultProps = {

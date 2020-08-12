@@ -66,9 +66,7 @@ const FieldChart = ({ gameId, height }) => {
   // We make a copy of data to keep the original reference
   const dataCopy = { ...data }
 
-  // I had the option to invoke handleSelectUser here, but with this method we avoid a flash of color and then changing to gray
-
-  // What this does id that copies the data from the api query and modifies it to leave color only in the currentUser line
+  // This copies the data from the api query and modifies it to leave color only in the currentUser line
   if (data.datasets && data.datasets !== []) {
     const newDatasets = dataCopy.datasets.map((dataset, index) => {
       const newDataset = { ...dataset }

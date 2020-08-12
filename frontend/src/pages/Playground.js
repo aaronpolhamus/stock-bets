@@ -3,7 +3,6 @@ import { CompoundChart } from 'components/charts/CompoundChart'
 
 import { Container } from 'react-bootstrap'
 import { FormattableTable } from 'components/tables/FormattableTable'
-import styled from 'styled-components'
 
 const Playground = () => {
   return (
@@ -18,18 +17,18 @@ const Playground = () => {
         legends={false}
       >
         {
-          ({ handleSelect }) => (
+          ({ handleSelectedLines }) => (
             <FormattableTable
               hover
               endpoint='get_current_balances_table'
               name='balances-table'
               gameId='3'
               onRowSelect={(output) => {
-                console.log(output)
+                handleSelectedLines(output)
               }}
               tableCellCheckbox={0}
               tableRowOutput={{
-                name: 'Symbol',
+                label: 'Symbol',
                 color: 'color'
               }}
               tableCellFormat={{
@@ -47,6 +46,15 @@ const Playground = () => {
                     </strong>
                   )
                 }
+              }}
+              sortBy='Balance'
+              showColumns={{
+                md: [
+                  'Symbol',
+                  'Balance',
+                  'Value',
+                  'Change since last close'
+                ]
               }}
             />
           )
