@@ -276,6 +276,10 @@ const Home = () => {
               games={gamesActive}
               title='Competitions'
             />
+            <GameList
+              games={gamesSinglePlayer}
+              title='Single player'
+            />
           </Col>
           <Col lg={6} xl={4}>
             <GameList
@@ -287,12 +291,6 @@ const Home = () => {
               games={gamesInvited}
               cardType='pending'
               title='Invited'
-            />
-          </Col>
-          <Col lg={6} xl={8}>
-            <GameList
-              games={gamesSinglePlayer}
-              title='Single player'
             />
           </Col>
         </Row>

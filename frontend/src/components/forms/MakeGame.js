@@ -101,10 +101,26 @@ const MakeGame = ({ gameMode }) => {
                   />
                 </Form.Group>
               </Col>
+              {gameMode === 'multi_player' &&
+                <Col xs={6}>
+                  <Form.Group>
+                    <Form.Label>
+                    Invite window (days)
+                      <Tooltip message='For how many days would you like your game to be open for before kicking off automatically?' />
+                    </Form.Label>
+                    <Form.Control
+                      name='invite_window'
+                      type='input'
+                      defaultValue={defaults.invite_window}
+                      onChange={(e) => setInviteWindow(e.target.value)}
+                    />
+                  </Form.Group>
+                </Col>
+              }
             </Row>
             {gameMode === 'multi_player' &&
               <Row>
-                <Col xs={6}>
+                <Col xs={12}>
                   <Form.Group>
                     <Form.Label>Choose the game stakes</Form.Label>
                     <RadioButtons
@@ -163,23 +179,6 @@ const MakeGame = ({ gameMode }) => {
                         </Form.Group>
                       )}
                     </>}
-                </Col>
-              </Row>}
-            {gameMode === 'multi_player' &&
-              <Row>
-                <Col xs={6}>
-                  <Form.Group>
-                    <Form.Label>
-                    Invite window (days)
-                      <Tooltip message='For how many days would you like your game to be open for before kicking off automatically?' />
-                    </Form.Label>
-                    <Form.Control
-                      name='invite_window'
-                      type='input'
-                      defaultValue={defaults.invite_window}
-                      onChange={(e) => setInviteWindow(e.target.value)}
-                    />
-                  </Form.Group>
                 </Col>
               </Row>}
             <Form.Group>
