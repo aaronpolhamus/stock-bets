@@ -630,7 +630,7 @@ def number_columns_to_currency(df: pd.DataFrame, columns_to_format: List[str]):
 def add_market_prices_to_order_details(df):
     recent_prices = get_most_recent_prices(df["symbol"].unique())
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
-    df = df.merge(recent_prices)
+    df = df.merge(recent_prices, how="left")
     df["as of"] = df["as of"].apply(lambda x: format_posix_time(x))
     df["Hypothetical % return"] = df["Market price"] / df["clear_price_fulfilled"] - 1
     df["Hypothetical % return"] = df["Hypothetical % return"].apply(lambda x: percent_formatter(x))

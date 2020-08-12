@@ -496,11 +496,7 @@ class TestPlayGame(BaseTestCase):
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
 
-        # TODO: Update these tests once we implement websockets
         pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
-        while stock_pick not in [x["Symbol"] for x in pending_orders_table["data"]]:
-            pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
-            continue
         res = self.requests_session.post(f"{HOST_URL}/get_pending_orders_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})

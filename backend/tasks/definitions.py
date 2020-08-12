@@ -1,3 +1,5 @@
+import time
+
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
@@ -27,13 +29,17 @@ from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
     serialize_and_pack_orders_per_active_user
 )
-from backend.tasks.redis import task_lock
+from backend.tasks.redis import (
+    redis_lock,
+    TASK_LOCK_MSG,
+    task_lock
+)
 from backend.tasks.airflow import trigger_dag
 
-REFRESH_INDEXES_TIMEOUT = 1000 * 60 * 5
-CACHE_PRICE_LOCK_TIMEOUT = 1000 * 60 * 5
-PROCESS_ORDERS_LOCK_TIMEOUT = 1000 * 60 * 60
-UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * 60
+TASK_LOCK_TEST_SLEEP = 1
+CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
+PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
+UPDATE_GAME_DATA_TIMEOUT = 60 * 15
 
 # -------------------------- #
 # Price fetching and caching #
@@ -41,7 +47,7 @@ UPDATE_GAME_DATA_TIMEOUT = 1000 * 60 * 60
 
 
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
-@task_lock(key="async_cache_price", timeout=CACHE_PRICE_LOCK_TIMEOUT)
+@task_lock(main_key="async_cache_price", timeout=UPDATE_GAME_DATA_TIMEOUT)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     cache_price, cache_time = get_cache_price(symbol)
     if cache_price is not None and cache_time == last_updated:
@@ -71,7 +77,6 @@ def async_update_index_value(self, index):
 
 
 @celery.task(name="async_update_all_index_values", bind=True, base=BaseTask)
-@task_lock(key="async_update_all_index_values", timeout=REFRESH_INDEXES_TIMEOUT)
 def async_update_all_index_values(self):
     for index in TRACKED_INDEXES:
         async_update_index_value.delay(index)
@@ -111,11 +116,14 @@ def async_update_symbols_table(self, n_rows=None):
 
 
 @celery.task(name="async_process_all_orders_in_game", bind=True, base=BaseTask)
-@task_lock(key="process_all_orders_in_game", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_orders_in_game(self, game_id: int):
-    open_orders = get_all_open_orders(game_id)
-    for order_id, _ in open_orders.items():
-        process_order(order_id)
+    with redis_lock(f"process_all_orders_{game_id}", PROCESS_ORDERS_LOCK_TIMEOUT) as acquired:
+        if not acquired:
+            return TASK_LOCK_MSG
+
+        open_orders = get_all_open_orders(game_id)
+        for order_id, _ in open_orders.items():
+            process_order(order_id)
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
@@ -126,17 +134,9 @@ def async_process_all_open_orders(self):
     for game_id in active_ids:
         async_process_all_orders_in_game.delay(game_id)
 
-
 # ------------- #
 # Visual assets #
 # ------------- #
-"""async_update_game gets a little bit dense, but its logic is actually pretty straightforward:
-1) Update the overall game metrics for each player
-2) Based on those metrics, update the leaderboard 
-3) Now the we have a leaderboard, calculate the field and balances charts. We'll send these along with the leaderboard
-4) For each player, update their orders and balances table, and then update their order performance chart
-5) Finally, check for winners and update the winners table if there are any
-"""
 
 
 @celery.task(name="async_update_all_games", bind=True, base=BaseTask)
@@ -151,7 +151,7 @@ def async_update_all_games(self):
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
-@task_lock(key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
+@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
@@ -164,3 +164,14 @@ def async_update_game_data(self, game_id, start_time=None, end_time=None):
 def async_calculate_key_metrics(self):
     serialize_and_pack_games_per_user_chart()
     serialize_and_pack_orders_per_active_user()
+
+# ------- #
+# Testing #
+# ------- #
+
+
+@celery.task(name="async_test_task_lock", bind=True, base=BaseTask)
+@task_lock(main_key="async_test_task_lock", timeout=UPDATE_GAME_DATA_TIMEOUT)
+def async_test_task_lock(self, game_id):
+    print(f"processing game_id {game_id}")
+    time.sleep(TASK_LOCK_TEST_SLEEP)
