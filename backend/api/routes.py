@@ -75,9 +75,10 @@ from backend.logic.games import (
 )
 from backend.logic.visuals import (
     format_time_for_response,
-    update_order_details_table,
+    serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
-    ORDER_DETAILS_PREFIX,
+    PENDING_ORDERS_PREFIX,
+    FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
@@ -471,7 +472,7 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    update_order_details_table(game_id, user_id, order_id, "add")
+    serialize_and_pack_order_details(game_id, user_id)
     serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
@@ -616,12 +617,20 @@ def get_current_balances_table():
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/get_order_details_table", methods=["POST"])
+@routes.route("/api/get_pending_orders_table", methods=["POST"])
 @authenticate
-def get_order_details_table():
+def get_pending_orders_table():
     game_id = request.json.get("game_id")
     user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_fulfilled_orders_table", methods=["POST"])
+@authenticate
+def get_fulfilled_orders_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_payouts_table", methods=["POST"])

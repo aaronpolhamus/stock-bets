@@ -42,9 +42,10 @@ from backend.logic.friends import (
     email_game_invitation
 )
 from backend.logic.visuals import (
-    update_order_details_table,
+    removing_pending_order,
     serialize_and_pack_portfolio_details,
-    init_game_assets
+    init_game_assets,
+    serialize_and_pack_order_details
 )
 from funkybob import RandomNameGenerator
 from logic.base import get_user_ids
@@ -705,8 +706,7 @@ def process_order(order_id: int):
                                       clear_price=market_price)
             update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
                             market_price, quantity, symbol)
-            update_order_details_table(game_id, user_id, order_id, "remove")  # remove the pending entry
-            update_order_details_table(game_id, user_id, order_id, "add")  # add add the fulfilled one
+            serialize_and_pack_order_details(game_id, user_id)  # refresh the pending and fulfilled orders table
             serialize_and_pack_portfolio_details(game_id, user_id)
         else:
             # if a market order was placed after hours, there may not be enough cash on hand to clear it at the new
@@ -798,7 +798,7 @@ def execute_order(buy_or_sell, order_type, market_price, order_price, cash_balan
 def cancel_order(order_id: int):
     order_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", order_id)[0]
     add_row("order_status", order_id=order_id, timestamp=time.time(), status="cancelled")
-    update_order_details_table(order_ticket["game_id"], order_ticket["user_id"], order_id, "remove")
+    removing_pending_order(order_ticket["game_id"], order_ticket["user_id"], order_id)
 
 
 # Functions for serving information about games
