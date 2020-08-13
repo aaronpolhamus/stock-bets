@@ -10,6 +10,7 @@ import { PayPalButton } from 'react-paypal-button-v2'
 import { apiPost } from 'components/functions/api'
 import { Loader } from 'components/Loader'
 import styled from 'styled-components'
+import { ModalOverflowControls } from 'components/layout/Layout'
 
 const MakeGame = ({ gameMode }) => {
   // game settings
@@ -69,9 +70,6 @@ const MakeGame = ({ gameMode }) => {
       setShowConfirmationModal(true)
     }
   }
-  const HidableModal = styled(Modal)`
-    display: ${props => props.$isLoading ? 'none' : 'block'}
-  `
 
   if (redirect) return <Redirect to='/' />
   return (
@@ -258,14 +256,14 @@ const MakeGame = ({ gameMode }) => {
         }}
         centered
       >
+        <Modal.Header>
+          Fund your buy-in 
+          <br/>
+          to open a real-stakes game
+        </Modal.Header>
         <Modal.Body>
-          <div className='text-center'>
-            Fund your buy-in to open a real-stakes game
-            <div>
-              <small>
-                We'll send you a full refund if the game doesn't kick off for any reason 👍
-              </small>
-            </div>
+          <div>
+            We'll send you a full refund if the game doesn't kick off for any reason 👍
           </div>
           <PayPalButton
             shippingPreference='NO_SHIPPING'
@@ -326,14 +324,16 @@ const MakeGame = ({ gameMode }) => {
               currency: 'USD'
             }}
           />
+        </Modal.Body>
+        <ModalOverflowControls>
           <Button
-            variant='secondary' onClick={() => {
+            variant='outline-info' onClick={() => {
               setShowPaypalModal(false)
             }}
           >
           Actually, take me back
           </Button>
-        </Modal.Body>
+        </ModalOverflowControls>
       </Modal>
     </>
   )

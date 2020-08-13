@@ -31,9 +31,9 @@ $color-success: #3fa46d;
   --font-size-small: 0.875rem;
   --font-size-normal: 1rem;
   --font-size-medium: 1.125rem;
-  --font-size-large: 1.3rem;
-  --font-size-larger: 2rem;
-  --font-size-xlarge: 3rem;
+  --font-size-large: 1.5rem;
+  --font-size-xlarge: 2rem;
+  --font-size-xxlarge: 3rem;
 
   --letter-spacing-smallcaps: 0.05em;
 
@@ -52,6 +52,7 @@ $color-success: #3fa46d;
   --space-lg-300: 7rem;
   --space-lg-400: 8rem;
   --shadow-area: 5px 0px 27px rgba(17, 7, 60, 0.35);
+  --shadow-element: 0px 15px 27px rgba(17, 7, 60, 0.15);
 }
 
 // Bootstrap customization
@@ -78,6 +79,9 @@ $input-btn-padding-x: 1.5rem !default;
 $input-padding-x: .75rem !default;
 $input-btn-font-size: 16px!default;
 $btn-font-size: 1rem!default;
+$modal-backdrop-bg: $color-secondary !default;
+$modal-backdrop-opacity: .8 !default;
+$border-radius-lg: .5rem!default;
 
 
 /* import bootstrap to set changes */

@@ -151,6 +151,16 @@ const StyledContainer = styled(Container)`
   }
 `
 
+const ModalOverflowControls = styled.div`
+  text-align: center;
+  padding: var(--space-300);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  transform: translateY(100%);
+`
+
 const Column = ({ children, ...props }) => (
   <Col {...props}>
     <ColContent>
@@ -189,6 +199,7 @@ export {
   Content,
   Header,
   Layout,
+  ModalOverflowControls,
   PageSection,
   PageFooter,
   Sidebar,
