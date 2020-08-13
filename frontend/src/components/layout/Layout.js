@@ -52,9 +52,13 @@ const Content = styled.div`
   display: ${(props) => props.display || 'block'};
   height: ${(props) => props.height || 'auto'};
   min-height: ${(props) => props.minHeight || 0};
+  flex-wrap: wrap;
   align-items: ${(props) => props.alignItems || 'flex-start'};
   justify-content: ${(props) => props.justifyContent || 'flex-start'};
   overflow: hidden;
+  @media screen and (max-width: ${breakpoints.md}){
+    padding: var(--space-200);
+  }
 `
 
 const Header = styled.header`
