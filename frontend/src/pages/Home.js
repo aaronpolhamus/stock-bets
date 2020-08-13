@@ -78,6 +78,7 @@ const Home = () => {
   const [pilotGameFinished, setPilotGameFinished] = useState(false)
   const [data, setData] = useState({})
   const [loading, setLoading] = useState(true)
+  const [friendInvites, setFriendInvites] = useState(0)
   const { setUser } = useContext(UserContext)
 
   useEffect(() => {
@@ -228,6 +229,7 @@ const Home = () => {
               }}
             />
           }
+          iconNotifications={friendInvites}
           iconClose={
             <IconClose
               size={24}
@@ -248,7 +250,11 @@ const Home = () => {
             dataColor='var(--color-text-light-gray)'
             info={['Return: 50%', 'Sharpe: 0.324']}
           />
-          <FriendsList />
+          <FriendsList
+            onLoadFriends={(invites) => {
+              setFriendInvites(invites.length)
+            }}
+          />
         </SlideinBlock>
       </Sidebar>
       <Column md={9}>
