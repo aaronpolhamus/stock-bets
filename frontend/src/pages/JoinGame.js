@@ -15,6 +15,7 @@ import { Button, Modal } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
+import { InviteMoreFriends } from 'components/forms/InviteMoreFriends'
 
 const JoinGame = () => {
   const { gameId } = useParams()
@@ -105,7 +106,14 @@ const JoinGame = () => {
             </Breadcrumb>
             <Header>
               <h1>{gameInfo.title}</h1>
-              {renderButtons(gameInfo.user_status)}
+              <div>
+                {gameInfo.is_host &&
+                  <InviteMoreFriends
+                    gameId={gameId}
+                  />
+                }
+                {renderButtons(gameInfo.user_status)}
+              </div>
             </Header>
           </PageSection>
           <PageSection $marginBottomMd='var(--space-300)'>
