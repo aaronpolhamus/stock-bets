@@ -8,6 +8,8 @@ import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
 import { PayPalButton } from 'react-paypal-button-v2'
 import { apiPost } from 'components/functions/api'
+import { Loader } from 'components/Loader'
+import styled from 'styled-components'
 
 const MakeGame = ({ gameMode }) => {
   // game settings
@@ -25,6 +27,7 @@ const MakeGame = ({ gameMode }) => {
   const [redirect, setRedirect] = useState(false)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [showPaypalModal, setShowPaypalModal] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,12 +69,15 @@ const MakeGame = ({ gameMode }) => {
       setShowConfirmationModal(true)
     }
   }
+  const HidableModal = styled(Modal)`
+    display: ${props => props.$isLoading ? 'none' : 'block'}
+  `
 
   if (redirect) return <Redirect to='/' />
   return (
     <>
       <Form>
-        {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
+        <Loader show={loading}/>
         <Row>
           <Col lg={4}>
             <Form.Group>
@@ -205,7 +211,13 @@ const MakeGame = ({ gameMode }) => {
           </Button>
         </div>
       </Form>
-      <Modal show={showConfirmationModal}>
+      <Modal
+        centered
+        show={showConfirmationModal}
+        onHide={() => {
+          setShowConfirmationModal(false)
+        }}
+      >
         {gameMode === 'multi_player' &&
           <Modal.Body>
             <div className='text-center'>
@@ -239,7 +251,13 @@ const MakeGame = ({ gameMode }) => {
           </Button>
         </Modal.Footer>
       </Modal>
-      <Modal show={showPaypalModal} onHide={() => {}} centered>
+      <Modal
+        show={showPaypalModal}
+        onHide={() => {
+          setShowPaypalModal(false)
+        }}
+        centered
+      >
         <Modal.Body>
           <div className='text-center'>
             Fund your buy-in to open a real-stakes game
@@ -261,8 +279,12 @@ const MakeGame = ({ gameMode }) => {
                 }]
               })
             }}
+            onCancel={(data) => {
+            }}
             onApprove={(data, actions) => {
+              setLoading(true)
               return actions.order.capture().then(function (details) {
+                setLoading(false)
                 setShowPaypalModal(false)
                 setShowConfirmationModal(true)
                 const bookGame = async () => {
