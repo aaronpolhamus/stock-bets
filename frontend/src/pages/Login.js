@@ -40,7 +40,7 @@ const RightCol = styled(Col)`
     border-radius: 50% 50% / 45% 50%;
     content: "";
     display: block;
-    height: 50vh;
+    height: 100vh;
     position: absolute;
     top: 35vh;
     left: -25vw;
@@ -58,15 +58,18 @@ const RightCol = styled(Col)`
     }
     &::before {
       position: fixed;
-      top: -25vh;
-      bottom: 6vh;
+      width: 100vw;
+      height: 200vh;
+      bottom: 20vh;
+      top: auto;
       left: 50vw;
     }
     &::after {
       position: fixed;
-      left: 60vw;
-      top: 50vh;
+      width: 100vw;
       height: 100vh;
+      left: 60vw;
+      top: 40vh;
       z-index: -2;
     }
   }
@@ -78,11 +81,11 @@ const RightCol = styled(Col)`
 
 const LeftCol = styled(Col)`
   display: flex;
-  min-height: 50vh;
+  min-height: 0vh;
   flex-wrap: wrap;
   align-items: center;
   @media screen and (max-width: ${breakpoints.md}){
-    height: 25vh;
+    height: 18vh;
   }
 `
 
@@ -108,6 +111,10 @@ const LoginButton = styled.button`
 const StyledLogo = styled(Logo)`
   max-width: 460px;
   width: 100%;
+  @media screen and (max-width: ${breakpoints.md}){
+    width: 70vw;
+    max-width: 300px;
+  }
 `
 
 const StyledFaIcon = styled(FontAwesomeIcon)`
@@ -131,15 +138,18 @@ const LeftColContent = styled.div`
 `
 
 const FooterLinks = styled.div`
-  width: 80%;
+  width: 100%;
   margin-top: 2rem;
   line-height: 1.2;
+  position: static;
+  text-align: center;
   a{
     color: inherit;
     font-weight: bold;
   }
   @media screen and (min-width: ${breakpoints.md}){
-    bottom: 2.5vh;
+    width: 80%;
+    bottom: 1.5vh;
     text-align: right;
     position: absolute;
     right: 2vw;
@@ -151,8 +161,8 @@ const FooterLinks = styled.div`
 
 const LoginDialog = styled.div`
   background-color: rgba(255, 255, 255, 1);
-  width: 90vw;
-  max-width: 344px;
+  width: 100vw;
+  max-width: 350px;
   border-radius: var(--space-100);
   box-shadow: var(--shadow-area);
   form small {
@@ -228,7 +238,7 @@ export default function Login () {
   if (redirect) return <Redirect to='/' />
   return (
     <Content minHeight='100vh' alignItems='center' display='flex'>
-      <Container fluid>
+      <Container fluid style={{ maxWidth: '1400px' }}>
         <Row>
           <LeftCol md={6}>
             <LeftColContent>

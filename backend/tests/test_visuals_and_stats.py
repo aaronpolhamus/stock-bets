@@ -10,16 +10,15 @@ from backend.tests import BaseTestCase
 from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
-    get_expected_sidebets_payout_dates,
     TRACKED_INDEXES,
     posix_to_datetime,
     datetime_to_posix,
-    n_sidebets_in_game,
     make_date_offset,
     get_active_game_user_ids,
     get_game_info,
     get_user_ids,
 )
+from logic.metrics import n_sidebets_in_game, get_expected_sidebets_payout_dates
 from backend.logic.games import (
     add_game,
     respond_to_game_invite,
@@ -58,6 +57,7 @@ from backend.logic.visuals import (
     NA_TEXT_SYMBOL,
     update_order_details_table
 )
+from backend.logic.payments import PERCENT_TO_USER
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
@@ -343,7 +343,7 @@ class TestWinnerPayouts(BaseTestCase):
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
             side_pot = pot_size * (game_info["side_bets_perc"] / 100) / n_sidebets
-            self.assertEqual(sidebet_entry["payout"], side_pot)
+            self.assertEqual(sidebet_entry["payout"], side_pot * PERCENT_TO_USER)
             self.assertEqual(sidebet_entry["type"], "sidebet")
             self.assertEqual(sidebet_entry["start_time"], start_time)
             self.assertEqual(sidebet_entry["end_time"], sidebet_dates_posix[0])
@@ -353,7 +353,7 @@ class TestWinnerPayouts(BaseTestCase):
             sidebet_entry = query_to_dict("SELECT * FROM winners WHERE id = 2;")[0]
             self.assertEqual(sidebet_entry["winner_id"], winner_id)
             self.assertAlmostEqual(sidebet_entry["score"], score, 4)
-            self.assertEqual(sidebet_entry["payout"], side_pot)
+            self.assertEqual(sidebet_entry["payout"], side_pot * PERCENT_TO_USER)
             self.assertEqual(sidebet_entry["type"], "sidebet")
             self.assertEqual(sidebet_entry["start_time"], sidebet_dates_posix[0])
             self.assertEqual(sidebet_entry["end_time"], sidebet_dates_posix[1])
@@ -361,7 +361,7 @@ class TestWinnerPayouts(BaseTestCase):
 
             overall_entry = query_to_dict("SELECT * FROM winners WHERE id = 3;")[0]
             final_payout = pot_size * (1 - game_info["side_bets_perc"] / 100)
-            self.assertEqual(overall_entry["payout"], final_payout)
+            self.assertEqual(overall_entry["payout"], final_payout * PERCENT_TO_USER)
             with self.engine.connect() as conn:
                 df = pd.read_sql("SELECT * FROM winners", conn)
             self.assertEqual(df.shape, (3, 10))
@@ -373,9 +373,9 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertTrue(sum([x["Type"] == "Overall" for x in payouts_table["data"]]), 1)
         for entry in payouts_table["data"]:
             if entry["Type"] == "Sidebet":
-                self.assertEqual(entry["Payout"], side_pot)
+                self.assertEqual(entry["Payout"], side_pot * PERCENT_TO_USER)
             else:
-                self.assertEqual(entry["Payout"], final_payout)
+                self.assertEqual(entry["Payout"], final_payout * PERCENT_TO_USER)
 
 
 class TestTradeTimeIndex(BaseTestCase):

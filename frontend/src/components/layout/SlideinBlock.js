@@ -4,8 +4,23 @@ import { breakpoints } from 'design-tokens'
 import styled from 'styled-components'
 
 const Icon = styled.div`
+  position: relative;
   @media screen and (min-width: ${props => props.$breakpoint}){
     display: none;
+  }
+  span{
+    display: block;
+    position: absolute;
+    width: var(--space-200);
+    height: var(--space-200);
+    font-weight: bold;
+    border-radius: 50%;
+    line-height: var(--space-200);
+    font-size: var(--font-size-small);
+    text-align: center;
+    background-color: var(--color-danger);
+    top: 80%;
+    left: 60%;
   }
 `
 const Content = styled.div`
@@ -35,7 +50,7 @@ const CloseButton = styled.button`
   }
 `
 
-const SlideinBlock = ({ children, icon, context, className, backgroundColor, iconClose }) => {
+const SlideinBlock = ({ children, icon, context, className, backgroundColor, iconClose, iconNotifications }) => {
   const [showBlock, setShowBlock] = useState(false)
 
   const toggleShowBlock = () => {
@@ -47,7 +62,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
   }
 
   const breakpoint = breakpoints[context] || 0
-
+  console.log(iconNotifications)
   return (
     <div>
       {icon &&
@@ -56,6 +71,11 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
           onClick={toggleShowBlock}
         >
           {icon}
+          {iconNotifications > 0 &&
+            <span>
+              {iconNotifications}
+            </span>
+          }
         </Icon>}
       <Content
         $breakpoint={breakpoint}
@@ -78,6 +98,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
 SlideinBlock.propTypes = {
   icon: PropTypes.node,
   iconClose: PropTypes.node,
+  iconNotifications: PropTypes.number,
   // In which screen size it behaves like a sliding block
   context: PropTypes.string,
   backgroundColor: PropTypes.string,

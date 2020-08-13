@@ -1,5 +1,6 @@
 """Bundles tests relating to games, including celery task tests
 """
+from freezegun import freeze_time
 import json
 import time
 import unittest
@@ -9,10 +10,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-from backend.database.fixtures.mock_data import (
-    simulation_start_time,
-    simulation_end_time
-)
+from backend.database.fixtures.mock_data import simulation_start_time
 from backend.database.helpers import query_to_dict
 from backend.logic.auth import (
     setup_new_user,
@@ -20,6 +18,8 @@ from backend.logic.auth import (
     add_external_game_invites
 )
 from backend.logic.base import (
+    posix_to_datetime,
+    SECONDS_IN_A_DAY,
     get_user_ids_from_passed_emails,
     get_user_ids,
     get_pending_buy_order_value,
@@ -66,7 +66,9 @@ from backend.logic.schemas import (
 )
 from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
-    init_order_details)
+    init_order_details
+)
+from backend.logic.metrics import check_if_payout_time
 from backend.tasks.redis import unpack_redis_json
 from backend.tests import BaseTestCase
 
@@ -175,7 +177,7 @@ class TestGameLogic(BaseTestCase):
 
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT * FROM game_invites WHERE game_id = %s", conn, params=str(game_id))
-            self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined", "expired"])
+            self.assertEqual(df[df["user_id"] == 3]["status"].to_list(), ["joined"])
             self.assertEqual(df[df["user_id"] == 1]["status"].to_list(), ["invited", "declined"])
 
             df = pd.read_sql(
@@ -819,8 +821,7 @@ class TestGameExpiration(BaseTestCase):
         expired_game_id = 7
         finished_ids = get_game_ids_by_status("finished")
         self.assertEqual(set(finished_ids), {visible_game_id, expired_game_id})
-        with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
-            mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
+        with freeze_time(posix_to_datetime(simulation_start_time + 7 * SECONDS_IN_A_DAY)):
             for game_id in finished_ids:
                 expire_finished_game(game_id)
 
@@ -1058,3 +1059,20 @@ class TestExternalInviteFunctionality(BaseTestCase):
         # in a separate API test write logic for catching bad emails
         # with self.assertRaises(Exception):
         #     send_invite_email(creator_id, "BADEMAILTHATSHOULDFAIL", email_type="platform")
+
+
+class TestPayoutTime(TestCase):
+
+    @patch("backend.logic.base.time")
+    def test_payout_time(self, base_time_mock):
+        friday_during_trading = 1596830280
+        friday_after_close = 1596830500
+        weekend_payout_time = 1596941402
+        next_monday_payout_time = 1597089700
+        base_time_mock.time.return_value = friday_during_trading
+        self.assertFalse(check_if_payout_time(friday_during_trading, weekend_payout_time))
+        self.assertTrue(check_if_payout_time(friday_during_trading, friday_during_trading - 10))
+        self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
+
+        base_time_mock.time.return_value = friday_after_close
+        self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))

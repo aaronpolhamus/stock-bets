@@ -7,9 +7,12 @@ class Config:
     ENV = getenv("ENV")
     if ENV == "dev":
         CORS_ORIGINS = "http://localhost:3000"
+        PAYPAL_URL = "https://api.sandbox.paypal.com"
+        PAYPAL_TEST_USER_ID = getenv("PAYPAL_TEST_USER_ID")
 
     if ENV == "prod":
         CORS_ORIGINS = "https://app.stockbets.io"
+        PAYPAL_URL = "https://api.paypal.com"
 
     # External dependencies:
     # ----------------------
@@ -72,8 +75,14 @@ class Config:
     IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
 
     # S3 Credentials
+    # --------------
     AWS_ACCESS_KEY_ID = getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
     AWS_ENDPOINT_URL = getenv('AWS_ENDPOINT_URL')
     AWS_PUBLIC_BUCKET_NAME = getenv("AWS_PUBLIC_BUCKET_NAME")
     AWS_PUBLIC_ENDPOINT = getenv("AWS_PUBLIC_ENDPOINT")
+
+    # Payments
+    # --------
+    PAYPAL_CLIENT_ID = getenv("PAYPAL_CLIENT_ID")
+    PAYPAL_SECRET = getenv("PAYPAL_SECRET")

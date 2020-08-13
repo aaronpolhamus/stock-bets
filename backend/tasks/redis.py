@@ -1,20 +1,42 @@
 import base64
+from contextlib import contextmanager
 import json
 import pickle as pkl
+import uuid
 
 from backend.config import Config
-from redis import Redis
+from redis import StrictRedis
 from redis_cache import RedisCache
 from redlock import Redlock
+
+rds = StrictRedis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
+rds_cache = StrictRedis(Config.REDIS_HOST, decode_responses=False, charset="utf-8")
+redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
+dlm = Redlock([{"host": Config.REDIS_HOST}])
 
 TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 DEFAULT_ASSET_EXPIRATION = 8 * 24 * 60 * 60  # by default keep cached values around for 8 days
 DEFAULT_CACHE_EXPIRATION = 1 * 24 * 60 * 60  # we can keep cached values around for a shorter period of time
 
-rds = Redis(Config.REDIS_HOST, decode_responses=True, charset="utf-8")
-rds_cache = Redis(Config.REDIS_HOST, decode_responses=False, charset="utf-8")
-redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
-dlm = Redlock([{"host": Config.REDIS_HOST}])
+REMOVE_ONLY_IF_OWNER_SCRIPT = """
+if redis.call("get",KEYS[1]) == ARGV[1] then
+    return redis.call("del",KEYS[1])
+else
+    return 0
+end
+"""
+
+
+@contextmanager
+def redis_lock(lock_name, expires=60):
+    # https://breadcrumbscollector.tech/what-is-celery-beat-and-how-to-use-it-part-2-patterns-and-caveats/
+    random_value = str(uuid.uuid4())
+    lock_acquired = bool(
+        rds.set(lock_name, random_value, ex=expires, nx=True)
+    )
+    yield lock_acquired
+    if lock_acquired:
+        rds.eval(REMOVE_ONLY_IF_OWNER_SCRIPT, 1, lock_name, random_value)
 
 
 def argument_signature(*args, **kwargs):
@@ -23,22 +45,15 @@ def argument_signature(*args, **kwargs):
     return base64.b64encode(f"{'_'.join(arg_list)}-{'_'.join(kwarg_list)}".encode()).decode()
 
 
-def task_lock(function=None, key="", timeout=None):
-    """Enforce only one celery task at a time. timeout is in milliseconds"""
-
+def task_lock(func=None, main_key="", timeout=None):
     def _dec(run_func):
         def _caller(*args, **kwargs):
-            ret_value = TASK_LOCK_MSG
-            signature = argument_signature(*args, **kwargs)
-            lock = dlm.lock(f"{key}:{signature}", timeout)
-            if lock:
-                ret_value = run_func(*args, **kwargs)
-                dlm.unlock(lock)
-            return ret_value
-
+            with redis_lock(f"{main_key}_{argument_signature(*args, **kwargs)}", timeout) as acquired:
+                if not acquired:
+                    return TASK_LOCK_MSG
+                return run_func(*args, **kwargs)
         return _caller
-
-    return _dec(function) if function is not None else _dec
+    return _dec(func) if func is not None else _dec
 
 
 def unpack_redis_json(key: str):

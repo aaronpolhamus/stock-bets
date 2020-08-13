@@ -37,7 +37,8 @@ from backend.tasks.definitions import (
     async_update_symbols_table,
     async_cache_price,
     async_update_all_index_values,
-    async_process_all_orders_in_game
+    async_test_task_lock,
+    TASK_LOCK_TEST_SLEEP
 )
 from backend.logic.visuals import (
     serialize_and_pack_order_details,
@@ -158,7 +159,8 @@ class TestGameIntegration(BaseTestCase):
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "invitees": ["miguel", "murcitdev", "toofast"],
-            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW,
+            "stakes": "monopoly"
         }
 
         add_game(
@@ -167,6 +169,7 @@ class TestGameIntegration(BaseTestCase):
             mock_game["game_mode"],
             mock_game["duration"],
             mock_game["benchmark"],
+            mock_game["stakes"],
             mock_game["buy_in"],
             mock_game["side_bets_perc"],
             mock_game["side_bets_period"],
@@ -226,11 +229,11 @@ class TestGameIntegration(BaseTestCase):
         with self.engine.connect() as conn:
             gi_count_post = conn.execute("SELECT COUNT(*) FROM game_invites;").fetchone()[0]
 
-        self.assertEqual(gi_count_post - gi_count_pre, 6)  # We expect to see two expired invites
+        self.assertEqual(gi_count_post - gi_count_pre, 4)
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT game_id, user_id, status FROM game_invites WHERE game_id in (1, 2)", conn)
             self.assertEqual(df[df["user_id"] == 5]["status"].to_list(), ["invited", "expired"])
-            self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined", "expired"])
+            self.assertEqual(df[(df["user_id"] == 3) & (df["game_id"] == 2)]["status"].to_list(), ["joined"])
 
         # murcitdev is going to decline to play, toofast and miguel will play and receive their virtual cash balances
         # -----------------------------------------------------------------------------------------------------------
@@ -667,33 +670,23 @@ class TestDataAccess(BaseTestCase):
         self.assertEqual(symbols_table.iloc[0]["symbol"][0], 'A')
 
 
-class TestTaskLocking(BaseTestCase):
+class TestTaskLocking(TestCase):
 
-    def test_process_open_orders(self):
-        """This test simulates a situation where multiple process open orders tasks are queued simultaneously. We don't
-        want this to happen because it can result in an order being cleared multiple times
-        """
+    def test_task_locking(self):
+        """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
+        this to happen because it can result in an order being cleared multiple times"""
         rds.flushall()
-        game_id = 3
-
-        # seed the open orders and portfolio table
-        user_ids = get_active_game_user_ids(game_id)
-        for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
-            serialize_and_pack_portfolio_details(game_id, user_id)
-
-        res1 = async_process_all_orders_in_game.delay(game_id)
-        res2 = async_process_all_orders_in_game.delay(game_id)
-        res3 = async_process_all_orders_in_game.delay(game_id)
-        res4 = async_process_all_orders_in_game.delay(game_id)
-        res5 = async_process_all_orders_in_game.delay(game_id)
-        while not res1.ready():
-            continue
-        self.assertIsNone(res1.get())
-        self.assertEqual(res2.get(), TASK_LOCK_MSG)
+        res1 = async_test_task_lock.delay(3)
+        res2 = async_test_task_lock.delay(5)
+        self.assertFalse(res1.ready())
+        self.assertFalse(res2.ready())
+        res3 = async_test_task_lock.delay(5)
+        res4 = async_test_task_lock.delay(5)
         self.assertEqual(res3.get(), TASK_LOCK_MSG)
         self.assertEqual(res4.get(), TASK_LOCK_MSG)
-        self.assertEqual(res5.get(), TASK_LOCK_MSG)
+        time.sleep(TASK_LOCK_TEST_SLEEP)
+        res5 = async_test_task_lock.delay(3)
+        self.assertFalse(res5.ready())
 
 
 class TestRedisCaching(TestCase):

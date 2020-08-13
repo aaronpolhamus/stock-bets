@@ -24,6 +24,7 @@ from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
+    USD_FORMAT,
     during_trading_day,
     fetch_price)
 from backend.logic.games import (
@@ -49,7 +50,6 @@ from backend.logic.visuals import (
     CURRENT_BALANCES_PREFIX,
     ORDER_DETAILS_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT,
     BALANCES_CHART_PREFIX
 )
 from backend.tasks.airflow import trigger_dag
@@ -259,20 +259,21 @@ class TestCreateGame(BaseTestCase):
         user_id = 1
         user_name = "cheetos"
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_invitees = ["miguel", "toofast", "murcitdev"]
         buy_in = 1000
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": buy_in,
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "multi_player",
             "n_rebuys": 0,  # this is just for test consistency -- rebuys are switched off for now
             "invitees": game_invitees,
             "side_bets_perc": 50,
             "side_bets_period": "weekly",
             "title": "stupified northcutt",
-            "invite_window": DEFAULT_INVITE_OPEN_WINDOW
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW,
+            "stakes": "monopoly"
         }
         res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
                                          verify=False, json=game_settings)
@@ -335,7 +336,7 @@ class TestCreateGame(BaseTestCase):
         # look good.
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        self.assertEqual(res.json()["days_left"], game_duation - 1)
+        self.assertEqual(res.json()["days_left"], game_duration - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
@@ -351,7 +352,7 @@ class TestCreateGame(BaseTestCase):
         side_bar_stats = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duation - 1)
+        self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
@@ -369,7 +370,7 @@ class TestCreateGame(BaseTestCase):
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
-        self.assertEqual(len(side_bet_payouts), game_duation // 7)
+        self.assertEqual(len(side_bet_payouts), game_duration // 7)
         # len(invitees) - 1 because one of the players declines the game
         # TODO: Cleanup rounding issues in payout handling to make this more precise
         self.assertTrue(sum([x["Payout"] for x in payouts_table["data"]]) - (len(invitees) - 1) * buy_in < 1)
@@ -440,9 +441,9 @@ class TestCreateGame(BaseTestCase):
 
     def test_create_single_player_game(self):
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_settings = {
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "single_player",
             "title": "jugando solo",
             "benchmark": "return_ratio"
@@ -493,11 +494,6 @@ class TestPlayGame(BaseTestCase):
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
 
-        # TODO: Update these tests once we implement websockets
-        order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-        while stock_pick not in [x["Symbol"] for x in order_details_table["orders"]["pending"]]:
-            order_details_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-            continue
         res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -644,7 +640,8 @@ class TestGetGameStats(BaseTestCase):
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
-                     "start_time", "benchmark_formatted", "leaderboard", "is_host"]:
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host", "creator_profile_pic",
+                     "stakes_formatted"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
@@ -809,12 +806,12 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(data["username"], username)
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
-        game_duation = 365
+        game_duration = 365
         game_invitees = ["miguel", "toofast", "murcitdev"]
         game_settings = {
             "benchmark": "sharpe_ratio",
             "buy_in": 1000,
-            "duration": game_duation,
+            "duration": game_duration,
             "game_mode": "multi_player",
             "n_rebuys": 3,
             "invitees": game_invitees,

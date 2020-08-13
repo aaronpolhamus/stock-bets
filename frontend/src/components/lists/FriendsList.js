@@ -31,7 +31,7 @@ const FriendRequest = styled.p`
   justify-content: space-between;
 `
 
-const FriendsList = () => {
+const FriendsList = ({onLoadFriends}) => {
   const [friendsData, setFriendsData] = useState({})
   const [friendRequestsData, setFriendRequestsData] = useState({})
 
@@ -52,6 +52,8 @@ const FriendsList = () => {
 
   const getFriendInvites = async () => {
     const friendRequests = await apiPost('get_list_of_friend_invites')
+
+    onLoadFriends(friendRequests)
     setFriendRequestsData(friendRequests)
   }
 

@@ -1,3 +1,4 @@
+from copy import deepcopy
 import json
 from datetime import datetime as dt, timedelta
 
@@ -6,6 +7,7 @@ import pandas as pd
 import pytz
 
 from backend.logic.base import (
+    SECONDS_IN_A_DAY,
     TIMEZONE,
     datetime_to_posix,
     get_trading_calendar
@@ -50,4 +52,16 @@ def make_stock_data_records():
                 index_records.append(dict(symbol="^GSPC", value=gspc_value, timestamp=posix_time))
                 index_records.append(dict(symbol="^DJI", value=dji_value, timestamp=posix_time))
 
-    return price_records, index_records
+    # our simulation requires a full two weeks worth of data. append new entries for indexes and prices adding 7 days
+    # worth of time to each.
+    extended_price_records = deepcopy(price_records)
+    extended_index_records = deepcopy(index_records)
+    for price_record, index_record in zip(price_records, index_records):
+        pr_copy = deepcopy(price_record)
+        pr_copy["timestamp"] += SECONDS_IN_A_DAY * 7
+        extended_price_records.append(pr_copy)
+        ir_copy = deepcopy(index_record)
+        ir_copy["timestamp"] += SECONDS_IN_A_DAY * 7
+        extended_index_records.append(ir_copy)
+
+    return extended_price_records, extended_index_records

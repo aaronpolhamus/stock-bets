@@ -48,13 +48,14 @@ Sometimes the volume gets corrupted or some other problem that errors out the co
 ### Notes on business logic
 The business logic modules stored in `/backend/logic` have an order that is important preserve. That logic is: 
 ```
-- schemas.py
-- base.py
-- metrics.py
-- visuals.py
-- friends.py
-- games.py
-- auth.py
+1) schemas.py
+2) base.py
+3) payments.py
+4) metrics.py
+5) visuals.py
+6) friends.py
+7) games.py
+8) auth.py
 ```
 
 When asking yourself "where do I put this piece of business logic?" the answer is "as far downstream (i.e. close to the games module) as you can whie respecting this order". We've tried to further break down the logical modules with comments indicating what different branches of application logic they deal with, but there is room for constant improvement here. 
