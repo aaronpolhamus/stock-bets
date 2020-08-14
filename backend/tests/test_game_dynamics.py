@@ -1,6 +1,5 @@
 """Bundles tests relating to games, including celery task tests
 """
-from freezegun import freeze_time
 import json
 import time
 import unittest
@@ -59,6 +58,7 @@ from backend.logic.games import (
     get_external_invite_list_by_status,
     init_game_assets
 )
+from backend.logic.metrics import check_if_payout_time
 from backend.logic.schemas import (
     balances_chart_schema,
     apply_validation,
@@ -68,9 +68,9 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     init_order_details
 )
-from backend.logic.metrics import check_if_payout_time
 from backend.tasks.redis import unpack_redis_json
 from backend.tests import BaseTestCase
+from freezegun import freeze_time
 
 
 class TestGameLogic(BaseTestCase):
@@ -288,13 +288,20 @@ class TestGameLogic(BaseTestCase):
         user_id = 1
         game_id = 3
         buy_stock = "NVDA"
-        market_price = 1_000
+        nvda_quantity = 10
+        order_time = simulation_start_time + 60 * 60 * 12
+
+        with self.engine.connect() as conn:
+            nvda_close_price = conn.execute("""
+                SELECT price FROM prices
+                WHERE timestamp <= %s AND
+                symbol = %s
+                ORDER BY timestamp DESC LIMIT 1;
+            """, order_time, buy_stock).fetchone()[0]
 
         current_cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, buy_stock)
-        new_order_time = simulation_start_time + 60 * 60 * 12  # after hours
-        with patch("backend.logic.games.time") as game_time_mock, patch("backend.logic.base.time") as base_time_mock:
-            game_time_mock.time.return_value = base_time_mock.time.return_value = new_order_time
+        with freeze_time(posix_to_datetime(order_time)):  # after hours
             place_order(user_id,
                         game_id,
                         symbol=buy_stock,
@@ -303,19 +310,17 @@ class TestGameLogic(BaseTestCase):
                         current_holding=current_holding,
                         order_type="market",
                         quantity_type="Shares",
-                        market_price=market_price,
-                        amount=10,
+                        market_price=nvda_close_price,
+                        amount=nvda_quantity,
                         time_in_force="until_cancelled")
-
-        with patch("backend.logic.base.fetch_price") as fetch_price_mock:
-            fetch_price_mock.return_value = (market_price, new_order_time)
             buy_order_value = get_pending_buy_order_value(user_id, game_id)
 
-        mock_data_meli_order_id = 9
-        meli_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", mock_data_meli_order_id)[0]
+        nvda_order_id = 8
+        nvda_ticket = query_to_dict("SELECT * FROM orders WHERE id = %s", nvda_order_id)[0]
 
         # This reflects the order price for the 2 shares of MELI + the last market price for the new shares of NVDA
-        self.assertAlmostEqual(buy_order_value, meli_ticket["quantity"] * meli_ticket["price"] + 10 * market_price, 1)
+        self.assertAlmostEqual(buy_order_value,
+                               nvda_ticket["quantity"] * nvda_ticket["price"] + nvda_quantity * nvda_close_price, 1)
 
     def test_order_form_logic(self):
         # functions for parsing and QC'ing incoming order tickets from the front end. We'll try to raise errors for all
@@ -1042,7 +1047,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         respond_to_game_invite(game_1_id, external_example_user_id, "joined", time.time())
 
         # finally, the last external user will join the game to kick it off
-        user_id = setup_new_user("frederick2", second_external_user, "not_relevant", time.time(), "google", "unique2", None)
+        user_id = setup_new_user("frederick2", second_external_user, "not_relevant", time.time(), "google", "unique2",
+                                 None)
         add_external_game_invites(second_external_user, user_id)
 
         # quick patch to simulate that this user has successfuly picked a username

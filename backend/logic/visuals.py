@@ -7,7 +7,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from backend.database.db import engine
+from database.db import engine
 from backend.logic.base import (
     get_active_balances,
     get_trading_calendar,
@@ -30,9 +30,9 @@ from backend.logic.base import (
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
     TIMEZONE,
-    get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY,
     USD_FORMAT,
+    get_end_of_last_trading_day,
+    SECONDS_IN_A_DAY
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -62,6 +62,7 @@ from backend.tasks.redis import (
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
+
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
 PENDING_ORDERS_PREFIX = "pending_orders"
@@ -215,6 +216,23 @@ def _days_left(game_id: int):
     _, end = get_game_start_and_end(game_id)
     seconds_left = end - time.time()
     return seconds_left // (24 * 60 * 60)
+
+
+def get_most_recent_prices(symbols: List):
+    if len(symbols) == 0:
+        return None
+    sql = f"""
+        SELECT p.symbol, p.price, p.timestamp
+        FROM prices p
+        INNER JOIN (
+        SELECT symbol, max(id) as max_id
+          FROM prices
+          GROUP BY symbol) max_price
+        ON p.id = max_price.max_id
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
+    """
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=symbols)
 
 
 def get_portfolio_value(game_id: int, user_id: int) -> float:
@@ -705,23 +723,6 @@ def removing_pending_order(game_id: int, user_id: int, order_id: int):
     order_json = unpack_redis_json(fn)
     order_json["data"] = [entry for entry in order_json["data"] if entry["order_id"] != order_id]
     rds.set(fn, json.dumps(order_json), ex=DEFAULT_ASSET_EXPIRATION)
-
-
-def get_most_recent_prices(symbols: List):
-    if len(symbols) == 0:
-        return None
-    sql = f"""
-        SELECT p.symbol, p.price, p.timestamp
-        FROM prices p
-        INNER JOIN (
-        SELECT symbol, max(id) as max_id
-          FROM prices
-          GROUP BY symbol) max_price
-        ON p.id = max_price.max_id
-        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
-    """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
 
 
 def get_last_close_prices(symbols: List):
