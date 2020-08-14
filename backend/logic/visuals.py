@@ -665,9 +665,10 @@ def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
             ex=DEFAULT_ASSET_EXPIRATION)
 
 
-def pack_pending_orders(df, game_id, user_id):
-    mapped_columns_to_drop = ["Hypothetical % return", "Clear price", "Cleared on"]
-    df.drop(mapped_columns_to_drop, inplace=True)
+def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
+    mapped_columns_to_drop = ["Hypothetical % return", "clear_price_fulfilled", "timestamp_fulfilled"]
+    df = df.drop(mapped_columns_to_drop, axis=1)
+    df = df.rename(columns=PENDING_ORDER_MAPPINGS)
     df = df[df["status"] == "pending"]
     pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.keys()))
     rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
@@ -692,9 +693,8 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
 
 
 def init_order_details(game_id: int, user_id: int):
-    """Before we have any order information to log, make a blank entry to kick  off a game
-    """
-    init_pending_json = []
+    """Before we have any order information to log, make a blank entry to kick  off a game"""
+    init_pending_json = dict(data=[], headers=list(PENDING_ORDER_MAPPINGS.values()))
     rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_pending_json), ex=DEFAULT_ASSET_EXPIRATION)
     init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
     rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_fufilled_json), ex=DEFAULT_ASSET_EXPIRATION)
