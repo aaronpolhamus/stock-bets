@@ -89,9 +89,8 @@ RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 # Table settings #
 # -------------- #
 
-ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
+FULFILLED_ORDER_MAPPINGS = {
                          "symbol": "Symbol",
-                         "status": "Status",
                          "timestamp_pending": "Placed on",
                          "timestamp_fulfilled": "Cleared on",
                          "buy_or_sell": "Buy/Sell",
@@ -103,6 +102,19 @@ ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
                          "Market price": "Market price",
                          "as of": "as of",
                          "Hypothetical % return": "Hypothetical % return"}
+
+
+PENDING_ORDER_MAPPINGS = {
+                         "symbol": "Symbol",
+                         "timestamp_pending": "Placed on",
+                         "buy_or_sell": "Buy/Sell",
+                         "quantity": "Quantity",
+                         "order_type": "Order type",
+                         "time_in_force": "Time in force",
+                         "price": "Order price",
+                         "Market price": "Market price",
+                         "as of": "as of"}
+
 
 PORTFOLIO_DETAIL_MAPPINGS = {
     "symbol": "Symbol",
@@ -645,6 +657,23 @@ def make_order_colors(df: pd.DataFrame):
     return df
 
 
+def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
+    df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
+    df = df[df["status"] == "fulfilled"]
+    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.keys()))
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
+
+
+def pack_pending_orders(df, game_id, user_id):
+    mapped_columns_to_drop = ["Hypothetical % return", "Clear price", "Cleared on"]
+    df.drop(mapped_columns_to_drop, inplace=True)
+    df = df[df["status"] == "pending"]
+    pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.keys()))
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
+
+
 def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = get_order_details(game_id, user_id)
     if df.empty:
@@ -656,26 +685,19 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df["timestamp_fulfilled"] = df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
     df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
     df = add_market_prices_to_order_details(df)
-    df.rename(columns=ORDER_DETAIL_MAPPINGS, inplace=True)
-    df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
+    df = number_columns_to_currency(df, ["price", "clear_price_fulfilled", "Market price"])
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
-    records = df.to_dict(orient="records")
-    omitted_from_headers = ["order_id", "color", "order_label"]
-    table_headers = [x for x in list(df.columns) if x not in omitted_from_headers]
-    pending_order_records = dict(data=[x for x in records if x["Status"] == "pending"], headers=table_headers)
-    fulfilled_order_records = dict(data=[x for x in records if x["Status"] == "fulfilled"], headers=table_headers)
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
+    pack_fulfilled_orders(df, game_id, user_id)
+    pack_pending_orders(df, game_id, user_id)
 
 
 def init_order_details(game_id: int, user_id: int):
     """Before we have any order information to log, make a blank entry to kick  off a game
     """
-    init_json = dict(data=[], headers=list(ORDER_DETAIL_MAPPINGS.values()))
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
+    init_pending_json = []
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_pending_json), ex=DEFAULT_ASSET_EXPIRATION)
+    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_fufilled_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
