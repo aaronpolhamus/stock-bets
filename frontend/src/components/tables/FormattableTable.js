@@ -229,6 +229,8 @@ const FormattableTable = (props) => {
     tableOutputs = tableData.data.map((row, index) => {
       return props.formatOutput ? props.formatOutput(row) : row
     })
+
+    console.log(tableData)
     return (
       <StyledTable
         hover={props.hover}

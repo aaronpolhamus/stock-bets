@@ -1,25 +1,28 @@
 import React, { useEffect, useContext, useState } from 'react'
-import { Tabs, Tab, Toast, Button, Modal } from 'react-bootstrap'
+import {
+  Button,
+  Col,
+  Modal,
+  Row,
+  Tab,
+  Tabs,
+  Toast
+} from 'react-bootstrap'
 import { useParams, Link, Redirect } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Breadcrumb,
   Column,
-  Header,
   Layout,
   PageSection,
   PageFooter,
   Sidebar
 } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
-import { VanillaChart, UserDropDownChart } from 'components/charts/BaseCharts'
-import { PendingOrdersTable } from 'components/tables/PendingOrdersTable'
 import { GameHeader } from 'pages/game/GameHeader'
 import { ChevronLeft } from 'react-feather'
-import { BalancesTable } from 'components/tables/BalancesTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { SectionTitle } from 'components/textComponents/Text'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
 
 import { CompoundChart } from 'components/charts/CompoundChart'
@@ -114,6 +117,40 @@ const PlayGame = () => {
             <Tab eventKey='field-chart' title='The Field'>
               <PageSection>
                 <FieldChart gameId={gameId} />
+              </PageSection>
+
+              <PageSection>
+                <Row>
+                  <Col sm={6}>
+                    <FormattableTable
+                      hover
+                      endpoint='get_pending_orders_table'
+                      name='pending-orders'
+                      gameId={gameId}
+                      tableCellFormat={{
+
+                      }}
+                      exclude={[
+                        'Hypothetical % return',
+                        'Cleared on',
+                        'Clear price',
+                        'Status',
+                        'as of',
+                        'Buy/Sell',
+                        'Order Type',
+                        'Time in force',
+                        'Market price',
+                        'Order type'
+                      ]}
+                      sortBy=''
+                      showColumns={{
+                      }}
+                      replaceHeader={{
+                        Quantity: 'Qty.'
+                      }}
+                    />
+                  </Col>
+                </Row>
               </PageSection>
             </Tab>
             <Tab eventKey='orders' title='Performance'>
