@@ -13,7 +13,7 @@ const Playground = () => {
       <CompoundChart
         gameId='3'
         chartDataEndpoint='get_order_performance_chart'
-        legends={false}
+        legends={true}
       >
         {
           ({ handleSelectedLines }) => (
@@ -26,9 +26,12 @@ const Playground = () => {
                 handleSelectedLines(output)
               }}
               tableCellCheckbox={0}
-              tableRowOutput={{
-                label: 'Symbol',
-                color: 'color || #000000'
+              formatOutput={(output) => {
+                const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
+                return {
+                  label: label,
+                  color: output.color
+                }
               }}
               tableCellFormat={{
                 Symbol: function renderSymbol (value, row) {

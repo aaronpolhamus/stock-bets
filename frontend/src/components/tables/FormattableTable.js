@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Table } from 'react-bootstrap'
 import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
@@ -42,7 +42,7 @@ const FormattableTable = (props) => {
   const [tableData, setTableData] = useState()
 
   let tableOutput = []
-  let tableOutputtableInfo = []
+  let tableOutputs = []
   const getData = async () => {
     const tableDataQuery = await fetchGameData(props.gameId, props.endpoint)
     setTableData(tableDataQuery)
@@ -86,8 +86,8 @@ const FormattableTable = (props) => {
     ${createResponsiveStyles()}
   `
   const handleRowClick = (rowIndex, add) => {
-    const firstParam = Object.keys(tableOutputtableInfo[rowIndex])[0]
-    const firstValue = tableOutputtableInfo[rowIndex][firstParam]
+    const firstParam = Object.keys(tableOutputs[rowIndex])[0]
+    const firstValue = tableOutputs[rowIndex][firstParam]
 
     switch (add) {
       case false: {
@@ -101,7 +101,7 @@ const FormattableTable = (props) => {
 
         tableOutput = [
           ...tableOutput,
-          tableOutputtableInfo[rowIndex]
+          tableOutputs[rowIndex]
         ]
         break
     }
@@ -114,7 +114,6 @@ const FormattableTable = (props) => {
 
     // if a tableCellCheckbox is defined, it adds a checkbox to the cell number
     const addCheckboxToCell = (cellContent, value, row) => {
-      console.log(row.color)
       return (
         <CheckboxGroup>
           <input
@@ -217,6 +216,7 @@ const FormattableTable = (props) => {
       )
     })
   }
+
   if (tableData && tableData.data) {
     // The data outputted when a row is selected, determined by the tableRowOutput prop
     if (props.sortBy) {
@@ -224,15 +224,11 @@ const FormattableTable = (props) => {
         return a[props.sortBy] > b[props.sortBy] ? -1 : 1
       })
     }
-    tableOutputtableInfo = tableData.data.map((row, index) => {
-      return Object.keys(props.tableRowOutput).reduce((agg, curr) => {
-        return {
-          ...agg,
-          [curr]: row[props.tableRowOutput[curr]]
-        }
-      }, {})
-    })
 
+    // What format you expect to be outputted when you select rows in the table
+    tableOutputs = tableData.data.map((row, index) => {
+      return props.formatOutput ? props.formatOutput(row) : row
+    })
     return (
       <StyledTable
         hover={props.hover}
@@ -255,6 +251,7 @@ FormattableTable.displayName = 'FormattableTable'
 FormattableTable.propTypes = {
   endpoint: PropTypes.string,
   exclude: PropTypes.array,
+  formatOutput: PropTypes.func,
   gameId: PropTypes.string,
   hover: PropTypes.bool,
   name: PropTypes.string,
