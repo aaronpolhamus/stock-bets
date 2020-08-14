@@ -19,7 +19,9 @@ from backend.database.models import (
     SideBetPeriods,
     OrderTypes,
     BuyOrSell,
-    TimeInForce)
+    TimeInForce,
+    GameStakes
+)
 from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
@@ -35,11 +37,16 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     during_trading_day,
     get_active_balances,
-    get_user_ids_from_passed_emails
+    get_user_ids_from_passed_emails,
+    get_user_ids
 )
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
     email_game_invitation
+)
+from backend.logic.payments import (
+    get_payment_profile_uuids,
+    send_paypal_payment
 )
 from backend.logic.visuals import (
     update_order_details_table,
@@ -47,7 +54,6 @@ from backend.logic.visuals import (
     init_game_assets
 )
 from funkybob import RandomNameGenerator
-from logic.base import get_user_ids
 from textdistance import hamming
 
 TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
@@ -55,13 +61,14 @@ TIME_TO_SHOW_FINISHED_GAMES = 7 * SECONDS_IN_A_DAY
 # Default make game settings
 # --------------------------
 
-DEFAULT_GAME_DURATION = 30  # days
-DEFAULT_BUYIN = 100  # dolllars
+DEFAULT_GAME_DURATION = 7  # days
+DEFAULT_BUYIN = 25  # dolllars
 DEFAULT_BENCHMARK = "return_ratio"
 DEFAULT_SIDEBET_PERCENT = 0
 DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
+DEFAULT_STAKES = "real"
 
 QUANTITY_DEFAULT = "Shares"
 QUANTITY_OPTIONS = ["Shares", "USD"]
@@ -72,6 +79,7 @@ in javascript. We handle value-label mapping concerns on the frontend.
 """
 BENCHMARKS = unpack_enumerated_field_mappings(Benchmarks)
 SIDE_BET_PERIODS = unpack_enumerated_field_mappings(SideBetPeriods)
+STAKES = unpack_enumerated_field_mappings(GameStakes)
 
 # Default play game settings
 # --------------------------
@@ -128,9 +136,9 @@ def create_game_invites_entries(game_id: int, creator_id: int, user_ids: List[in
         add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
 
 
-def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, buy_in: float = None,
-             side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None, invite_window: int = None,
-             email_invitees: List[str] = None):
+def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, stakes: str = None,
+             buy_in: float = None, side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None,
+             invite_window: int = None, email_invitees: List[str] = None):
     if invitees is None:
         invitees = []
 
@@ -150,7 +158,8 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
                       buy_in=buy_in,
                       side_bets_perc=side_bets_perc,
                       side_bets_period=side_bets_period,
-                      invite_window=invite_window_posix)
+                      invite_window=invite_window_posix,
+                      stakes=stakes)
 
     user_ids = [creator_id]
     if invitees:
@@ -168,6 +177,8 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
             email_game_invitation(creator_id, email, game_id)
     else:
         kick_off_game(game_id, user_ids, opened_at)
+
+    return game_id
 
 
 def update_pending_game_status_for_new_user(game_id: int, user_id: int):
@@ -218,7 +229,7 @@ def update_external_invites(game_id: int, user_id: int, decision: str):
 def respond_to_game_invite(game_id, user_id, decision, response_time):
     add_row("game_invites", game_id=game_id, user_id=user_id, status=decision, timestamp=response_time)
     update_external_invites(game_id, user_id, decision)
-    start_game_if_all_invites_responded(game_id)
+    update_game_if_all_invites_responded(game_id)
 
 
 def get_open_game_ids_past_window():
@@ -361,14 +372,14 @@ def mark_invites_expired(game_id, status_list: List[str], update_time):
         add_row("game_invites", game_id=game_id, user_id=user_id, status="expired", timestamp=update_time)
 
 
-def close_open_game(game_id, update_time):
+def close_open_game(game_id, update_time, close_status="expired"):
     game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)[0]
-    add_row("game_status", game_id=game_id, status="expired",
+    add_row("game_status", game_id=game_id, status=close_status,
             users=json.loads(game_status_entry["users"]), timestamp=update_time)
-    mark_invites_expired(game_id, ["invited", "joined"], update_time)
+    mark_invites_expired(game_id, ["invited"], update_time)
 
 
-def service_open_game(game_id):
+def service_open_game(game_id: int):
     """Important note: This function doesn't have any logic to verify that it's operating on an open game. It should
     ONLY be applied to IDs passed in from get_open_game_ids_past_window
     """
@@ -381,16 +392,41 @@ def service_open_game(game_id):
         close_open_game(game_id, update_time)
 
 
-def start_game_if_all_invites_responded(game_id):
+def refund_cancelled_game(game_id: int):
+    game_info = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
+    # if this is a paid game, refund any users who joined and put money in
+    if game_info["stakes"] == "real":
+        buy = game_info["buy_in"]
+        joined_ids = get_invite_list_by_status(game_id, "joined")
+        payment_profiles = get_payment_profile_uuids(joined_ids)
+        profile_ids = [x["uuid"] for x in payment_profiles]
+        send_paypal_payment(
+            uuids=profile_ids,
+            amount=buy,
+            payment_type="refund",
+            email_subject=f"Refund for '{game_info['title']}'",
+            email_content=f"Your game '{game_info['title']}' didn't kick off after all, so we're sending you back your buy-in. Hope to see you again soon!",
+            note_content="Your friends missed out! Hope to see you out here soon"
+        )
+        for profile in payment_profiles:
+            add_row("payments", user_id=profile["user_id"], profile_id=profile["id"], game_id=game_id,
+                    type="refund", amount=buy, direction="outflow")
+
+
+def update_game_if_all_invites_responded(game_id: int):
     accepted_invite_user_ids = get_invite_list_by_status(game_id)
     pending_invite_ids = get_invite_list_by_status(game_id, "invited")
     pending_email_invites = get_external_invite_list_by_status(game_id, "invited")
     all_pending_invites = pending_invite_ids + pending_email_invites
-    if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START and len(all_pending_invites) == 0:
-        kick_off_game(game_id, accepted_invite_user_ids, time.time())
+    if len(all_pending_invites) == 0:
+        if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
+            kick_off_game(game_id, accepted_invite_user_ids, time.time())
+        else:
+            close_open_game(game_id, time.time(), "cancelled")
+            refund_cancelled_game(game_id)
 
 
-def get_game_info_for_user(user_id):
+def get_game_info_for_user(user_id: int):
     """This big, ugly SQL query aggregates a bunch of information about a user's game invites and active games for
     display on the home page
     """
@@ -700,7 +736,8 @@ def process_order(order_id: int):
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     current_holding = get_current_stock_holding(user_id, game_id, symbol)
     if during_trading_day():
-        if execute_order(buy_or_sell, order_type, market_price, order_ticket["price"], cash_balance, current_holding, quantity):
+        if execute_order(buy_or_sell, order_type, market_price, order_ticket["price"], cash_balance, current_holding,
+                         quantity):
             order_status_id = add_row("order_status", order_id=order_id, timestamp=timestamp, status="fulfilled",
                                       clear_price=market_price)
             update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,

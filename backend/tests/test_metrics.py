@@ -1,38 +1,36 @@
-from backend.tests import BaseTestCase
+from freezegun import freeze_time
 from unittest import TestCase
 from unittest.mock import patch
+import time
 
 from backend.logic.metrics import (
     calculate_metrics,
     check_if_payout_time
 )
 from backend.logic.base import (
-    datetime_to_posix,
     posix_to_datetime,
     get_game_info
 )
 from backend.logic.base import make_date_offset
 from backend.database.fixtures.mock_data import simulation_start_time
+from backend.tests import BaseTestCase
 
 
 class TestMetrics(BaseTestCase):
 
-    @patch("backend.logic.base.time")
-    def test_metrics(self, base_time_mock):
+    def test_metrics(self):
         """The canonical game #3 has 5 days worth of stock data in it. We'll use that data here to test canonical values
         for the game winning metrics
         """
         game_id = 3
         user_id = 1
-
         game_info = get_game_info(game_id)
         offset = make_date_offset(game_info["side_bets_period"])
-        end_time = datetime_to_posix(posix_to_datetime(simulation_start_time) + offset)
-        base_time_mock.time.return_value = end_time
-        return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, end_time)
+        with freeze_time(posix_to_datetime(simulation_start_time - 60) + offset):
+            return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, time.time())
 
         self.assertAlmostEqual(return_ratio, -0.6133719, 4)
-        self.assertAlmostEqual(sharpe_ratio, -0.5490682, 4)
+        self.assertAlmostEqual(sharpe_ratio, -0.5495623, 4)
 
 
 class TestCheckPayoutTime(TestCase):

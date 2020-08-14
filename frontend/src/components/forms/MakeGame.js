@@ -6,75 +6,76 @@ import { optionBuilder } from 'components/functions/forms'
 import { RadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import { MultiInvite } from 'components/forms/AddFriends'
+import { PayPalButton } from 'react-paypal-button-v2'
+import { apiPost } from 'components/functions/api'
+import { Loader } from 'components/Loader'
+import styled from 'styled-components'
+import { ModalOverflowControls } from 'components/layout/Layout'
 
 const MakeGame = ({ gameMode }) => {
+  // game settings
   const [defaults, setDefaults] = useState({})
-  const [sidePotPct, setSidePotPct] = useState(0)
-  const [formValues, setFormValues] = useState({})
+  const [title, setTitle] = useState(null)
+  const [duration, setDuration] = useState(null)
+  const [benchmark, setBenchmark] = useState(null)
+  const [buyIn, setBuyIn] = useState(null)
+  const [sideBetsPerc, setSideBetsPerc] = useState(0)
+  const [sideBetsPeriod, setSideBetsPeriod] = useState(null)
+  const [invitees, setInvitees] = useState([])
+  const [emailInvitees, setEmailInvitees] = useState([])
+  const [inviteWindow, setInviteWindow] = useState(null)
+  const [stakes, setStakes] = useState(null)
   const [redirect, setRedirect] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+  const [showPaypalModal, setShowPaypalModal] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       const response = await api.post('/api/game_defaults', { game_mode: gameMode })
       if (response.status === 200) {
         setDefaults(response.data)
-        setFormValues(response.data) // this syncs our form value submission state with the incoming defaults
+        setTitle(response.data.title)
+        setDuration(response.data.duration)
+        setBenchmark(response.data.benchmark)
+        setBuyIn(response.data.buy_in)
+        setSideBetsPerc(response.data.side_bets_perc)
+        setSideBetsPeriod(response.data.side_bets_period)
+        setInviteWindow(response.data.invite_window)
+        setStakes(response.data.stakes)
       }
     }
-
     fetchData()
   }, [])
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    const formValuesCopy = { ...formValues }
-    formValuesCopy.game_mode = gameMode
-    await api
-      .post('/api/create_game', formValuesCopy)
-      .then()
-      .catch((e) => {})
-    setShowModal(true)
-  }
-
-  const handleClose = () => {
-    setShowModal(false)
-    setRedirect(true)
-  }
-
-  const handleChange = (e) => {
-    const formValuesCopy = { ...formValues }
-    formValuesCopy[e.target.name] = e.target.value
-    setFormValues(formValuesCopy)
-  }
-
-  // necessary because this field has a special change action whereby the
-  const handleSideBetChange = (e) => {
-    setSidePotPct(e.target.value)
-    const formValuesCopy = { ...formValues }
-    formValuesCopy.side_bets_perc = e.target.value
-    setFormValues(formValuesCopy)
-  }
-
-  // I'm not in love wit this separate implementation for typeahead fields. I couldn't figure out a good way to get them to play well
-  // with standard bootstrap controlled forms, so this is what I went with
-  const handleInviteesChange = (inviteesInput) => {
-    const formValuesCopy = { ...formValues }
-    formValuesCopy.invitees = inviteesInput
-    setFormValues(formValuesCopy)
-  }
-
-  const handleEmailInviteesChange = (_emails) => {
-    const formValuesCopy = { ...formValues }
-    formValuesCopy.email_invitees = _emails
-    setFormValues(formValuesCopy)
+  const handleFormSubmit = async () => {
+    if (gameMode === 'multi_player' && (!emailInvitees && !invitees)) {
+      window.alert('In multiplayer mode you need to invite at least one other user via username or email. Switch to "You vs. The Market" if you meant to select single player mode')
+    } else if (gameMode === 'multi_player' && stakes === 'real') {
+      setShowPaypalModal(true)
+    } else {
+      apiPost('create_game', {
+        title: title,
+        duration: duration,
+        benchmark: benchmark,
+        buy_in: buyIn,
+        side_bets_perc: sideBetsPerc,
+        side_bets_period: sideBetsPeriod,
+        invitees: invitees,
+        email_invitees: emailInvitees,
+        invite_window: inviteWindow,
+        stakes: stakes,
+        game_mode: gameMode
+      })
+      setShowConfirmationModal(true)
+    }
   }
 
   if (redirect) return <Redirect to='/' />
   return (
     <>
-      <Form onSubmit={handleSubmit}>
-        {/* We should probably have this on the bottom of the form. It's just here for now because test_user can't write CSS */}
+      <Form>
+        <Loader show={loading} />
         <Row>
           <Col lg={4}>
             <Form.Group>
@@ -86,7 +87,7 @@ const MakeGame = ({ gameMode }) => {
                 name='title'
                 type='input'
                 defaultValue={defaults.title}
-                onChange={handleChange}
+                onChange={(e) => setTitle(e.target.value)}
               />
             </Form.Group>
             <Row>
@@ -100,43 +101,87 @@ const MakeGame = ({ gameMode }) => {
                     name='duration'
                     type='input'
                     defaultValue={defaults.duration}
-                    onChange={handleChange}
+                    onChange={(e) => setDuration(e.target.value)}
                   />
                 </Form.Group>
               </Col>
-            </Row>
-            {gameMode === 'multi_player' &&
-              <Row>
+              {gameMode === 'multi_player' &&
                 <Col xs={6}>
                   <Form.Group>
                     <Form.Label>
-                    Buy-in
-                      <Tooltip message='How many dollars does each player need to put in to join the game?' />
-                    </Form.Label>
-                    <Form.Control
-                      name='buy_in'
-                      type='input'
-                      defaultValue={defaults.buy_in}
-                      onChange={handleChange}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>}
-            {gameMode === 'multi_player' &&
-              <Row>
-                <Col xs={6}>
-                  <Form.Group>
-                    <Form.Label>
-                    Invite window
+                    Invite window (days)
                       <Tooltip message='For how many days would you like your game to be open for before kicking off automatically?' />
                     </Form.Label>
                     <Form.Control
                       name='invite_window'
                       type='input'
                       defaultValue={defaults.invite_window}
-                      onChange={handleChange}
+                      onChange={(e) => setInviteWindow(e.target.value)}
                     />
                   </Form.Group>
+                </Col>}
+            </Row>
+            {gameMode === 'multi_player' &&
+              <Row>
+                <Col xs={12}>
+                  <Form.Group>
+                    <Form.Label>Choose the game stakes</Form.Label>
+                    <RadioButtons
+                      options={defaults.stakes_options}
+                      name='stakes'
+                      onChange={(e) => setStakes(e.target.value)}
+                      defaultChecked={stakes}
+                    />
+                  </Form.Group>
+                  {stakes === 'real' &&
+                    <>
+                      <Form.Group>
+                        <Form.Label>
+                      Buy-in
+                          <Tooltip message='How many dollars does each player need to put in to join the game?' />
+                        </Form.Label>
+                        <Form.Control
+                          name='buy_in'
+                          type='input'
+                          defaultValue={defaults.buy_in}
+                          onChange={(e) => setBuyIn(e.target.value)}
+                        />
+                      </Form.Group>
+                      <Form.Group>
+                        <Form.Label>
+                    Sidebet % of pot
+                          <Tooltip
+                            message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
+                          />
+                        </Form.Label>
+                        <Form.Control
+                          name='side_bets_perc'
+                          type='input'
+                          defaultValue={defaults.side_bets_perc}
+                          value={sideBetsPerc}
+                          onChange={(e) => setSideBetsPerc(e.target.value)}
+                        />
+                      </Form.Group>
+                      {sideBetsPerc > 0 && (
+                        <Form.Group>
+                          <Form.Label>
+                    Sidebet period
+                            <Tooltip
+                              message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
+                            />
+                          </Form.Label>
+                          <Form.Control
+                            name='side_bets_period'
+                            as='select'
+                            defaultValue={defaults.side_bets_period}
+                            onChange={(e) => setSideBetsPeriod(e.target.value)}
+                          >
+                            {defaults.sidebet_periods &&
+                    optionBuilder(defaults.sidebet_periods)}
+                          </Form.Control>
+                        </Form.Group>
+                      )}
+                    </>}
                 </Col>
               </Row>}
             <Form.Group>
@@ -144,64 +189,32 @@ const MakeGame = ({ gameMode }) => {
                 Benchmark
                 <Tooltip message="Simple return is your total portfolio value at the end of your game divided by what you started with. The Sharpe ratio is trickier, and it's important to understand it if you're going to use it as a benchmark. It's possible, for example, to have a positive Sharpe ratio even if your total return is negative. Check out this video for the details of how we calculate the Sharpe ratio: https://www.youtube.com/watch?v=s0bxoD_0fAU" />
               </Form.Label>
-
               <RadioButtons
                 options={defaults.benchmarks}
                 name='benchmark'
-                onChange={handleChange}
-                defaultChecked={formValues.benchmark}
+                onChange={(e) => setBenchmark(e.target.value)}
+                defaultChecked={benchmark}
               />
             </Form.Group>
           </Col>
           {gameMode === 'multi_player' &&
             <Col lg={4}>
-              <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={handleInviteesChange} handleEmailsChange={handleEmailInviteesChange} />
-            </Col>}
-          {gameMode === 'multi_player' &&
-            <Col lg={4}>
-              <Form.Group>
-                <Form.Label>
-                Sidebet % of pot
-                  <Tooltip
-                    message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
-                  />
-                </Form.Label>
-                <Form.Control
-                  name='side_bets_perc'
-                  type='input'
-                  defaultValue={defaults.side_bets_perc}
-                  value={sidePotPct}
-                  onChange={handleSideBetChange}
-                />
-              </Form.Group>
-              {sidePotPct > 0 && (
-                <Form.Group>
-                  <Form.Label>
-                  Sidebet period
-                    <Tooltip
-                      message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
-                    />
-                  </Form.Label>
-                  <Form.Control
-                    name='side_bets_period'
-                    as='select'
-                    defaultValue={defaults.side_bets_period}
-                    onChange={handleChange}
-                  >
-                    {defaults.sidebet_periods &&
-                  optionBuilder(defaults.sidebet_periods)}
-                  </Form.Control>
-                </Form.Group>
-              )}
+              <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={(input) => setInvitees(input)} handleEmailsChange={(emails) => setEmailInvitees(emails)} />
             </Col>}
         </Row>
         <div className='text-right'>
-          <Button variant='primary' type='submit'>
-            Create new game
+          <Button variant='primary' onClick={handleFormSubmit}>
+            Create game
           </Button>
         </div>
       </Form>
-      <Modal show={showModal} onHide={handleClose}>
+      <Modal
+        centered
+        show={showConfirmationModal}
+        onHide={() => {
+          setShowConfirmationModal(false)
+        }}
+      >
         {gameMode === 'multi_player' &&
           <Modal.Body>
             <div className='text-center'>
@@ -225,10 +238,101 @@ const MakeGame = ({ gameMode }) => {
             </div>
           </Modal.Body>}
         <Modal.Footer className='centered'>
-          <Button variant='primary' onClick={handleClose}>
+          <Button
+            variant='primary' onClick={() => {
+              setShowConfirmationModal(false)
+              setRedirect(true)
+            }}
+          >
             Awesome!
           </Button>
         </Modal.Footer>
+      </Modal>
+      <Modal
+        show={showPaypalModal}
+        onHide={() => {
+          setShowPaypalModal(false)
+        }}
+        centered
+      >
+        <Modal.Header>
+          Fund your buy-in
+          <br />
+          to open a real-stakes game
+        </Modal.Header>
+        <Modal.Body>
+          <div>
+            We'll send you a full refund if the game doesn't kick off for any reason 👍
+          </div>
+          <PayPalButton
+            shippingPreference='NO_SHIPPING'
+            createOrder={(data, actions) => {
+              return actions.order.create({
+                purchase_units: [{
+                  amount: {
+                    currency_code: 'USD',
+                    value: buyIn
+                  }
+                }]
+              })
+            }}
+            onCancel={(data) => {
+            }}
+            onApprove={(data, actions) => {
+              setLoading(true)
+              return actions.order.capture().then(function (details) {
+                setLoading(false)
+                setShowPaypalModal(false)
+                setShowConfirmationModal(true)
+                const bookGame = async () => {
+                  await api
+                    .post('/api/create_game', {
+                      title: title,
+                      duration: duration,
+                      benchmark: benchmark,
+                      buy_in: buyIn,
+                      side_bets_perc: sideBetsPerc,
+                      side_bets_period: sideBetsPeriod,
+                      invitees: invitees,
+                      email_invitees: emailInvitees,
+                      invite_window: inviteWindow,
+                      stakes: stakes,
+                      game_mode: gameMode
+                    })
+                    .then((r) => {
+                      apiPost('process_payment', {
+                        game_id: r.data.game_id,
+                        processor: 'paypal',
+                        type: 'start',
+                        payer_email: details.payer.email_address,
+                        uuid: details.payer.payer_id,
+                        amount: details.purchase_units[0].amount.value,
+                        currency: details.purchase_units[0].amount.currency_code
+                      })
+                    })
+                    .catch((e) => console.log(e))
+                }
+                bookGame()
+              })
+            }}
+            onError={(err) => {
+              console.log(err)
+            }}
+            options={{
+              clientId: process.env.REACT_APP_PAYPAL_CLIENT_ID,
+              currency: 'USD'
+            }}
+          />
+        </Modal.Body>
+        <ModalOverflowControls>
+          <Button
+            variant='outline-info' onClick={() => {
+              setShowPaypalModal(false)
+            }}
+          >
+          Actually, take me back
+          </Button>
+        </ModalOverflowControls>
       </Modal>
     </>
   )

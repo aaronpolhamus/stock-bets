@@ -1,6 +1,6 @@
 import json
+from freezegun import freeze_time
 import time
-from unittest.mock import patch
 
 import pandas as pd
 from backend.database.fixtures.mock_data import (
@@ -15,7 +15,6 @@ from backend.logic.base import (
     get_game_info,
     make_date_offset,
     posix_to_datetime,
-    datetime_to_posix,
     get_user_information,
     make_historical_balances_and_prices_table
 )
@@ -118,12 +117,9 @@ class TestDerivedDataCaching(BaseTestCase):
         self.assertLess(partial_load_time, fresh_load_time)
         self.assertLess(cache_load_time, fresh_load_time)
 
-        with patch("backend.logic.base.time") as base_time_mock:
-            game_info = get_game_info(game_id)
-            offset = make_date_offset(game_info["side_bets_period"])
-            end_time = datetime_to_posix(posix_to_datetime(simulation_start_time) + offset)
-            base_time_mock.time.return_value = end_time
-            return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, end_time)
-
+        game_info = get_game_info(game_id)
+        offset = make_date_offset(game_info["side_bets_period"])
+        with freeze_time(posix_to_datetime(simulation_start_time - 60) + offset):
+            return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, simulation_start_time, time.time())
             self.assertAlmostEqual(return_ratio, -0.6133719, 4)
-            self.assertAlmostEqual(sharpe_ratio, -0.5490682, 4)
+            self.assertAlmostEqual(sharpe_ratio, -0.5495623, 4)

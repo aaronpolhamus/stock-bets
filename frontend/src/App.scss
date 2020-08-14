@@ -1,5 +1,9 @@
 @import "Theme";
 
+iframe {
+  border: none;
+}
+
 body {
   font-family: "proxima-nova", sans-serif;
 }
@@ -108,8 +112,26 @@ input.form-control{
 }
 
 //Modals
+.modal-content{
+  box-shadow: var(--shadow-element)
+}
 .modal-title {
   width: 100%;
+}
+.modal-header{
+  font-size: var(--font-size-large);
+  text-align: center;
+  justify-content: center;
+  color: var(--color-text-primary);
+  border-bottom: none;
+  padding-top: var(--space-300);
+}
+.modal-body{
+  text-align: center;
+  color: var(--color-text-gray);
+  div + div{
+    margin-top: var(--space-300);
+  }
 }
 .modal-footer.centered {
   justify-content: center;

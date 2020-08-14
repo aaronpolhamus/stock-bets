@@ -37,6 +37,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
+USD_FORMAT = "${:,.2f}"
+
 # -------- #
 # Defaults #
 # -------- #
@@ -69,7 +71,6 @@ def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]
     if res:
         return [x[0] for x in res]
     return []
-
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -147,17 +148,6 @@ def make_date_offset(side_bets_period):
     return offset
 
 
-def n_sidebets_in_game(game_start: float, game_end: float, offset: DateOffset) -> int:
-    game_start = posix_to_datetime(game_start)
-    game_end = posix_to_datetime(game_end)
-    count = 0
-    t = game_start + offset
-    while t <= game_end:
-        count += 1
-        t += offset
-    return count
-
-
 def get_time_defaults(game_id: int, start_time: float = None, end_time: float = None):
     """There are several places in the code that deal with time where we optionally set a time window as [game_start,
     present_time], depending on whether the user has passed those values in manually. This code wraps that operation.
@@ -192,27 +182,17 @@ def get_current_game_status(game_id: int):
     return status
 
 
-def get_game_start_time(game_id: int):
-    with engine.connect() as conn:
-        start = conn.execute("""
-            SELECT timestamp FROM game_status
-            WHERE game_id = %s AND status = 'active'
-        """, game_id).fetchone()
-    if start:
-        return start[0]
-    return None
-
-
 def get_game_info(game_id: int):
     info = query_to_dict("SELECT * FROM games WHERE id = %s;", game_id)[0]
-    info["creator_username"] = get_usernames([info["creator_id"]])[0]
+    creator_id = info["creator_id"]
+    info["creator_username"] = get_usernames([creator_id])[0]
+    info["creator_profile_pic"] = query_to_dict("SELECT * FROM users WHERE id = %s", creator_id)[0]["profile_pic"]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
+    info["stakes_formatted"] = USD_FORMAT.format(info["buy_in"]) if info["stakes"] == 'real' else "Just for fun"
     info["game_status"] = get_current_game_status(game_id)
-    start_time = get_game_start_time(game_id)
-    info["start_time"] = start_time
-    info["end_time"] = None
-    if start_time:
-        info["end_time"] = start_time + info["duration"] * 60 * 60 * 24
+    info["start_time"] = info["end_time"] = None
+    if info["game_status"] in ["active", "finished"]:
+        info["start_time"], info["end_time"] = get_game_start_and_end(game_id)
     return info
 
 
@@ -229,7 +209,6 @@ def get_current_game_cash_balance(user_id, game_id):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
-
     sql_query = """
         SELECT balance
         FROM game_balances gb
@@ -731,21 +710,6 @@ def get_active_balances(game_id: int, user_id: int):
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 
 
-def get_payouts_meta_data(game_id: int):
-    game_info = get_game_info(game_id)
-    player_ids = get_active_game_user_ids(game_id)
-    n_players = len(player_ids)
-    pot_size = n_players * game_info["buy_in"]
-    side_bets_perc = game_info.get("side_bets_perc")
-    start_time = posix_to_datetime(game_info["start_time"])
-    end_time = posix_to_datetime(game_info["end_time"])
-    side_bets_period = game_info.get("side_bets_period")
-    if side_bets_perc is None:
-        side_bets_perc = 0
-    offset = make_date_offset(side_bets_period)
-    return pot_size, start_time, end_time, offset, side_bets_perc, game_info["benchmark"]
-
-
 def check_single_player_mode(game_id: int) -> bool:
     with engine.connect() as conn:
         game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
@@ -805,11 +769,3 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
 
 
-def get_expected_sidebets_payout_dates(start_time: dt, end_time: dt, side_bets_perc: float, offset):
-    expected_sidebet_dates = []
-    if side_bets_perc:
-        payout_time = start_time + offset
-        while payout_time <= end_time:
-            expected_sidebet_dates.append(payout_time)
-            payout_time += offset
-    return expected_sidebet_dates

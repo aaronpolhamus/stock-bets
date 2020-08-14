@@ -52,9 +52,13 @@ const Content = styled.div`
   display: ${(props) => props.display || 'block'};
   height: ${(props) => props.height || 'auto'};
   min-height: ${(props) => props.minHeight || 0};
+  flex-wrap: wrap;
   align-items: ${(props) => props.alignItems || 'flex-start'};
   justify-content: ${(props) => props.justifyContent || 'flex-start'};
   overflow: hidden;
+  @media screen and (max-width: ${breakpoints.md}){
+    padding: var(--space-200);
+  }
 `
 
 const Header = styled.header`
@@ -147,6 +151,16 @@ const StyledContainer = styled(Container)`
   }
 `
 
+const ModalOverflowControls = styled.div`
+  text-align: center;
+  padding: var(--space-300);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  transform: translateY(100%);
+`
+
 const Column = ({ children, ...props }) => (
   <Col {...props}>
     <ColContent>
@@ -185,6 +199,7 @@ export {
   Content,
   Header,
   Layout,
+  ModalOverflowControls,
   PageSection,
   PageFooter,
   Sidebar,

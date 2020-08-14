@@ -29,8 +29,8 @@ class TestDefaults(TestCase):
         sidebet_period_mappings = unpack_enumerated_field_mappings(SideBetPeriods)
         self.assertIn(DEFAULT_SIDEBET_PERIOD, sidebet_period_mappings.keys())
 
-        self.assertEqual(DEFAULT_GAME_DURATION, 30)
-        self.assertEqual(DEFAULT_BUYIN, 100)
+        self.assertEqual(DEFAULT_GAME_DURATION, 7)
+        self.assertEqual(DEFAULT_BUYIN, 25)
         self.assertEqual(DEFAULT_SIDEBET_PERCENT, 0)
         self.assertEqual(DEFAULT_INVITE_OPEN_WINDOW, 2)
 

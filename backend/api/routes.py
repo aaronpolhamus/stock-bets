@@ -9,7 +9,10 @@ from backend.bi.report_logic import (
 )
 from backend.config import Config
 from backend.database.db import db
-from backend.database.helpers import query_to_dict
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
 from backend.logic.auth import (
     make_avatar_url,
     setup_new_user,
@@ -29,7 +32,8 @@ from backend.logic.base import (
     get_pending_buy_order_value,
     fetch_price,
     get_user_information,
-    standardize_email
+    standardize_email,
+    USD_FORMAT
 )
 from backend.logic.friends import (
     get_friend_invites_list,
@@ -71,8 +75,11 @@ from backend.logic.games import (
     ORDER_TYPES,
     TIME_IN_FORCE_TYPES,
     QUANTITY_DEFAULT,
-    QUANTITY_OPTIONS
+    QUANTITY_OPTIONS,
+    DEFAULT_STAKES,
+    STAKES
 )
+from backend.logic.payments import check_payment_profile
 from backend.logic.visuals import (
     format_time_for_response,
     update_order_details_table,
@@ -83,7 +90,6 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
-    USD_FORMAT,
     ORDER_PERF_CHART_PREFIX
 )
 from backend.tasks.definitions import (
@@ -106,7 +112,6 @@ LOGIN_ERROR_MSG = "Login to receive valid session_token"
 SESSION_EXP_ERROR_MSG = "You session token expired -- log back in"
 MISSING_USERNAME_ERROR_MSG = "Didn't find 'username' in request body"
 USERNAME_TAKE_ERROR_MSG = "This username is taken. Try another one?"
-GAME_CREATED_MSG = "Game created! "
 INVALID_OAUTH_PROVIDER_MSG = "Not a valid OAuth provider"
 MISSING_OAUTH_PROVIDER_MSG = "Please specify the provider in the requests body"
 ORDER_PLACED_MESSAGE = "Order placed successfully!"
@@ -314,7 +319,9 @@ def game_defaults():
             side_bets_period=DEFAULT_SIDEBET_PERIOD,
             sidebet_periods=SIDE_BET_PERIODS,
             available_invitees=available_invitees,
-            invite_window=DEFAULT_INVITE_OPEN_WINDOW
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW,
+            stakes=DEFAULT_STAKES,
+            stakes_options=STAKES
         ))
     return jsonify(resp)
 
@@ -324,12 +331,13 @@ def game_defaults():
 def create_game():
     user_id = decode_token(request)
     game_settings = request.json
-    add_game(
+    game_id = add_game(
         user_id,
         game_settings["title"],
         game_settings["game_mode"],
         game_settings["duration"],
         game_settings["benchmark"],
+        game_settings.get("stakes"),
         game_settings.get("buy_in"),
         game_settings.get("side_bets_perc"),
         game_settings.get("side_bets_period"),
@@ -337,7 +345,7 @@ def create_game():
         game_settings.get("invite_window"),
         game_settings.get("email_invitees")
     )
-    return make_response(GAME_CREATED_MSG, 200)
+    return jsonify({"game_id": game_id})
 
 
 @routes.route("/api/respond_to_game_invite", methods=["POST"])
@@ -630,7 +638,6 @@ def get_payouts_table():
     game_id = request.json.get("game_id")
     return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
 
-
 # ----- #
 # Stats #
 # ----- #
@@ -653,6 +660,32 @@ def get_cash_balances():
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
 
+# -------- #
+# Payments #
+# -------- #
+
+
+@routes.route("/api/process_payment", methods=["POST"])
+@authenticate
+def process_payment():
+    user_id = decode_token(request)
+    game_id = request.json.get("game_id")
+    amount = request.json["amount"]
+    currency = request.json["currency"]
+    processor = request.json["processor"]
+    payment_type = request.json["type"]
+    payer_email = request.json.get("payer_email")
+    uuid = request.json.get("uuid")
+    winner_table_id = request.json.get("winner_table_id")
+
+    # get payment profile id
+    profile_id = check_payment_profile(user_id, processor, uuid, payer_email)
+
+    # register payment
+    add_row("payments", game_id=game_id, user_id=user_id, profile_id=profile_id, winner_table_id=winner_table_id,
+            type=payment_type, amount=amount, currency=currency, direction='inflow', timestamp=time.time())
+
+    return make_response("Payment processed", 200)
 
 # ----- #
 # Admin #
@@ -694,7 +727,6 @@ def api_games_per_users():
 @admin
 def api_orders_per_active_user():
     return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
-
 
 # ------ #
 # DevOps #

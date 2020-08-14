@@ -195,28 +195,30 @@ MOCK_DATA = {
     "games": [
         {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
-         "invite_window": 1589368380.0},  # 1
+         "invite_window": 1589368380.0, "stakes": "monopoly"},  # 1
         {"title": "max aggression", "game_mode": "multi_player", "duration": 1, "buy_in": 100_000,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 3,
-         "invite_window": 1589368380.0},  # 2
+         "invite_window": 1589368380.0, "stakes": "monopoly"},  # 2
         {"title": "test game", "game_mode": "multi_player", "duration": 14, "buy_in": 100,
          "benchmark": "return_ratio", "side_bets_perc": 50, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": 1589368380.0},  # 3
+         "invite_window": 1589368380.0, "stakes": "real"},  # 3
         {"title": "test user excluded", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0},  # 4
+         "invite_window": 1580630520.0, "stakes": "real"},  # 4
         {"title": "valiant roset", "game_mode": "multi_player", "duration": 60, "buy_in": 20,
          "benchmark": "return_ratio", "side_bets_perc": 25, "side_bets_period": "monthly", "creator_id": 5,
-         "invite_window": 1580630520.0},  # 5
+         "invite_window": 1580630520.0, "stakes": "monopoly"},  # 5
         {"title": "finished game to show", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY},  # 6
+         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, "stakes": "monopoly"},
+        # 6
         {"title": "finished game to hide", "game_mode": "multi_player", "duration": 1, "buy_in": 10,
          "benchmark": "sharpe_ratio", "side_bets_perc": 0, "side_bets_period": "weekly", "creator_id": 1,
-         "invite_window": simulation_start_time - SECONDS_IN_A_DAY * (14 + DEFAULT_INVITE_OPEN_WINDOW)},  # 7
+         "invite_window": simulation_start_time - SECONDS_IN_A_DAY * (14 + DEFAULT_INVITE_OPEN_WINDOW),
+         "stakes": "monopoly"},  # 7
         {"title": "single player test", "game_mode": "single_player", "duration": 90, "buy_in": None,
          "benchmark": "sharpe_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 1,
-         "invite_window": None}  # 8
+         "invite_window": None, "stakes": "monopoly"}  # 8
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
@@ -575,6 +577,14 @@ MOCK_DATA = {
         {"requester_id": 38, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time},
         {"requester_id": 39, "invited_id": 1, "status": "invited", "timestamp": simulation_start_time},
         {"requester_id": 39, "invited_id": 1, "status": "accepted", "timestamp": simulation_start_time}
+    ],
+    "payment_profiles": [
+        {"user_id": 1, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": Config.TEST_CASE_EMAIL,
+         "timestamp": simulation_start_time},
+        {"user_id": 3, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "eddie@example.test",
+         "timestamp": simulation_start_time},
+        {"user_id": 4, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "mike@example.test",
+         "timestamp": simulation_start_time}
     ]
 }
 

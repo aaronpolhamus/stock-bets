@@ -14,7 +14,6 @@ from backend.logic.base import (
     get_all_game_usernames,
     get_game_info,
     add_bookends,
-    n_sidebets_in_game,
     get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -24,18 +23,16 @@ from backend.logic.base import (
     get_game_start_and_end,
     get_usernames,
     posix_to_datetime,
-    datetime_to_posix,
     DEFAULT_VIRTUAL_CASH,
     RESAMPLING_INTERVAL,
-    get_payouts_meta_data,
     get_active_game_user_ids,
     check_single_player_mode,
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
-    get_expected_sidebets_payout_dates,
     TIMEZONE,
     get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY
+    SECONDS_IN_A_DAY,
+    USD_FORMAT,
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -44,7 +41,11 @@ from backend.logic.metrics import (
     portfolio_return_ratio,
     portfolio_sharpe_ratio,
     RISK_FREE_RATE_DEFAULT,
-    log_winners
+    log_winners,
+    get_overall_payout,
+    get_winners_meta_data,
+    get_sidebet_payout,
+    get_expected_sidebets_payout_dates
 )
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -61,8 +62,6 @@ from backend.tasks.redis import (
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
-
-
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
 ORDER_DETAILS_PREFIX = "open_orders"
@@ -81,7 +80,6 @@ CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/ch
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
 N_PLOT_POINTS = 100
-USD_FORMAT = "${:,.2f}"
 PCT_FORMAT = "{0:.2%}"
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
@@ -768,20 +766,17 @@ def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: f
 
 
 def serialize_and_pack_winners_table(game_id: int):
-    """Key point: this function just serializes winners data that has already been saved to DB and fills in any missing
-    rows. It doesn't actually figure out whether it's time to pick a winner or not. For that, check out the function
-    log_winners.
-    """
-    pot_size, start_time, end_time, offset, side_bets_perc, benchmark = get_payouts_meta_data(game_id)
+    """this function serializes the winners data that has already been saved to DB and fills in any missing rows."""
+    game_start, game_end, start_dt, end_dt, benchmark, side_bets_perc, stakes, offset = get_winners_meta_data(game_id)
 
     # pull winners data from DB
     with engine.connect() as conn:
-        winners_df = pd.read_sql("SELECT * FROM winners WHERE game_id = %s", conn, params=[game_id])
+        winners_df = pd.read_sql("SELECT * FROM winners WHERE game_id = %s ORDER BY id", conn, params=[game_id])
 
-    # Is the game that we're currently looking at finished?
+    # Where are we at in the current game?
     game_finished = False
     if winners_df.empty:
-        last_observed_win = start_time
+        last_observed_win = start_dt
     else:
         last_observed_win = posix_to_datetime(winners_df["timestamp"].max())
         if "overall" in winners_df["type"].to_list():
@@ -789,9 +784,8 @@ def serialize_and_pack_winners_table(game_id: int):
 
     data = []
     if side_bets_perc:
-        n_sidebets = n_sidebets_in_game(datetime_to_posix(start_time), datetime_to_posix(end_time), offset)
-        payout = round(pot_size * (side_bets_perc / 100) / n_sidebets, 2)
-        expected_sidebet_dates = get_expected_sidebets_payout_dates(start_time, end_time, side_bets_perc, offset)
+        payout = get_sidebet_payout(game_id, side_bets_perc, offset, stakes)
+        expected_sidebet_dates = get_expected_sidebets_payout_dates(start_dt, end_dt, side_bets_perc, offset)
         for _, row in winners_df.iterrows():
             if row["type"] == "sidebet":
                 winner = get_usernames([row["winner_id"]])
@@ -805,13 +799,13 @@ def serialize_and_pack_winners_table(game_id: int):
             data.append(make_payout_table_entry(last_date, payout_date, "???", payout, "Sidebet"))
             last_date = payout_date
 
-    payout = pot_size * (1 - side_bets_perc / 100)
+    payout = get_overall_payout(game_id, side_bets_perc, stakes)
     if not game_finished:
-        final_entry = make_payout_table_entry(start_time, end_time, "???", payout, "Overall")
+        final_entry = make_payout_table_entry(start_dt, end_dt, "???", payout, "Overall")
     else:
         winner_row = winners_df.loc[winners_df["type"] == "overall"].iloc[0]
         winner = get_usernames([int(winner_row["winner_id"])])[0]
-        final_entry = make_payout_table_entry(start_time, end_time, winner, payout, "Overall", benchmark,
+        final_entry = make_payout_table_entry(start_dt, end_dt, winner, payout, "Overall", benchmark,
                                               winner_row["score"])
 
     data.append(final_entry)
