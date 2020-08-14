@@ -64,7 +64,8 @@ from backend.tasks.redis import (
 # -------------------------------- #
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
-ORDER_DETAILS_PREFIX = "open_orders"
+PENDING_ORDERS_PREFIX = "pending_orders"
+FULFILLED_ORDER_PREFIX = "fulfilled_orders"
 FIELD_CHART_PREFIX = "field_chart"
 BALANCES_CHART_PREFIX = "balances_chart"
 ORDER_PERF_CHART_PREFIX = "order_performance_chart"
@@ -655,31 +656,28 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
     records = df.to_dict(orient="records")
-    orders_json = dict(pending=[x for x in records if x["Status"] == "pending"],
-                       fulfilled=[x for x in records if x["Status"] == "fulfilled"])
     omitted_from_headers = ["order_id", "label_color", "order_label"]
-    out_dict = dict(orders=orders_json, headers=[x for x in list(df.columns) if x not in omitted_from_headers])
-    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
+    table_headers = [x for x in list(df.columns) if x not in omitted_from_headers]
+    pending_order_records = dict(data=[x for x in records if x["Status"] == "pending"], headers=table_headers)
+    fulfilled_order_records = dict(data=[x for x in records if x["Status"] == "fulfilled"], headers=table_headers)
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def init_order_details(game_id: int, user_id: int):
     """Before we have any order information to log, make a blank entry to kick  off a game
     """
-    headers = list(ORDER_DETAIL_MAPPINGS.values())
-    rds.set(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}",
-            json.dumps(dict(orders=dict(pending=[], fulfilled=[]), headers=headers)), ex=DEFAULT_ASSET_EXPIRATION)
+    init_json = dict(data=[], headers=list(ORDER_DETAIL_MAPPINGS.values()))
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
-def update_order_details_table(game_id: int, user_id: int, order_id: int, action: str):
-    assert action in ["add", "remove"]
-    fn = f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"
+def removing_pending_order(game_id: int, user_id: int, order_id: int):
+    fn = f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"
     order_json = unpack_redis_json(fn)
-    if action == "add":
-        serialize_and_pack_order_details(game_id, user_id)
-
-    if action == "remove":
-        order_json["orders"]["pending"] = [entry for entry in order_json["orders"]["pending"] if
-                                           entry["order_id"] != order_id]
+    order_json["data"] = [entry for entry in order_json["data"] if entry["order_id"] != order_id]
     rds.set(fn, json.dumps(order_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
