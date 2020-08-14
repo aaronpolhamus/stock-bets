@@ -12,16 +12,15 @@ const Playground = () => {
       </h1>
       <CompoundChart
         gameId='3'
-        chartDataEndpoint='get_balances_chart'
-        tableId='balances-table'
+        chartDataEndpoint='get_order_performance_chart'
         legends={false}
       >
         {
           ({ handleSelectedLines }) => (
             <FormattableTable
               hover
-              endpoint='get_current_balances_table'
-              name='balances-table'
+              endpoint='get_fulfilled_orders_table'
+              name='orders_table'
               gameId='3'
               onRowSelect={(output) => {
                 handleSelectedLines(output)
@@ -29,7 +28,7 @@ const Playground = () => {
               tableCellCheckbox={0}
               tableRowOutput={{
                 label: 'Symbol',
-                color: 'color'
+                color: 'color || #000000'
               }}
               tableCellFormat={{
                 Symbol: function renderSymbol (value, row) {
@@ -39,22 +38,37 @@ const Playground = () => {
                     </strong>
                   )
                 },
-                'Change since last close': function formatForNetChange (value) {
+                'Hypothetical % return': function formatForNetChange (value) {
+                  let color = 'var(--color-text-gray)'
+                  if (parseFloat(value) < 0) {
+                    color = 'var(--color-danger)'
+                  } else if (parseFloat(value) > 0) {
+                    color = 'var(--color-success)'
+                  }
+
                   return (
-                    <strong>
+                    <strong
+                      style={{
+                        color: color
+                      }}
+                    >
                       {value}
                     </strong>
                   )
                 }
               }}
-              sortBy='Balance'
+              exclude={[
+                'Status',
+                'as of',
+                'Buy/Sell',
+                'Order type',
+                'Time in force',
+                'Market price',
+                'Placed on',
+                'Order price'
+              ]}
+              sortBy='Hypothetical % return'
               showColumns={{
-                md: [
-                  'Symbol',
-                  'Balance',
-                  'Value',
-                  'Change since last close'
-                ]
               }}
             />
           )

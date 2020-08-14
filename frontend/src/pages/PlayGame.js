@@ -13,20 +13,22 @@ import {
 } from 'components/layout/Layout'
 import { FieldChart } from 'components/charts/FieldChart'
 import { VanillaChart, UserDropDownChart } from 'components/charts/BaseCharts'
-import { OpenOrdersTable } from 'components/tables/OpenOrdersTable'
 import { PendingOrdersTable } from 'components/tables/PendingOrdersTable'
 import { GameHeader } from 'pages/game/GameHeader'
 import { ChevronLeft } from 'react-feather'
 import { BalancesTable } from 'components/tables/BalancesTable'
-import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { SectionTitle } from 'components/textComponents/Text'
+import { PayoutsTable } from 'components/tables/PayoutsTable'
+
+import { CompoundChart } from 'components/charts/CompoundChart'
+
+import { FormattableTable } from 'components/tables/FormattableTable'
 
 const PlayGame = () => {
   const { gameId } = useParams()
   const { user, setUser } = useContext(UserContext)
-  const [ordersData, setOrdersData] = useState({})
   const [showToast, setShowToast] = useState(false)
   const [lastOrder, setLastOrder] = useState({
     buy_or_sell: '',
@@ -39,16 +41,10 @@ const PlayGame = () => {
   const [updateTables, setUpdateTables] = useState('')
   const [updateCashInfo, setUpdateCashInfo] = useState('')
 
-  const getOrdersData = async () => {
-    const data = await fetchGameData(gameId, 'get_order_details_table')
-    setOrdersData(data)
-  }
-
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
     setShowToast(true)
     setUpdateTables(new Date())
-    getOrdersData()
   }
 
   const handleCancelOrder = () => {
@@ -119,74 +115,129 @@ const PlayGame = () => {
               <PageSection>
                 <FieldChart gameId={gameId} />
               </PageSection>
-              <PageSection>
-                <PendingOrdersTable
-                  update={updateTables}
-                  gameId={gameId}
-                  title='Pending Orders'
-                  onCancelOrder={handleCancelOrder}
-                />
+            </Tab>
+            <Tab eventKey='orders' title='Performance'>
+              <CompoundChart
+                gameId='3'
+                chartDataEndpoint='get_order_performance_chart'
+                legends={true}
+              >
+                {
+                  ({ handleSelectedLines }) => (
+                    <FormattableTable
+                      hover
+                      endpoint='get_fulfilled_orders_table'
+                      name='orders_table'
+                      gameId='3'
+                      onRowSelect={(output) => {
+                        handleSelectedLines(output)
+                      }}
+                      tableCellCheckbox={0}
+                      tableRowOutput={{
+                        label: 'Symbol',
+                        color: 'color || #000000'
+                      }}
+                      tableCellFormat={{
+                        Symbol: function renderSymbol (value, row) {
+                          return (
+                            <strong>
+                              {value}
+                            </strong>
+                          )
+                        },
+                        'Hypothetical % return': function formatForNetChange (value) {
+                          let color = 'var(--color-text-gray)'
+                          if (parseFloat(value) < 0) {
+                            color = 'var(--color-danger)'
+                          } else if (parseFloat(value) > 0) {
+                            color = 'var(--color-success)'
+                          }
 
-              </PageSection>
+                          return (
+                            <strong
+                              style={{
+                                color: color
+                              }}
+                            >
+                              {value}
+                            </strong>
+                          )
+                        }
+                      }}
+                      exclude={[
+                        'Status',
+                        'as of',
+                        'Buy/Sell',
+                        'Order type',
+                        'Time in force',
+                        'Market price',
+                        'Placed on',
+                        'Order price'
+                      ]}
+                      sortBy='Hypothetical % return'
+                      showColumns={{
+                      }}
+                    />
+                  )
+                }
+              </CompoundChart>
             </Tab>
-            <Tab eventKey='balances-chart' title='Balances'>
+            <Tab eventKey='balances' title='Balances'>
               <PageSection>
-                {gameMode === 'multi_player'
-                  ? <UserDropDownChart
-                    gameId={gameId}
-                    endpoint='get_balances_chart'
-                    yScaleType='dollar'
-                  />
-                  : <VanillaChart
-                    gameId={gameId}
-                    endpoint='get_balances_chart'
-                    yScaleType='dollar'
-                  />}
-              </PageSection>
-              <PageSection>
-                <BalancesTable
+                <CompoundChart
                   gameId={gameId}
-                  update={updateTables}
-                />
-              </PageSection>
-            </Tab>
-            <Tab
-              eventKey='orders-chart' title='Orders'
-            >
-              <PageSection>
-                {gameMode === 'multi_player'
-                  ? <UserDropDownChart
-                    gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
-                    update={updateTables}
-                  />
-                  : <VanillaChart
-                    gameId={gameId}
-                    endpoint='get_order_performance_chart'
-                    yScaleType='percent'
-                    title='Order Performance'
-                    update={updateTables}
-                  />}
-              </PageSection>
-              <PageSection>
-                <PendingOrdersTable
-                  tableData={ordersData}
-                  gameId={gameId}
-                  title='Pending Orders'
-                  onCancelOrder={getOrdersData}
-                />
-              </PageSection>
-              <PageSection>
-                <OpenOrdersTable
-                  gameId={gameId}
-                  update={updateTables}
-                />
+                  chartDataEndpoint='get_balances_chart'
+                  tableId='balances-table'
+                  legends={false}
+                >
+                  {
+                    ({ handleSelectedLines }) => (
+                      <FormattableTable
+                        hover
+                        endpoint='get_current_balances_table'
+                        name='balances-table'
+                        gameId={gameId}
+                        onRowSelect={(output) => {
+                          handleSelectedLines(output)
+                        }}
+                        tableCellCheckbox={0}
+                        tableRowOutput={{
+                          label: 'Symbol',
+                          color: 'color'
+                        }}
+                        tableCellFormat={{
+                          Symbol: function renderSymbol (value, row) {
+                            return (
+                              <strong>
+                                {value}
+                              </strong>
+                            )
+                          },
+                          'Change since last close': function formatForNetChange (value) {
+                            return (
+                              <strong>
+                                {value}
+                              </strong>
+                            )
+                          }
+                        }}
+                        sortBy='Balance'
+                        showColumns={{
+                          md: [
+                            'Symbol',
+                            'Balance',
+                            'Value',
+                            'Change since last close'
+                          ]
+                        }}
+                      />
+                    )
+                  }
+                </CompoundChart>
               </PageSection>
             </Tab>
             {gameMode === 'multi_player' &&
-              <Tab eventKey='order-performance-chart' title='Payouts'>
+              <Tab eventKey='payouts' title='Payouts'>
                 <PayoutsTable gameId={gameId} />
               </Tab>}
           </Tabs>

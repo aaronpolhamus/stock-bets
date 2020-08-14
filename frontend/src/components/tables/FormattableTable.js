@@ -25,7 +25,7 @@ const CheckboxText = styled.span`
     border-style: solid;
     border-radius: 50%;
     transition: border-width .3s;
-    border-color: ${props => props.$checkboxColor !== undefined ? props.$checkboxColor : 'var(--color-gray'};
+    border-color: ${props => props.$checkboxColor !== undefined ? props.$checkboxColor : 'var(--color-text-gray)'};
   }
   input:checked + &::before{
     border-width: 8px;
@@ -114,6 +114,7 @@ const FormattableTable = (props) => {
 
     // if a tableCellCheckbox is defined, it adds a checkbox to the cell number
     const addCheckboxToCell = (cellContent, value, row) => {
+      console.log(row.color)
       return (
         <CheckboxGroup>
           <input

@@ -33,7 +33,7 @@ const NewGame = () => {
         </PageSection>
         <Form.Group>
           <Form.Label>
-                Choose a Game Mode
+            Choose a Game Mode
           </Form.Label>
 
           <RadioButtons
