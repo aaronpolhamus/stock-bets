@@ -11,11 +11,12 @@ import {
 } from 'components/layout/Layout'
 import { GameSettings } from 'pages/game/GameSettings'
 import { PendingGameParticipants } from 'pages/game/PendingGameParticipants'
-import { Button, Modal } from 'react-bootstrap'
+import { Button, Form, Modal } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
 import { InviteMoreFriends } from 'components/forms/InviteMoreFriends'
+import { Loader } from '../components/Loader'
 
 const JoinGame = () => {
   const { gameId } = useParams()
@@ -25,6 +26,7 @@ const JoinGame = () => {
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [redirect, setRedirect] = useState(false)
   const [decision, setDecision] = useState(null)
+  const [loading, setLoading] = useState(false)
 
   const getGameData = async () => {
     const gameData = await fetchGameData(gameId, 'game_info')
@@ -94,6 +96,7 @@ const JoinGame = () => {
   if (redirect) return <Redirect to='/' />
   return (
     <>
+      <Loader show={loading} />
       <Layout>
         <Sidebar md={2} size='sm' />
         <Column md={10}>
@@ -110,8 +113,7 @@ const JoinGame = () => {
                 {gameInfo.is_host &&
                   <InviteMoreFriends
                     gameId={gameId}
-                  />
-                }
+                  />}
                 {renderButtons(gameInfo.user_status)}
               </div>
             </Header>
@@ -180,7 +182,9 @@ const JoinGame = () => {
               })
             }}
             onApprove={(data, actions) => {
+              setLoading(true)
               return actions.order.capture().then(function (details) {
+                setLoading(false)
                 setShowPaypalModal(false)
                 setShowConfirmationModal(true)
                 const joinGame = async () => {
