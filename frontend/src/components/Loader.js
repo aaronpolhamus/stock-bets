@@ -10,7 +10,7 @@ const Loader = props => {
   ]
   const drawLoaderElements = () => {
     return colors.map((color, i) => {
-      return <i key={i} style={{ '--loader-item': i, backgroundColor: color }}/>
+      return <i key={i} style={{ '--loader-item': i, backgroundColor: color }} />
     })
   }
 

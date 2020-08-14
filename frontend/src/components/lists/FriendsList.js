@@ -31,7 +31,7 @@ const FriendRequest = styled.p`
   justify-content: space-between;
 `
 
-const FriendsList = ({onLoadFriends}) => {
+const FriendsList = ({ onLoadFriends }) => {
   const [friendsData, setFriendsData] = useState({})
   const [friendRequestsData, setFriendRequestsData] = useState({})
 
