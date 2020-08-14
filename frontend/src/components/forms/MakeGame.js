@@ -75,7 +75,7 @@ const MakeGame = ({ gameMode }) => {
   return (
     <>
       <Form>
-        <Loader show={loading}/>
+        <Loader show={loading} />
         <Row>
           <Col lg={4}>
             <Form.Group>
@@ -119,8 +119,7 @@ const MakeGame = ({ gameMode }) => {
                       onChange={(e) => setInviteWindow(e.target.value)}
                     />
                   </Form.Group>
-                </Col>
-              }
+                </Col>}
             </Row>
             {gameMode === 'multi_player' &&
               <Row>
@@ -257,8 +256,8 @@ const MakeGame = ({ gameMode }) => {
         centered
       >
         <Modal.Header>
-          Fund your buy-in 
-          <br/>
+          Fund your buy-in
+          <br />
           to open a real-stakes game
         </Modal.Header>
         <Modal.Body>
