@@ -24,7 +24,7 @@ const TermsAndConditions = () => {
         <p>
           Thanks for your interest in stockbets! We're looking forward to having
           you on the platform. Whether you're just curious, are planning to test
-          different investment strategies, or are looking to compete, our goal
+          different investment strategies, or are looking to compete for real stakes, our goal
           is that your experience on stockbets is a win. Below you'll find the
           terms and conditions associated with using our platform. If you have
           any specific questions that are not answered here, please reach out to
@@ -41,20 +41,17 @@ const TermsAndConditions = () => {
           virtual strategies against major market indexes. If you're just here
           to learn/explore different investing strategies that's great:
           there is no requirement that users on the platform play for real
-          stakes. stockbets.io is currently an exploratory project beta produced
-          and owned by{' '}
-          <i>Pisces Ventures LLC</i>, a Delaware company in good standing with
-          its registered agent as{' '}
+          stakes. stockbets.io is owned by {' '}
+          <i>Stockbets, Inc.</i>, a Delaware C Corporation with it's registered
+          agent <i>Legalinc Corporate Services </i> at {' '}
           <i>
-            Northwest Registered Agent Service, Inc., 8 The Green, Ste B, Dover,
-            DE 19901
+            651 N Broad St, Suite 206, Middletown, DE 19709
           </i>
           . For all inquiries, please contact{' '}
           <a href='mailto: contact@stockbets.io'>
             contact [at] stockbets [dot] io
           </a>
-          . We will shortly formally incorporate stockbets as a Delaware
-          company, and will update this policy accordingly at that time.
+          .
         </p>
         <h2>What is stockbets.io <i>not</i>?</h2>
         <p>
@@ -80,10 +77,8 @@ const TermsAndConditions = () => {
               allow for online sports betting based on the premise that picking
               good teams requires a significant level of sports knowledge and
               skill. Picking good investment securities requires at least the
-              same degree of acumen. While "fantasy finance" is, to the best of
-              our knowledge, untested territory legally, we operate according to
-              sports betting law in seeking to comply with local regulatory
-              requirements.
+              same degree of acumen. We operate according to sports betting law
+              in seeking to comply with local regulatory requirements.
             </li>
           </ul>
         </p>
@@ -140,14 +135,29 @@ const TermsAndConditions = () => {
             find ways to improve how the platform calculates winners of games
             based on their portfolio performance. Our data feed is
             presently nearly--but not entirely--real-time, meaning that orders
-            may clear at prices that do not identically match the market. There
-            are unusual events, such as bankruptcies, removals from exchanges,
-            or stock splits/consolidations, that our platform does not currently
-            handle. These errors, while typically minor, have the potential to
-            influence game outcomes. If you participate in a real-stakes game
+            may clear at prices that do not identically match the market. The
+            platform has logic to handle stock splits, reverse splits, and
+            dividend payments, but it is possible that this logic will be
+            imperfectly applied in a way that has a material impact on game
+            outcomes. If you believe this has happened in your case please
+            contact us at {' '}
+          <a href='mailto: contact@stockbets.io'>
+              contact [at] stockbets [dot] io
+          </a> for resolution.
+            Notwithstanding, if you participate in a real-stakes game
             you acknowledge that you are aware that these risks have the
-            potential to influence game outcomes, and release stockbets.io from
+            potential to influence game outcomes, and release Stockbets, Inc. from
             all related legal and financial claims.
+        </p>
+        <h2>Regarding financial advice and investment in actual securities</h2>
+        <p>
+          stockbets.io does not seek to provide you with investment advice. No
+          portfolio, trade, or performance result, or interaction with any other
+          user either on or off the platform should be construed as investment
+          advice from Stockbets, Inc. to you. Furthermore, you acknowledge that
+          participating in the buying and selling of actual securities is an
+          activity that involves the risk of loss, and release Stockbets, Inc.,
+          from all potential claims related to investments in actual securities.
         </p>
         <p className='text-right'>
           <Button variant='outline-secondary' onClick={() => history.go(-2)}>

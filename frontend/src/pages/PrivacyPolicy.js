@@ -31,34 +31,28 @@ const PrivacyPolicy = () => {
         <p>
           A fully-featured virtual trading experience that allows people who are
           fascinated by markets to play fantasy-style stock trading competitions
-          with each other. We hope that you love it. stockbets.io is currently
-          an exploratory project beta produced and owned by{' '}
-          <i>Pisces Ventures LLC</i>, a Delaware company in good standing with
-          its registered agent as{' '}
+          with each other. We hope that you love it :) stockbets.io is owned by {' '}
+          <i>Stockbets, Inc.</i>, a Delaware C Corporation with it's registered
+          agent <i>Legalinc Corporate Services </i> at {' '}
           <i>
-            Northwest Registered Agent Service, Inc., 8 The Green, Ste B, Dover,
-            DE 19901
+            651 N Broad St, Suite 206, Middletown, DE 19709
           </i>
           . For all inquiries, please contact{' '}
           <a href='mailto: contact@stockbets.io'>
             contact [at] stockbets [dot] io
           </a>
-          . If/when we formalize the project further, we will register the
-          stockbets as a separate legal entity and update this policy
-          accordingly.
+          .
         </p>
 
         <h2>What information does stockbets.io collect and store?</h2>
         <p>
-          One of the main reasons that stockbets.io strictly uses logins from
-          major online platforms--as opposed to more standard usernames and
-          passwords--is that we value your privacy and security, and want to
-          make sure that you are in complete control of your account access and
-          data. When you login we only request basic profile information from
-          your authentication provider (Google, Facebook, or Twitter). This lets
-          us know that you are who you say are, and that you do indeed control
-          the account that you're using to login. When you create your account,
-          we save the following information about you:
+          We value your privacy and security, and want to make sure that you are
+          in complete control of your account access and data. When you use the
+          OAuth login options with Google or Facebook we only request basic
+          profile information. This lets us know that you are who you say
+          are, and that you do indeed control the account that you're using to
+          login. When you create your account, we save the following information
+          about you:
           <ul>
             <li>Your name</li>
             <li>Your email address</li>
@@ -75,7 +69,7 @@ const PrivacyPolicy = () => {
           We use your data for account authentication, and, in the case of your
           profile picture, to create an avatar for you that identifies you to
           friends / to the community when you create or receive friend
-          invitations. We will also, occasionally, use your email for critical
+          invitations. We will also occasionally use your email for critical
           communications related to changes on the platform, including:
           <ul>
             <li>Updates to this agreement</li>
@@ -108,7 +102,7 @@ const PrivacyPolicy = () => {
           for playing competitive stock trading games with your friends. As you
           do this, you'll create data about virtual orders, balances, and
           portfolio performance. When you're in a game, your fellow game
-          participants will be able to see your game-specific perfomance,
+          participants will be able to see your game-specific performance,
           balances, and portfolio statistics. Everyone that you are friends with
           will see your "overall" statistics, but won't be able to see the games
           that you are in unless they're also playing that game with you. We
@@ -146,7 +140,7 @@ const PrivacyPolicy = () => {
           to javascript applications running on your browser, and even if it
           was, would be un-readable without our server-side secret encryption
           key. We are PCI-compliant and implement a CORS policy that validates
-          that origin of all requests sent to the stockbets API, protecting you
+          that origin of all requests sent to the stockbets.io API, protecting you
           from cross-site third party attacks. We have your personal data and
           session access on lock.
         </p>
