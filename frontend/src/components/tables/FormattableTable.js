@@ -132,14 +132,14 @@ const FormattableTable = (props) => {
     const formatCell = (key, value, index, row) => {
       // If there is no tableOptions or tableOptions has not a formatCell property the function returns the plain value
       let cellContent = value
-      if (props.tableCellFormat !== undefined) {
-        // We need to know if the key exists in the tableCellFormat Object
-        const index = Object.keys(props.tableCellFormat).indexOf(key)
+      if (props.formatCells !== undefined) {
+        // We need to know if the key exists in the formatCells Object
+        const index = Object.keys(props.formatCells).indexOf(key)
 
         if (index >= 0) {
           // If the key exists, we call the render function
           // We can use the value of the cell and we can access the values of the whole rows
-          cellContent = props.tableCellFormat[key](value, row)
+          cellContent = props.formatCells[key](value, row)
         }
       }
 
@@ -230,7 +230,7 @@ const FormattableTable = (props) => {
       return props.formatOutput ? props.formatOutput(row) : row
     })
 
-    console.log(tableData)
+    // console.log(props.name, tableData)
     return (
       <StyledTable
         hover={props.hover}
@@ -262,7 +262,7 @@ FormattableTable.propTypes = {
   sortBy: PropTypes.string,
   striped: PropTypes.bool,
   tableCellCheckbox: PropTypes.number,
-  tableCellFormat: PropTypes.object,
+  formatCells: PropTypes.object,
   tableData: PropTypes.object,
   tableRowOutput: PropTypes.object,
   update: PropTypes.string

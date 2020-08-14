@@ -24,10 +24,9 @@ import { ChevronLeft } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
-
 import { CompoundChart } from 'components/charts/CompoundChart'
-
 import { FormattableTable } from 'components/tables/FormattableTable'
+import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -41,17 +40,16 @@ const PlayGame = () => {
   const [gameMode, setGameMode] = useState(null)
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
-  const [updateTables, setUpdateTables] = useState('')
-  const [updateCashInfo, setUpdateCashInfo] = useState('')
+  const [updateInfo, setUpdateInfo] = useState('')
 
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
     setShowToast(true)
-    setUpdateTables(new Date())
+    handleUpdateInfo()
   }
 
-  const handleCancelOrder = () => {
-    setUpdateCashInfo(new Date())
+  const handleUpdateInfo = () => {
+    setUpdateInfo(new Date())
   }
 
   useEffect(() => {
@@ -96,7 +94,7 @@ const PlayGame = () => {
         <PlaceOrder
           gameId={gameId}
           onPlaceOrder={handlePlacedOrder}
-          update={updateCashInfo}
+          update={updateInfo}
         />
       </Sidebar>
       <Column md={9}>
@@ -124,11 +122,24 @@ const PlayGame = () => {
                   <Col sm={6}>
                     <FormattableTable
                       hover
+                      update={updateInfo}
                       endpoint='get_pending_orders_table'
                       name='pending-orders'
                       gameId={gameId}
-                      tableCellFormat={{
-
+                      formatCells={{
+                        'Placed on': function placedOn (value, row) {
+                          console.log(value, row)
+                          return (
+                            <>
+                              {value}
+                              <CancelOrderButton
+                                gameId={gameId}
+                                orderInfo={row}
+                                onCancelOrder={handleUpdateInfo}
+                              />
+                            </>
+                          )
+                        }
                       }}
                       exclude={[
                         'Hypothetical % return',
@@ -145,7 +156,7 @@ const PlayGame = () => {
                       sortBy=''
                       showColumns={{
                       }}
-                      replaceHeader={{
+                      formatHeaders={{
                         Quantity: 'Qty.'
                       }}
                     />
@@ -177,7 +188,7 @@ const PlayGame = () => {
                           color: output.color
                         }
                       }}
-                      tableCellFormat={{
+                      formatCells={{
                         Symbol: function renderSymbol (value, row) {
                           return (
                             <strong>
@@ -247,7 +258,7 @@ const PlayGame = () => {
                             color: output.color
                           }
                         }}
-                        tableCellFormat={{
+                        formatCells={{
                           Symbol: function renderSymbol (value, row) {
                             return (
                               <strong>

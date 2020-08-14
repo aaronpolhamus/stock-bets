@@ -155,8 +155,10 @@ input.form-control{
     border-top: none;
   }
   td {
-    font-size: var(--font-size-small);
-
+    font-size: var(--font-size-min);
+    strong {
+      font-size: var(--font-size-small);
+    }
   }
   @include media-breakpoint-down(md) {
     td, th{
