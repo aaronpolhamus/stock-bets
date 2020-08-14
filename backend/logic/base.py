@@ -548,8 +548,9 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
 
-# Price and stock data harvesting tools
-# -------------------------------------
+# ------------------------------------- #
+# Price and stock data harvesting tools #
+# ------------------------------------- #
 
 
 class SeleniumDriverError(Exception):
@@ -564,7 +565,7 @@ def currency_string_to_float(money_string):
     return money_string
 
 
-def get_web_table_object():
+def get_web_driver():
     print("starting selenium web driver...")
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
@@ -582,7 +583,7 @@ def extract_row_data(row):
 
 
 def get_symbols_table(n_rows=None, timeout=20):
-    driver = get_web_table_object()
+    driver = get_web_driver()
     driver.get(Config.SYMBOLS_TABLE_URL)
     table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
     rows = table.find_elements_by_tag_name("tr")
@@ -603,9 +604,9 @@ def get_symbols_table(n_rows=None, timeout=20):
     return pd.DataFrame(row_list)
 
 
-def get_index_value(symbol, timeout=20):
+def get_index_value(symbol, timeout=120):
     quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
-    driver = get_web_table_object()
+    driver = get_web_driver()
     driver.get(quote_url)
     header = WebDriverWait(driver, timeout).until(
         EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
@@ -718,9 +719,8 @@ def check_single_player_mode(game_id: int) -> bool:
     return game_mode[0] == "single_player"
 
 
-# -------------------------------------------------- #
-# Methods for handling indexes in single-player mode #
-# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode
+# --------------------------------------------------
 
 
 def get_index_reference(game_id: int, symbol: str) -> float:
@@ -769,3 +769,13 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
 
 
+# harvest stock splits
+# --------------------
+
+
+def retrieve_stock_splits():
+    pass
+
+
+def log_stock_splits():
+    pass

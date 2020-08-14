@@ -127,7 +127,7 @@ class TestStockDataTasks(BaseTestCase):
             df = pd.read_sql("SELECT * FROM indexes;", conn)
 
         iteration = 0
-        while df.shape != (3, 4) and iteration < 30:
+        while df.shape != (3, 4) and iteration < 120:
             time.sleep(1)
             with self.engine.connect() as conn:
                 df = pd.read_sql("SELECT * FROM indexes;", conn)
