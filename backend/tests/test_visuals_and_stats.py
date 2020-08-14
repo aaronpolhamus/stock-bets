@@ -236,7 +236,7 @@ class TestGameKickoff(BaseTestCase):
 
         fulfilled_orders_table = unpack_redis_json(f'{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}')
         self.assertIn("order_label", fulfilled_orders_table["data"][0].keys())
-        self.assertIn("label_color", fulfilled_orders_table["data"][0].keys())
+        self.assertIn("color", fulfilled_orders_table["data"][0].keys())
 
 
 class TestVisuals(BaseTestCase):

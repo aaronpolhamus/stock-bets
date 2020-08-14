@@ -496,7 +496,6 @@ class TestPlayGame(BaseTestCase):
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
 
-        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
         res = self.requests_session.post(f"{HOST_URL}/get_pending_orders_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -611,6 +610,16 @@ class TestPlayGame(BaseTestCase):
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
         self.assertEqual(nvda_entry, "0.00%")
+
+        # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
+        res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",
+                                         cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        self.assertIn("color", res.json()["data"][0])
+        self.assertEqual(set([x["Symbol"] for x in res.json()["data"]]), {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"})
+        self.assertEqual(len(res.json()["data"]), 6)  # because we have a buy and a sell order for AMZN
 
 
 class TestGetGameStats(BaseTestCase):

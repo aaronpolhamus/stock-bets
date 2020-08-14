@@ -191,8 +191,7 @@ def get_game_users(game_id: int):
 
 def assign_colors(inventory: List):
     """We break this out as a separate function because we need the leaderboard and the field charts to share the same
-    color mappings. This makes sure that there's no drift between the function
-    """
+    color mappings"""
     colors = palette_generator(len(inventory))
     return {item: color for item, color in zip(inventory, colors)}
 
@@ -596,7 +595,6 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,
                                                end_time: float = None):
-    # TODO: clean this up a bit with make_chart_json
     table = make_order_performance_table(game_id, user_id, start_time, end_time)
     order_perf = table
     if order_perf.empty:
@@ -606,7 +604,13 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start
         order_perf = order_perf.groupby(["order_label", "t_index"], as_index=False)[
             ["label", "return", "timestamp"]].last()
         order_perf.sort_values("t_index", inplace=True)
-        chart_json = make_chart_json(order_perf, "order_label", "return", "label")
+        # add logic here
+        order_label_colors = assign_colors(order_perf["order_label"].unique())
+        colors = []
+        # TODO: map this operation to a mapping function
+        for order_label in order_perf["order_label"].unique():
+            colors.append(order_label_colors[order_label])
+        chart_json = make_chart_json(order_perf, "order_label", "return", "label", colors=colors)
 
     rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
 
@@ -639,7 +643,7 @@ def add_market_prices_to_order_details(df):
 
 def make_order_colors(df: pd.DataFrame):
     label_colors = assign_colors(df.loc[df["status"] == "fulfilled", "order_label"].unique())
-    df["label_color"] = df["order_label"].apply(lambda x: label_colors.get(x))
+    df["color"] = df["order_label"].apply(lambda x: label_colors.get(x))
     return df
 
 
@@ -658,7 +662,7 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
     records = df.to_dict(orient="records")
-    omitted_from_headers = ["order_id", "label_color", "order_label"]
+    omitted_from_headers = ["order_id", "color", "order_label"]
     table_headers = [x for x in list(df.columns) if x not in omitted_from_headers]
     pending_order_records = dict(data=[x for x in records if x["Status"] == "pending"], headers=table_headers)
     fulfilled_order_records = dict(data=[x for x in records if x["Status"] == "fulfilled"], headers=table_headers)
