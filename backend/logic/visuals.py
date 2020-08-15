@@ -131,8 +131,7 @@ PORTFOLIO_DETAIL_MAPPINGS = {
 # Colors #
 # ------ #
 """Colors are organized sequentially with three different grouping. We'll assign user colors in order, starting with the
-first one, and working our way through the list
-"""
+first one, and working our way through the list"""
 HEX_COLOR_PALETTE = [
     "#453B85",  # group 1
     "#FFAF75",

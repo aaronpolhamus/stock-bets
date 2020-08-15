@@ -45,6 +45,7 @@ from backend.logic.friends import (
     InvalidEmailError
 )
 from backend.logic.games import (
+    get_downloadable_transactions_table,
     get_external_invite_list_by_status,
     add_user_via_platform,
     add_user_via_email,
@@ -668,6 +669,15 @@ def get_cash_balances():
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+
+
+@routes.route("/api/get_transactions_table", methods=["POST"])
+@authenticate
+def get_transactions_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(get_downloadable_transactions_table(game_id, user_id))
+
 
 # -------- #
 # Payments #
