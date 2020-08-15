@@ -678,7 +678,7 @@ def make_order_colors(df: pd.DataFrame):
 def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
     df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
     df = df[df["status"] == "fulfilled"]
-    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.keys()))
+    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
     rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
             ex=DEFAULT_ASSET_EXPIRATION)
 
@@ -688,7 +688,7 @@ def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
     df = df.drop(mapped_columns_to_drop, axis=1)
     df = df.rename(columns=PENDING_ORDER_MAPPINGS)
     df = df[df["status"] == "pending"]
-    pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.keys()))
+    pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.values()))
     rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
             ex=DEFAULT_ASSET_EXPIRATION)
 
