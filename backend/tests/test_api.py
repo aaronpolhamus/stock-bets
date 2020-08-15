@@ -628,8 +628,7 @@ class TestPlayGame(BaseTestCase):
 
         transactions = query_to_dict("SELECT * FROM game_balances WHERE game_id = %s AND user_id = %s", game_id,
                                      user_id)
-        # TODO: We're missing the initial cash entry because there's no inner join on order status id
-        self.assertEqual(len(res.json()), len(transactions) - 1)
+        self.assertEqual(len(res.json()), len(transactions))
 
 
 class TestGetGameStats(BaseTestCase):

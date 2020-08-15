@@ -862,14 +862,17 @@ def get_downloadable_transactions_table(game_id: int, user_id: int):
     sql = """
     SELECT g.balance_type, g.symbol, g.balance, g.timestamp, o.buy_or_sell, o.quantity, o.time_in_force, os.clear_price
     FROM game_balances g
-    INNER JOIN (
+    LEFT JOIN (
       SELECT * FROM order_status
       ) os
     ON os.id = g.order_status_id
-    INNER JOIN (
+    LEFT JOIN (
       SELECT  * FROM orders
       ) o
     ON o.id = os.order_id
-    WHERE g.game_id = %s AND g.user_id = %s;"""
+    WHERE g.game_id = %s AND g.user_id = %s
+    ORDER BY g.id;"""
     with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=[game_id, user_id]).to_dict(orient="records")
+        df = pd.read_sql(sql, conn, params=[game_id, user_id])
+    df = df.where(pd.notnull(df), None)
+    return df.to_dict(orient="records")
