@@ -875,4 +875,5 @@ def get_downloadable_transactions_table(game_id: int, user_id: int):
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params=[game_id, user_id])
     df = df.where(pd.notnull(df), None)
+    df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
     return df.to_dict(orient="records")
