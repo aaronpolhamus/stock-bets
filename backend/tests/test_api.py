@@ -622,6 +622,14 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(set([x["Symbol"] for x in res.json()["data"]]), {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"})
         self.assertEqual(len(res.json()["data"]), 6)  # because we have a buy and a sell order for AMZN
 
+        res = self.requests_session.post(f"{HOST_URL}/get_transactions_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        transactions = query_to_dict("SELECT * FROM game_balances WHERE game_id = %s AND user_id = %s", game_id,
+                                     user_id)
+        self.assertEqual(len(res.json()), len(transactions))
+
 
 class TestGetGameStats(BaseTestCase):
 

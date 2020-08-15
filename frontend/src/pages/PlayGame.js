@@ -1,4 +1,4 @@
-import React, { useEffect, useContext, useState } from 'react'
+import React, { useEffect, useContext, useState, useRef } from 'react'
 import {
   Button,
   Col,
@@ -27,6 +27,8 @@ import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { CompoundChart } from 'components/charts/CompoundChart'
 import { FormattableTable } from 'components/tables/FormattableTable'
 import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
+import { CSVLink } from 'react-csv'
+import api from 'services/api'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -42,6 +44,8 @@ const PlayGame = () => {
   const [redirect, setRedirect] = useState(false)
   const [updateInfo, setUpdateInfo] = useState('')
   const [cashData, setCashData] = useState({})
+  const [transactionData, setTransactionData] = useState([])
+  const csvLink = useRef()
 
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
@@ -93,6 +97,13 @@ const PlayGame = () => {
     })
     setShowLeaveBox(false)
     setRedirect(true)
+  }
+
+  const getTransactionData = async () => {
+    await api.post('/api/get_transactions_table', { game_id: gameId })
+      .then((r) => setTransactionData(r.data))
+      .catch((e) => console.log(e))
+    csvLink.current.link.click()
   }
 
   if (redirect) return <Redirect to='/' />
@@ -351,6 +362,14 @@ const PlayGame = () => {
           </Tabs>
         </PageSection>
         <PageFooter>
+          <Button onClick={getTransactionData} variant='secondary'>Download transactions to csv</Button>
+          <CSVLink
+            data={transactionData}
+            filename='transactions.csv'
+            className='hidden'
+            ref={csvLink}
+            target='_blank'
+          />
           <Button variant='outline-danger' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         </PageFooter>
       </Column>
