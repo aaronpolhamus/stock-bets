@@ -7,7 +7,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from backend.database.db import engine
+from database.db import engine
 from backend.logic.base import (
     get_active_balances,
     get_trading_calendar,
@@ -30,9 +30,9 @@ from backend.logic.base import (
     TRACKED_INDEXES,
     get_index_portfolio_value_data,
     TIMEZONE,
-    get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY,
     USD_FORMAT,
+    get_end_of_last_trading_day,
+    SECONDS_IN_A_DAY
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -62,6 +62,7 @@ from backend.tasks.redis import (
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
+
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"
 PENDING_ORDERS_PREFIX = "pending_orders"
@@ -89,9 +90,8 @@ RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 # Table settings #
 # -------------- #
 
-ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
+FULFILLED_ORDER_MAPPINGS = {
                          "symbol": "Symbol",
-                         "status": "Status",
                          "timestamp_pending": "Placed on",
                          "timestamp_fulfilled": "Cleared on",
                          "buy_or_sell": "Buy/Sell",
@@ -103,6 +103,19 @@ ORDER_DETAIL_MAPPINGS = {"order_id": "order_id",
                          "Market price": "Market price",
                          "as of": "as of",
                          "Hypothetical % return": "Hypothetical % return"}
+
+
+PENDING_ORDER_MAPPINGS = {
+                         "symbol": "Symbol",
+                         "timestamp_pending": "Placed on",
+                         "buy_or_sell": "Buy/Sell",
+                         "quantity": "Quantity",
+                         "order_type": "Order type",
+                         "time_in_force": "Time in force",
+                         "price": "Order price",
+                         "Market price": "Market price",
+                         "as of": "as of"}
+
 
 PORTFOLIO_DETAIL_MAPPINGS = {
     "symbol": "Symbol",
@@ -203,6 +216,23 @@ def _days_left(game_id: int):
     _, end = get_game_start_and_end(game_id)
     seconds_left = end - time.time()
     return seconds_left // (24 * 60 * 60)
+
+
+def get_most_recent_prices(symbols: List):
+    if len(symbols) == 0:
+        return None
+    sql = f"""
+        SELECT p.symbol, p.price, p.timestamp
+        FROM prices p
+        INNER JOIN (
+        SELECT symbol, max(id) as max_id
+          FROM prices
+          GROUP BY symbol) max_price
+        ON p.id = max_price.max_id
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
+    """
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=symbols)
 
 
 def get_portfolio_value(game_id: int, user_id: int) -> float:
@@ -645,6 +675,24 @@ def make_order_colors(df: pd.DataFrame):
     return df
 
 
+def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
+    df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
+    df = df[df["status"] == "fulfilled"]
+    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.keys()))
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
+
+
+def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
+    mapped_columns_to_drop = ["Hypothetical % return", "clear_price_fulfilled", "timestamp_fulfilled"]
+    df = df.drop(mapped_columns_to_drop, axis=1)
+    df = df.rename(columns=PENDING_ORDER_MAPPINGS)
+    df = df[df["status"] == "pending"]
+    pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.keys()))
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
+            ex=DEFAULT_ASSET_EXPIRATION)
+
+
 def serialize_and_pack_order_details(game_id: int, user_id: int):
     df = get_order_details(game_id, user_id)
     if df.empty:
@@ -656,26 +704,18 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df["timestamp_fulfilled"] = df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
     df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
     df = add_market_prices_to_order_details(df)
-    df.rename(columns=ORDER_DETAIL_MAPPINGS, inplace=True)
-    df = number_columns_to_currency(df, ["Order price", "Clear price", "Market price"])
+    df = number_columns_to_currency(df, ["price", "clear_price_fulfilled", "Market price"])
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
-    records = df.to_dict(orient="records")
-    omitted_from_headers = ["order_id", "color", "order_label"]
-    table_headers = [x for x in list(df.columns) if x not in omitted_from_headers]
-    pending_order_records = dict(data=[x for x in records if x["Status"] == "pending"], headers=table_headers)
-    fulfilled_order_records = dict(data=[x for x in records if x["Status"] == "fulfilled"], headers=table_headers)
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
+    pack_fulfilled_orders(df, game_id, user_id)
+    pack_pending_orders(df, game_id, user_id)
 
 
 def init_order_details(game_id: int, user_id: int):
-    """Before we have any order information to log, make a blank entry to kick  off a game
-    """
-    init_json = dict(data=[], headers=list(ORDER_DETAIL_MAPPINGS.values()))
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_json), ex=DEFAULT_ASSET_EXPIRATION)
+    """Before we have any order information to log, make a blank entry to kick  off a game"""
+    init_pending_json = dict(data=[], headers=list(PENDING_ORDER_MAPPINGS.values()))
+    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_pending_json), ex=DEFAULT_ASSET_EXPIRATION)
+    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
+    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_fufilled_json), ex=DEFAULT_ASSET_EXPIRATION)
 
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
@@ -683,23 +723,6 @@ def removing_pending_order(game_id: int, user_id: int, order_id: int):
     order_json = unpack_redis_json(fn)
     order_json["data"] = [entry for entry in order_json["data"] if entry["order_id"] != order_id]
     rds.set(fn, json.dumps(order_json), ex=DEFAULT_ASSET_EXPIRATION)
-
-
-def get_most_recent_prices(symbols: List):
-    if len(symbols) == 0:
-        return None
-    sql = f"""
-        SELECT p.symbol, p.price, p.timestamp
-        FROM prices p
-        INNER JOIN (
-        SELECT symbol, max(id) as max_id
-          FROM prices
-          GROUP BY symbol) max_price
-        ON p.id = max_price.max_id
-        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
-    """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
 
 
 def get_last_close_prices(symbols: List):

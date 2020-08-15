@@ -367,7 +367,7 @@ class TestCreateGame(BaseTestCase):
         init_fulfilled_orders_entry = unpack_redis_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
         self.assertEqual(init_fulfilled_orders_entry["data"], [])
-        self.assertEqual(len(init_open_orders_entry["headers"]), 14)
+        self.assertEqual(len(init_open_orders_entry["headers"]), 9)
 
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")

@@ -128,7 +128,6 @@ class TestGameKickoff(BaseTestCase):
 
         an_open_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["data"], [])
-        self.assertEqual(len(an_open_orders_table["headers"]), 14)
         a_fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_fulfilled_orders_table["data"], [])
 
@@ -279,7 +278,7 @@ class TestVisuals(BaseTestCase):
         df = pd.concat([pd.DataFrame(pending_order_table["data"]), pd.DataFrame(fulfilled_order_table["data"])])
         self.assertEqual(df.shape, (8, 16))
         self.assertNotIn("order_id", pending_order_table["headers"])
-        self.assertEqual(len(pending_order_table["headers"]), 13)
+        self.assertEqual(len(pending_order_table["headers"]), 9)
 
         user_ids = get_active_game_user_ids(game_id)
         for player_id in user_ids:

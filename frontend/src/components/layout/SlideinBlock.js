@@ -74,8 +74,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
           {iconNotifications > 0 &&
             <span>
               {iconNotifications}
-            </span>
-          }
+            </span>}
         </Icon>}
       <Content
         $breakpoint={breakpoint}
