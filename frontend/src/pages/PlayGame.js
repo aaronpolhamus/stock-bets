@@ -160,7 +160,7 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical % return',
+                        'Hypothetical return',
                         'Cleared on',
                         'Clear price',
                         'Status',
@@ -196,7 +196,7 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical % return',
+                        'Hypothetical return',
                         'Cleared on',
                         'Clear price',
                         'Status',
@@ -251,7 +251,7 @@ const PlayGame = () => {
                             </strong>
                           )
                         },
-                        'Hypothetical % return': function formatForNetChange (value) {
+                        'Hypothetical return': function formatForNetChange (value) {
                           let color = 'var(--color-text-gray)'
                           if (parseFloat(value) < 0) {
                             color = 'var(--color-danger)'
@@ -280,7 +280,7 @@ const PlayGame = () => {
                         'Placed on',
                         'Order price'
                       ]}
-                      sortBy='Hypothetical % return'
+                      sortBy='Hypothetical return'
                       showColumns={{
                       }}
                     />

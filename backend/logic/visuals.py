@@ -102,7 +102,7 @@ FULFILLED_ORDER_MAPPINGS = {
                          "clear_price_fulfilled": "Clear price",
                          "Market price": "Market price",
                          "as of": "as of",
-                         "Hypothetical % return": "Hypothetical % return"}
+                         "Hypothetical return": "Hypothetical return"}
 
 
 PENDING_ORDER_MAPPINGS = {
@@ -664,8 +664,8 @@ def add_market_prices_to_order_details(df):
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
     df = df.merge(recent_prices, how="left")
     df["as of"] = df["as of"].apply(lambda x: format_posix_time(x))
-    df["Hypothetical % return"] = df["Market price"] / df["clear_price_fulfilled"] - 1
-    df["Hypothetical % return"] = df["Hypothetical % return"].apply(lambda x: percent_formatter(x))
+    df["Hypothetical return"] = df["Market price"] / df["clear_price_fulfilled"] - 1
+    df["Hypothetical return"] = df["Hypothetical return"].apply(lambda x: percent_formatter(x))
     return df
 
 
@@ -684,7 +684,7 @@ def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
 
 
 def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
-    mapped_columns_to_drop = ["Hypothetical % return", "clear_price_fulfilled", "timestamp_fulfilled"]
+    mapped_columns_to_drop = ["Hypothetical return", "clear_price_fulfilled", "timestamp_fulfilled"]
     df = df.drop(mapped_columns_to_drop, axis=1)
     df = df.rename(columns=PENDING_ORDER_MAPPINGS)
     df = df[df["status"] == "pending"]
