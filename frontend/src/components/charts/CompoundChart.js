@@ -90,6 +90,7 @@ CompoundChart.propTypes = {
   update: PropTypes.string,
   legends: PropTypes.bool,
   children: PropTypes.oneOfType([
+    PropTypes.func,
     PropTypes.arrayOf(PropTypes.node),
     PropTypes.node
   ])

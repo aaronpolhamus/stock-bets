@@ -41,6 +41,7 @@ const PlayGame = () => {
   const [showLeaveBox, setShowLeaveBox] = useState(false)
   const [redirect, setRedirect] = useState(false)
   const [updateInfo, setUpdateInfo] = useState('')
+  const [cashData, setCashData] = useState({})
 
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
@@ -49,7 +50,13 @@ const PlayGame = () => {
   }
 
   const handleUpdateInfo = () => {
+    getCashData()
     setUpdateInfo(new Date())
+  }
+
+  const getCashData = async () => {
+    const cashDataQuery = await fetchGameData(gameId, 'get_cash_balances')
+    setCashData(cashDataQuery)
   }
 
   useEffect(() => {
@@ -64,6 +71,7 @@ const PlayGame = () => {
           profile_pic: data.profile_pic
         })
       }
+      getCashData()
       getUserInfo()
     }
 
@@ -95,6 +103,7 @@ const PlayGame = () => {
           gameId={gameId}
           onPlaceOrder={handlePlacedOrder}
           update={updateInfo}
+          cashData={cashData}
         />
       </Sidebar>
       <Column md={9}>
@@ -108,7 +117,10 @@ const PlayGame = () => {
               <span> Dashboard</span>
             </Link>
           </Breadcrumb>
-          <GameHeader gameId={gameId} />
+          <GameHeader
+            gameId={gameId}
+            cashData={cashData}
+          />
         </PageSection>
         <PageSection>
           <Tabs>
@@ -127,8 +139,14 @@ const PlayGame = () => {
                       name='pending-orders'
                       gameId={gameId}
                       formatCells={{
+                        Symbol: function formatSymbol (value) {
+                          return (
+                            <strong>
+                              {value}
+                            </strong>
+                          )
+                        },
                         'Placed on': function placedOn (value, row) {
-                          console.log(value, row)
                           return (
                             <>
                               {value}
@@ -154,6 +172,43 @@ const PlayGame = () => {
                         'Order type'
                       ]}
                       sortBy=''
+                      showColumns={{
+                      }}
+                      formatHeaders={{
+                        Quantity: 'Qty.'
+                      }}
+                    />
+                  </Col>
+                  <Col sm={6}>
+                    <FormattableTable
+                      hover
+                      update={updateInfo}
+                      endpoint='get_fulfilled_orders_table'
+                      name='fulfilled-orders'
+                      gameId={gameId}
+                      formatCells={{
+                        Symbol: function formatSymbol (value) {
+                          return (
+                            <strong>
+                              {value}
+                            </strong>
+                          )
+                        }
+                      }}
+                      exclude={[
+                        'Hypothetical % return',
+                        'Cleared on',
+                        'Clear price',
+                        'Status',
+                        'as of',
+                        'Buy/Sell',
+                        'Order Type',
+                        'Time in force',
+                        'Market price',
+                        'Order type'
+                      ]}
+                      sortBy='Placed on'
+                      order='DESC'
                       showColumns={{
                       }}
                       formatHeaders={{
