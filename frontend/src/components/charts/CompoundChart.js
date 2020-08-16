@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { fetchGameData } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
+import { PageSection } from 'components/layout/Layout'
 
 const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends }) => {
   const [chartData, setChartData] = useState()
@@ -64,17 +65,21 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends })
   }
   return (
     <>
-      <BaseChart
-        ref={chartRef}
-        data={dataCopy}
-        yScaleType='dollar'
-        legends={legends}
-      />
+      <PageSection>
+        <BaseChart
+          ref={chartRef}
+          data={dataCopy}
+          yScaleType='dollar'
+          legends={legends}
+        />
+      </PageSection>
       {
         children &&
-        <Children
-          handleSelectedLines={handleSelectedLines}
-        />
+        <PageSection>
+          <Children
+            handleSelectedLines={handleSelectedLines}
+          />
+        </PageSection>
       }
     </>
   )

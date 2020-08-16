@@ -188,8 +188,8 @@ const FormattableTable = (props) => {
     index: PropTypes.number
   }
 
-  const buildRows = (data) => {
-    return data.map((row, index) => {
+  const buildRows = (rowsData) => {
+    return rowsData.map((row, index) => {
       return (
         <SelectableRow
           key={index}
@@ -201,8 +201,8 @@ const FormattableTable = (props) => {
     })
   }
 
-  const buildHeaders = (headers) => {
-    return headers.map((key, index) => {
+  const buildHeaders = (headersData) => {
+    return headersData.map((key, index) => {
       if (props.exclude && props.exclude.includes(key)) {
         return null
       }
