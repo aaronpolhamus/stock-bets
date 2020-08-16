@@ -76,7 +76,6 @@ const PlayGame = () => {
           profile_pic: data.profile_pic
         })
       }
-      getCashData()
       getUserInfo()
     }
 
@@ -84,6 +83,7 @@ const PlayGame = () => {
       const data = await fetchGameData(gameId, 'game_info')
       setGameMode(data.game_mode)
     }
+    getCashData()
     getGameData()
   }, [user, setUser])
 
