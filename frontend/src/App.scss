@@ -71,7 +71,7 @@ label {
 }
 
 .tab-pane{
-  padding: var(--space-400) var(--space-200);
+  padding: var(--space-400) 0;
   @include media-breakpoint-down(md) {
     padding: var(--space-400) var(--space-100);
 
