@@ -29,6 +29,7 @@ import { FormattableTable } from 'components/tables/FormattableTable'
 import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
+import { IconBuySell } from 'components/ui/icons/IconBuySell'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -150,14 +151,17 @@ const PlayGame = () => {
                       name='pending-orders'
                       gameId={gameId}
                       formatCells={{
-                        Symbol: function formatSymbol (value) {
+                        Symbol: function formatSymbol (value, row) {
                           return (
-                            <strong>
-                              {value}
-                            </strong>
+                            <>
+                              <IconBuySell type={row['Buy/Sell']}/>
+                              <strong>
+                                {value}
+                              </strong>
+                            </>
                           )
                         },
-                        'Placed on': function placedOn (value, row) {
+                        'Order price': function placedOn (value, row) {
                           return (
                             <>
                               {value}
@@ -172,9 +176,6 @@ const PlayGame = () => {
                       }}
                       exclude={[
                         'Hypothetical return',
-                        'Cleared on',
-                        'Clear price',
-                        'Status',
                         'as of',
                         'Buy/Sell',
                         'Order Type',
@@ -198,19 +199,21 @@ const PlayGame = () => {
                       name='fulfilled-orders'
                       gameId={gameId}
                       formatCells={{
-                        Symbol: function formatSymbol (value) {
+                        Symbol: function formatSymbol (value, row) {
                           return (
-                            <strong>
-                              {value}
-                            </strong>
+                            <>
+                              <IconBuySell type={row['Buy/Sell']}/>
+                              <strong>
+                                {value}
+                              </strong>
+                            </>
                           )
                         }
                       }}
                       exclude={[
                         'Hypothetical return',
                         'Cleared on',
-                        'Clear price',
-                        'Status',
+                        'Order price',
                         'as of',
                         'Buy/Sell',
                         'Order Type',

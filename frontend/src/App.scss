@@ -45,8 +45,8 @@ label {
 .nav-tabs {
   border-bottom: 1px solid var(--color-light-gray);
   .nav-link {
-    border-bottom: 2px solid transparent;
     border: none;
+    border-bottom: 2px solid transparent;
     color: var(--color-text-gray);
     font-size: var(--font-size-small);
     font-weight: bold;
@@ -139,7 +139,6 @@ input.form-control{
 
 //Table
 .table {
-  margin: 0 -0.75rem;
   thead th {
     font-size: var(--font-size-min);
     text-transform: uppercase;
@@ -155,6 +154,9 @@ input.form-control{
     border-top: none;
   }
   td {
+    vertical-align: middle;
+    height: $table-cell-height;
+    padding: 0 0.75rem;
     font-size: var(--font-size-min);
     strong {
       font-size: var(--font-size-small);
