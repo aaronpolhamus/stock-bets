@@ -614,7 +614,7 @@ def make_db_mocks():
 def make_s3_mocks():
     table = 'users'
     for user in MOCK_DATA[table]:
-        profile_pic_hash = hashlib.sha224(bytes(user['uuid'], encoding='utf-8')).hexdigest()
+        profile_pic_hash = hashlib.sha224(bytes(user['resource_uuid'], encoding='utf-8')).hexdigest()
         profile_picture = user['profile_pic']
         upload_image_from_url_to_s3(profile_picture, f"profile_pics/{profile_pic_hash}")
 
