@@ -99,7 +99,7 @@ from backend.tasks.definitions import (
     async_cache_price,
     async_calculate_key_metrics
 )
-from backend.tasks.redis import unpack_redis_json
+from backend.tasks import s3_cache
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -417,7 +417,7 @@ def api_game_info():
     game_info["is_host"] = game_info["creator_id"] == user_id
     game_info["user_status"] = get_user_invite_status_for_game(game_id, user_id)
     if game_info["game_status"] in ["active", "finished"]:
-        game_info["leaderboard"] = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
+        game_info["leaderboard"] = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")["records"]
     return jsonify(game_info)
 
 
@@ -594,7 +594,7 @@ def balances_chart():
         user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(s3_cache.unpack_s3_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_order_performance_chart", methods=["POST"])
@@ -608,14 +608,14 @@ def order_performance_chart():
         user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(s3_cache.unpack_s3_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_field_chart", methods=["POST"])
 @authenticate
 def field_chart():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
+    return jsonify(s3_cache.unpack_s3_json(f"{FIELD_CHART_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_current_balances_table", methods=["POST"])
@@ -627,7 +627,8 @@ def get_current_balances_table():
         user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+    user_id = decode_token(request)
+    return jsonify(s3_cache.unpack_s3_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_pending_orders_table", methods=["POST"])
@@ -651,14 +652,14 @@ def get_fulfilled_orders_table():
         user_id = get_user_ids([username])[0]
     else:
         user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
+    return jsonify(s3_cache.unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_payouts_table", methods=["POST"])
 @authenticate
 def get_payouts_table():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}"))
+    return jsonify(s3_cache.unpack_s3_json(f"{PAYOUTS_PREFIX}_{game_id}"))
 
 # ----- #
 # Stats #
@@ -669,7 +670,7 @@ def get_payouts_table():
 @authenticate
 def get_leaderboard():
     game_id = request.json.get("game_id")
-    return jsonify(unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}"))
+    return jsonify(s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}"))
 
 
 @routes.route("/api/get_cash_balances", methods=["POST"])
@@ -750,14 +751,14 @@ def refresh_metrics():
 @authenticate
 @admin
 def api_games_per_users():
-    return jsonify(unpack_redis_json(GAMES_PER_USER_PREFIX))
+    return jsonify(s3_cache.unpack_s3_json(GAMES_PER_USER_PREFIX))
 
 
 @routes.route("/api/orders_per_active_user", methods=["POST"])
 @authenticate
 @admin
 def api_orders_per_active_user():
-    return jsonify(unpack_redis_json(ORDERS_PER_ACTIVE_USER_PREFIX))
+    return jsonify(s3_cache.unpack_s3_json(ORDERS_PER_ACTIVE_USER_PREFIX))
 
 # ------ #
 # DevOps #

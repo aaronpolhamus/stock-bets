@@ -39,7 +39,7 @@ from backend.logic.visuals import (
     make_chart_json,
     serialize_and_pack_winners_table
 )
-from backend.tasks.redis import rds
+from backend.tasks import s3_cache
 from sqlalchemy import MetaData
 
 price_records, index_records = make_stock_data_records()
@@ -654,7 +654,7 @@ def make_redis_mocks():
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
-    rds.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
+    s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
 
 
 if __name__ == '__main__':

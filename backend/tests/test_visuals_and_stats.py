@@ -55,13 +55,10 @@ from backend.logic.visuals import (
     NA_TEXT_SYMBOL
 )
 from backend.logic.payments import PERCENT_TO_USER
-from backend.tasks.redis import (
-    rds,
-    unpack_redis_json
-)
 from backend.tests import BaseTestCase
 from pandas.tseries.offsets import DateOffset
 
+from backend.tasks import s3_cache
 
 class TestGameKickoff(BaseTestCase):
     """Charts should be populated with blank data until at least one user places an order, regardless of whether the
@@ -114,24 +111,24 @@ class TestGameKickoff(BaseTestCase):
             self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
 
         # quickly verify the structure of the chart assets. They should be blank, with transparent colors
-        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}")
+        field_chart = s3_cache.unpack_s3_json(f"{FIELD_CHART_PREFIX}_{game_id}")
         self.assertEqual(len(field_chart["datasets"]), len(all_ids))
         chart_colors = [x["backgroundColor"] for x in field_chart["datasets"]]
         self.assertTrue(all([x == NULL_RGBA for x in chart_colors]))
 
-        leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        leaderboard = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")
         self.assertEqual(len(leaderboard["records"]), len(all_ids))
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
-        a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
+        a_current_balance_table = s3_cache.unpack_s3_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
 
-        an_open_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        an_open_orders_table = s3_cache.unpack_s3_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(an_open_orders_table["data"], [])
-        a_fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+        a_fulfilled_orders_table = s3_cache.unpack_s3_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_fulfilled_orders_table["data"], [])
 
-        a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
+        a_balances_chart = s3_cache.unpack_s3_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(a_balances_chart["datasets"]), 1)
         self.assertEqual(a_balances_chart["datasets"][0]["label"], "Cash")
         self.assertEqual(a_balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
@@ -168,27 +165,27 @@ class TestGameKickoff(BaseTestCase):
 
         # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
-        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        pending_orders_table = s3_cache.unpack_s3_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(pending_orders_table["data"][0]["Symbol"], self.stock_pick)
         self.assertEqual(len(pending_orders_table["data"]), 1)
-        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+        fulfilled_orders_table = s3_cache.unpack_s3_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(fulfilled_orders_table["data"], [])
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
-        current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
+        current_balances = s3_cache.unpack_s3_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 0)
 
         with patch("backend.logic.base.time") as base_time_mock:
             base_time_mock.time.side_effect = [start_time] * 2 * 2
             df = make_user_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
-            balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
+            balances_chart = s3_cache.unpack_s3_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
             self.assertEqual(len(balances_chart["datasets"]), 1)
             self.assertEqual(balances_chart["datasets"][0]["label"], "Cash")
             self.assertEqual(balances_chart["datasets"][0]["backgroundColor"], NULL_RGBA)
 
             compile_and_pack_player_leaderboard(game_id)
-            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            leaderboard = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
 
     def test_visuals_during_trading(self):
@@ -203,8 +200,8 @@ class TestGameKickoff(BaseTestCase):
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders
         serialize_and_pack_order_details(game_id, self.user_id)
-        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
-        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+        pending_orders_table = s3_cache.unpack_s3_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        fulfilled_orders_table = s3_cache.unpack_s3_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
 
         # since the order has been filled, we expect a clear price to be present
         self.assertNotEqual(fulfilled_orders_table["data"][0]["Clear price"], NA_TEXT_SYMBOL)
@@ -213,27 +210,27 @@ class TestGameKickoff(BaseTestCase):
         self.assertEqual(len(fulfilled_orders_table["data"]), 1)
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
-        current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
+        current_balances = s3_cache.unpack_s3_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(current_balances["data"]), 1)
 
         with patch("backend.logic.base.time") as base_time_mock:
             base_time_mock.time.side_effect = [start_time + 10] * 2 * 2
             df = make_user_balances_chart_data(game_id, self.user_id)
             serialize_and_pack_balances_chart(df, game_id, self.user_id)
-            balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
+            balances_chart = s3_cache.unpack_s3_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
             self.assertEqual(len(balances_chart["datasets"]), 2)
             stocks = set([x["label"] for x in balances_chart["datasets"]])
             self.assertEqual(stocks, {"Cash", self.stock_pick})
             self.assertNotIn(NULL_RGBA, [x["backgroundColor"] for x in balances_chart["datasets"]])
 
             compile_and_pack_player_leaderboard(game_id)
-            leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+            leaderboard = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")
             user_stat_entry = [x for x in leaderboard["records"] if x["id"] == self.user_id][0]
             self.assertEqual(user_stat_entry["cash_balance"], DEFAULT_VIRTUAL_CASH - self.market_price)
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
-        fulfilled_orders_table = unpack_redis_json(f'{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}')
+        fulfilled_orders_table = s3_cache.unpack_s3_json(f'{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}')
         self.assertIn("order_label", fulfilled_orders_table["data"][0].keys())
         self.assertIn("color", fulfilled_orders_table["data"][0].keys())
 
@@ -256,11 +253,11 @@ class TestVisuals(BaseTestCase):
             serialize_and_pack_portfolio_details(game_id, user_id)
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
-        field_chart = unpack_redis_json("field_chart_3")
+        field_chart = s3_cache.unpack_s3_json("field_chart_3")
         self.assertIsNotNone(field_chart)
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_1"))
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_3"))
-        self.assertIsNotNone(unpack_redis_json("current_balances_3_4"))
+        self.assertIsNotNone(s3_cache.unpack_s3_json("current_balances_3_1"))
+        self.assertIsNotNone(s3_cache.unpack_s3_json("current_balances_3_3"))
+        self.assertIsNotNone(s3_cache.unpack_s3_json("current_balances_3_4"))
 
         # verify chart information
         test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
@@ -273,8 +270,8 @@ class TestVisuals(BaseTestCase):
         game_id = 3
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
-        pending_order_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
-        fulfilled_order_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
+        pending_order_table = s3_cache.unpack_s3_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
+        fulfilled_order_table = s3_cache.unpack_s3_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
         df = pd.concat([pd.DataFrame(pending_order_table["data"]), pd.DataFrame(fulfilled_order_table["data"])])
         self.assertEqual(df.shape, (8, 16))
         self.assertNotIn("order_id", pending_order_table["headers"])
@@ -284,7 +281,7 @@ class TestVisuals(BaseTestCase):
         for player_id in user_ids:
             serialize_and_pack_order_performance_chart(game_id, player_id)
 
-        op_chart_3_1 = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
+        op_chart_3_1 = s3_cache.unpack_s3_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart_3_1["datasets"]])
         expected_stocks = {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"}
         self.assertEqual(chart_stocks, expected_stocks)
@@ -370,7 +367,7 @@ class TestWinnerPayouts(BaseTestCase):
             self.assertEqual(df.shape, (3, 10))
 
         serialize_and_pack_winners_table(game_id)
-        payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        payouts_table = s3_cache.unpack_s3_json(f"{PAYOUTS_PREFIX}_{game_id}")
         self.assertEqual(len(payouts_table["data"]), 3)
         self.assertTrue(sum([x["Type"] == "Sidebet" for x in payouts_table["data"]]), 2)
         self.assertTrue(sum([x["Type"] == "Overall" for x in payouts_table["data"]]), 1)
@@ -444,15 +441,15 @@ class TestSinglePlayerLogic(BaseTestCase):
         game_id = 8
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
-        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
-        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
+        pending_orders_table = s3_cache.unpack_s3_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
+        fulfilled_orders_table = s3_cache.unpack_s3_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
         self.assertEqual(len(pending_orders_table["data"]), 0)
         self.assertEqual(len(fulfilled_orders_table["data"]), 2)
         self.assertEqual(set([x["Symbol"] for x in fulfilled_orders_table["data"]]), {"NVDA", "NKE"})
 
         serialize_and_pack_order_performance_chart(game_id, user_id)
         self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
-        op_chart = unpack_redis_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
+        op_chart = s3_cache.unpack_s3_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart["datasets"]])
         expected_stocks = {"NKE", "NVDA"}
         self.assertEqual(chart_stocks, expected_stocks)
@@ -460,11 +457,11 @@ class TestSinglePlayerLogic(BaseTestCase):
         # balances chart
         df = make_user_balances_chart_data(game_id, user_id)
         serialize_and_pack_balances_chart(df, game_id, user_id)
-        balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+        balances_chart = s3_cache.unpack_s3_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
         self.assertEqual(set([x["label"] for x in balances_chart["datasets"]]), {"NVDA", "NKE", "Cash"})
 
         # leaderboard and field charts
         compile_and_pack_player_leaderboard(game_id)
         make_the_field_charts(game_id)
-        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_id}")
+        field_chart = s3_cache.unpack_s3_json(f"{FIELD_CHART_PREFIX}_{game_id}")
         self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + TRACKED_INDEXES))

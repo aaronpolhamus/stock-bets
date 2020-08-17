@@ -351,27 +351,27 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
-        side_bar_stats = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        side_bar_stats = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
-        init_balances_entry = unpack_redis_json(current_balances_keys[0])
+        init_balances_entry = s3_cache.unpack_s3_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
         self.assertEqual(len(init_balances_entry["headers"]), 8)
 
         open_orders_keys = [x for x in rds.keys() if PENDING_ORDERS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
-        init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
-        init_fulfilled_orders_entry = unpack_redis_json(open_orders_keys[0])
+        init_open_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
+        init_fulfilled_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
         self.assertEqual(init_fulfilled_orders_entry["data"], [])
         self.assertEqual(len(init_open_orders_entry["headers"]), 9)
 
         serialize_and_pack_winners_table(game_id)
-        payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        payouts_table = s3_cache.unpack_s3_json(f"{PAYOUTS_PREFIX}_{game_id}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
         self.assertEqual(len(side_bet_payouts), game_duration // 7)
         # len(invitees) - 1 because one of the players declines the game
