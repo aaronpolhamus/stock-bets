@@ -628,7 +628,6 @@ class TestPlayGame(BaseTestCase):
 
         transactions = query_to_dict("SELECT * FROM game_balances WHERE game_id = %s AND user_id = %s", game_id,
                                      user_id)
-        import ipdb;ipdb.set_trace()
         self.assertEqual(len(res.json()), len(transactions))
 
 
