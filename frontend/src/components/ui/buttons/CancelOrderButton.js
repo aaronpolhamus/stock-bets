@@ -64,8 +64,7 @@ const CancelButtonWrapper = ({ className, text, orderInfo, gameId, onCancelOrder
             btnCancelRef.current.focus()
           }, 1)
           setShowModal(true)
-        }
-        }
+        }}
         className={className}
         title='Cancel Order'
       >

@@ -25,9 +25,7 @@ const IconBuySell = props => {
             top: '-2px',
             marginRight: 'var(--space-50)'
           }}
-        />
-
-      }
+        />}
     </>
   )
 }

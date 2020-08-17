@@ -85,11 +85,11 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, u
       </PageSection>
       {
         children &&
-        <PageSection>
-          <Children
-            handleSelectedLines={handleSelectedLines}
-          />
-        </PageSection>
+          <PageSection>
+            <Children
+              handleSelectedLines={handleSelectedLines}
+            />
+          </PageSection>
       }
     </>
   )

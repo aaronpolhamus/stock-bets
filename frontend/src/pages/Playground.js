@@ -16,7 +16,7 @@ const Playground = () => {
           name='username'
           as='select'
           size='sm'
-          
+
         >
           {players && players.map((element) => <option key={element} value={element}>{element}</option>)}
         </CustomSelect>

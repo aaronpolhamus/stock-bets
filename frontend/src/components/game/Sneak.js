@@ -62,7 +62,8 @@ const Sneak = props => {
       <Modal
         dialogClassName='wide-dialog'
         show={showSneak}
-        onHide={() => { setShowSneak(false) }}>
+        onHide={() => { setShowSneak(false) }}
+      >
         <Modal.Header>
           <h1>
             <IconBinoculars
@@ -168,7 +169,7 @@ const Sneak = props => {
                                 <strong>
                                   {`$${totalPrice}`}
                                 </strong>
-                                <br/>
+                                <br />
                                 <span
                                   style={{
                                     color: 'var(--color-text-gray)'
