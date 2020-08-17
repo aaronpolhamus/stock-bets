@@ -5,12 +5,13 @@ import {
   PageSection,
   Breadcrumb
 } from 'components/layout/Layout'
-import { Form, Modal, Button, Col } from 'react-bootstrap'
+import { Form, Modal, Button, Col, Tabs, Tab, Row } from 'react-bootstrap'
 import { FormattableTable } from 'components/tables/FormattableTable'
 import { fetchGameData } from 'components/functions/api'
 import { CompoundChart } from 'components/charts/CompoundChart'
 import * as Icon from 'react-feather'
 import { ReactComponent as IconBinoculars } from 'assets/binoculars-2.svg'
+import { CustomSelect } from 'components/ui/inputs/CustomSelect'
 
 const Sneak = props => {
   const { gameId } = useParams()
@@ -39,7 +40,6 @@ const Sneak = props => {
       <Button
         variant='link'
         style={{
-          color: 'var(--color-text-gray)',
           fontSize: 'var(--font-size-small)',
           marginTop: 'var(--space-300)',
           display: 'inline-block'
@@ -75,116 +75,192 @@ const Sneak = props => {
                 marginRight: 'var(--space-200)'
               }}
             />
-            Sneaking on {username}
+            Sneaking on
           </h1>
+          <CustomSelect
+            name='username'
+            size='sm'
+            onChange={(e) => setUsername(e.target.value)}
+          >
+            {players && players.map((element) => <option key={element} value={element}>{element}</option>)}
+          </CustomSelect>
+          <Button
+            variant='link'
+            style={{
+              position: 'absolute',
+              right: 'var(--space-100)',
+              top: 0
+            }}
+            onClick={() => {
+              setShowSneak(false)
+            }}
+          >
+            <Icon.X
+              color='currentColor'
+            />
+          </Button>
         </Modal.Header>
         <Modal.Body>
-          <PageSection>
-            <Col sm={{span: 4, offset: 4}}>
-              <Form.Control
-                name='username'
-                as='select'
-                size='sm'
-                onChange={(e) => setUsername(e.target.value)}
-              >
-                {players && players.map((element) => <option key={element} value={element}>{element}</option>)}
-              </Form.Control>
-            </Col>
-          </PageSection>
           <PageSection $marginBottomMd='var(--space-300)'>
-            <CompoundChart
-              gameId={gameId}
-              username={username}
-              chartDataEndpoint='get_order_performance_chart'
-              legends={false}
-            >
-              {
-                ({ handleSelectedLines }) => (
-                  <FormattableTable
-                    hover
-                    endpoint='get_fulfilled_orders_table'
-                    name='orders_table'
-                    gameId={gameId}
-                    username={username}
-                    onRowSelect={(output) => {
-                      handleSelectedLines(output)
-                    }}
-                    tableCellCheckbox={0}
-                    formatOutput={(output) => {
-                      const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
-                      return {
-                        label: label,
-                        color: output.color
-                      }
-                    }}
-                    formatCells={{
-                      Symbol: function renderSymbol (value, row) {
-                        return (
-                          <strong>
-                            {value}
-                          </strong>
-                        )
-                      },
-                      'Hypothetical return': function netChangeFormat (value) {
-                        let color = 'var(--color-text-gray)'
-                        if (parseFloat(value) < 0) {
-                          color = 'var(--color-danger)'
-                        } else if (parseFloat(value) > 0) {
-                          color = 'var(--color-success)'
-                        }
 
-                        return (
-                          <strong
-                            style={{
-                              color: color
-                            }}
-                          >
-                            {value}
-                          </strong>
-                        )
-                      },
-                      'Clear price': function clearPriceFormat (value, row) {
-                        const qty = row.Quantity
-                        const price = value.replace(/\$|,/g, '')
-                        const totalPrice = (qty * price).toLocaleString()
-                        return (
-                          <>
-                            <strong>
-                              {`$${totalPrice}`}
-                            </strong>
-                            <br/>
-                            <span
-                              style={{
-                                color: 'var(--color-text-gray)'
-                              }}
-                            >
-                              {`(${value})`}
-                            </span>
-                          </>
-                        )
-                      }
-                    }}
-                    exclude={[
-                      'as of',
-                      'Buy/Sell',
-                      'Order type',
-                      'Time in force',
-                      'Market price',
-                      'Placed on',
-                      'Order price'
-                    ]}
-                    showColumns={{
-                      md: [
-                        'Symbol',
-                        'Quantity',
-                        'Clear price',
-                        'Hypothetical return'
-                      ]
-                    }}
-                  />
-                )
-              }
-            </CompoundChart>
+            <Tabs className='center-nav'>
+              <Tab
+                eventKey='sneak-performance'
+                title='Performance'
+              >
+                <CompoundChart
+                  gameId={gameId}
+                  username={username}
+                  chartDataEndpoint='get_order_performance_chart'
+                  legends={false}
+                >
+                  {
+                    ({ handleSelectedLines }) => (
+                      <FormattableTable
+                        hover
+                        endpoint='get_fulfilled_orders_table'
+                        name='orders_table'
+                        gameId={gameId}
+                        username={username}
+                        onRowSelect={(output) => {
+                          handleSelectedLines(output)
+                        }}
+                        tableCellCheckbox={0}
+                        formatOutput={(output) => {
+                          const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
+                          return {
+                            label: label,
+                            color: output.color
+                          }
+                        }}
+                        formatCells={{
+                          Symbol: function renderSymbol (value, row) {
+                            return (
+                              <strong>
+                                {value}
+                              </strong>
+                            )
+                          },
+                          'Hypothetical return': function netChangeFormat (value) {
+                            let color = 'var(--color-text-gray)'
+                            if (parseFloat(value) < 0) {
+                              color = 'var(--color-danger)'
+                            } else if (parseFloat(value) > 0) {
+                              color = 'var(--color-success)'
+                            }
+
+                            return (
+                              <strong
+                                style={{
+                                  color: color
+                                }}
+                              >
+                                {value}
+                              </strong>
+                            )
+                          },
+                          'Clear price': function clearPriceFormat (value, row) {
+                            const qty = row.Quantity
+                            const price = value.replace(/\$|,/g, '')
+                            const totalPrice = (qty * price).toLocaleString()
+                            return (
+                              <>
+                                <strong>
+                                  {`$${totalPrice}`}
+                                </strong>
+                                <br/>
+                                <span
+                                  style={{
+                                    color: 'var(--color-text-gray)'
+                                  }}
+                                >
+                                  {`(${value})`}
+                                </span>
+                              </>
+                            )
+                          }
+                        }}
+                        exclude={[
+                          'as of',
+                          'Buy/Sell',
+                          'Order type',
+                          'Time in force',
+                          'Market price',
+                          'Placed on',
+                          'Order price'
+                        ]}
+                        showColumns={{
+                          md: [
+                            'Symbol',
+                            'Quantity',
+                            'Clear price',
+                            'Hypothetical return'
+                          ]
+                        }}
+                      />
+                    )
+                  }
+                </CompoundChart>
+              </Tab>
+              <Tab
+                eventKey='sneak-balances'
+                title='Balances'
+              >
+                <CompoundChart
+                  gameId={gameId}
+                  username={username}
+                  chartDataEndpoint='get_balances_chart'
+                  legends={false}
+                >
+                  {
+                    ({ handleSelectedLines }) => (
+                      <FormattableTable
+                        hover
+                        endpoint='get_current_balances_table'
+                        username={username}
+                        name='balances-table'
+                        gameId={gameId}
+                        onRowSelect={(output) => {
+                          handleSelectedLines(output)
+                        }}
+                        tableCellCheckbox={0}
+                        formatOutput={(output) => {
+                          return {
+                            label: output.Symbol,
+                            color: output.color
+                          }
+                        }}
+                        formatCells={{
+                          Symbol: function renderSymbol (value, row) {
+                            return (
+                              <strong>
+                                {value}
+                              </strong>
+                            )
+                          },
+                          'Change since last close': function formatForNetChange (value) {
+                            return (
+                              <strong>
+                                {value}
+                              </strong>
+                            )
+                          }
+                        }}
+                        sortBy='Balance'
+                        showColumns={{
+                          md: [
+                            'Symbol',
+                            'Balance',
+                            'Value',
+                            'Change since last close'
+                          ]
+                        }}
+                      />
+                    )
+                  }
+                </CompoundChart>
+              </Tab>
+            </Tabs>
           </PageSection>
         </Modal.Body>
       </Modal>
