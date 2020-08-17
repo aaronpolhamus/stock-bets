@@ -622,7 +622,11 @@ def field_chart():
 @authenticate
 def get_current_balances_table():
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_ids([username])[0]
+    else:
+        user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
