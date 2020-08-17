@@ -31,8 +31,7 @@ import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
-import {Sneak} from 'components/game/Sneak'
-
+import { Sneak } from 'components/game/Sneak'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -142,7 +141,7 @@ const PlayGame = () => {
               <PageSection>
                 <FieldChart gameId={gameId} />
                 { gameMode === 'multi_player' &&
-                <AlignText align='center'>
+                <AlignText align='right'>
                   <Sneak/>
                 </AlignText>
                 }
