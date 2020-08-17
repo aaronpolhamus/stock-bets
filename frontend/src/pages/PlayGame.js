@@ -265,7 +265,7 @@ const PlayGame = () => {
             </Tab>
             <Tab eventKey='orders' title='Performance'>
               <CompoundChart
-                gameId='3'
+                gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
                 legends={false}
               >
@@ -275,7 +275,7 @@ const PlayGame = () => {
                       hover
                       endpoint='get_fulfilled_orders_table'
                       name='orders_table'
-                      gameId='3'
+                      gameId={gameId}
                       onRowSelect={(output) => {
                         handleSelectedLines(output)
                       }}

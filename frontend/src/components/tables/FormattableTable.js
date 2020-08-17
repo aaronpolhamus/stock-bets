@@ -53,7 +53,7 @@ const FormattableTable = (props) => {
       queryPostData.username = props.username
     }
     await apiPost(props.endpoint, {
-      game_id: props.gameId,
+      ...queryPostData,
       withCredentials: true
     }).then((response) => {
       setTableData(response)
