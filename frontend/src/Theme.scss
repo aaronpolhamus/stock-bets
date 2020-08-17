@@ -12,6 +12,9 @@ $color-text-gray: #7f7192;
 $color-text-light-gray: #abaac6;
 $color-success: #3fa46d;
 $color-danger: $color-terciary;
+$color-gray: #efeff5;
+
+$table-cell-height: 3rem;
 
 :root {
   --color-primary: #{$color-primary};
@@ -21,6 +24,7 @@ $color-danger: $color-terciary;
   --color-secondary-muted: #{$color-secondary-muted};
   --color-terciary: #{$color-terciary};
   --color-lightest: #{$color-lightest};
+  --color-gray: #{$color-gray};
   --color-cool-gray: #{$color-cool-gray};
   --color-light-gray: #{$color-light-gray};
   --color-text-primary: #{$color-text-primary};
@@ -70,8 +74,8 @@ $theme-colors: (
 $h1-font-size: 3rem;
 $headings-font-weight: 100;
 
-$table-hover-bg: $color-light-gray;
-$table-border-color: $color-cool-gray;
+$table-hover-bg: $color-gray;
+$table-border-color: $color-gray;
 $badge-pill-padding-x: 0.75em;
 
 $btn-border-radius: 5rem!default;

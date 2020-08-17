@@ -18,6 +18,7 @@ import {
   PageFooter,
   Sidebar
 } from 'components/layout/Layout'
+import {SectionTitle} from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
 import { GameHeader } from 'pages/game/GameHeader'
 import { ChevronLeft } from 'react-feather'
@@ -29,6 +30,7 @@ import { FormattableTable } from 'components/tables/FormattableTable'
 import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
+import { IconBuySell } from 'components/ui/icons/IconBuySell'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -75,7 +77,6 @@ const PlayGame = () => {
           profile_pic: data.profile_pic
         })
       }
-      getCashData()
       getUserInfo()
     }
 
@@ -83,6 +84,7 @@ const PlayGame = () => {
       const data = await fetchGameData(gameId, 'game_info')
       setGameMode(data.game_mode)
     }
+    getCashData()
     getGameData()
   }, [user, setUser])
 
@@ -139,10 +141,12 @@ const PlayGame = () => {
               <PageSection>
                 <FieldChart gameId={gameId} />
               </PageSection>
-
               <PageSection>
                 <Row>
                   <Col sm={6}>
+                    <SectionTitle>
+                      Pending Orders
+                    </SectionTitle>
                     <FormattableTable
                       hover
                       update={updateInfo}
@@ -150,14 +154,17 @@ const PlayGame = () => {
                       name='pending-orders'
                       gameId={gameId}
                       formatCells={{
-                        Symbol: function formatSymbol (value) {
+                        Symbol: function formatSymbol (value, row) {
                           return (
-                            <strong>
-                              {value}
-                            </strong>
+                            <>
+                              <IconBuySell type={row['Buy/Sell']}/>
+                              <strong>
+                                {value}
+                              </strong>
+                            </>
                           )
                         },
-                        'Placed on': function placedOn (value, row) {
+                        'Order price': function placedOn (value, row) {
                           return (
                             <>
                               {value}
@@ -172,9 +179,6 @@ const PlayGame = () => {
                       }}
                       exclude={[
                         'Hypothetical return',
-                        'Cleared on',
-                        'Clear price',
-                        'Status',
                         'as of',
                         'Buy/Sell',
                         'Order Type',
@@ -191,6 +195,9 @@ const PlayGame = () => {
                     />
                   </Col>
                   <Col sm={6}>
+                    <SectionTitle>
+                      Fulfilled Orders
+                    </SectionTitle>
                     <FormattableTable
                       hover
                       update={updateInfo}
@@ -198,19 +205,21 @@ const PlayGame = () => {
                       name='fulfilled-orders'
                       gameId={gameId}
                       formatCells={{
-                        Symbol: function formatSymbol (value) {
+                        Symbol: function formatSymbol (value, row) {
                           return (
-                            <strong>
-                              {value}
-                            </strong>
+                            <>
+                              <IconBuySell type={row['Buy/Sell']}/>
+                              <strong>
+                                {value}
+                              </strong>
+                            </>
                           )
                         }
                       }}
                       exclude={[
                         'Hypothetical return',
                         'Cleared on',
-                        'Clear price',
-                        'Status',
+                        'Order price',
                         'as of',
                         'Buy/Sell',
                         'Order Type',
@@ -262,7 +271,7 @@ const PlayGame = () => {
                             </strong>
                           )
                         },
-                        'Hypothetical return': function formatForNetChange (value) {
+                        'Hypothetical return': function netChangeFormat (value) {
                           let color = 'var(--color-text-gray)'
                           if (parseFloat(value) < 0) {
                             color = 'var(--color-danger)'
@@ -279,10 +288,29 @@ const PlayGame = () => {
                               {value}
                             </strong>
                           )
+                        },
+                        'Clear price': function clearPriceFormat (value, row) {
+                          const qty = row.Quantity
+                          const price = value.replace(/\$|,/g, '')
+                          const totalPrice = (qty * price).toLocaleString()
+                          return (
+                            <>
+                              <strong>
+                                {`$${totalPrice}`}
+                              </strong>
+                              <br/>
+                              <span
+                                style={{
+                                  color: 'var(--color-text-gray)'
+                                }}
+                              >
+                                {`(${value})`}
+                              </span>
+                            </>
+                          )
                         }
                       }}
                       exclude={[
-                        'Status',
                         'as of',
                         'Buy/Sell',
                         'Order type',
@@ -293,6 +321,12 @@ const PlayGame = () => {
                       ]}
                       sortBy='Hypothetical return'
                       showColumns={{
+                        md: [
+                          'Symbol',
+                          'Quantity',
+                          'Clear price',
+                          'Hypothetical return'
+                        ]
                       }}
                     />
                   )
@@ -300,60 +334,58 @@ const PlayGame = () => {
               </CompoundChart>
             </Tab>
             <Tab eventKey='balances' title='Balances'>
-              <PageSection>
-                <CompoundChart
-                  gameId={gameId}
-                  chartDataEndpoint='get_balances_chart'
-                  tableId='balances-table'
-                  legends={false}
-                >
-                  {
-                    ({ handleSelectedLines }) => (
-                      <FormattableTable
-                        hover
-                        endpoint='get_current_balances_table'
-                        name='balances-table'
-                        gameId={gameId}
-                        onRowSelect={(output) => {
-                          handleSelectedLines(output)
-                        }}
-                        tableCellCheckbox={0}
-                        formatOutput={(output) => {
-                          return {
-                            label: output.Symbol,
-                            color: output.color
-                          }
-                        }}
-                        formatCells={{
-                          Symbol: function renderSymbol (value, row) {
-                            return (
-                              <strong>
-                                {value}
-                              </strong>
-                            )
-                          },
-                          'Change since last close': function formatForNetChange (value) {
-                            return (
-                              <strong>
-                                {value}
-                              </strong>
-                            )
-                          }
-                        }}
-                        sortBy='Balance'
-                        showColumns={{
-                          md: [
-                            'Symbol',
-                            'Balance',
-                            'Value',
-                            'Change since last close'
-                          ]
-                        }}
-                      />
-                    )
-                  }
-                </CompoundChart>
-              </PageSection>
+              <CompoundChart
+                gameId={gameId}
+                chartDataEndpoint='get_balances_chart'
+                tableId='balances-table'
+                legends={false}
+              >
+                {
+                  ({ handleSelectedLines }) => (
+                    <FormattableTable
+                      hover
+                      endpoint='get_current_balances_table'
+                      name='balances-table'
+                      gameId={gameId}
+                      onRowSelect={(output) => {
+                        handleSelectedLines(output)
+                      }}
+                      tableCellCheckbox={0}
+                      formatOutput={(output) => {
+                        return {
+                          label: output.Symbol,
+                          color: output.color
+                        }
+                      }}
+                      formatCells={{
+                        Symbol: function renderSymbol (value, row) {
+                          return (
+                            <strong>
+                              {value}
+                            </strong>
+                          )
+                        },
+                        'Change since last close': function formatForNetChange (value) {
+                          return (
+                            <strong>
+                              {value}
+                            </strong>
+                          )
+                        }
+                      }}
+                      sortBy='Balance'
+                      showColumns={{
+                        md: [
+                          'Symbol',
+                          'Balance',
+                          'Value',
+                          'Change since last close'
+                        ]
+                      }}
+                    />
+                  )
+                }
+              </CompoundChart>
             </Tab>
             {gameMode === 'multi_player' &&
               <Tab eventKey='payouts' title='Payouts'>
