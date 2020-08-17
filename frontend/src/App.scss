@@ -251,6 +251,13 @@ input.form-control{
   }
 }
 
+
+@include media-breakpoint-down(md) {
+  #tidio-chat iframe{
+    bottom: 85px!important;
+  }
+}
+
 @media screen 
   and (max-width: 375px){
   html{

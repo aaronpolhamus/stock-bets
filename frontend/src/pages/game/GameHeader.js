@@ -56,7 +56,7 @@ const GameHeader = ({ gameId, cashData }) => {
 }
 
 GameHeader.propTypes = {
-  gameId: PropTypes.string, 
+  gameId: PropTypes.string,
   cashData: PropTypes.object
 }
 

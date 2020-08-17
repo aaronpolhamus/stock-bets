@@ -3,7 +3,7 @@ import { Table } from 'react-bootstrap'
 import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import PropTypes from 'prop-types'
-import { fetchGameData } from 'components/functions/api'
+import { fetchGameData, apiPost } from 'components/functions/api'
 
 const CheckboxGroup = styled.span`
   cursor: pointer;
@@ -44,8 +44,20 @@ const FormattableTable = (props) => {
   let tableOutput = []
   let tableOutputs = []
   const getData = async () => {
-    const tableDataQuery = await fetchGameData(props.gameId, props.endpoint)
-    setTableData(tableDataQuery)
+    // const tableDataQuery = await fetchGameData(props.gameId, props.endpoint)
+
+    const queryPostData = {
+      game_id: props.gameId
+    }
+    if (props.username) {
+      queryPostData.username = props.username
+    }
+    await apiPost(props.endpoint, {
+      game_id: props.gameId,
+      withCredentials: true
+    }).then((response) => {
+      setTableData(response)
+    })
   }
 
   useEffect(() => {
@@ -265,7 +277,8 @@ FormattableTable.propTypes = {
   formatCells: PropTypes.object,
   tableData: PropTypes.object,
   tableRowOutput: PropTypes.object,
-  update: PropTypes.string
+  update: PropTypes.string,
+  username: PropTypes.string
 }
 
 FormattableTable.defaultProps = {

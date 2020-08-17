@@ -189,7 +189,6 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
             as='select'
             size='sm'
             onChange={(e) => setUsername(e.target.value)}
-            value={username || user.username}
           >
             {usernames && usernames.map((element) => <option key={element} value={element}>{element}</option>)}
           </Form.Control>
