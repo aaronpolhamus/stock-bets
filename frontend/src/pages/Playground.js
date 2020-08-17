@@ -16,7 +16,7 @@ const Playground = () => {
         hover
         update={''}
         endpoint='get_fulfilled_orders_table'
-        
+        username='cheetos'
         name='fulfilled-orders'
         gameId={3}
         formatCells={{

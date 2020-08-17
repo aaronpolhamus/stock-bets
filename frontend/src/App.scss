@@ -137,6 +137,13 @@ input.form-control{
   justify-content: center;
 }
 
+.wide-dialog {
+  width: 95vw;
+  max-width: 1024px;
+  .modal-content {
+  }
+}
+
 //Table
 .table {
   thead th {

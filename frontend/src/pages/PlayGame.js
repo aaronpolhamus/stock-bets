@@ -20,7 +20,7 @@ import {
 } from 'components/layout/Layout'
 import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
-import { GameHeader } from 'pages/game/GameHeader'
+import { GameHeader } from 'components/game/GameHeader'
 import { ChevronLeft } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
@@ -31,7 +31,8 @@ import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
-import { ReactComponent as IconBinoculars } from 'assets/binoculars-2.svg'
+import {Sneak} from 'components/game/Sneak'
+
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -141,27 +142,8 @@ const PlayGame = () => {
               <PageSection>
                 <FieldChart gameId={gameId} />
                 { gameMode === 'multi_player' &&
-                <AlignText align='right'>
-                  <Link
-                    to={`/play/${gameId}/sneak`}
-                    style={{
-                      color: 'var(--color-text-gray)',
-                      fontSize: 'var(--font-size-small)',
-                      marginTop: 'var(--space-300)',
-                      display: 'inline-block'
-                    }}
-                  >
-                    Sneak on other players
-                    <IconBinoculars
-                      stroke-width={2}
-                      stroke='var(--color-primary-darken)'
-                      width={22}
-                      style={{
-                        marginTop: '-3px',
-                        marginLeft: 'var(--space-50)'
-                      }}
-                    />
-                  </Link>
+                <AlignText align='center'>
+                  <Sneak/>
                 </AlignText>
                 }
               </PageSection>

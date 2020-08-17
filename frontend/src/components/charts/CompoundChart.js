@@ -54,7 +54,7 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, u
 
   useEffect(() => {
     getData()
-  }, [update])
+  }, [update, username])
 
   const Children = children // transforms children to jsx node
 
