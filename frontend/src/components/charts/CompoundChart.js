@@ -1,16 +1,26 @@
 import React, { useEffect, useState, useRef } from 'react'
 import PropTypes from 'prop-types'
-import { fetchGameData } from 'components/functions/api'
+import { apiPost } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
 import { PageSection } from 'components/layout/Layout'
 
-const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends }) => {
+const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username }) => {
   const [chartData, setChartData] = useState()
   const chartRef = useRef()
 
   const getData = async () => {
-    const chartDataQuery = await fetchGameData(gameId, chartDataEndpoint)
-    setChartData(chartDataQuery)
+    const queryPostData = {
+      game_id: gameId
+    }
+    if (username) {
+      queryPostData.username = username
+    }
+    await apiPost(chartDataEndpoint, {
+      ...queryPostData,
+      withCredentials: true
+    }).then((response) => {
+      setChartData(response)
+    })
   }
 
   const handleSelectedLines = (selectedLines) => {
@@ -44,7 +54,7 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends })
 
   useEffect(() => {
     getData()
-  }, [update])
+  }, [update, username])
 
   const Children = children // transforms children to jsx node
 
@@ -87,18 +97,19 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends })
 
 CompoundChart.propTypes = {
   chartDataEndpoint: PropTypes.string,
-  gameId: PropTypes.string,
-  tableCellCheckbox: PropTypes.number,
-  tableDataEndpoint: PropTypes.string,
-  tableId: PropTypes.string,
-  tableCellFormat: PropTypes.object,
-  update: PropTypes.string,
-  legends: PropTypes.bool,
   children: PropTypes.oneOfType([
     PropTypes.func,
     PropTypes.arrayOf(PropTypes.node),
     PropTypes.node
-  ])
+  ]),
+  gameId: PropTypes.string,
+  legends: PropTypes.bool,
+  tableCellCheckbox: PropTypes.number,
+  tableCellFormat: PropTypes.object,
+  tableDataEndpoint: PropTypes.string,
+  tableId: PropTypes.string,
+  update: PropTypes.string,
+  username: PropTypes.string
 }
 
 export { CompoundChart }

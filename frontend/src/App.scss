@@ -77,6 +77,10 @@ label {
 
   }
 }
+.center-nav{
+  justify-content: center;
+}
+
 
 //Buttons
 .btn {
@@ -135,6 +139,13 @@ input.form-control{
 }
 .modal-footer.centered {
   justify-content: center;
+}
+
+.wide-dialog {
+  width: 95vw;
+  max-width: 1024px;
+  .modal-content {
+  }
 }
 
 //Table
@@ -248,6 +259,13 @@ input.form-control{
   &::first-letter,
   *::first-letter{
     text-transform: uppercase;
+  }
+}
+
+
+@include media-breakpoint-down(md) {
+  #tidio-chat iframe{
+    bottom: 85px!important;
   }
 }
 

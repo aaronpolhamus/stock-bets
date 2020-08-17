@@ -18,9 +18,9 @@ import {
   PageFooter,
   Sidebar
 } from 'components/layout/Layout'
-import {SectionTitle} from 'components/textComponents/Text'
+import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
-import { GameHeader } from 'pages/game/GameHeader'
+import { GameHeader } from 'components/game/GameHeader'
 import { ChevronLeft } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
@@ -31,6 +31,7 @@ import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
+import { Sneak } from 'components/game/Sneak'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -64,7 +65,6 @@ const PlayGame = () => {
     const cashDataQuery = await fetchGameData(gameId, 'get_cash_balances')
     setCashData(cashDataQuery)
   }
-
   useEffect(() => {
     // We need to replace this with localstorage, maybe change useContext for redux
     if (Object.keys(user).length === 0) {
@@ -140,6 +140,11 @@ const PlayGame = () => {
             <Tab eventKey='field-chart' title='The Field'>
               <PageSection>
                 <FieldChart gameId={gameId} />
+                { gameMode === 'multi_player' &&
+                <AlignText align='right'>
+                  <Sneak/>
+                </AlignText>
+                }
               </PageSection>
               <PageSection>
                 <Row>
@@ -241,7 +246,7 @@ const PlayGame = () => {
             </Tab>
             <Tab eventKey='orders' title='Performance'>
               <CompoundChart
-                gameId='3'
+                gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
                 legends={false}
               >
@@ -251,7 +256,7 @@ const PlayGame = () => {
                       hover
                       endpoint='get_fulfilled_orders_table'
                       name='orders_table'
-                      gameId='3'
+                      gameId={gameId}
                       onRowSelect={(output) => {
                         handleSelectedLines(output)
                       }}
@@ -394,7 +399,6 @@ const PlayGame = () => {
           </Tabs>
         </PageSection>
         <PageFooter>
-          <Button onClick={getTransactionData} variant='secondary'>Download transactions to csv</Button>
           <CSVLink
             data={transactionData}
             filename='transactions.csv'
@@ -402,6 +406,7 @@ const PlayGame = () => {
             ref={csvLink}
             target='_blank'
           />
+          <Button onClick={getTransactionData} variant='secondary'>Download transactions to csv</Button>
           <Button variant='outline-danger' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         </PageFooter>
       </Column>
