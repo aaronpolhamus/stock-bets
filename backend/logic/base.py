@@ -37,6 +37,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
+from tasks import s3_cache
+
 USD_FORMAT = "${:,.2f}"
 
 # -------- #
@@ -645,7 +647,7 @@ def update_index_value(symbol):
 
 
 def get_cache_price(symbol):
-    data = rds.get(symbol)
+    data = s3_cache.get(symbol)
     if data is None:
         return None, None
     return [float(x) for x in data.split("_")]

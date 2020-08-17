@@ -59,6 +59,7 @@ from backend.tasks.redis import (
     unpack_redis_json
 )
 from backend.tests import BaseTestCase
+from tasks import s3_cache
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -484,9 +485,9 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # these assets update in real time
-        self.assertIsNotNone(rds.get(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(rds.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(rds.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(s3_cache.get(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(s3_cache.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(s3_cache.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
         trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
@@ -504,9 +505,9 @@ class TestPlayGame(BaseTestCase):
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
-        balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+        balances_chart = s3_cache.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
         while balances_chart is None:
-            balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+            balances_chart = s3_cache.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
 
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
