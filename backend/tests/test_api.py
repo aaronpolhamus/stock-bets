@@ -357,13 +357,13 @@ class TestCreateGame(BaseTestCase):
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
-        current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
+        current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
         init_balances_entry = s3_cache.unpack_s3_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
         self.assertEqual(len(init_balances_entry["headers"]), 8)
 
-        open_orders_keys = [x for x in rds.keys() if PENDING_ORDERS_PREFIX in x]
+        open_orders_keys = [x for x in s3_cache.keys() if PENDING_ORDERS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
         init_fulfilled_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
@@ -810,7 +810,7 @@ class TestHomePage(BaseTestCase):
         API and how that impacts the database.
         """
         #
-        rds.flushall()
+        s3_cache.flushall()
         reset_db()
         populate_table("users")
         populate_table("symbols")
@@ -904,17 +904,17 @@ class TestPriceFetching(BaseTestCase):
 
         # we only expect a database entry during trading hours
         if during_trading_day():
-            while "TSLA" not in rds.keys():
+            while "TSLA" not in s3_cache.keys():
                 continue
 
             with self.engine.connect() as conn:
                 count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
 
-            self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
+            self.assertIn("TSLA", s3_cache.keys())  # we expect to see a cached price entry no matter
             self.assertEqual(count, 1)
         else:
             with self.engine.connect() as conn:
                 count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
 
-            self.assertNotIn("TSLA", rds.keys())
+            self.assertNotIn("TSLA", s3_cache.keys())
             self.assertEqual(count, 0)

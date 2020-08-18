@@ -676,7 +676,7 @@ class TestTaskLocking(TestCase):
     def test_task_locking(self):
         """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
         this to happen because it can result in an order being cleared multiple times"""
-        rds.flushall()
+        s3_cache.flushall()
         res1 = async_test_task_lock.delay(3)
         res2 = async_test_task_lock.delay(5)
         self.assertFalse(res1.ready())
@@ -693,7 +693,7 @@ class TestTaskLocking(TestCase):
 class TestRedisCaching(TestCase):
 
     def test_task_caching(self):
-        rds.flushall()
+        s3_cache.flushall()
         test_time = posix_to_datetime(time.time()).date()
         start = time.time()
         _ = get_trading_calendar(test_time, test_time)
@@ -704,4 +704,4 @@ class TestRedisCaching(TestCase):
         time2 = time.time() - start
 
         self.assertLess(time2, time1 / 4)  # "4" is a hueristic for 'substantial performance improvement'
-        self.assertIn("rc:get_trading_calendar", rds.keys()[0])
+        self.assertIn("rc:get_trading_calendar", s3_cache.keys()[0])

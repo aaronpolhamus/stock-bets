@@ -66,7 +66,7 @@ class TestGameKickoff(BaseTestCase):
     """
 
     def _start_game_runner(self, start_time, game_id):
-        rds.flushall()
+        s3_cache.flushall()
         user_statuses = get_user_invite_statuses_for_pending_game(game_id)
         pending_user_usernames = [x["username"] for x in user_statuses if x["status"] == "invited"]
         pending_user_ids = get_user_ids(pending_user_usernames)
@@ -100,7 +100,7 @@ class TestGameKickoff(BaseTestCase):
         # now in our redis cache: (1) an empty open orders table for each user, (2) an empty current balances table for
         # each user, (3) an empty field chart for each user, (4) an empty field chart, and (5) an initial game stats
         # list
-        cache_keys = rds.keys()
+        cache_keys = s3_cache.keys()
         self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", cache_keys)
         self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
         for user_id in all_ids:
@@ -286,7 +286,7 @@ class TestVisuals(BaseTestCase):
         expected_stocks = {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"}
         self.assertEqual(chart_stocks, expected_stocks)
         for user_id in user_ids:
-            self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
+            self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", s3_cache.keys())
 
 
 class TestWinnerPayouts(BaseTestCase):
@@ -425,14 +425,14 @@ class TestSinglePlayerLogic(BaseTestCase):
         # these assets are specific to the user
         for prefix in [CURRENT_BALANCES_PREFIX, PENDING_ORDERS_PREFIX, FULFILLED_ORDER_PREFIX, BALANCES_CHART_PREFIX,
                        ORDER_PERF_CHART_PREFIX]:
-            self.assertIn(f"{prefix}_{game_id}_{user_id}", rds.keys())
+            self.assertIn(f"{prefix}_{game_id}_{user_id}", s3_cache.keys())
 
         # these assets exist for both the user and the index users
         for _id in [user_id] + TRACKED_INDEXES:
-            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", rds.keys())
+            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", s3_cache.keys())
 
         # and check that the leaderboard exists on the game level
-        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", rds.keys())
+        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", s3_cache.keys())
 
     @patch("backend.logic.base.time")
     @patch("backend.logic.games.time")
@@ -448,7 +448,7 @@ class TestSinglePlayerLogic(BaseTestCase):
         self.assertEqual(set([x["Symbol"] for x in fulfilled_orders_table["data"]]), {"NVDA", "NKE"})
 
         serialize_and_pack_order_performance_chart(game_id, user_id)
-        self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
+        self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", s3_cache.keys())
         op_chart = s3_cache.unpack_s3_json(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart["datasets"]])
         expected_stocks = {"NKE", "NVDA"}
