@@ -13,7 +13,6 @@ const Playground = () => {
     <Container>
       <h1>
         Playground
-
       </h1>
       <CompoundChart
         gameId={gameId}

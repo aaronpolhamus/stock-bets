@@ -140,11 +140,10 @@ const PlayGame = () => {
             <Tab eventKey='field-chart' title='The Field'>
               <PageSection>
                 <FieldChart gameId={gameId} />
-                { gameMode === 'multi_player' &&
-                <AlignText align='right'>
-                  <Sneak/>
-                </AlignText>
-                }
+                {gameMode === 'multi_player' &&
+                  <AlignText align='right'>
+                    <Sneak />
+                  </AlignText>}
               </PageSection>
               <PageSection>
                 <Row>
@@ -162,7 +161,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']}/>
+                              <IconBuySell type={row['Buy/Sell']} />
                               <strong>
                                 {value}
                               </strong>
@@ -213,7 +212,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']}/>
+                              <IconBuySell type={row['Buy/Sell']} />
                               <strong>
                                 {value}
                               </strong>
@@ -244,7 +243,7 @@ const PlayGame = () => {
                 </Row>
               </PageSection>
             </Tab>
-            <Tab eventKey='orders' title='Performance'>
+            <Tab eventKey='orders' title='Order Performance'>
               <CompoundChart
                 gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
@@ -303,7 +302,7 @@ const PlayGame = () => {
                               <strong>
                                 {`$${totalPrice}`}
                               </strong>
-                              <br/>
+                              <br />
                               <span
                                 style={{
                                   color: 'var(--color-text-gray)'

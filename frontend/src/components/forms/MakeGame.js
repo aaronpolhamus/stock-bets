@@ -9,7 +9,6 @@ import { MultiInvite } from 'components/forms/AddFriends'
 import { PayPalButton } from 'react-paypal-button-v2'
 import { apiPost } from 'components/functions/api'
 import { Loader } from 'components/Loader'
-import styled from 'styled-components'
 import { ModalOverflowControls } from 'components/layout/Layout'
 
 const MakeGame = ({ gameMode }) => {
@@ -51,8 +50,8 @@ const MakeGame = ({ gameMode }) => {
   const handleFormSubmit = async () => {
     if (gameMode === 'multi_player' && (!emailInvitees && !invitees)) {
       window.alert('In multiplayer mode you need to invite at least one other user via username or email. Switch to "You vs. The Market" if you meant to select single player mode')
-    } else if (gameMode === 'multi_player' && stakes === 'real') {
-      setShowPaypalModal(true)
+    // } else if (gameMode === 'multi_player' && stakes === 'real') {  // TODO: turn these lines back on once we are on a more solid legal footing to accept real payments.
+    //   setShowPaypalModal(true)
     } else {
       apiPost('create_game', {
         title: title,
