@@ -4,7 +4,7 @@ import { apiPost } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
 import { PageSection } from 'components/layout/Layout'
 
-const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username }) => {
+const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username, yScaleType }) => {
   const [chartData, setChartData] = useState()
   const chartRef = useRef()
 
@@ -79,8 +79,8 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, u
         <BaseChart
           ref={chartRef}
           data={dataCopy}
-          yScaleType='dollar'
           legends={legends}
+          yScaleType={yScaleType}
         />
       </PageSection>
       {
