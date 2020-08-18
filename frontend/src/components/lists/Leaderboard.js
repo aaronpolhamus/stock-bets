@@ -20,10 +20,17 @@ const PlayerRow = styled.div`
   flex-wrap: wrap;
   transform: translate3d(0, 0, 0);
   user-select: none;
+  &:before{
+    content: '';
+    display: block;
+    height: .5px;
+  }
 
   label{
     cursor: pointer;
-    flex-basis: 50%;
+    flex-basis: 70%;
+    width: 70%;
+    white-space: nowrap;
   }
   input {
     display: none;
@@ -37,7 +44,9 @@ const PlayerRow = styled.div`
   p span{
     color: var(--color-text-gray);
     display: inline-block;
-    margin-left: var(--space-50);
+    width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
     &::before {
       background-color: var(--player-color);
       border-radius: 50%;
