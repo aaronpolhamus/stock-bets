@@ -180,6 +180,9 @@ const Sneak = props => {
                             )
                           }
                         }}
+                        excludeRows={(row) => {
+                          return row['Buy/Sell'] === 'sell'
+                        }}
                         exclude={[
                           'as of',
                           'Buy/Sell',
