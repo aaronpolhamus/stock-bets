@@ -466,6 +466,7 @@ def make_null_chart(null_label: str):
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
+    df = df.where(pd.notnull(df), None)  # swaps any NaNs from upstream processing for Null values
     chart_json = make_null_chart("Cash")
     if df.shape[0] > 1:
         # see comment for serialize_and_pack_portfolio_comps_chart. a dataframe with a single row means that this user
@@ -623,6 +624,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,
                                                end_time: float = None):
     table = make_order_performance_table(game_id, user_id, start_time, end_time)
+    table = table.where(pd.notnull(table), None)  # swaps any NaNs from upstream processing for Null values
     order_perf = table
     if order_perf.empty:
         chart_json = make_null_chart("Waiting for orders...")

@@ -381,7 +381,7 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        trigger_dag("update_game_dag", game_id=game_id)
+        trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
                                          verify=False)
@@ -488,7 +488,7 @@ class TestPlayGame(BaseTestCase):
         self.assertIsNotNone(rds.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
         self.assertIsNotNone(rds.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
-        trigger_dag("update_game_dag", game_id=game_id)
+        trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
         with self.engine.connect() as conn:
             last_order = conn.execute("""
