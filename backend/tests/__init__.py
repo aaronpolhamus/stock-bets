@@ -11,7 +11,6 @@ from backend.database.helpers import (
 from backend.database.db import engine
 from backend.logic.auth import create_jwt
 from tasks import s3_cache
-from tasks.redis import rds
 
 
 class BaseTestCase(unittest.TestCase):

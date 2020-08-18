@@ -722,7 +722,7 @@ def init_order_details(game_id: int, user_id: int):
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
     fn = f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"
-    order_json = unpack_redis_json(fn)
+    order_json = s3_cache.unpack_s3_json(fn)
     order_json["data"] = [entry for entry in order_json["data"] if entry["order_id"] != order_id]
     s3_cache.set(fn, json.dumps(order_json), ex=DEFAULT_ASSET_EXPIRATION)
 
