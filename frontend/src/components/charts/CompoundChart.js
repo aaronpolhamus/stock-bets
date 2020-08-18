@@ -5,7 +5,7 @@ import { BaseChart } from 'components/charts/BaseCharts'
 import { PageSection } from 'components/layout/Layout'
 
 const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username, yScaleType }) => {
-  const [chartData, setChartData] = useState()
+  const [chartData, setChartData] = useState(null)
   const chartRef = useRef()
 
   const getData = async () => {
