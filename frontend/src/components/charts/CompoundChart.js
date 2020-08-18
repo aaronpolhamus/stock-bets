@@ -60,10 +60,11 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, u
 
   // Set Data for Chart
   // We make a copy of data to keep the original reference
-  const dataCopy = { ...chartData }
-  // This copies the data from the api query and modifies it to leave color only in the currentUser line
+  let dataCopy = {}
 
-  if (chartData && chartData.datasets !== []) {
+  // This copies the data from the api query and modifies it to leave color only in the currentUser line
+  if (chartData && chartData.datasets) {
+    dataCopy = { ...chartData }
     const newDatasets = dataCopy.datasets.map((dataset, index) => {
       const newDataset = { ...dataset }
       newDataset.borderColor = '#ABAAC6'
