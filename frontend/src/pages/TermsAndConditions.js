@@ -187,7 +187,7 @@ const TermsAndConditions = () => {
           security-based swaps according to the logic laid out in these cases.
           The reason for this is that the principal determinant stockbets.io
           payouts is based on the <i>relative skill</i> of each investor in a
-          game, rather than on the movement of a specific security, basked of
+          game, rather than on the movement of a specific security, basket of
           securities, or index. For example, in the case of Forecerank LLC, the
           SEC found that
           <i>
