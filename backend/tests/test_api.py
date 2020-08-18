@@ -58,6 +58,7 @@ from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
+
 from backend.tests import BaseTestCase
 from tasks import s3_cache
 

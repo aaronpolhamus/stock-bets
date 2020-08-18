@@ -55,6 +55,8 @@ from backend.logic.schemas import (
 )
 
 from backend.tasks import s3_cache
+from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION
+from backend.tasks import s3_cache
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
