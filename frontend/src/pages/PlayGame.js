@@ -315,6 +315,9 @@ const PlayGame = () => {
                           )
                         }
                       }}
+                      excludeRows={(row) => {
+                        return row['Buy/Sell'] === 'sell'
+                      }}
                       exclude={[
                         'as of',
                         'Buy/Sell',

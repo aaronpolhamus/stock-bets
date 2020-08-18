@@ -3,7 +3,7 @@ import { Table } from 'react-bootstrap'
 import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import PropTypes from 'prop-types'
-import { fetchGameData, apiPost } from 'components/functions/api'
+import { apiPost } from 'components/functions/api'
 
 const CheckboxGroup = styled.span`
   cursor: pointer;
@@ -186,7 +186,6 @@ const FormattableTable = (props) => {
         )
       })
     }
-
     return (
       <tr
         key={props.index}
@@ -202,6 +201,9 @@ const FormattableTable = (props) => {
 
   const buildRows = (rowsData) => {
     return rowsData.map((row, index) => {
+      if (props.excludeRows && props.excludeRows(row)) {
+        return null
+      }
       return (
         <SelectableRow
           key={index}
@@ -265,6 +267,7 @@ FormattableTable.displayName = 'FormattableTable'
 FormattableTable.propTypes = {
   endpoint: PropTypes.string,
   exclude: PropTypes.array,
+  excludeRows: PropTypes.func,
   formatOutput: PropTypes.func,
   gameId: PropTypes.string,
   hover: PropTypes.bool,
