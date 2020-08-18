@@ -248,6 +248,7 @@ const PlayGame = () => {
                 gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
                 legends={false}
+                yScaleType='percent'
               >
                 {
                   ({ handleSelectedLines }) => (
@@ -346,6 +347,7 @@ const PlayGame = () => {
                 chartDataEndpoint='get_balances_chart'
                 tableId='balances-table'
                 legends={false}
+                yScaleType='dollar'
               >
                 {
                   ({ handleSelectedLines }) => (

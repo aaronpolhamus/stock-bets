@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import {
-  Header,
-  PageSection,
-  Breadcrumb
-} from 'components/layout/Layout'
-import { Form, Modal, Button, Col, Tabs, Tab, Row } from 'react-bootstrap'
+import { useParams } from 'react-router-dom'
+import { PageSection } from 'components/layout/Layout'
+import { Modal, Button, Tabs, Tab } from 'react-bootstrap'
 import { FormattableTable } from 'components/tables/FormattableTable'
 import { fetchGameData } from 'components/functions/api'
 import { CompoundChart } from 'components/charts/CompoundChart'
@@ -16,7 +12,6 @@ import { CustomSelect } from 'components/ui/inputs/CustomSelect'
 const Sneak = props => {
   const { gameId } = useParams()
   const [username, setUsername] = useState(null)
-  const [gameData, setGameData] = useState(null)
   const [showSneak, setShowSneak] = useState(false)
   const [players, setPlayers] = useState([])
 
@@ -27,12 +22,6 @@ const Sneak = props => {
       setPlayers(data.records.map((entry) => entry.username))
     }
     getPlayers()
-
-    const getGameData = async () => {
-      const data = await fetchGameData(gameId, 'game_info')
-      setGameData(data)
-    }
-    getGameData()
   }, [])
 
   return (
@@ -114,6 +103,7 @@ const Sneak = props => {
                   username={username}
                   chartDataEndpoint='get_order_performance_chart'
                   legends={false}
+                  yScaleType='percent'
                 >
                   {
                     ({ handleSelectedLines }) => (
@@ -215,6 +205,7 @@ const Sneak = props => {
                   username={username}
                   chartDataEndpoint='get_balances_chart'
                   legends={false}
+                  yScaleType='dollar'
                 >
                   {
                     ({ handleSelectedLines }) => (
