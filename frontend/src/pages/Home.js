@@ -276,30 +276,32 @@ const Home = () => {
             </div>
           </Header>
         </PageSection>
-        <Row>
-          <Col lg={6} xl={8}>
-            <GameList
-              games={gamesActive}
-              title='Competitions'
-            />
-            <GameList
-              games={gamesSinglePlayer}
-              title='Single player'
-            />
-          </Col>
-          <Col lg={6} xl={4}>
-            <GameList
-              games={gamesPending}
-              cardType='pending'
-              title='Pending'
-            />
-            <GameList
-              games={gamesInvited}
-              cardType='pending'
-              title='Invited'
-            />
-          </Col>
-        </Row>
+        <PageSection>
+          <Row>
+            <Col lg={6} xl={8}>
+              <GameList
+                games={gamesActive}
+                title='Competitions'
+              />
+              <GameList
+                games={gamesSinglePlayer}
+                title='Single player'
+              />
+            </Col>
+            <Col lg={6} xl={4}>
+              <GameList
+                games={gamesPending}
+                cardType='pending'
+                title='Pending'
+              />
+              <GameList
+                games={gamesInvited}
+                cardType='pending'
+                title='Invited'
+              />
+            </Col>
+          </Row>
+        </PageSection>
         <HomeFooter>
           <AddFriends />
         </HomeFooter>

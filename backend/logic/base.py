@@ -15,7 +15,6 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
-from backend.database.db import engine
 from backend.database.helpers import (
     query_to_dict,
     add_row,
@@ -31,6 +30,7 @@ from backend.tasks.redis import (
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
+from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -242,7 +242,9 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
     expanded_columns = ["timestamp_pending", "timestamp_fulfilled", "clear_price_fulfilled"]
     for column in expanded_columns:
         if column not in pivot_df.columns:
-            pivot_df[column] = np.nan  # it's OK for there to be no data for these columns, but we do need them present
+            # it's OK for there to be no data for these columns when there is no fulfilled order data, but we do need
+            # them present
+            pivot_df[column] = np.nan
     return pivot_df
 
 
@@ -300,11 +302,11 @@ def get_pending_buy_order_value(user_id, game_id):
         tab["value"] = tab["price"] * tab["quantity"]
         open_value += tab["value"].sum()
 
+    # pending market orders are implicitly after-hours transactions
     tab = df[(df["order_type"] == "market")]
     if not tab.empty:
-        for _, row in tab.iterrows():
-            price, _ = fetch_price(row["symbol"])
-            open_value += price * row["quantity"]
+        tab["value"] = tab["price"] * df["quantity"]
+        open_value += tab["value"].sum()
 
     return open_value
 
@@ -767,5 +769,3 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
-
-

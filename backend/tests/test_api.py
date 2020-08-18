@@ -48,7 +48,8 @@ from backend.logic.visuals import (
     calculate_and_pack_game_metrics,
     LEADERBOARD_PREFIX,
     CURRENT_BALANCES_PREFIX,
-    ORDER_DETAILS_PREFIX,
+    PENDING_ORDERS_PREFIX,
+    FULFILLED_ORDER_PREFIX,
     PAYOUTS_PREFIX,
     BALANCES_CHART_PREFIX
 )
@@ -360,12 +361,13 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(init_balances_entry["data"], [])
         self.assertEqual(len(init_balances_entry["headers"]), 8)
 
-        open_orders_keys = [x for x in rds.keys() if ORDER_DETAILS_PREFIX in x]
+        open_orders_keys = [x for x in rds.keys() if PENDING_ORDERS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
         init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
-        self.assertEqual(init_open_orders_entry["orders"]["pending"], [])
-        self.assertEqual(init_open_orders_entry["orders"]["fulfilled"], [])
-        self.assertEqual(len(init_open_orders_entry["headers"]), 14)
+        init_fulfilled_orders_entry = unpack_redis_json(open_orders_keys[0])
+        self.assertEqual(init_open_orders_entry["data"], [])
+        self.assertEqual(init_fulfilled_orders_entry["data"], [])
+        self.assertEqual(len(init_open_orders_entry["headers"]), 9)
 
         serialize_and_pack_winners_table(game_id)
         payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
@@ -482,7 +484,8 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # these assets update in real time
-        self.assertIsNotNone(rds.get(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(rds.get(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(rds.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
         self.assertIsNotNone(rds.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
         trigger_dag("update_game_dag", game_id=game_id)
@@ -494,11 +497,11 @@ class TestPlayGame(BaseTestCase):
                 """).fetchone()[0]
         self.assertEqual(last_order, stock_pick)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
+        res = self.requests_session.post(f"{HOST_URL}/get_pending_orders_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-        stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
         balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
@@ -587,11 +590,11 @@ class TestPlayGame(BaseTestCase):
                                          verify=False, json={"order_id": order_id, "game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        res = self.requests_session.post(f"{HOST_URL}/get_order_details_table",
+        res = self.requests_session.post(f"{HOST_URL}/get_pending_orders_table",
                                          cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
-        stocks_in_table_response = [x["Symbol"] for x in res.json()["orders"]["pending"]]
+        stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertNotIn("JETS", stocks_in_table_response)
 
         res = self.requests_session.post(f"{HOST_URL}/get_current_balances_table",
@@ -608,6 +611,24 @@ class TestPlayGame(BaseTestCase):
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
         self.assertEqual(nvda_entry, "0.00%")
+
+        # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
+        res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",
+                                         cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        self.assertIn("color", res.json()["data"][0])
+        self.assertEqual(set([x["Symbol"] for x in res.json()["data"]]), {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"})
+        self.assertEqual(len(res.json()["data"]), 6)  # because we have a buy and a sell order for AMZN
+
+        res = self.requests_session.post(f"{HOST_URL}/get_transactions_table", cookies={"session_token": session_token},
+                                         verify=False, json={"game_id": game_id})
+        self.assertEqual(res.status_code, 200)
+
+        transactions = query_to_dict("SELECT * FROM game_balances WHERE game_id = %s AND user_id = %s", game_id,
+                                     user_id)
+        self.assertEqual(len(res.json()), len(transactions))
 
 
 class TestGetGameStats(BaseTestCase):

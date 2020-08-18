@@ -9,8 +9,8 @@ import {
   PageSection,
   Breadcrumb
 } from 'components/layout/Layout'
-import { GameSettings } from 'pages/game/GameSettings'
-import { PendingGameParticipants } from 'pages/game/PendingGameParticipants'
+import { GameSettings } from 'components/game/GameSettings'
+import { PendingGameParticipants } from 'components/game/PendingGameParticipants'
 import { Button, Form, Modal } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'

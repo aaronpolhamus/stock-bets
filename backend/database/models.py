@@ -49,7 +49,7 @@ class SideBetPeriods(Enum):
 
 class GameStakes(Enum):
     real = "Real money"
-    monopoly = "Monopoly mode"
+    monopoly = "Just for fun"
 
 
 class Games(db.Model):

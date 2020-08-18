@@ -4,9 +4,6 @@ that they are logic-level tests of how what the users do impacts what the users 
 from unittest.mock import patch, Mock
 
 import pandas as pd
-from pandas.tseries.offsets import DateOffset
-from backend.tests import BaseTestCase
-
 from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
@@ -45,7 +42,8 @@ from backend.logic.visuals import (
     make_user_balances_chart_data,
     make_the_field_charts,
     LEADERBOARD_PREFIX,
-    ORDER_DETAILS_PREFIX,
+    PENDING_ORDERS_PREFIX,
+    FULFILLED_ORDER_PREFIX,
     ORDER_PERF_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
@@ -54,14 +52,15 @@ from backend.logic.visuals import (
     SHARPE_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
-    NA_TEXT_SYMBOL,
-    update_order_details_table
+    NA_TEXT_SYMBOL
 )
 from backend.logic.payments import PERCENT_TO_USER
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
+from backend.tests import BaseTestCase
+from pandas.tseries.offsets import DateOffset
 
 
 class TestGameKickoff(BaseTestCase):
@@ -109,7 +108,8 @@ class TestGameKickoff(BaseTestCase):
         self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
         for user_id in all_ids:
             self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}", cache_keys)
+            self.assertIn(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", cache_keys)
+            self.assertIn(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", cache_keys)
             self.assertIn(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
             self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
 
@@ -126,10 +126,10 @@ class TestGameKickoff(BaseTestCase):
         a_current_balance_table = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(a_current_balance_table["data"], [])
 
-        an_open_orders_table = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(an_open_orders_table["orders"]["pending"], [])
-        self.assertEqual(an_open_orders_table["orders"]["fulfilled"], [])
-        self.assertEqual(len(an_open_orders_table["headers"]), 14)
+        an_open_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        self.assertEqual(an_open_orders_table["data"], [])
+        a_fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+        self.assertEqual(a_fulfilled_orders_table["data"], [])
 
         a_balances_chart = unpack_redis_json(f"{BALANCES_CHART_PREFIX}_{game_id}_{self.user_id}")
         self.assertEqual(len(a_balances_chart["datasets"]), 1)
@@ -159,7 +159,7 @@ class TestGameKickoff(BaseTestCase):
                 amount=1,
                 time_in_force="day"
             )
-            update_order_details_table(game_id, self.user_id, order_id, "add")
+            serialize_and_pack_order_details(game_id, self.user_id)
 
     def test_visuals_after_hours(self):
         game_id = 5
@@ -168,10 +168,11 @@ class TestGameKickoff(BaseTestCase):
 
         # These are the internals of the celery tasks that called to update their state
         serialize_and_pack_order_details(game_id, self.user_id)
-        open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
-        self.assertEqual(open_orders["orders"]["pending"][0]["Symbol"], self.stock_pick)
-        self.assertEqual(open_orders["orders"]["fulfilled"], [])
-        self.assertEqual(len(open_orders["orders"]["pending"]), 1)
+        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        self.assertEqual(pending_orders_table["data"][0]["Symbol"], self.stock_pick)
+        self.assertEqual(len(pending_orders_table["data"]), 1)
+        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+        self.assertEqual(fulfilled_orders_table["data"], [])
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
@@ -202,12 +203,14 @@ class TestGameKickoff(BaseTestCase):
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders
         serialize_and_pack_order_details(game_id, self.user_id)
-        open_orders = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}")
+        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{self.user_id}")
+        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}")
+
         # since the order has been filled, we expect a clear price to be present
-        self.assertNotEqual(open_orders["orders"]["fulfilled"][0]["Clear price"], NA_TEXT_SYMBOL)
-        self.assertEqual(open_orders["orders"]["fulfilled"][0]["Symbol"], self.stock_pick)
-        self.assertEqual(open_orders["orders"]["pending"], [])
-        self.assertEqual(len(open_orders["orders"]["fulfilled"]), 1)
+        self.assertNotEqual(fulfilled_orders_table["data"][0]["Clear price"], NA_TEXT_SYMBOL)
+        self.assertEqual(fulfilled_orders_table["data"][0]["Symbol"], self.stock_pick)
+        self.assertEqual(pending_orders_table["data"], [])
+        self.assertEqual(len(fulfilled_orders_table["data"]), 1)
 
         serialize_and_pack_portfolio_details(game_id, self.user_id)
         current_balances = unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{self.user_id}")
@@ -230,9 +233,9 @@ class TestGameKickoff(BaseTestCase):
             self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
-        orders_table = unpack_redis_json(f'{ORDER_DETAILS_PREFIX}_{game_id}_{self.user_id}')
-        self.assertIn("order_label", orders_table["orders"]["fulfilled"][0].keys())
-        self.assertIn("label_color", orders_table["orders"]["fulfilled"][0].keys())
+        fulfilled_orders_table = unpack_redis_json(f'{FULFILLED_ORDER_PREFIX}_{game_id}_{self.user_id}')
+        self.assertIn("order_label", fulfilled_orders_table["data"][0].keys())
+        self.assertIn("color", fulfilled_orders_table["data"][0].keys())
 
 
 class TestVisuals(BaseTestCase):
@@ -270,12 +273,12 @@ class TestVisuals(BaseTestCase):
         game_id = 3
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
-        order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-        df = pd.concat(
-            [pd.DataFrame(order_details["orders"]["pending"]), pd.DataFrame(order_details["orders"]["fulfilled"])])
+        pending_order_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
+        fulfilled_order_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
+        df = pd.concat([pd.DataFrame(pending_order_table["data"]), pd.DataFrame(fulfilled_order_table["data"])])
         self.assertEqual(df.shape, (8, 16))
-        self.assertNotIn("order_id", order_details["headers"])
-        self.assertEqual(len(order_details["headers"]), 13)
+        self.assertNotIn("order_id", pending_order_table["headers"])
+        self.assertEqual(len(pending_order_table["headers"]), 9)
 
         user_ids = get_active_game_user_ids(game_id)
         for player_id in user_ids:
@@ -423,7 +426,8 @@ class TestSinglePlayerLogic(BaseTestCase):
         # --------------------------------------------------
 
         # these assets are specific to the user
-        for prefix in [CURRENT_BALANCES_PREFIX, ORDER_DETAILS_PREFIX, BALANCES_CHART_PREFIX, ORDER_PERF_CHART_PREFIX]:
+        for prefix in [CURRENT_BALANCES_PREFIX, PENDING_ORDERS_PREFIX, FULFILLED_ORDER_PREFIX, BALANCES_CHART_PREFIX,
+                       ORDER_PERF_CHART_PREFIX]:
             self.assertIn(f"{prefix}_{game_id}_{user_id}", rds.keys())
 
         # these assets exist for both the user and the index users
@@ -440,10 +444,11 @@ class TestSinglePlayerLogic(BaseTestCase):
         game_id = 8
         user_id = 1
         serialize_and_pack_order_details(game_id, user_id)
-        order_details = unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}")
-        self.assertEqual(len(order_details["orders"]["pending"]), 0)
-        self.assertEqual(len(order_details["orders"]["fulfilled"]), 2)
-        self.assertEqual(set([x["Symbol"] for x in order_details["orders"]["fulfilled"]]), {"NVDA", "NKE"})
+        pending_orders_table = unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}")
+        fulfilled_orders_table = unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}")
+        self.assertEqual(len(pending_orders_table["data"]), 0)
+        self.assertEqual(len(fulfilled_orders_table["data"]), 2)
+        self.assertEqual(set([x["Symbol"] for x in fulfilled_orders_table["data"]]), {"NVDA", "NKE"})
 
         serialize_and_pack_order_performance_chart(game_id, user_id)
         self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", rds.keys())
