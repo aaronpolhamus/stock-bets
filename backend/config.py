@@ -49,9 +49,10 @@ class Config:
     SQLALCHEMY_ECHO = bool(getenv("SQLALCHEMY_ECHO") == "True")
     MIGRATIONS_DIRECTORY = "/home/backend/database/migrations"
 
-    # App configurations
-    # ------------------
+    # Flask app configurations
+    # ------------------------
     DEBUG_MODE = bool(getenv("DEBUG_MODE") == "True")  # Run the flask app in debug mode? (useful for development)
+    JSON_SORT_KEYS = False
 
     # Testing
     # -------

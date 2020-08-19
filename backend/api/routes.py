@@ -45,6 +45,7 @@ from backend.logic.friends import (
     InvalidEmailError
 )
 from backend.logic.games import (
+    get_downloadable_transactions_table,
     get_external_invite_list_by_status,
     add_user_via_platform,
     add_user_via_email,
@@ -82,9 +83,10 @@ from backend.logic.games import (
 from backend.logic.payments import check_payment_profile
 from backend.logic.visuals import (
     format_time_for_response,
-    update_order_details_table,
+    serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
-    ORDER_DETAILS_PREFIX,
+    PENDING_ORDERS_PREFIX,
+    FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
     CURRENT_BALANCES_PREFIX,
     FIELD_CHART_PREFIX,
@@ -479,7 +481,7 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    update_order_details_table(game_id, user_id, order_id, "add")
+    serialize_and_pack_order_details(game_id, user_id)
     serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
@@ -620,16 +622,36 @@ def field_chart():
 @authenticate
 def get_current_balances_table():
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_ids([username])[0]
+    else:
+        user_id = decode_token(request)
     return jsonify(unpack_redis_json(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
 
 
-@routes.route("/api/get_order_details_table", methods=["POST"])
+@routes.route("/api/get_pending_orders_table", methods=["POST"])
 @authenticate
-def get_order_details_table():
+def get_pending_orders_table():
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
-    return jsonify(unpack_redis_json(f"{ORDER_DETAILS_PREFIX}_{game_id}_{user_id}"))
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_ids([username])[0]
+    else:
+        user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
+
+
+@routes.route("/api/get_fulfilled_orders_table", methods=["POST"])
+@authenticate
+def get_fulfilled_orders_table():
+    game_id = request.json.get("game_id")
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_ids([username])[0]
+    else:
+        user_id = decode_token(request)
+    return jsonify(unpack_redis_json(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
 
 
 @routes.route("/api/get_payouts_table", methods=["POST"])
@@ -659,6 +681,15 @@ def get_cash_balances():
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
     return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+
+
+@routes.route("/api/get_transactions_table", methods=["POST"])
+@authenticate
+def get_transactions_table():
+    game_id = request.json.get("game_id")
+    user_id = decode_token(request)
+    return jsonify(get_downloadable_transactions_table(game_id, user_id))
+
 
 # -------- #
 # Payments #

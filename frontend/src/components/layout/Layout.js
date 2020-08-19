@@ -86,6 +86,9 @@ const Logo = styled.a`
 `
 const PageSection = styled.section`
   margin-bottom: ${props => props.$marginBottom || 'var(--space-600)'};
+  &:last-of-type{
+    margin-bottom: 0;
+  }
   @media screen and (min-width: ${breakpoints.md}){
     margin-bottom: ${props => props.$marginBottomMd || 'var(--space-800)'};
   }
@@ -94,6 +97,7 @@ const PageSection = styled.section`
 const PageFooter = styled.div`
   display: flex;
   justify-content: flex-end;
+  margin-top: var(--space-200);
 `
 
 const SidebarWrapper = styled(Col)`
@@ -110,15 +114,22 @@ const SidebarWrapper = styled(Col)`
     z-index: -1;
   }
 
+  & + [class*="col-"] {
+    padding-bottom: var(--space-lg-200)
+  }
+
   @media screen and (min-width: ${breakpoints.md}){
     box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
     background-color: var(--color-secondary);
-    border-radius: 0 1rem 0 0;
+    border-radius: 0 var(--space-200) 0 0;
     min-height: 100vh;
     position: sticky;
     top: 0;
     align-self: flex-start;
+    & + [class*="col-"] {
+      padding-bottom: var(--space-lg-400)
+    }
   }
 `
 

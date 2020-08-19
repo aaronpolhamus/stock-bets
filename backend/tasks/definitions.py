@@ -39,7 +39,8 @@ from backend.tasks.airflow import trigger_dag
 TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
-UPDATE_GAME_DATA_TIMEOUT = 60 * 15
+CACHE_PRICE_TIMEOUT = 60 * 15
+UPDATE_GAME_TIMEOUT = 60 * 15
 
 # -------------------------- #
 # Price fetching and caching #
@@ -47,7 +48,7 @@ UPDATE_GAME_DATA_TIMEOUT = 60 * 15
 
 
 @celery.task(name="async_cache_price", bind=True, base=BaseTask)
-@task_lock(main_key="async_cache_price", timeout=UPDATE_GAME_DATA_TIMEOUT)
+@task_lock(main_key="async_cache_price", timeout=CACHE_PRICE_TIMEOUT)
 def async_cache_price(self, symbol: str, price: float, last_updated: float):
     cache_price, cache_time = get_cache_price(symbol)
     if cache_price is not None and cache_time == last_updated:
@@ -151,27 +152,37 @@ def async_update_all_games(self):
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
-@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_DATA_TIMEOUT)
+@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_TIMEOUT)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
+
 
 # ----------- #
 # Key metrics #
 # ----------- #
-
 
 @celery.task(name="async_calculate_key_metrics", bind=True, base=BaseTask)
 def async_calculate_key_metrics(self):
     serialize_and_pack_games_per_user_chart()
     serialize_and_pack_orders_per_active_user()
 
+
+# ----------- #
+# Maintenance #
+# ----------- #
+
+@celery.task(name="async_clear_balances_and_prices_cache", bind=True, base=BaseTask)
+def async_clear_balances_and_prices_cache(self):
+    with engine.connect() as conn:
+        conn.execute("TRUNCATE balances_and_prices_cache;")
+
+
 # ------- #
 # Testing #
 # ------- #
 
-
 @celery.task(name="async_test_task_lock", bind=True, base=BaseTask)
-@task_lock(main_key="async_test_task_lock", timeout=UPDATE_GAME_DATA_TIMEOUT)
+@task_lock(main_key="async_test_task_lock", timeout=CACHE_PRICE_TIMEOUT)
 def async_test_task_lock(self, game_id):
     print(f"processing game_id {game_id}")
     time.sleep(TASK_LOCK_TEST_SLEEP)

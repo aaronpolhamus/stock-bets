@@ -1,10 +1,3 @@
-"""For this iteration I'm conflating the definition of our applications database with the Flask-Migrate abstractions
-to manage it. I'd like to do something cleaner, once I have a better understanding of what's going on with flake
-
-Check out this structure:
-https://stackoverflow.com/questions/56230626/why-is-sqlalchemy-database-uri-set-to-sqlite-memory-when-i-set-it-to-a-pa
-"""
-
 from enum import Enum
 
 from backend.database.db import db
@@ -49,7 +42,7 @@ class SideBetPeriods(Enum):
 
 class GameStakes(Enum):
     real = "Real money"
-    monopoly = "Monopoly mode"
+    monopoly = "Just for fun"
 
 
 class Games(db.Model):

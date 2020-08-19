@@ -242,7 +242,9 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
     expanded_columns = ["timestamp_pending", "timestamp_fulfilled", "clear_price_fulfilled"]
     for column in expanded_columns:
         if column not in pivot_df.columns:
-            pivot_df[column] = np.nan  # it's OK for there to be no data for these columns, but we do need them present
+            # it's OK for there to be no data for these columns when there is no fulfilled order data, but we do need
+            # them present
+            pivot_df[column] = np.nan
     return pivot_df
 
 
@@ -300,11 +302,11 @@ def get_pending_buy_order_value(user_id, game_id):
         tab["value"] = tab["price"] * tab["quantity"]
         open_value += tab["value"].sum()
 
+    # pending market orders are implicitly after-hours transactions
     tab = df[(df["order_type"] == "market")]
     if not tab.empty:
-        for _, row in tab.iterrows():
-            price, _ = fetch_price(row["symbol"])
-            open_value += price * row["quantity"]
+        tab["value"] = tab["price"] * df["quantity"]
+        open_value += tab["value"].sum()
 
     return open_value
 

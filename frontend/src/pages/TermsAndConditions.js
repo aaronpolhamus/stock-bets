@@ -125,11 +125,22 @@ const TermsAndConditions = () => {
             being at risk.
           </li>
         </p>
-        <h2>Terms</h2>
         <p>
-            Real-stakes games are non-refundable and you cannot cancel your
-            participation in a real-stakes game once it has begun.
+          Furthermore, stockbets.io is proceeding with appropriate regard for any
+          potentially applicable SEC regulation (see below). We do not
+          believe that real stakes games on stockbets.io run afoul of regulations
+          passed to protect retail investors in the wake of the Dodd-Frank Wall
+          Street Reform and Consumer protection act, or any other applicable SEC
+          law. Notwithstanding, we will not be directly facilitating real
+          payments between participants or taking commissions from games until
+          we conducted further due diligence and, likely, directly engaged with
+          SEC regulators. Accordingly, if you participate in a real-stakes game
+          among friends on stockbets.io, you acknowledge that this game is <i>honor system only</i>,
+          and release Stockbets, Inc. from all responsibility associated with
+          the settling of claims among participants.
         </p>
+        <h2>Terms</h2>
+        <h3>Game play and determining winners</h3>
         <p>
             stockbets.io is still in product beta, and we still occasionally
             find ways to improve how the platform calculates winners of games
@@ -149,7 +160,7 @@ const TermsAndConditions = () => {
             potential to influence game outcomes, and release Stockbets, Inc. from
             all related legal and financial claims.
         </p>
-        <h2>Regarding financial advice and investment in actual securities</h2>
+        <h3>Regarding financial advice and investment in actual securities</h3>
         <p>
           stockbets.io does not seek to provide you with investment advice. No
           portfolio, trade, or performance result, or interaction with any other
@@ -158,6 +169,54 @@ const TermsAndConditions = () => {
           participating in the buying and selling of actual securities is an
           activity that involves the risk of loss, and release Stockbets, Inc.,
           from all potential claims related to investments in actual securities.
+        </p>
+        <h3>Regarding the standing of stockbets.io vis-a-vis SEC regulation of security-based swaps</h3>
+        <p>
+          The SEC has undertaken multiple cease and desist actions against
+          companies that have run fantasy-style betting competitions related to
+          the value of securities, arguing that these violate regulations of
+          retail investor participation in <i>security-based swaps</i>.
+          See {' '}
+          <a href='https://www.sec.gov/litigation/admin/2015/33-9809.pdf'>
+            Sand Hill Exchange
+          </a>
+          {' '} and {' '}
+          <a href='https://www.sec.gov/litigation/admin/2016/33-10232.pdf'>
+            Forcerank LLC
+          </a> for examples. We do not believe that winnings on stockbets.io constitute
+          security-based swaps according to the logic laid out in these cases.
+          The reason for this is that the principal determinant stockbets.io
+          payouts is based on the <i>relative skill</i> of each investor in a
+          game, rather than on the movement of a specific security, basket of
+          securities, or index. For example, in the case of Forecerank LLC, the
+          SEC found that
+          <i>
+            "Forcerank LLC’s agreements with players were security-
+            based swaps because they provided for a payment that was dependent on
+            the occurrence, or the extent of the occurrence, of an event or
+            contingency that was “associated with” a potential financial,
+            economic, or commercial consequence <b>and</b> because they were “based on”
+            the value of individual securities."
+          </i> (emphasis added by Stockbets, Inc)
+          We believe that the emphasis on valuing individual securities, in both
+          of the cases mentioned above, distinguishes competitions of investment
+          skill on stockbets.io from the sort of targeted valuation of securities
+          that the SEC found to be in violation of security-based swap regulations.
+        </p>
+        <p>
+          We hope that the SEC takes the same view. In the meantime, we will not
+          be facilitating cash transfers between participants while we conduct
+          further due diligence. Good citizenship and proper regard for applicable laws
+          is as important to us as it is to you. If/when stockbets.io does begin
+          to facilitate real stakes games we will update these terms to provide
+          full transparency into the state of our engagement with the SEC and any
+          updates on our/the SEC's view of whether these games constitute securities-based
+          swaps.
+        </p>
+        <p>
+          For now the platform is yours to enjoy either as a medium for facilitating
+          strictly "honor system" games of real stakes between you and your friends,
+          for research purposes, or just for fun :)
         </p>
         <p className='text-right'>
           <Button variant='outline-secondary' onClick={() => history.go(-2)}>

@@ -111,16 +111,14 @@ const OrderFormHeader = styled(Form.Group)`
   }
 `
 
-const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
+const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
   const [gameInfo, setGameInfo] = useState({})
   const [orderTicket, setOrderTicket] = useState({})
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
   const [symbolValue, setSymbolValue] = useState('')
   const [symbolLabel, setSymbolLabel] = useState('')
   const [priceData, setPriceData] = useState({})
-  const [cashData, setCashData] = useState({})
   const [orderProcessing, setOrderProcessing] = useState(false)
-  const [lastUpdate, setLastUpdate] = useState('')
 
   const [showCollapsible, setShowCollapsible] = useState(false)
   const [intervalId, setintervalId] = useState(null)
@@ -133,20 +131,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
     setGameInfo(data)
   }
 
-  const getCashInfo = async () => {
-    const cashInfo = await fetchGameData(gameId, 'get_cash_balances')
-    setCashData(cashInfo)
-  }
-
-  if (update !== undefined && update !== lastUpdate) {
-    setLastUpdate(update)
-    getCashInfo()
-  }
-
   useEffect(() => {
-    getCashInfo()
     getFormInfo()
-  }, [gameId])
+  }, [gameId, update])
 
   const handleChange = (e) => {
     const orderTicketCopy = { ...orderTicket }
@@ -168,7 +155,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
-        getCashInfo()
         formRef.current.reset()
         clearInterval(intervalId)
       })
@@ -279,11 +265,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
         />
       </OrderFormHeader>
       <CashInfo cashData={cashData} balance={false} />
-      <CashInfo
-        cashData={cashData}
-        balance
-        buyingPower
-      />
       <Form.Group>
         <Form.Label>Symbol</Form.Label>
         {symbolSuggestions && (
@@ -396,6 +377,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update }) => {
 }
 
 PlaceOrder.propTypes = {
+  cashData: PropTypes.object,
   gameId: PropTypes.string,
   onPlaceOrder: PropTypes.func,
   update: PropTypes.string

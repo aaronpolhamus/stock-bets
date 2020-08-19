@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { daysLeft } from 'components/functions/formattingHelpers'
 import { TextDivider } from 'components/textComponents/Text'
 import { Header } from 'components/layout/Layout'
+import { CashInfo } from 'components/lists/CashInfo'
 
 const GameDetails = styled.small`
   display: block;
@@ -20,7 +21,7 @@ const GameName = styled.span`
   display: inline-block;
 `
 
-const GameHeader = ({ gameId }) => {
+const GameHeader = ({ gameId, cashData }) => {
   const [gameInfo, setGameInfo] = useState([])
 
   const getGameData = async () => {
@@ -49,12 +50,14 @@ const GameHeader = ({ gameId }) => {
             )}
         </GameDetails>
       </h1>
+      <CashInfo cashData={cashData} buyingPower={false} />
     </Header>
   )
 }
 
 GameHeader.propTypes = {
-  gameId: PropTypes.string
+  gameId: PropTypes.string,
+  cashData: PropTypes.object
 }
 
 export { GameHeader }
