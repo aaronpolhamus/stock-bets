@@ -703,5 +703,5 @@ class TestRedisCaching(TestCase):
         _ = get_trading_calendar(test_time, test_time)
         time2 = time.time() - start
 
-        self.assertLess(time2, time1 / 3)  # "4" is a hueristic for 'substantial performance improvement'
+        self.assertLess(time2, time1 / 2)  # "4" is a hueristic for 'substantial performance improvement'
         self.assertIn("rc:get_trading_calendar", s3_cache.keys()[0])

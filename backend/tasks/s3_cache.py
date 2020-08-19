@@ -30,20 +30,25 @@ def get(key: str):
 
 
 def flushall():
-    bucket = Config.AWS_PRIVATE_BUCKET_NAME
-    s3_client = aws_client()
-    objects = s3_client.list_objects_v2(Bucket=bucket, Prefix='cache/')
-    if 'Contents' in objects:
-        objects = objects['Contents']
+    objects, s3_client = get_objects()
+    if objects is not None:
         keys = [{'Key': key['Key']} for key in objects]
         s3_client.delete_objects(Bucket=Config.AWS_PRIVATE_BUCKET_NAME, Delete={'Objects': keys})
 
 
 def keys():
+    objects, s3_client = get_objects()
+    if objects is not None:
+        objects = objects['Contents']
+        return [key['Key'][6:] for key in objects]
+    return []
+
+
+def get_objects():
     bucket = Config.AWS_PRIVATE_BUCKET_NAME
     s3_client = aws_client()
     objects = s3_client.list_objects_v2(Bucket=bucket, Prefix='cache/')
     if 'Contents' in objects:
         objects = objects['Contents']
-        return [key['Key'][6:] for key in objects]
-    return []
+        return objects, s3_client
+    return None, None
