@@ -40,6 +40,7 @@ TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
+UPDATE_GAME_TIMEOUT = 60 * 15
 
 # -------------------------- #
 # Price fetching and caching #
@@ -151,6 +152,7 @@ def async_update_all_games(self):
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
+@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_TIMEOUT)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
