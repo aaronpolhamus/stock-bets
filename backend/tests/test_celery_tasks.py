@@ -609,14 +609,14 @@ class TestStatsProduction(BaseTestCase):
         game_id = 3
         calculate_and_pack_game_metrics(game_id)
 
-        sharpe_ratio_3_4 = s3_cache.get("sharpe_ratio_3_4")
+        sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
         while sharpe_ratio_3_4 is None:
-            sharpe_ratio_3_4 = s3_cache.get("sharpe_ratio_3_4")
-        sharpe_ratio_3_3 = s3_cache.get("sharpe_ratio_3_3")
-        sharpe_ratio_3_1 = s3_cache.get("sharpe_ratio_3_1")
-        return_ratio_3_1 = s3_cache.get("return_ratio_3_1")
-        return_ratio_3_3 = s3_cache.get("return_ratio_3_3")
-        return_ratio_3_4 = s3_cache.get("return_ratio_3_4")
+            sharpe_ratio_3_4 = rds.get("sharpe_ratio_3_4")
+        sharpe_ratio_3_3 = rds.get("sharpe_ratio_3_3")
+        sharpe_ratio_3_1 = rds.get("sharpe_ratio_3_1")
+        return_ratio_3_1 = rds.get("return_ratio_3_1")
+        return_ratio_3_3 = rds.get("return_ratio_3_3")
+        return_ratio_3_4 = rds.get("return_ratio_3_4")
         self.assertIsNotNone(sharpe_ratio_3_3)
         self.assertIsNotNone(sharpe_ratio_3_1)
         self.assertIsNotNone(return_ratio_3_1)

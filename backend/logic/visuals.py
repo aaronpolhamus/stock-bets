@@ -55,7 +55,7 @@ from backend.logic.schemas import (
 )
 
 from backend.tasks import s3_cache
-from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION
+from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION, rds
 from backend.tasks import s3_cache
 
 # -------------------------------- #
@@ -290,8 +290,8 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
                                     cash_balance=cash_balance,
                                     portfolio_value=portfolio_value,
                                     stocks_held=stocks_held,
-                                    return_ratio=s3_cache.get(f"return_ratio_{game_id}_{user_id}"),
-                                    sharpe_ratio=s3_cache.get(f"sharpe_ratio_{game_id}_{user_id}"))
+                                    return_ratio=rds.get(f"return_ratio_{game_id}_{user_id}"),
+                                    sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
         records.append({**user_info, **stat_info})
 
     if check_single_player_mode(game_id):
@@ -301,8 +301,8 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
                                         cash_balance=None,
                                         portfolio_value=portfolio_value,
                                         stocks_held=[],
-                                        return_ratio=s3_cache.get(f"return_ratio_{game_id}_{index}"),
-                                        sharpe_ratio=s3_cache.get(f"sharpe_ratio_{game_id}_{index}"))
+                                        return_ratio=rds.get(f"return_ratio_{game_id}_{index}"),
+                                        sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{index}"))
             index_info = dict(username=index, profile_pic=None)
             records.append({**index_info, **stat_info})
 
@@ -867,13 +867,13 @@ def init_game_assets(game_id: int):
 def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_time: float = None):
     for user_id in get_active_game_user_ids(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_time, end_time)
-        s3_cache.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-        s3_cache.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
             index_return_ratio = portfolio_return_ratio(df)
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
-            s3_cache.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-            s3_cache.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)

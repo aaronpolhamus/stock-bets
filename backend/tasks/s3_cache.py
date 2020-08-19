@@ -44,4 +44,6 @@ def keys():
     s3_client = aws_client()
     objects = s3_client.list_objects_v2(Bucket=bucket, Prefix='cache/')
     if 'Contents' in objects:
+        objects = objects['Contents']
         return [key['Key'][6:] for key in objects]
+    return []

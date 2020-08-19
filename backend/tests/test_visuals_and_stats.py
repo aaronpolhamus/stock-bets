@@ -59,6 +59,8 @@ from backend.tests import BaseTestCase
 from pandas.tseries.offsets import DateOffset
 
 from backend.tasks import s3_cache
+from tasks.redis import rds
+
 
 class TestGameKickoff(BaseTestCase):
     """Charts should be populated with blank data until at least one user places an order, regardless of whether the
@@ -429,7 +431,7 @@ class TestSinglePlayerLogic(BaseTestCase):
 
         # these assets exist for both the user and the index users
         for _id in [user_id] + TRACKED_INDEXES:
-            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", s3_cache.keys())
+            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", rds.keys())
 
         # and check that the leaderboard exists on the game level
         self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", s3_cache.keys())
