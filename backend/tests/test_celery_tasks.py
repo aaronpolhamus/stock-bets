@@ -688,20 +688,3 @@ class TestTaskLocking(TestCase):
         time.sleep(TASK_LOCK_TEST_SLEEP)
         res5 = async_test_task_lock.delay(3)
         self.assertFalse(res5.ready())
-
-
-class TestRedisCaching(TestCase):
-
-    def test_task_caching(self):
-        s3_cache.flushall()
-        test_time = posix_to_datetime(time.time()).date()
-        start = time.time()
-        _ = get_trading_calendar(test_time, test_time)
-        time1 = time.time() - start
-
-        start = time.time()
-        _ = get_trading_calendar(test_time, test_time)
-        time2 = time.time() - start
-
-        self.assertLess(time2, time1 / 2)  # "4" is a hueristic for 'substantial performance improvement'
-        self.assertIn("rc:get_trading_calendar", s3_cache.keys()[0])
