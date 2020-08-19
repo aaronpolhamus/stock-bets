@@ -37,9 +37,8 @@ def flushall():
 
 
 def keys():
-    objects, s3_client = get_objects()
+    objects, _ = get_objects()
     if objects is not None:
-        objects = objects['Contents']
         return [key['Key'][6:] for key in objects]
     return []
 
