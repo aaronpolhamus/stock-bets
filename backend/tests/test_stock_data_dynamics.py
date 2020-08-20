@@ -12,9 +12,10 @@ from backend.logic.base import (
     datetime_to_posix,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE
+    TIMEZONE,
+    fetch_price,
+    log_stock_splits
 )
-from backend.logic.base import fetch_price
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -89,3 +90,8 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
+
+    def test_harvest_stock_splits(self):
+        log_stock_splits()
+        import ipdb;ipdb.set_trace()
+        print("hi")
