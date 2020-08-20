@@ -98,6 +98,6 @@ celery.conf.beat_schedule = {
     # clear the balances and prices cache every day
     "clear_balances_and_prices_cache": {
         "task": "async_clear_balances_and_prices_cache",
-        "schedule": crontab(minute="59", hour="23")
+        "schedule": crontab(hour="17")
     }
 }

@@ -774,6 +774,13 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 # harvest stock splits
 # --------------------
 
+def retrieve_yahoo_splits():
+    pass
+
+
+def retrieve_nasdaq_splits():
+    pass
+
 
 def retrieve_stock_splits():
     pass
