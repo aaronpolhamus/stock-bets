@@ -70,7 +70,7 @@ const Playground = () => {
                   return (
                     <>
                       <strong>
-                        {`$${totalPrice}`}
+                        {value}
                       </strong>
                       <br/>
                       <span
@@ -78,7 +78,7 @@ const Playground = () => {
                           color: 'var(--color-text-gray)'
                         }}
                       >
-                        {`(${value})`}
+                        {`($${totalPrice})`}
                       </span>
                     </>
                   )
@@ -97,6 +97,7 @@ const Playground = () => {
                 'Order price'
               ]}
               sortBy='Hypothetical return'
+              sortOrder='DESC'
               showColumns={{
                 md: [
                   'Symbol',

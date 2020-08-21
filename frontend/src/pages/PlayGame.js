@@ -300,17 +300,9 @@ const PlayGame = () => {
                           const totalPrice = (qty * price).toLocaleString()
                           return (
                             <>
-                              <strong>
-                                {`$${totalPrice}`}
+                              <strong title={`Total price: $${totalPrice}`}>
+                                {`${value}`}
                               </strong>
-                              <br />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-gray)'
-                                }}
-                              >
-                                {`(${value})`}
-                              </span>
                             </>
                           )
                         }
@@ -323,11 +315,11 @@ const PlayGame = () => {
                         'Buy/Sell',
                         'Order type',
                         'Time in force',
-                        'Market price',
                         'Placed on',
                         'Order price'
                       ]}
                       sortBy='Hypothetical return'
+                      sortOrder='DESC'
                       showColumns={{
                         md: [
                           'Symbol',

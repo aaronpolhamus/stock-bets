@@ -7,9 +7,11 @@ import { Info } from 'react-feather'
 
 const LeaderboardList = styled.ol`
   font-size: var(--font-size-small);
-  padding-left: 2em;
+  padding-left: 0;
   position: relative;
   z-index: 1;
+  list-style-type: none;
+  counter-reset: leaderboard;
 `
 
 const PlayerRow = styled.div`
@@ -20,17 +22,13 @@ const PlayerRow = styled.div`
   flex-wrap: wrap;
   transform: translate3d(0, 0, 0);
   user-select: none;
-  &:before{
-    content: '';
-    display: block;
-    height: .5px;
-  }
-
+  counter-increment: leaderboard;
   label{
     cursor: pointer;
     flex-basis: 70%;
     width: 70%;
     white-space: nowrap;
+    justify-content: flex-start;
   }
   input {
     display: none;
@@ -39,6 +37,12 @@ const PlayerRow = styled.div`
   p{
     display: flex;
     margin-bottom: 0;
+    &::before{
+      content: counter(leaderboard)".";
+      display: inline-block;
+      width: 1.5rem;
+      text-align: right;
+    }
   }
 
   p span{
@@ -53,11 +57,12 @@ const PlayerRow = styled.div`
       content: '';
       display: inline-block;
       height: 0;
-      margin-right: var(--space-50);
+      margin-right: 0;
       position: relative;
       top: 0;
-      transition: width .2s;
+      transition: all .2s;
       width: 0;
+      margin: 0 var(--space-50);
     }
   }
   
