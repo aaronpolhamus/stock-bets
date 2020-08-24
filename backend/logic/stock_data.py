@@ -1,28 +1,33 @@
 import sys
 import time
 from re import sub
+from typing import List
 
-import pandas as pd
-import requests
-from config import Config
 from database.db import engine
-from database.helpers import add_row
-from logic.base import (
-    during_trading_day,
-    get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY,
-    posix_to_datetime,
-    get_trading_calendar,
-    get_schedule_start_and_end
-)
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from backend.tasks.redis import rds
 
+import pandas as pd
+import requests
+from config import Config
+from backend.database.db import engine
+from backend.database.helpers import add_row
+from backend.logic.base import (
+    during_trading_day,
+    get_end_of_last_trading_day,
+    SECONDS_IN_A_DAY,
+    posix_to_datetime,
+    get_trading_calendar,
+    get_schedule_start_and_end,
+    get_current_game_cash_balance
+)
+
 IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
 IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
+TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
 
 def get_web_driver(web_driver="chrome"):
@@ -32,22 +37,14 @@ def get_web_driver(web_driver="chrome"):
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--no-proxy-server")
-        options.add_argument("--proxy-server='direct://'")
-        options.add_argument("--proxy-bypass-list=*")
         driver = webdriver.Chrome(options=options)
-        driver.set_window_size(1200, 600)
 
     if web_driver == "firefox":
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--no-proxy-server")
-        options.add_argument("--proxy-server='direct://'")
-        options.add_argument("--proxy-bypass-list=*")
         driver = webdriver.Firefox(executable_path="/home/backend/geckodriver", options=options)
-        driver.set_window_size(1200, 600)
+
+    driver.set_window_size(1200, 600)
     return driver
 
 
@@ -219,13 +216,103 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     return df[["symbol", "exec_date"] + num_cols]
 
 
-def log_stock_splits():
+def get_stock_splits() -> pd.DataFrame:
     driver = get_web_driver("firefox")
     nasdaq_raw_splits = retrieve_nasdaq_splits(driver)
     nasdaq_splits = parse_nasdaq_splits(nasdaq_raw_splits)
     nasdaq_symbols = nasdaq_splits["symbol"].to_list()
     yahoo_raw_splits = retrieve_yahoo_splits(driver)
     yahoo_splits = parse_yahoo_splits(yahoo_raw_splits, nasdaq_symbols)
-    splits_update = pd.concat([nasdaq_splits, yahoo_splits])
+    return pd.concat([nasdaq_splits, yahoo_splits])
+    # with engine.connect() as conn:
+    #     splits_update.to_sql("stock_splits", conn, if_exists="append", index=False)
+
+
+def get_game_ids_by_status(status="active"):
     with engine.connect() as conn:
-        splits_update.to_sql("stock_splits", conn, if_exists="append", index=False)
+        result = conn.execute("""
+        SELECT g.id
+        FROM games g
+        INNER JOIN
+        (
+          SELECT gs.game_id, gs.status
+          FROM game_status gs
+          INNER JOIN
+          (SELECT game_id, max(id) as max_id
+            FROM game_status
+            GROUP BY game_id) grouped_gs
+          ON
+            gs.id = grouped_gs.max_id
+          WHERE gs.status = %s
+        ) pending_game_ids
+        ON
+          g.id = pending_game_ids.game_id;""", status).fetchall()
+    return [x[0] for x in result]
+
+
+def get_most_recent_prices(symbols: List):
+    if len(symbols) == 0:
+        return None
+    sql = f"""
+        SELECT p.symbol, p.price, p.timestamp
+        FROM prices p
+        INNER JOIN (
+        SELECT symbol, max(id) as max_id
+          FROM prices
+          GROUP BY symbol) max_price
+        ON p.id = max_price.max_id
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
+    """
+    with engine.connect() as conn:
+        return pd.read_sql(sql, conn, params=symbols)
+
+
+def apply_stock_splits(splits: pd.DataFrame):
+    # get active games and symbols
+    active_ids = get_game_ids_by_status()
+    last_prices = get_most_recent_prices(splits["symbols"].to_list())
+    for i, row in splits.iterrows():
+        symbol = row["symbol"]
+        numerator = row["numerator"]
+        denominator = row["denominator"]
+        exec_date = row["exec_date"]
+        with engine.connect() as conn:
+            df = pd.read_sql(f"""
+              SELECT * FROM game_balances g
+              INNER JOIN (
+                SELECT MAX(id) as max_id
+                FROM game_balances
+                WHERE symbol = %s AND game_id IN ({', '.join(['%s'] * len(active_ids))})
+                GROUP BY game_id, user_id
+              ) grouped_db
+              ON grouped_db.max_id = g.id
+            """, conn, params=[symbol] + active_ids)
+        if df.empty:
+            continue
+        df["transaction_type"] = "stock_split"
+        df["order_status_id"] = None
+        df["timestamp"] = exec_date
+        df["fractional_balance"] = df["balance"] * numerator / denominator
+        df["balance"] = df["balance"] * numerator // denominator
+        df["fractional_balance"] -= df["balance"]
+
+        # identify any fractional shares that need to be converted to cash
+        mask = df["fractional_balance"] - df["balance"] > 0
+        fractional_df = df[mask]
+        last_price = last_prices.loc[last_prices["symbol"] == symbol, "price"]
+        for _, fractional_row in fractional_df.iterrows():
+            game_id = fractional_row["game_id"]
+            user_id = fractional_row["user_id"]
+            cash_balance = get_current_game_cash_balance(user_id, game_id)
+            add_row("game_balances",
+                    user_id=user_id,
+                    game_id=game_id,
+                    timestamp=exec_date,
+                    balance_type="virtual_cash",
+                    balance=cash_balance + row["fractional_balance"] * last_price,
+                    transaction_type="stock_split")
+
+        # write updated balances
+        del df["fractional_balance"]
+        with engine.connect() as conn:
+            df.to_sql("game_balances", conn, index=False, if_exists="append")

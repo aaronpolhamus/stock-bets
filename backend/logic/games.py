@@ -261,28 +261,6 @@ def get_open_game_ids_past_window():
     return [x[0] for x in result]
 
 
-def get_game_ids_by_status(status="active"):
-    with engine.connect() as conn:
-        result = conn.execute("""
-        SELECT g.id
-        FROM games g
-        INNER JOIN
-        (
-          SELECT gs.game_id, gs.status
-          FROM game_status gs
-          INNER JOIN
-          (SELECT game_id, max(id) as max_id
-            FROM game_status
-            GROUP BY game_id) grouped_gs
-          ON
-            gs.id = grouped_gs.max_id
-          WHERE gs.status = %s
-        ) pending_game_ids
-        ON
-          g.id = pending_game_ids.game_id;""", status).fetchall()
-    return [x[0] for x in result]
-
-
 def get_invite_list_by_status(game_id: int, status: str = "joined"):
     with engine.connect() as conn:
         result = conn.execute("""

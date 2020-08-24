@@ -27,21 +27,20 @@ from backend.tasks.redis import (
 )
 from pandas.tseries.offsets import DateOffset
 
-USD_FORMAT = "${:,.2f}"
-
 # -------- #
 # Defaults #
 # -------- #
 
-TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
+USD_FORMAT = "${:,.2f}"
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+SECONDS_IN_A_DAY = 60 * 60 * 24
+TIMEZONE = 'America/New_York'
+RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 
 # --------------------------------- #
 # Managing time and trade schedules #
 # --------------------------------- #
-SECONDS_IN_A_DAY = 60 * 60 * 24
-TIMEZONE = 'America/New_York'
-RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
+
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 

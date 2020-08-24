@@ -7,7 +7,6 @@ import pandas as pd
 from backend.database.fixtures.mock_data import simulation_start_time, simulation_end_time
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
-    TRACKED_INDEXES,
     posix_to_datetime,
     datetime_to_posix,
     make_date_offset,
@@ -15,7 +14,11 @@ from backend.logic.base import (
     get_game_info,
     get_user_ids,
 )
-from logic.metrics import n_sidebets_in_game, get_expected_sidebets_payout_dates
+from backend.logic.stock_data import TRACKED_INDEXES
+from backend.logic.metrics import (
+    n_sidebets_in_game,
+    get_expected_sidebets_payout_dates
+)
 from backend.logic.games import (
     add_game,
     respond_to_game_invite,

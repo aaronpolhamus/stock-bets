@@ -3,7 +3,6 @@ import time
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    TRACKED_INDEXES,
     during_trading_day,
     SeleniumDriverError,
     get_all_active_symbols
@@ -13,13 +12,14 @@ from logic.stock_data import (
     update_index_value,
     get_cache_price,
     fetch_price,
-    set_cache_price
-)
+    set_cache_price,
+    get_stock_splits,
+    apply_stock_splits,
+    TRACKED_INDEXES, get_game_ids_by_status)
 from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_ids_past_window,
-    get_game_ids_by_status,
     service_open_game,
     expire_finished_game
 )
@@ -99,6 +99,15 @@ def async_service_open_games(self):
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
+
+
+@celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
+def async_apply_stock_splits(self):
+    splits = get_stock_splits()
+    with engine.connect() as conn:
+        splits.to_sql("stock_splits", conn, if_exists="append", index=False)
+    apply_stock_splits(splits)
+
 
 # ---------------- #
 # Order management #

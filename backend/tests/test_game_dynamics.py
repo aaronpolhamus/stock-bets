@@ -27,7 +27,6 @@ from backend.logic.base import (
 from backend.logic.games import (
     get_invite_list_by_status,
     add_game,
-    get_game_ids_by_status,
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
@@ -58,6 +57,7 @@ from backend.logic.games import (
     get_external_invite_list_by_status,
     init_game_assets
 )
+from logic.stock_data import get_game_ids_by_status
 from backend.logic.metrics import check_if_payout_time
 from backend.logic.schemas import (
     balances_chart_schema,
