@@ -349,6 +349,7 @@ class TestCreateGame(BaseTestCase):
         """
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
+        import ipdb;ipdb.set_trace()
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 

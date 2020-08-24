@@ -90,8 +90,3 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertIsNotNone(amzn_price)
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
-
-    def test_harvest_stock_splits(self):
-        log_stock_splits()
-        import ipdb;ipdb.set_trace()
-        print("hi")
