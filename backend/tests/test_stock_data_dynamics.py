@@ -13,8 +13,7 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     TIMEZONE,
-    fetch_price,
-    log_stock_splits
+    fetch_price
 )
 
 
