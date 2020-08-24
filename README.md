@@ -50,12 +50,13 @@ The business logic modules stored in `/backend/logic` have an order that is impo
 ```
 1) schemas.py
 2) base.py
-3) payments.py
-4) metrics.py
-5) visuals.py
-6) friends.py
-7) games.py
-8) auth.py
+3) stock_data.py
+4) payments.py
+5) metrics.py
+6) visuals.py
+7) friends.py
+8) games.py
+9) auth.py
 ```
 
 When asking yourself "where do I put this piece of business logic?" the answer is "as far downstream (i.e. close to the games module) as you can whie respecting this order". We've tried to further break down the logical modules with comments indicating what different branches of application logic they deal with, but there is room for constant improvement here. 

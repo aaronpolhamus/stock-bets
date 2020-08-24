@@ -5,13 +5,15 @@ from backend.database.helpers import add_row
 from backend.logic.base import (
     TRACKED_INDEXES,
     during_trading_day,
-    get_cache_price,
-    set_cache_price,
     SeleniumDriverError,
+    get_all_active_symbols
+)
+from logic.stock_data import (
     get_symbols_table,
+    update_index_value,
+    get_cache_price,
     fetch_price,
-    get_all_active_symbols,
-    update_index_value
+    set_cache_price
 )
 from backend.logic.games import (
     get_all_open_orders,

@@ -25,8 +25,8 @@ from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
     USD_FORMAT,
-    during_trading_day,
-    fetch_price)
+    during_trading_day)
+from backend.logic.stock_data import fetch_price
 from backend.logic.games import (
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,

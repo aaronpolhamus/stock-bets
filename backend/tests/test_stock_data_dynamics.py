@@ -2,7 +2,6 @@ from datetime import datetime as dt
 import time
 import unittest
 from unittest.mock import patch
-
 import pytz
 
 from backend.logic.base import (
@@ -12,7 +11,9 @@ from backend.logic.base import (
     datetime_to_posix,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE,
+    TIMEZONE
+)
+from backend.logic.stock_data import (
     fetch_price,
     log_stock_splits
 )

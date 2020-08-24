@@ -30,7 +30,6 @@ from backend.logic.base import (
     SECONDS_IN_A_DAY,
     get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
-    fetch_price,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -40,6 +39,7 @@ from backend.logic.base import (
     get_user_ids_from_passed_emails,
     get_user_ids
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
     email_game_invitation
