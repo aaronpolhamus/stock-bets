@@ -103,14 +103,14 @@ class TestGameKickoff(BaseTestCase):
         # each user, (3) an empty field chart for each user, (4) an empty field chart, and (5) an initial game stats
         # list
         cache_keys = s3_cache.keys()
-        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", cache_keys)
-        self.assertIn(f"{FIELD_CHART_PREFIX}_{game_id}", cache_keys)
+        self.assertIn(f"{game_id}/{LEADERBOARD_PREFIX}", cache_keys)
+        self.assertIn(f"{game_id}/{FIELD_CHART_PREFIX}", cache_keys)
         for user_id in all_ids:
-            self.assertIn(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
-            self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", cache_keys)
+            self.assertIn(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}", cache_keys)
+            self.assertIn(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", cache_keys)
+            self.assertIn(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", cache_keys)
+            self.assertIn(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}", cache_keys)
+            self.assertIn(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", cache_keys)
 
         # quickly verify the structure of the chart assets. They should be blank, with transparent colors
         field_chart = s3_cache.unpack_s3_json(f"{game_id}/{FIELD_CHART_PREFIX}")
@@ -145,7 +145,7 @@ class TestGameKickoff(BaseTestCase):
             stock_pick = self.stock_pick
             cash_balance = get_current_game_cash_balance(self.user_id, game_id)
             current_holding = get_current_stock_holding(self.user_id, game_id, stock_pick)
-            order_id = place_order(
+            place_order(
                 user_id=self.user_id,
                 game_id=game_id,
                 symbol=self.stock_pick,
@@ -427,14 +427,14 @@ class TestSinglePlayerLogic(BaseTestCase):
         # these assets are specific to the user
         for prefix in [CURRENT_BALANCES_PREFIX, PENDING_ORDERS_PREFIX, FULFILLED_ORDER_PREFIX, BALANCES_CHART_PREFIX,
                        ORDER_PERF_CHART_PREFIX]:
-            self.assertIn(f"{prefix}_{game_id}_{user_id}", s3_cache.keys())
+            self.assertIn(f"{game_id}/{user_id}/{prefix}", s3_cache.keys())
 
         # these assets exist for both the user and the index users
         for _id in [user_id] + TRACKED_INDEXES:
-            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", rds.keys())
+            self.assertIn(f"{game_id}/{_id}/{SHARPE_RATIO_PREFIX}", rds.keys())
 
         # and check that the leaderboard exists on the game level
-        self.assertIn(f"{LEADERBOARD_PREFIX}_{game_id}", s3_cache.keys())
+        self.assertIn(f"{game_id}/{LEADERBOARD_PREFIX}", s3_cache.keys())
 
     @patch("backend.logic.base.time")
     @patch("backend.logic.games.time")
@@ -450,7 +450,7 @@ class TestSinglePlayerLogic(BaseTestCase):
         self.assertEqual(set([x["Symbol"] for x in fulfilled_orders_table["data"]]), {"NVDA", "NKE"})
 
         serialize_and_pack_order_performance_chart(game_id, user_id)
-        self.assertIn(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", s3_cache.keys())
+        self.assertIn(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", s3_cache.keys())
         op_chart = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart["datasets"]])
         expected_stocks = {"NKE", "NVDA"}

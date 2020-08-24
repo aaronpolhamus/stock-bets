@@ -703,5 +703,5 @@ class TestRedisCaching(TestCase):
         _ = get_trading_calendar(test_time, test_time)
         time2 = time.time() - start
 
-        self.assertLess(time2, time1)
+        self.assertLess(time2, time1 / 2)  # "2" is a hueristic for 'substantial performance improvement'
         self.assertIn("rc:get_trading_calendar", rds.keys()[0])

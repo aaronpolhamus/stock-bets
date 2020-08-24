@@ -349,7 +349,6 @@ class TestCreateGame(BaseTestCase):
         """
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
-        import ipdb;ipdb.set_trace()
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
@@ -487,9 +486,9 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # these assets update in real time
-        self.assertIsNotNone(s3_cache.get(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(s3_cache.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(s3_cache.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}"))
 
         trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
