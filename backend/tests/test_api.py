@@ -352,7 +352,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
-        side_bar_stats = s3_cache.unpack_s3_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
@@ -372,7 +372,7 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(len(init_open_orders_entry["headers"]), 9)
 
         serialize_and_pack_winners_table(game_id)
-        payouts_table = s3_cache.unpack_s3_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        payouts_table = s3_cache.unpack_s3_json(f"{game_id}/{PAYOUTS_PREFIX}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
         self.assertEqual(len(side_bet_payouts), game_duration // 7)
         # len(invitees) - 1 because one of the players declines the game

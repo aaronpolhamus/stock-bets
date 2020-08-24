@@ -199,7 +199,7 @@ def get_game_info(game_id: int):
     return info
 
 
-def get_active_game_user_ids(game_id):
+def get_active_game_user_ids(game_id: int):
     with engine.connect() as conn:
         result = conn.execute("""
             SELECT users FROM game_status 
@@ -208,7 +208,7 @@ def get_active_game_user_ids(game_id):
     return json.loads(result)
 
 
-def get_current_game_cash_balance(user_id, game_id):
+def get_current_game_cash_balance(user_id: int, game_id: int):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """

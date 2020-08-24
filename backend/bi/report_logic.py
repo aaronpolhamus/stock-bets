@@ -59,7 +59,7 @@ def make_games_per_user_data():
 def serialize_and_pack_games_per_user_chart():
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
-    s3_cache.set(f"{GAMES_PER_USER_PREFIX}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{GAMES_PER_USER_PREFIX}", json.dumps(chart_json))
 
 # average trading volume per active user
 # --------------------------------------
@@ -113,6 +113,6 @@ def serialize_and_pack_orders_per_active_user():
     df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df["series_label"] = "Orders per active user"
     chart_json = make_chart_json(df, "series_label", "orders_per_users", "timestamp")
-    s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
 
 
