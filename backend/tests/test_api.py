@@ -892,6 +892,7 @@ class TestPriceFetching(BaseTestCase):
 
     def test_api_price_fetching(self):
         reset_db()
+        rds.flushall()
         populate_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -904,17 +905,17 @@ class TestPriceFetching(BaseTestCase):
 
         # we only expect a database entry during trading hours
         if during_trading_day():
-            while "TSLA" not in s3_cache.keys():
+            while "TSLA" not in rds.keys():
                 continue
 
             with self.engine.connect() as conn:
-                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+                count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
 
-            self.assertIn("TSLA", s3_cache.keys())  # we expect to see a cached price entry no matter
+            self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
             self.assertEqual(count, 1)
         else:
             with self.engine.connect() as conn:
-                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+                count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
 
             self.assertNotIn("TSLA", s3_cache.keys())
             self.assertEqual(count, 0)

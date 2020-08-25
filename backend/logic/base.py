@@ -644,7 +644,7 @@ def update_index_value(symbol):
 
 
 def get_cache_price(symbol):
-    data = s3_cache.get(symbol)
+    data = rds.get(symbol)
     if data is None:
         return None, None
     return [float(x) for x in data.split("_")]
