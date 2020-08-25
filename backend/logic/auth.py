@@ -11,8 +11,8 @@ from backend.database.db import engine
 from backend.database.helpers import add_row, query_to_dict
 from backend.logic.base import standardize_email
 from backend.logic.friends import invite_friend, get_requester_ids_from_email
-from config import Config
-from database.helpers import aws_client
+from backend.config import Config
+from backend.database.helpers import aws_client
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com", "charly@captec.io", "jsanchezcastillejos@gmail.com"]
 AVATAR_TEXT_COLOR = "FFFEF2"

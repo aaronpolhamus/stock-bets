@@ -1,3 +1,8 @@
+"""This module defines a redis-like interface to the /cache directory in our applications private bucket. The idea is
+to be able to use the key-value interface for storing mutable JSONs and other "semi-large" data structures in S3. Why
+not just use redis, then? you might ask. To avoid expensive elastic cache scaling when a much cheaper, and only
+marginally less performant implementation of S3 does the trick. The interfaces are designed to be swapable, so this
+decision is easily reversible in the future."""
 import json
 
 from backend.database.helpers import aws_client
