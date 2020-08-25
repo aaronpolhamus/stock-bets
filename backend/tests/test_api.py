@@ -506,9 +506,9 @@ class TestPlayGame(BaseTestCase):
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
-        balances_chart = s3_cache.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+        balances_chart = s3_cache.get(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}")
         while balances_chart is None:
-            balances_chart = s3_cache.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+            balances_chart = s3_cache.get(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}")
 
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})

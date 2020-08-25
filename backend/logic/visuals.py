@@ -705,6 +705,7 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
     df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
     df = add_market_prices_to_order_details(df)
     df = number_columns_to_currency(df, ["price", "clear_price_fulfilled", "Market price"])
+    import ipdb; ipdb.set_trace()
     df.fillna(NA_TEXT_SYMBOL, inplace=True)
     pack_fulfilled_orders(df, game_id, user_id)
     pack_pending_orders(df, game_id, user_id)
