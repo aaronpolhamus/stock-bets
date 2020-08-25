@@ -48,7 +48,7 @@ const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, u
       }
     })
 
-    // Update the chart with the corresponging colors according to the selectedUsers (the 0 is to avoid an animation everytime the data is changed)
+    // Update the chart with the corresponding colors according to the selectedUsers (the 0 is to avoid an animation every time the data is changed)
     fieldChartInstance.update(0)
   }
 

@@ -11,7 +11,7 @@ import {
 } from 'components/layout/Layout'
 import { GameSettings } from 'components/game/GameSettings'
 import { PendingGameParticipants } from 'components/game/PendingGameParticipants'
-import { Button, Form, Modal } from 'react-bootstrap'
+import { Button, Modal } from 'react-bootstrap'
 import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
@@ -45,15 +45,15 @@ const JoinGame = () => {
 
   const handleRespondInvite = async (choice) => {
     setDecision(choice)
-    if (gameInfo.stakes === 'real' && choice === 'joined') {
-      setShowPaypalModal(true)
-    } else {
-      await apiPost('respond_to_game_invite', {
-        game_id: gameId,
-        decision: choice
-      })
-      setShowConfirmationModal(true)
-    }
+    // if (gameInfo.stakes === 'real' && choice === 'joined') { // join game with real money commented out for now, but we definitely want to bring this back at some point.
+    //   setShowPaypalModal(true)
+    // } else {
+    await apiPost('respond_to_game_invite', {
+      game_id: gameId,
+      decision: choice
+    })
+    setShowConfirmationModal(true)
+    // }
   }
 
   const renderButtons = (status) => {
