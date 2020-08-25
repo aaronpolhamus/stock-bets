@@ -431,7 +431,7 @@ class TestSinglePlayerLogic(BaseTestCase):
 
         # these assets exist for both the user and the index users
         for _id in [user_id] + TRACKED_INDEXES:
-            self.assertIn(f"{game_id}/{_id}/{SHARPE_RATIO_PREFIX}", rds.keys())
+            self.assertIn(f"{SHARPE_RATIO_PREFIX}_{game_id}_{_id}", rds.keys())
 
         # and check that the leaderboard exists on the game level
         self.assertIn(f"{game_id}/{LEADERBOARD_PREFIX}", s3_cache.keys())
