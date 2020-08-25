@@ -12,9 +12,9 @@ from backend.logic.base import (
     datetime_to_posix,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE
+    TIMEZONE,
+    fetch_price
 )
-from backend.logic.base import fetch_price
 
 
 class TestStockDataLogic(unittest.TestCase):

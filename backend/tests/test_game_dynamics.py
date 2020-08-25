@@ -68,7 +68,9 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     init_order_details
 )
-from backend.tasks.redis import unpack_redis_json
+
+from backend.logic.metrics import check_if_payout_time
+from backend.tasks import s3_cache
 from backend.tests import BaseTestCase
 from freezegun import freeze_time
 
@@ -1058,7 +1060,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
         external_example_user_id2 = get_user_ids(["frederick2"])[0]
         respond_to_game_invite(game_1_id, external_example_user_id2, "joined", time.time())
 
-        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_1_id}")
+        field_chart = s3_cache.unpack_s3_json(f"{game_1_id}/{FIELD_CHART_PREFIX}")
         players = [x["label"] for x in field_chart["datasets"]]
         self.assertEqual(set(players), {'cheetos', 'jack', 'jadis', 'minion1', 'minion2', 'frederick', 'frederick2'})
 

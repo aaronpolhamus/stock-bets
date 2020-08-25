@@ -5,8 +5,8 @@ import time
 from backend.database.db import engine
 from backend.logic.base import posix_to_datetime
 from backend.logic.visuals import make_chart_json, DATE_LABEL_FORMAT
-from backend.tasks.redis import rds, DEFAULT_ASSET_EXPIRATION
-
+from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION
+from backend.tasks import s3_cache
 
 GAMES_PER_USER_PREFIX = "game_per_user"
 ORDERS_PER_ACTIVE_USER_PREFIX = "orders_per_active_user"
@@ -59,7 +59,7 @@ def make_games_per_user_data():
 def serialize_and_pack_games_per_user_chart():
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
-    rds.set(f"{GAMES_PER_USER_PREFIX}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{GAMES_PER_USER_PREFIX}", json.dumps(chart_json))
 
 # average trading volume per active user
 # --------------------------------------
@@ -113,4 +113,6 @@ def serialize_and_pack_orders_per_active_user():
     df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df["series_label"] = "Orders per active user"
     chart_json = make_chart_json(df, "series_label", "orders_per_users", "timestamp")
-    rds.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
+
+

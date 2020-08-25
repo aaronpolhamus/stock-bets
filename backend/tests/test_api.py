@@ -58,7 +58,9 @@ from backend.tasks.redis import (
     rds,
     unpack_redis_json
 )
+
 from backend.tests import BaseTestCase
+from tasks import s3_cache
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -350,27 +352,27 @@ class TestCreateGame(BaseTestCase):
         self.assertEqual(player_cash_balances.shape, (3, 8))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
-        side_bar_stats = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+        side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
-        current_balances_keys = [x for x in rds.keys() if CURRENT_BALANCES_PREFIX in x]
+        current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
-        init_balances_entry = unpack_redis_json(current_balances_keys[0])
+        init_balances_entry = s3_cache.unpack_s3_json(current_balances_keys[0])
         self.assertEqual(init_balances_entry["data"], [])
         self.assertEqual(len(init_balances_entry["headers"]), 8)
 
-        open_orders_keys = [x for x in rds.keys() if PENDING_ORDERS_PREFIX in x]
+        open_orders_keys = [x for x in s3_cache.keys() if PENDING_ORDERS_PREFIX in x]
         self.assertEqual(len(open_orders_keys), 3)
-        init_open_orders_entry = unpack_redis_json(open_orders_keys[0])
-        init_fulfilled_orders_entry = unpack_redis_json(open_orders_keys[0])
+        init_open_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
+        init_fulfilled_orders_entry = s3_cache.unpack_s3_json(open_orders_keys[0])
         self.assertEqual(init_open_orders_entry["data"], [])
         self.assertEqual(init_fulfilled_orders_entry["data"], [])
         self.assertEqual(len(init_open_orders_entry["headers"]), 9)
 
         serialize_and_pack_winners_table(game_id)
-        payouts_table = unpack_redis_json(f"{PAYOUTS_PREFIX}_{game_id}")
+        payouts_table = s3_cache.unpack_s3_json(f"{game_id}/{PAYOUTS_PREFIX}")
         side_bet_payouts = [entry for entry in payouts_table["data"] if entry["Type"] == "Sidebet"]
         self.assertEqual(len(side_bet_payouts), game_duration // 7)
         # len(invitees) - 1 because one of the players declines the game
@@ -484,9 +486,9 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         # these assets update in real time
-        self.assertIsNotNone(rds.get(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(rds.get(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}"))
-        self.assertIsNotNone(rds.get(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}"))
+        self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}"))
 
         trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
@@ -504,9 +506,9 @@ class TestPlayGame(BaseTestCase):
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertIn(stock_pick, stocks_in_table_response)
 
-        balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+        balances_chart = s3_cache.get(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}")
         while balances_chart is None:
-            balances_chart = rds.get(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}")
+            balances_chart = s3_cache.get(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}")
 
         res = self.requests_session.post(f"{HOST_URL}/get_balances_chart", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -808,7 +810,7 @@ class TestHomePage(BaseTestCase):
         API and how that impacts the database.
         """
         #
-        rds.flushall()
+        s3_cache.flushall()
         reset_db()
         populate_table("users")
         populate_table("symbols")
@@ -890,6 +892,7 @@ class TestPriceFetching(BaseTestCase):
 
     def test_api_price_fetching(self):
         reset_db()
+        rds.flushall()
         populate_table("users")
 
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
@@ -906,13 +909,13 @@ class TestPriceFetching(BaseTestCase):
                 continue
 
             with self.engine.connect() as conn:
-                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+                count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
 
             self.assertIn("TSLA", rds.keys())  # we expect to see a cached price entry no matter
             self.assertEqual(count, 1)
         else:
             with self.engine.connect() as conn:
-                count = conn.execute("SELECT COUNT(*) FROM main.prices;").fetchone()[0]
+                count = conn.execute("SELECT COUNT(*) FROM prices;").fetchone()[0]
 
-            self.assertNotIn("TSLA", rds.keys())
+            self.assertNotIn("TSLA", s3_cache.keys())
             self.assertEqual(count, 0)

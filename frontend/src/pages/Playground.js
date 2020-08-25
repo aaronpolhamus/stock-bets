@@ -72,7 +72,7 @@ const Playground = () => {
                       <strong>
                         {`$${totalPrice}`}
                       </strong>
-                      <br/>
+                      <br />
                       <span
                         style={{
                           color: 'var(--color-text-gray)'

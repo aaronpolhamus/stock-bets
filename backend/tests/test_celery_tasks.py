@@ -51,6 +51,7 @@ from backend.tasks.redis import (
 from backend.tests import BaseTestCase
 from database.db import engine
 from logic.visuals import calculate_and_pack_game_metrics
+from tasks import s3_cache
 
 
 def mock_send_invite_email(_requester_id, _email):
@@ -127,7 +128,7 @@ class TestStockDataTasks(BaseTestCase):
             df = pd.read_sql("SELECT * FROM indexes;", conn)
 
         iteration = 0
-        while df.shape != (3, 4) and iteration < 30:
+        while df.shape != (3, 4) and iteration < 120:
             time.sleep(1)
             with self.engine.connect() as conn:
                 df = pd.read_sql("SELECT * FROM indexes;", conn)
@@ -675,7 +676,7 @@ class TestTaskLocking(TestCase):
     def test_task_locking(self):
         """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
         this to happen because it can result in an order being cleared multiple times"""
-        rds.flushall()
+        s3_cache.flushall()
         res1 = async_test_task_lock.delay(3)
         res2 = async_test_task_lock.delay(5)
         self.assertFalse(res1.ready())
@@ -702,5 +703,5 @@ class TestRedisCaching(TestCase):
         _ = get_trading_calendar(test_time, test_time)
         time2 = time.time() - start
 
-        self.assertLess(time2, time1 / 4)  # "4" is a hueristic for 'substantial performance improvement'
+        self.assertLess(time2, time1 / 2)  # "2" is a hueristic for 'substantial performance improvement'
         self.assertIn("rc:get_trading_calendar", rds.keys()[0])

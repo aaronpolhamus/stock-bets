@@ -15,6 +15,7 @@ import pandas_market_calendars as mcal
 import pytz
 import requests
 from backend.config import Config
+from backend.database.db import engine
 from backend.database.helpers import (
     query_to_dict,
     add_row,
@@ -30,12 +31,13 @@ from backend.tasks.redis import (
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
-from database.db import engine
 from pandas.tseries.offsets import DateOffset
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+
+from tasks import s3_cache
 
 USD_FORMAT = "${:,.2f}"
 
@@ -71,6 +73,7 @@ def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]
     if res:
         return [x[0] for x in res]
     return []
+
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -196,7 +199,7 @@ def get_game_info(game_id: int):
     return info
 
 
-def get_active_game_user_ids(game_id):
+def get_active_game_user_ids(game_id: int):
     with engine.connect() as conn:
         result = conn.execute("""
             SELECT users FROM game_status 
@@ -205,7 +208,7 @@ def get_active_game_user_ids(game_id):
     return json.loads(result)
 
 
-def get_current_game_cash_balance(user_id, game_id):
+def get_current_game_cash_balance(user_id: int, game_id: int):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
@@ -550,8 +553,9 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
 
-# Price and stock data harvesting tools
-# -------------------------------------
+# ------------------------------------- #
+# Price and stock data harvesting tools #
+# ------------------------------------- #
 
 
 class SeleniumDriverError(Exception):
@@ -566,7 +570,7 @@ def currency_string_to_float(money_string):
     return money_string
 
 
-def get_web_table_object():
+def get_web_driver():
     print("starting selenium web driver...")
     options = webdriver.ChromeOptions()
     options.add_argument('--headless')
@@ -584,7 +588,7 @@ def extract_row_data(row):
 
 
 def get_symbols_table(n_rows=None, timeout=20):
-    driver = get_web_table_object()
+    driver = get_web_driver()
     driver.get(Config.SYMBOLS_TABLE_URL)
     table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
     rows = table.find_elements_by_tag_name("tr")
@@ -605,9 +609,9 @@ def get_symbols_table(n_rows=None, timeout=20):
     return pd.DataFrame(row_list)
 
 
-def get_index_value(symbol, timeout=20):
+def get_index_value(symbol, timeout=120):
     quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
-    driver = get_web_table_object()
+    driver = get_web_driver()
     driver.get(quote_url)
     header = WebDriverWait(driver, timeout).until(
         EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
@@ -720,9 +724,8 @@ def check_single_player_mode(game_id: int) -> bool:
     return game_mode[0] == "single_player"
 
 
-# -------------------------------------------------- #
-# Methods for handling indexes in single-player mode #
-# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode
+# --------------------------------------------------
 
 
 def get_index_reference(game_id: int, symbol: str) -> float:
