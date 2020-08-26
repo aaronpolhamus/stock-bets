@@ -21,11 +21,12 @@ from backend.logic.games import get_invite_list_by_status
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from backend.tests.test_api import HOST_URL
+from tasks import s3_cache
 
 if __name__ == '__main__':
     btc = BaseTestCase()
     btc.setUp()
-    rds.flushall()
+    s3_cache.flushall()
     reset_db()
     populate_table("users")
     populate_table("symbols")

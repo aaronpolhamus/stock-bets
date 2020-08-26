@@ -112,6 +112,7 @@ api-up:
 	docker-compose up -d api
 	./backend/docker/await-db.sh
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
 api-logs:
