@@ -3,22 +3,17 @@ as we build out the logic library.
 """
 import calendar
 import json
-import sys
 import time
 from datetime import datetime as dt, timedelta
-from re import sub
 from typing import List, Union
 
 import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 import pytz
-import requests
-from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import (
     query_to_dict,
-    add_row,
     read_table_cache,
     write_table_cache
 )
@@ -27,33 +22,25 @@ from backend.logic.schemas import (
     balances_and_prices_table_schema
 )
 from backend.tasks.redis import (
-    rds,
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
 from pandas.tseries.offsets import DateOffset
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-
-USD_FORMAT = "${:,.2f}"
 
 # -------- #
 # Defaults #
 # -------- #
 
-TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
+USD_FORMAT = "${:,.2f}"
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
-IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
-IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
+SECONDS_IN_A_DAY = 60 * 60 * 24
+TIMEZONE = 'America/New_York'
+RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 
 # --------------------------------- #
 # Managing time and trade schedules #
 # --------------------------------- #
-SECONDS_IN_A_DAY = 60 * 60 * 24
-TIMEZONE = 'America/New_York'
-RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
+
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 
@@ -338,8 +325,9 @@ def get_all_game_usernames(game_id: int):
 # --------- #
 
 
-def get_user_information(user_id):
-    return query_to_dict("SELECT name, email, profile_pic, username, created_at FROM users WHERE id = %s", user_id)[0]
+def get_user_information(user_id: int):
+    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
+    return query_to_dict(sql, user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
@@ -562,114 +550,6 @@ class SeleniumDriverError(Exception):
         return "It looks like the selenium web driver failed to instantiate properly"
 
 
-def currency_string_to_float(money_string):
-    if type(money_string) == str:
-        return float(sub(r'[^\d.]', '', money_string))
-    return money_string
-
-
-def get_web_driver():
-    print("starting selenium web driver...")
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(options=options)
-
-
-def extract_row_data(row):
-    list_entry = dict()
-    split_entry = row.text.split(" ")
-    list_entry["symbol"] = split_entry[0]
-    list_entry["name"] = " ".join(split_entry[2:])
-    return list_entry
-
-
-def get_symbols_table(n_rows=None, timeout=20):
-    driver = get_web_driver()
-    driver.get(Config.SYMBOLS_TABLE_URL)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
-    rows = table.find_elements_by_tag_name("tr")
-    row_list = list()
-    n = len(rows)
-    print(f"extracting available {n} rows of symbols data...")
-    for i, row in enumerate(rows):
-        list_entry = extract_row_data(row)
-        if list_entry["symbol"] == "Symbol":
-            continue
-        row_list.append(list_entry)
-        sys.stdout.write(f"\r{i} / {n} rows")
-        sys.stdout.flush()
-        if n_rows and len(row_list) == n_rows:
-            # just here for low-cost testing
-            break
-
-    return pd.DataFrame(row_list)
-
-
-def get_index_value(symbol, timeout=120):
-    quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
-    driver = get_web_driver()
-    driver.get(quote_url)
-    header = WebDriverWait(driver, timeout).until(
-        EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
-    return currency_string_to_float(header.text)
-
-
-def update_index_value(symbol):
-    value = get_index_value(symbol)
-    if during_trading_day():
-        add_row("indexes", symbol=symbol, value=value, timestamp=time.time())
-        return True
-
-    # a bit of logic to get the close of day price
-    with engine.connect() as conn:
-        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", symbol).fetchone()[0]
-        if max_time is None:
-            max_time = 0
-
-    ref_day = time.time()
-    eod = get_end_of_last_trading_day(ref_day)
-    while eod > ref_day:
-        ref_day -= SECONDS_IN_A_DAY
-        eod = get_end_of_last_trading_day(ref_day)
-
-    if max_time < eod <= time.time():
-        add_row("indexes", symbol=symbol, value=value, timestamp=eod)
-        return True
-
-    return False
-
-
-def get_cache_price(symbol):
-    data = rds.get(symbol)
-    if data is None:
-        return None, None
-    return [float(x) for x in data.split("_")]
-
-
-def fetch_price_iex(symbol):
-    secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
-    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
-    res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
-    if res.status_code == 200:
-        quote = res.json()
-        timestamp = quote["latestUpdate"] / 1000
-        if Config.IEX_API_PRODUCTION is False:
-            timestamp = time.time()
-        price = quote["latestPrice"]
-        return price, timestamp
-
-
-def fetch_price(symbol, provider="iex"):
-    if provider == "iex":
-        return fetch_price_iex(symbol)
-
-
-def set_cache_price(symbol, price, timestamp):
-    rds.set(symbol, f"{price}_{timestamp}")
-
-
 def get_all_active_symbols():
     with engine.connect() as conn:
         result = conn.execute("""
@@ -690,9 +570,9 @@ def get_active_balances(game_id: int, user_id: int):
     """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
     """
     sql = """
-        SELECT symbol, balance, os.timestamp, clear_price
+        SELECT g.symbol, g.balance, g.timestamp, os.clear_price
         FROM order_status os
-        INNER JOIN
+        RIGHT JOIN
         (
           SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
           FROM game_balances gb
@@ -707,9 +587,8 @@ def get_active_balances(game_id: int, user_id: int):
           ON
             gb.id = grouped_gb.max_id
           WHERE balance > 0
-        ) balances
-        WHERE balances.order_status_id = os.id;
-    """
+        ) g
+        ON g.order_status_id = os.id;"""
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 
@@ -770,3 +649,4 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+

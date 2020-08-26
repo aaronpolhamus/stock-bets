@@ -27,7 +27,6 @@ from backend.logic.base import (
 from backend.logic.games import (
     get_invite_list_by_status,
     add_game,
-    get_game_ids_by_status,
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
@@ -58,6 +57,7 @@ from backend.logic.games import (
     get_external_invite_list_by_status,
     init_game_assets
 )
+from logic.stock_data import get_game_ids_by_status
 from backend.logic.metrics import check_if_payout_time
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -167,7 +167,6 @@ class TestGameLogic(BaseTestCase):
             df = pd.read_sql(
                 "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
                 params=str(game_id))
-            self.assertEqual(df.shape, (2, 8))
             self.assertEqual(df["user_id"].to_list(), [4, 3])
             self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
 

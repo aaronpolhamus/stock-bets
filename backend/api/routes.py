@@ -30,11 +30,11 @@ from backend.logic.base import (
     get_user_ids,
     get_game_info,
     get_pending_buy_order_value,
-    fetch_price,
     get_user_information,
     standardize_email,
     USD_FORMAT
 )
+from logic.stock_data import fetch_price
 from backend.logic.friends import (
     get_friend_invites_list,
     suggest_friends,

@@ -25,8 +25,8 @@ from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
     USD_FORMAT,
-    during_trading_day,
-    fetch_price)
+    during_trading_day)
+from backend.logic.stock_data import fetch_price
 from backend.logic.games import (
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
@@ -349,7 +349,7 @@ class TestCreateGame(BaseTestCase):
         """
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
-        self.assertEqual(player_cash_balances.shape, (3, 8))
+        self.assertEqual(player_cash_balances.shape, (3, 9))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")

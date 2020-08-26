@@ -8,12 +8,12 @@ from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     get_active_game_user_ids,
     SECONDS_IN_A_DAY,
-    fetch_price,
     get_end_of_last_trading_day,
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.friends import (
     suggest_friends,
     get_friend_invites_list,
