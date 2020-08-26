@@ -167,7 +167,6 @@ class TestGameLogic(BaseTestCase):
             df = pd.read_sql(
                 "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
                 params=str(game_id))
-            self.assertEqual(df.shape, (2, 8))
             self.assertEqual(df["user_id"].to_list(), [4, 3])
             self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
 

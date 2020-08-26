@@ -326,7 +326,8 @@ def get_all_game_usernames(game_id: int):
 
 
 def get_user_information(user_id: int):
-    return query_to_dict("SELECT name, email, profile_pic, username, created_at FROM users WHERE id = %s", user_id)[0]
+    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
+    return query_to_dict(sql, user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
