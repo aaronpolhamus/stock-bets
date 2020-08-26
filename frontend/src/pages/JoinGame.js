@@ -16,7 +16,7 @@ import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
 import { InviteMoreFriends } from 'components/forms/InviteMoreFriends'
-import { Loader } from '../components/Loader'
+import { Loader } from 'components/Loader'
 
 const JoinGame = () => {
   const { gameId } = useParams()

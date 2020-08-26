@@ -55,14 +55,12 @@ from backend.logic.schemas import (
 )
 
 from backend.tasks import s3_cache
-from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION, rds
-from backend.tasks import s3_cache
+from backend.tasks.redis import rds
 
-# -------------------------------- #
-# Prefixes for redis caching layer #
-# -------------------------------- #
-from tasks import s3_cache
-from tasks.redis import DEFAULT_ASSET_EXPIRATION
+# --------------------------------------- #
+# Prefixes for asset caches caching layer #
+# --------------------------------------- #
+
 
 CURRENT_BALANCES_PREFIX = "current_balances"
 LEADERBOARD_PREFIX = "leaderboard"

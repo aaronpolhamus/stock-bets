@@ -37,8 +37,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-from tasks import s3_cache
-
 USD_FORMAT = "${:,.2f}"
 
 # -------- #
@@ -341,7 +339,7 @@ def get_all_game_usernames(game_id: int):
 
 
 def get_user_information(user_id):
-    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
+    return query_to_dict("SELECT name, email, profile_pic, username, created_at FROM users WHERE id = %s", user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
