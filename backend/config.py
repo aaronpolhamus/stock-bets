@@ -9,10 +9,12 @@ class Config:
         CORS_ORIGINS = "http://localhost:3000"
         PAYPAL_URL = "https://api.sandbox.paypal.com"
         PAYPAL_TEST_USER_ID = getenv("PAYPAL_TEST_USER_ID")
+        IEX_API_URL = "https://sandbox.iexapis.com/"
 
     if ENV == "prod":
         CORS_ORIGINS = "https://app.stockbets.io"
         PAYPAL_URL = "https://api.paypal.com"
+        IEX_API_URL = "https://cloud.iexapis.com/"
 
     # External dependencies:
     # ----------------------
@@ -71,9 +73,7 @@ class Config:
 
     # Data harvesting
     # ---------------
-    IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
-    IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
-    IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
+    IEX_API_SECRET = getenv("IEX_API_SECRET")
 
     # S3 Credentials
     # --------------

@@ -9,7 +9,6 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `TEST_CASE_EMAIL` (you@example.com): Same as above for the uuid: you should define these right next to each other in your dev `.env` file.  
   - `TEST_CASE_NAME` (string): How would you like your username to show up while developing locally?
   - `GECKO_DRIVER_LOCATION` (string): The url for downloading the Mozilla gecko driver in case Selenium needs to fallback from using Chromium. This is generally not going to be required for development.
-  - `IEX_API_PRODUCTION` (True/False): Always False for development! Otherwise you'll consume paid price data from IEX when developing locally.
   - `IEX_API_SECRET_PROD` (string): IEX production API secret
   - `IEX_API_SECRET_SANDBOX` (string): IEX sandbox API secret
   - `SENDGRID_API_KEY` (string): SENDGRID API to send emails 
@@ -93,5 +92,4 @@ When asking yourself "where do I put this piece of business logic?" the answer i
 * `RABBITMQ_HOST`
 * `REDIS_HOST`
 * `GECKO_DRIVER_LOCATION`
-* `IEX_API_PRODUCTION` (should be equal to `True`)
 * `IEX_API_SECRET_PROD`

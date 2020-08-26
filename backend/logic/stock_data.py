@@ -3,7 +3,6 @@ import time
 from re import sub
 from typing import List
 
-from database.db import engine
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
@@ -25,8 +24,6 @@ from backend.logic.base import (
     get_current_game_cash_balance
 )
 
-IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
-IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
 
@@ -126,13 +123,11 @@ def get_cache_price(symbol):
 
 
 def fetch_price_iex(symbol):
-    secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
-    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
-    res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
+    res = requests.get(f"{Config.IEX_API_URL}/stable/stock/{symbol}/quote?token={Config.IEX_API_SECRET}")
     if res.status_code == 200:
         quote = res.json()
         timestamp = quote["latestUpdate"] / 1000
-        if Config.IEX_API_PRODUCTION is False:
+        if Config.ENV == "dev":
             timestamp = time.time()
         price = quote["latestPrice"]
         return price, timestamp

@@ -93,8 +93,9 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
 
     def test_harvest_stock_splits(self):
-        # the first part of this test makes sure the external integration works. asserting anything in particular is
-        # tricky, since the "right" answer depends completely on the day. We prefer to maintain the integration with the
-        # external resource, rather than to artificially mock it. This test will behave differently on days when there
-        # are no stock splits for one or more of the targeted resources
+        """the first part of this test makes sure the external integration works. asserting anything in particular is
+        tricky, since the "right" answer depends completely on the day. We prefer to maintain the integration with the
+        external resource, rather than to artificially mock it. This test will behave differently on days when there
+        are no stock splits for one or more of the targeted resources"""
+
         get_stock_splits()
