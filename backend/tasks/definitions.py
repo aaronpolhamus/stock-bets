@@ -104,9 +104,10 @@ def async_service_one_open_game(self, game_id):
 @celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
 def async_apply_stock_splits(self):
     splits = get_stock_splits()
-    with engine.connect() as conn:
-        splits.to_sql("stock_splits", conn, if_exists="append", index=False)
-    apply_stock_splits(splits)
+    if not splits.empty:
+        with engine.connect() as conn:
+            splits.to_sql("stock_splits", conn, if_exists="append", index=False)
+        apply_stock_splits(splits)
 
 
 # ---------------- #
