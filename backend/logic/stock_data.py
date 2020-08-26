@@ -1,3 +1,4 @@
+from datetime import datetime as dt
 import sys
 import time
 from re import sub
@@ -145,16 +146,14 @@ def set_cache_price(symbol, price, timestamp):
 # harvest stock splits
 # --------------------
 
-def get_current_day_start_posix():
-    start_time = time.time()
-    start_time_dt = posix_to_datetime(start_time)
+def get_day_start(start_time_dt: dt):
     schedule = get_trading_calendar(start_time_dt, start_time_dt)
     if not schedule.empty:
         start_time, _ = get_schedule_start_and_end(schedule)
     return start_time
 
 
-def retrieve_nasdaq_splits(driver, timeout=30) -> pd.DataFrame:
+def retrieve_nasdaq_splits(driver, timeout=60) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
     table_xpath = "/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]/div[2]/table/tbody"
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
@@ -172,18 +171,20 @@ def retrieve_nasdaq_splits(driver, timeout=30) -> pd.DataFrame:
 
 def parse_nasdaq_splits(df: pd.DataFrame):
     num_cols = ["denominator", "numerator"]
-    current_date = posix_to_datetime(time.time()).date()
+    current_datetime = posix_to_datetime(time.time(), timezone="UTC")  # because selenium defaults to UTC
+    current_date = current_datetime.date()
     df["executionDate"] = pd.to_datetime(df["executionDate"])
     df = df[df["executionDate"].dt.date == current_date]
     df = df[df["ratio"].str.contains(":")]  # sometimes the calendar encodes splits as %. We don't handle this for now
     if not df.empty:
         df[num_cols] = df["ratio"].str.split(" : ", expand=True)
         df[num_cols] = df[num_cols].apply(pd.to_numeric)
-        df["exec_date"] = get_current_day_start_posix()
-    return df[num_cols + ["symbol", "exec_date"]]
+        df["exec_date"] = get_day_start(current_datetime)
+        df = df[num_cols + ["symbol", "exec_date"]]
+    return df
 
 
-def retrieve_yahoo_splits(driver, timeout=120):
+def retrieve_yahoo_splits(driver, timeout=60):
     url = "https://finance.yahoo.com/calendar/splits"
     table_x_path = '//*[@id="cal-res-table"]/div[1]/table/tbody'
     label_names = ["Symbol", "Ratio"]
@@ -201,13 +202,14 @@ def retrieve_yahoo_splits(driver, timeout=120):
 
 
 def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
+    current_datetime = posix_to_datetime(time.time(), timezone="UTC")  # because selenium defaults to UTC
     num_cols = ["numerator", "denominator"]
     if excluded_symbols is None:
         excluded_symbols = []
     df = df[~df["symbol"].isin(excluded_symbols)]
     df[num_cols] = df["ratio"].str.split(" - ", expand=True)
     df[num_cols] = df[num_cols].apply(pd.to_numeric)
-    df["exec_date"] = get_current_day_start_posix()
+    df["exec_date"] = get_day_start(current_datetime)
     return df[["symbol", "exec_date"] + num_cols]
 
 
@@ -219,8 +221,6 @@ def get_stock_splits() -> pd.DataFrame:
     yahoo_raw_splits = retrieve_yahoo_splits(driver)
     yahoo_splits = parse_yahoo_splits(yahoo_raw_splits, nasdaq_symbols)
     return pd.concat([nasdaq_splits, yahoo_splits])
-    # with engine.connect() as conn:
-    #     splits_update.to_sql("stock_splits", conn, if_exists="append", index=False)
 
 
 def get_game_ids_by_status(status="active"):

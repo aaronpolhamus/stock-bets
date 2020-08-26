@@ -97,5 +97,4 @@ class TestStockDataLogic(unittest.TestCase):
         tricky, since the "right" answer depends completely on the day. We prefer to maintain the integration with the
         external resource, rather than to artificially mock it. This test will behave differently on days when there
         are no stock splits for one or more of the targeted resources"""
-
         get_stock_splits()
