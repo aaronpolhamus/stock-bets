@@ -148,6 +148,14 @@ class GameBalanceTypes(Enum):
     virtual_stock = "VirtualStock"
 
 
+class GameBalanceTransactionTypes(Enum):
+    stock_purchase = "StockPurchase"
+    stock_sale = "StockSale"
+    stock_dividend = "StockDividend"
+    stock_split = "StockSplit"
+    kickoff = "Kick-off"
+
+
 class GameBalances(db.Model):
     __tablename__ = "game_balances"
 
@@ -159,6 +167,7 @@ class GameBalances(db.Model):
     balance_type = db.Column(db.Enum(GameBalanceTypes))
     balance = db.Column(db.Float(precision=32))
     symbol = db.Column(db.Text)
+    transaction_type = db.Column(db.Enum(GameBalanceTransactionTypes))
 
 
 class Symbols(db.Model):
@@ -319,3 +328,13 @@ class Payments(db.Model):
     currency = db.Column(db.Enum(CurrencyTypes))
     direction = db.Column(db.Enum(PaymentDirection))
     timestamp = db.Column(db.Float(precision=32))
+
+
+class StockSplits(db.Model):
+    __tablename__ = "stock_splits"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    numerator = db.Column(db.Integer)
+    denominator = db.Column(db.Integer)
+    exec_date = db.Column(db.Float(precision=32))

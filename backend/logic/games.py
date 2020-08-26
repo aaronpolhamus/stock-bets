@@ -39,7 +39,6 @@ from backend.logic.base import (
     get_user_ids_from_passed_emails,
     get_user_ids
 )
-from backend.logic.stock_data import fetch_price
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
     email_game_invitation
@@ -48,6 +47,7 @@ from backend.logic.payments import (
     get_payment_profile_uuids,
     send_paypal_payment
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
     removing_pending_order,
     serialize_and_pack_portfolio_details,
@@ -303,7 +303,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=DEFAULT_VIRTUAL_CASH)
+                balance=DEFAULT_VIRTUAL_CASH, transaction_type="kickoff")
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
@@ -658,10 +658,13 @@ def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, c
     """This function books an order and updates a user's cash balance at the same time.
     """
     sign = 1 if buy_or_sell == "buy" else -1
+    ttype = "stock_purchase" if buy_or_sell == "buy" else "stock_sale"
     add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-            balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price)
+            balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price,
+            transaction_type=ttype)
     add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-            balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
+            balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol,
+            transaction_type=ttype)
 
 
 def place_order(user_id: int, game_id: int, symbol: str, buy_or_sell: str, cash_balance: float, current_holding: int,

@@ -569,9 +569,9 @@ def get_active_balances(game_id: int, user_id: int):
     """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
     """
     sql = """
-        SELECT symbol, balance, os.timestamp, clear_price
+        SELECT g.symbol, g.balance, g.timestamp, os.clear_price
         FROM order_status os
-        INNER JOIN
+        RIGHT JOIN
         (
           SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
           FROM game_balances gb
@@ -586,9 +586,8 @@ def get_active_balances(game_id: int, user_id: int):
           ON
             gb.id = grouped_gb.max_id
           WHERE balance > 0
-        ) balances
-        WHERE balances.order_status_id = os.id;
-    """
+        ) g
+        ON g.order_status_id = os.id;"""
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 

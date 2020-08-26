@@ -1,22 +1,29 @@
-from datetime import datetime as dt
 import time
 import unittest
+from datetime import datetime as dt
 from unittest.mock import patch
-import pytz
 
+import pandas as pd
+import pytz
+from backend.database.fixtures.mock_data import simulation_end_time
 from backend.logic.base import (
+    get_active_balances,
     get_trading_calendar,
     posix_to_datetime,
     during_trading_day,
     datetime_to_posix,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
-    TIMEZONE
+    TIMEZONE,
+    get_current_game_cash_balance
 )
 from backend.logic.stock_data import (
     fetch_price,
-    get_stock_splits
+    get_stock_splits,
+    apply_stock_splits,
+    get_most_recent_prices
 )
+from backend.tests import BaseTestCase
 
 
 class TestStockDataLogic(unittest.TestCase):
@@ -92,9 +99,48 @@ class TestStockDataLogic(unittest.TestCase):
         self.assertTrue(amzn_price > 0)
         self.assertTrue(posix_to_datetime(updated_at) > dt(2000, 1, 1).replace(tzinfo=pytz.utc))
 
-    def test_harvest_stock_splits(self):
+    def test_harvest_stock_splits_external_integration(self):
         """the first part of this test makes sure the external integration works. asserting anything in particular is
         tricky, since the "right" answer depends completely on the day. We prefer to maintain the integration with the
         external resource, rather than to artificially mock it. This test will behave differently on days when there
         are no stock splits for one or more of the targeted resources"""
         get_stock_splits()
+
+
+class TestStockSplitsInternal(BaseTestCase):
+
+    def test_internal_splits_logic(self):
+        """test_harvest_stock_splits_external_integration ensures that our external integration is working. this test
+        verifies that once we have splits they are appropriately applied to users balances. we'll cover a straight-
+        forward split, a split that leaves fractional shares, and a reverse split that leaves fractional shares"""
+        game_id = 3
+        user_id = 1
+        exec_date = simulation_end_time + 1
+        splits = pd.DataFrame([
+            {"symbol": "AMZN", "numerator": 5, "denominator": 1, "exec_date": exec_date},
+            {"symbol": "TSLA", "numerator": 5, "denominator": 2, "exec_date": exec_date},
+            {"symbol": "SPXU", "numerator": 2.22, "denominator": 3.45, "exec_date": exec_date},
+        ])
+        cash_balance_pre = get_current_game_cash_balance(user_id, game_id)
+        balances_pre = get_active_balances(game_id, user_id)
+        apply_stock_splits(splits)
+        cash_balance_post = get_current_game_cash_balance(user_id, game_id)
+        balances_post = get_active_balances(game_id, user_id)
+
+        pre_amzn = balances_pre[balances_pre["symbol"] == "AMZN"].iloc[0]["balance"]
+        post_amzn = balances_post[balances_post["symbol"] == "AMZN"].iloc[0]["balance"]
+        self.assertEqual(pre_amzn * 5 / 1, post_amzn)
+
+        pre_tsla = balances_pre[balances_pre["symbol"] == "TSLA"].iloc[0]["balance"]
+        post_tsla = balances_post[balances_post["symbol"] == "TSLA"].iloc[0]["balance"]
+        self.assertEqual(pre_tsla * 5 // 2, post_tsla)
+
+        pre_spxu = balances_pre[balances_pre["symbol"] == "SPXU"].iloc[0]["balance"]
+        post_spxu = balances_post[balances_post["symbol"] == "SPXU"].iloc[0]["balance"]
+        self.assertEqual(pre_spxu * 2.22 // 3.45, post_spxu)
+
+        last_prices = get_most_recent_prices(["AMZN", "TSLA", "SPXU"])
+        last_tsla_price = last_prices[last_prices["symbol"] == "TSLA"].iloc[0]["price"]
+        last_spxu_price = last_prices[last_prices["symbol"] == "SPXU"].iloc[0]["price"]
+        self.assertAlmostEqual(cash_balance_pre + (pre_tsla * 5 / 2 - post_tsla) * last_tsla_price + (
+                    pre_spxu * 2.22 / 3.45 - post_spxu) * last_spxu_price, cash_balance_post, 3)

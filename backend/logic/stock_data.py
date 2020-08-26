@@ -265,7 +265,7 @@ def get_most_recent_prices(symbols: List):
 def apply_stock_splits(splits: pd.DataFrame):
     # get active games and symbols
     active_ids = get_game_ids_by_status()
-    last_prices = get_most_recent_prices(splits["symbols"].to_list())
+    last_prices = get_most_recent_prices(splits["symbol"].to_list())
     for i, row in splits.iterrows():
         symbol = row["symbol"]
         numerator = row["numerator"]
@@ -273,11 +273,14 @@ def apply_stock_splits(splits: pd.DataFrame):
         exec_date = row["exec_date"]
         with engine.connect() as conn:
             df = pd.read_sql(f"""
-              SELECT * FROM game_balances g
+              SELECT user_id, game_id, balance_type, balance, symbol FROM game_balances g
               INNER JOIN (
                 SELECT MAX(id) as max_id
                 FROM game_balances
-                WHERE symbol = %s AND game_id IN ({', '.join(['%s'] * len(active_ids))})
+                WHERE 
+                  symbol = %s AND
+                  game_id IN ({', '.join(['%s'] * len(active_ids))}) AND
+                  balance > 0
                 GROUP BY game_id, user_id
               ) grouped_db
               ON grouped_db.max_id = g.id
@@ -292,9 +295,9 @@ def apply_stock_splits(splits: pd.DataFrame):
         df["fractional_balance"] -= df["balance"]
 
         # identify any fractional shares that need to be converted to cash
-        mask = df["fractional_balance"] - df["balance"] > 0
+        mask = df["fractional_balance"] > 0
         fractional_df = df[mask]
-        last_price = last_prices.loc[last_prices["symbol"] == symbol, "price"]
+        last_price = float(last_prices.loc[last_prices["symbol"] == symbol, "price"].iloc[0])
         for _, fractional_row in fractional_df.iterrows():
             game_id = fractional_row["game_id"]
             user_id = fractional_row["user_id"]
@@ -304,7 +307,7 @@ def apply_stock_splits(splits: pd.DataFrame):
                     game_id=game_id,
                     timestamp=exec_date,
                     balance_type="virtual_cash",
-                    balance=cash_balance + row["fractional_balance"] * last_price,
+                    balance=cash_balance + fractional_row["fractional_balance"] * last_price,
                     transaction_type="stock_split")
 
         # write updated balances
