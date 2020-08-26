@@ -152,20 +152,14 @@ def async_process_all_open_orders(self):
 
 
 @celery.task(name="async_update_all_games", bind=True, base=BaseTask)
-def async_update_all_games(self):
+def async_update_all_games(self, start_time=None, end_time=None):
     active_ids = get_game_ids_by_status()
     for game_id in active_ids:
-        async_update_game_data.delay(game_id)
+        trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
     finished_ids = get_game_ids_by_status("finished")
     for game_id in finished_ids:
         expire_finished_game(game_id)
-
-
-@celery.task(name="async_update_game_data", bind=True, base=BaseTask)
-@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_TIMEOUT)
-def async_update_game_data(self, game_id, start_time=None, end_time=None):
-    trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
 
 # ----------- #
