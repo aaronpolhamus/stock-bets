@@ -29,12 +29,20 @@ from backend.logic.base import (
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
 
+class SeleniumDriverError(Exception):
+
+    def __str__(self):
+        return "It looks like the selenium web driver failed to instantiate properly"
+
+
 def get_web_driver(web_driver="chrome"):
     print("starting selenium web driver...")
     if web_driver == "chrome":
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
+        options.add_argument("--privileged")
+        options.add_argument("--disable-gpu")
         options.add_argument("--disable-dev-shm-usage")
         driver = webdriver.Chrome(options=options)
 
@@ -61,7 +69,7 @@ def extract_row_data(row):
     return list_entry
 
 
-def get_symbols_table(n_rows=None, timeout=20):
+def get_symbols_table(n_rows=None, timeout=60):
     driver = get_web_driver()
     driver.get(Config.SYMBOLS_TABLE_URL)
     table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
@@ -155,7 +163,7 @@ def get_day_start(start_time_dt: dt):
     return start_time
 
 
-def retrieve_nasdaq_splits(driver, timeout=60) -> pd.DataFrame:
+def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
     table_xpath = "/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]/div[2]/table/tbody"
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
@@ -186,7 +194,7 @@ def parse_nasdaq_splits(df: pd.DataFrame):
     return df
 
 
-def retrieve_yahoo_splits(driver, timeout=60):
+def retrieve_yahoo_splits(driver, timeout=45):
     url = "https://finance.yahoo.com/calendar/splits"
     table_x_path = '//*[@id="cal-res-table"]/div[1]/table/tbody'
     label_names = ["Symbol", "Ratio"]

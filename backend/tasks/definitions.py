@@ -4,7 +4,6 @@ from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
     during_trading_day,
-    SeleniumDriverError,
     get_all_active_symbols
 )
 from logic.stock_data import (
@@ -15,7 +14,10 @@ from logic.stock_data import (
     set_cache_price,
     get_stock_splits,
     apply_stock_splits,
-    TRACKED_INDEXES, get_game_ids_by_status)
+    TRACKED_INDEXES,
+    get_game_ids_by_status,
+    SeleniumDriverError
+)
 from backend.logic.games import (
     get_all_open_orders,
     process_order,
@@ -115,7 +117,7 @@ def async_apply_stock_splits(self):
 # ---------------- #
 
 
-@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=BaseTask)
+@celery.task(name="async_update_symbols_table", bind=True, base=BaseTask)
 def async_update_symbols_table(self, n_rows=None):
     symbols_table = get_symbols_table(n_rows)
     if symbols_table.empty:

@@ -1,7 +1,7 @@
 import celery
 from backend.config import Config
 from backend.logic.base import TIMEZONE
-from logic.base import SeleniumDriverError
+from logic.stock_data import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
 from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
@@ -15,7 +15,7 @@ PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
 # retry the tasks
 RESULT_EXPIRE_TIME = 60 * 60 * 4  # keep tasks around for four hours
 DEFAULT_RETRY_DELAY = 3  # (seconds)
-MAX_RETRIES = 10
+MAX_RETRIES = 5
 RETRY_INVENTORY = (
     PyMySQLOpError,
     SQLAOpError,
@@ -36,8 +36,6 @@ celery = celery.Celery('tasks',
 
 
 class BaseTask(celery.Task):
-    """An abstract Celery Task that ensures that the connection the the database is closed on task completion. Every
-    task that interacts with the DB should use this class as a base"""
     abstract = True
     autoretry_for = RETRY_INVENTORY
     default_retry_delay = DEFAULT_RETRY_DELAY

@@ -755,6 +755,19 @@ def api_games_per_users():
 def api_orders_per_active_user():
     return jsonify(s3_cache.unpack_s3_json(ORDERS_PER_ACTIVE_USER_PREFIX))
 
+
+@routes.route("/api/change_user", methods=["POST"])
+@authenticate
+@admin
+def change_user():
+    username = request.json.get("username")
+    entry = query_to_dict("SELECT * FROM users WHERE username = %s", username)[0]
+    session_token = make_session_token_from_uuid(resource_uuid=entry["resource_uuid"])
+    resp = make_response()
+    resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
+    return resp
+
+
 # ------ #
 # DevOps #
 # ------ #

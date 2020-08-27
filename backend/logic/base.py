@@ -544,12 +544,6 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
 # ------------------------------------- #
 
 
-class SeleniumDriverError(Exception):
-
-    def __str__(self):
-        return "It looks like the selenium web driver failed to instantiate properly"
-
-
 def get_all_active_symbols():
     with engine.connect() as conn:
         result = conn.execute("""
