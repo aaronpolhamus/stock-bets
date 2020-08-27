@@ -66,6 +66,8 @@ const FormattableTable = (props) => {
 
   const createResponsiveStyles = () => {
     let styles = ''
+    console.log(`props: ${props.showColumns}`)
+    console.log(`tableData: ${tableData}`)
     if (props.showColumns && tableData) {
       tableData.headers.map((key, index) => {
         Object.keys(props.showColumns).map((col, colIndex) => {

@@ -741,12 +741,13 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     close_prices = get_last_close_prices(symbols)
     df = df.merge(close_prices, how="left")
     df["Change since last close"] = ((df["price"] - df["close_price"]) / df["close_price"]).apply(
-        lambda x: percent_formatter(x)).fillna(NA_TEXT_SYMBOL)
+        lambda x: percent_formatter(x))
     del df["close_price"]
     df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
     symbols_colors = assign_colors(symbols)
     df["color"] = df["symbol"].apply(lambda x: symbols_colors[x])
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
+    df.fillna(NA_TEXT_SYMBOL, inplace=True)
     records = df.to_dict(orient="records")
     out_dict["data"] = records
     s3_cache.set(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}", json.dumps(out_dict))

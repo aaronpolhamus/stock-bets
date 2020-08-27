@@ -16,6 +16,7 @@ from config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
+    datetime_to_posix,
     during_trading_day,
     get_end_of_last_trading_day,
     SECONDS_IN_A_DAY,
@@ -147,6 +148,7 @@ def set_cache_price(symbol, price, timestamp):
 # --------------------
 
 def get_day_start(start_time_dt: dt):
+    start_time = datetime_to_posix(start_time_dt)
     schedule = get_trading_calendar(start_time_dt, start_time_dt)
     if not schedule.empty:
         start_time, _ = get_schedule_start_and_end(schedule)
