@@ -37,19 +37,15 @@ class SeleniumDriverError(Exception):
 
 def get_web_driver(web_driver="chrome"):
     print("starting selenium web driver...")
-    if web_driver == "chrome":
-        options = webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--privileged")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--disable-dev-shm-usage")
-        driver = webdriver.Chrome(options=options)
-
-    if web_driver == "firefox":
-        options = webdriver.FirefoxOptions()
-        options.add_argument("--headless")
-        driver = webdriver.Firefox(executable_path="/home/backend/geckodriver", options=options)
+    user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--privileged")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument(f'user-agent={user_agent}')
+    driver = webdriver.Chrome(options=options)
 
     driver.set_window_size(1200, 600)
     return driver
@@ -165,10 +161,10 @@ def get_day_start(start_time_dt: dt):
 
 def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
-    table_xpath = "/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]/div[2]/table/tbody"
+    table_xpath = '/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]'
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
     driver.get(url)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_xpath)))
+    table = driver.find_element_by_xpath(table_xpath)
     rows = table.find_elements_by_tag_name("tr")
     table_data_array = []
     for row in rows:
@@ -224,7 +220,7 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
 
 
 def get_stock_splits() -> pd.DataFrame:
-    driver = get_web_driver("firefox")
+    driver = get_web_driver()
     nasdaq_raw_splits = retrieve_nasdaq_splits(driver)
     nasdaq_splits = parse_nasdaq_splits(nasdaq_raw_splits)
     nasdaq_symbols = nasdaq_splits["symbol"].to_list()
