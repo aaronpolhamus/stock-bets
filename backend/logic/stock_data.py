@@ -67,9 +67,11 @@ def extract_row_data(row):
 
 def get_symbols_table(n_rows=None, timeout=60):
     driver = get_web_driver()
-    driver.get(Config.SYMBOLS_TABLE_URL)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
-    rows = table.find_elements_by_tag_name("tr")
+    url = "https://iextrading.com/trading/eligible-symbols/"
+    first_row_xpath = '// *[ @ id = "exchange-symbols"] / table / tbody / tr[1]'
+    driver.get(url)
+    _ = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, first_row_xpath)))
+    rows = driver.find_elements_by_tag_name("tr")
     row_list = list()
     n = len(rows)
     print(f"extracting available {n} rows of symbols data...")

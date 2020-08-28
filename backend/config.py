@@ -20,7 +20,6 @@ class Config:
     # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
-    SYMBOLS_TABLE_URL = "https://iextrading.com/trading/eligible-symbols/"
     YAHOO_FINANCE_URL = "https://finance.yahoo.com/"
     EMAIL_SENDER = getenv('EMAIL_SENDER')
     SENDGRID_API_KEY = getenv('SENDGRID_API_KEY')
