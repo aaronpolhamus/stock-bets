@@ -29,8 +29,16 @@ COPY . /home/backend
 WORKDIR /home/backend
 ENV PYTHONPATH="$PYTHONPATH:/home"
 
+# Install geckodriver for webscraping with selenium + firefox
+# -----------------------------------------------------------
+RUN curl -OL https://github.com/mozilla/geckodriver/releases/download/v0.27.0/geckodriver-v0.27.0-linux64.tar.gz \
+    && tar -xvzf geckodriver* \
+    && chmod +x geckodriver \
+    && rm *tar.gz \
+    && export PATH=$PATH:/home/backend/geckodriver/.
+
 # Copy source and install python dependencies
 # -------------------------------------------
-RUN python -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install -r requirements.txt
 
 ENTRYPOINT ["./docker/backend-entrypoint.sh"]
