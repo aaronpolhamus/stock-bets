@@ -167,7 +167,7 @@ def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
     table = driver.find_element_by_xpath(table_xpath)
     rows = table.find_elements_by_tag_name("tr")
     table_data_array = []
-    for row in rows:
+    for row in rows[1:]:
         table_data_entry = dict()
         for data_column in nasdaq_data_column_names:
             table_data_entry[data_column] = row.find_element_by_css_selector(f'*[data-column="{data_column}"]').text
