@@ -33,18 +33,14 @@ from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
     serialize_and_pack_orders_per_active_user
 )
-from backend.tasks.redis import (
-    redis_lock,
-    TASK_LOCK_MSG,
-    task_lock
-)
+from backend.tasks.redis import task_lock
 from backend.tasks.airflow import trigger_dag
 
 TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
-UPDATE_GAME_TIMEOUT = 60 * 15
+
 
 # -------------------------- #
 # Price fetching and caching #
@@ -125,20 +121,15 @@ def async_update_symbols_table(self, n_rows=None):
 
     with engine.connect() as conn:
         conn.execute("TRUNCATE TABLE symbols;")
-
-    with engine.connect() as conn:
         symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
 @celery.task(name="async_process_all_orders_in_game", bind=True, base=BaseTask)
+@task_lock(main_key="async_process_all_orders_in_game", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_orders_in_game(self, game_id: int):
-    with redis_lock(f"process_all_orders_{game_id}", PROCESS_ORDERS_LOCK_TIMEOUT) as acquired:
-        if not acquired:
-            return TASK_LOCK_MSG
-
-        open_orders = get_all_open_orders(game_id)
-        for order_id, _ in open_orders.items():
-            process_order(order_id)
+    open_orders = get_all_open_orders(game_id)
+    for order_id, _ in open_orders.items():
+        process_order(order_id)
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
@@ -156,6 +147,14 @@ def async_process_all_open_orders(self):
 
 @celery.task(name="async_update_all_games", bind=True, base=BaseTask)
 def async_update_all_games(self):
+    # a necessary hack to prime MySQL to log airflow tasks:
+    # https://stackoverflow.com/questions/52859113/in-apache-airflow-tool-dag-wont-run-due-to-duplicate-entry-problem-in-task-inst
+    with engine.connect() as conn:
+        conn.execute("USE airflow;")
+        conn.execute("""
+        ALTER TABLE `task_instance` 
+        CHANGE `execution_date` `execution_date` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);""")
+
     active_ids = get_game_ids_by_status()
     for game_id in active_ids:
         async_update_game_data.delay(game_id)
@@ -166,7 +165,6 @@ def async_update_all_games(self):
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
-@task_lock(main_key="async_update_game_data", timeout=UPDATE_GAME_TIMEOUT)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 

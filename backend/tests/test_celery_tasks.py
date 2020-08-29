@@ -44,10 +44,7 @@ from backend.logic.visuals import (
     serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details
 )
-from backend.tasks.redis import (
-    rds,
-    TASK_LOCK_MSG
-)
+from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from database.db import engine
 from logic.visuals import calculate_and_pack_game_metrics
@@ -683,11 +680,12 @@ class TestTaskLocking(TestCase):
         self.assertFalse(res2.ready())
         res3 = async_test_task_lock.delay(5)
         res4 = async_test_task_lock.delay(5)
-        self.assertEqual(res3.get(), TASK_LOCK_MSG)
-        self.assertEqual(res4.get(), TASK_LOCK_MSG)
+        self.assertEqual(res3.get(), "async_test_task_lock_5")
+        self.assertEqual(res4.get(), "async_test_task_lock_5")
         time.sleep(TASK_LOCK_TEST_SLEEP)
         res5 = async_test_task_lock.delay(3)
         self.assertFalse(res5.ready())
+        self.assertNotEqual(res5.get(), "async_test_task_lock_3")
 
 
 class TestRedisCaching(TestCase):

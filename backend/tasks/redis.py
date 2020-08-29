@@ -1,4 +1,3 @@
-import base64
 from contextlib import contextmanager
 import json
 import pickle as pkl
@@ -14,7 +13,6 @@ rds_cache = StrictRedis(Config.REDIS_HOST, decode_responses=False, charset="utf-
 redis_cache = RedisCache(redis_client=rds_cache, prefix="rc", serializer=pkl.dumps, deserializer=pkl.loads)
 dlm = Redlock([{"host": Config.REDIS_HOST}])
 
-TASK_LOCK_MSG = "Task execution skipped -- another task already has the lock"
 DEFAULT_ASSET_EXPIRATION = 8 * 24 * 60 * 60  # by default keep cached values around for 8 days
 DEFAULT_CACHE_EXPIRATION = 1 * 24 * 60 * 60  # we can keep cached values around for a shorter period of time
 
@@ -40,17 +38,18 @@ def redis_lock(lock_name, expires=60):
 
 
 def argument_signature(*args, **kwargs):
-    arg_list = [str(x) for x in args]
+    arg_list = [str(x) for x in args[1:]]
     kwarg_list = [f"{str(k)}:{str(v)}" for k, v in kwargs.items()]
-    return base64.b64encode(f"{'_'.join(arg_list)}-{'_'.join(kwarg_list)}".encode()).decode()
+    return '_'.join(arg_list) + '_'.join(kwarg_list)
 
 
 def task_lock(func=None, main_key="", timeout=None):
     def _dec(run_func):
         def _caller(*args, **kwargs):
-            with redis_lock(f"{main_key}_{argument_signature(*args, **kwargs)}", timeout) as acquired:
+            key = f"{main_key}_{argument_signature(*args, **kwargs)}"
+            with redis_lock(key, timeout) as acquired:
                 if not acquired:
-                    return TASK_LOCK_MSG
+                    return key
                 return run_func(*args, **kwargs)
         return _caller
     return _dec(func) if func is not None else _dec

@@ -57,9 +57,13 @@ celery.conf.beat_schedule = {
         "task": "async_service_open_games",
         "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}")
     },
+    "fetch_active_symbol_prices_first_30_mins": {
+        "task": "async_fetch_active_symbol_prices",
+        "schedule": crontab(minute=f"30-59/{Config.GAME_STATUS_UPDATE_RATE}", hour="9", day_of_week="1-5")
+    },
     "fetch_active_symbol_prices": {
         "task": "async_fetch_active_symbol_prices",
-        "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="9-16", day_of_week="1-5")
+        "schedule": crontab(minute=f"*/{PRICE_CACHING_INTERVAL}", hour="10-16", day_of_week="1-5")
     },
     # make sure that we have EOD_closing prices for all symbols
     "fetch_active_symbol_prices_eod": {
@@ -105,6 +109,6 @@ celery.conf.beat_schedule = {
     # apply stock splits in the morning prior to trading
     "apply_stock_splits": {
         "task": "async_apply_stock_splits",
-        "schedule": crontab(hour="7")
+        "schedule": crontab(hour="8", minute="15")
     }
 }

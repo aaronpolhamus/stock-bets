@@ -35,7 +35,7 @@ class SeleniumDriverError(Exception):
         return "It looks like the selenium web driver failed to instantiate properly"
 
 
-def get_web_driver(web_driver="chrome"):
+def get_web_driver():
     print("starting selenium web driver...")
     user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36'
     options = webdriver.ChromeOptions()
@@ -46,7 +46,6 @@ def get_web_driver(web_driver="chrome"):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument(f'user-agent={user_agent}')
     driver = webdriver.Chrome(options=options)
-
     driver.set_window_size(1200, 600)
     return driver
 

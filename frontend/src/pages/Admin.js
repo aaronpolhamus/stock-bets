@@ -43,7 +43,7 @@ const Admin = () => {
   }, [validated])
 
   const changeUser = async (username) => {
-    await api.post('/api/fetch_price', { username: username })
+    await api.post('/api/change_user', { username: username })
       .then(() => setRedirect(true))
   }
 
