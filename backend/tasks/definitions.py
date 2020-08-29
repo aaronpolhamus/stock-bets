@@ -147,14 +147,6 @@ def async_process_all_open_orders(self):
 
 @celery.task(name="async_update_all_games", bind=True, base=BaseTask)
 def async_update_all_games(self):
-    # a necessary hack to prime MySQL to log airflow tasks:
-    # https://stackoverflow.com/questions/52859113/in-apache-airflow-tool-dag-wont-run-due-to-duplicate-entry-problem-in-task-inst
-    with engine.connect() as conn:
-        conn.execute("USE airflow;")
-        conn.execute("""
-        ALTER TABLE `task_instance` 
-        CHANGE `execution_date` `execution_date` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6);""")
-
     active_ids = get_game_ids_by_status()
     for game_id in active_ids:
         async_update_game_data.delay(game_id)
