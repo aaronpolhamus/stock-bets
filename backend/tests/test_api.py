@@ -53,7 +53,7 @@ from backend.logic.visuals import (
     PAYOUTS_PREFIX,
     BALANCES_CHART_PREFIX
 )
-from backend.tasks.airflow import trigger_dag
+from backend.tasks.airflow import start_dag
 from backend.tasks.redis import (
     rds,
     unpack_redis_json
@@ -383,7 +383,7 @@ class TestCreateGame(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/leave_game", json={"game_id": game_id},
                                          cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
+        start_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token},
                                          verify=False)
@@ -490,7 +490,7 @@ class TestPlayGame(BaseTestCase):
         self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}"))
         self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}"))
 
-        trigger_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
+        start_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
         with self.engine.connect() as conn:
             last_order = conn.execute("""

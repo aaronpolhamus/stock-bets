@@ -34,7 +34,7 @@ from backend.bi.report_logic import (
     serialize_and_pack_orders_per_active_user
 )
 from backend.tasks.redis import task_lock
-from backend.tasks.airflow import trigger_dag
+from backend.tasks.airflow import start_dag
 
 TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
@@ -158,7 +158,7 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
-    trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
+    start_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
 # ----------- #
 # Key metrics #
