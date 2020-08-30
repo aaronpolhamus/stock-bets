@@ -100,7 +100,7 @@ backend-up:
 backend-build:
 	docker-compose build backend
 
-backend-test: db-mock-data worker-restart airflow-restart
+backend-test: api-up db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v
