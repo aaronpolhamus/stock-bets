@@ -365,8 +365,9 @@ def make_user_balances_chart_data(game_id: int, user_id: int, start_time: float 
         df["label"] = None  # for downstream compliance with schema validation
         return df
     df = build_labels(df)
-    return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
+    df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
         {"label": "last", "value": "last", "timestamp": "last"})
+    return df[~df["value"].isnull()]  # necessary for when merge_asof didn't find a balance-price match
 
 
 def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, dataset_color: str, labels: List[str],
@@ -449,8 +450,6 @@ def make_null_chart(null_label: str):
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
-    df = df.where(pd.notnull(df), None)  # swaps any NaNs from upstream processing for Null values
-    df = df[~df["value"].isnull()]  # necessary for when merge_asof didn't find a balance-price match
     chart_json = make_null_chart("Cash")
     if df.shape[0] > 1:
         # see comment for serialize_and_pack_portfolio_comps_chart. a dataframe with a single row means that this user

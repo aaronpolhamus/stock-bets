@@ -59,7 +59,6 @@ from backend.logic.games import (
     init_game_assets
 )
 from logic.stock_data import get_game_ids_by_status
-from backend.logic.metrics import check_if_payout_time
 from backend.logic.schemas import (
     balances_chart_schema,
     apply_validation,
