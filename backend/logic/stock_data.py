@@ -14,7 +14,7 @@ import pandas as pd
 import requests
 from config import Config
 from backend.database.db import engine
-from backend.database.helpers import add_row
+from backend.database.helpers import add_row, query_to_dict
 from backend.logic.base import (
     datetime_to_posix,
     during_trading_day,
@@ -160,7 +160,7 @@ def get_day_start(start_time_dt: dt):
     return start_time
 
 
-def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
+def retrieve_nasdaq_splits(driver, included_symbols) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
     table_xpath = '/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]'
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
@@ -173,7 +173,8 @@ def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
         for data_column in nasdaq_data_column_names:
             table_data_entry[data_column] = row.find_element_by_css_selector(f'*[data-column="{data_column}"]').text
         table_data_array.append(table_data_entry)
-    return pd.DataFrame(table_data_array)
+    df = pd.DataFrame(table_data_array)
+    return df[df["symbol"].isin(included_symbols)]
 
 
 def parse_nasdaq_splits(df: pd.DataFrame):
@@ -191,7 +192,7 @@ def parse_nasdaq_splits(df: pd.DataFrame):
     return df
 
 
-def retrieve_yahoo_splits(driver, timeout=45):
+def retrieve_yahoo_splits(driver, included_symbols, timeout=45):
     url = "https://finance.yahoo.com/calendar/splits"
     table_x_path = '//*[@id="cal-res-table"]/div[1]/table/tbody'
     label_names = ["Symbol", "Ratio"]
@@ -205,6 +206,7 @@ def retrieve_yahoo_splits(driver, timeout=45):
             table_data_entry[label] = row.find_element_by_css_selector(f'*[aria-label="{label}"]').text
         table_data_array.append(table_data_entry)
     df = pd.DataFrame(table_data_array)
+    df = df[df["Symbol"].isin(included_symbols)]
     return df.rename(columns={"Symbol": "symbol", "Ratio": "ratio"})
 
 
@@ -214,6 +216,8 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     if excluded_symbols is None:
         excluded_symbols = []
     df = df[~df["symbol"].isin(excluded_symbols)]
+    if df.empty:
+        return df
     df[num_cols] = df["ratio"].str.split(" - ", expand=True)
     df[num_cols] = df[num_cols].apply(pd.to_numeric)
     df["exec_date"] = get_day_start(current_datetime)
@@ -222,10 +226,12 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
 
 def get_stock_splits() -> pd.DataFrame:
     driver = get_web_driver()
-    nasdaq_raw_splits = retrieve_nasdaq_splits(driver)
+    _included_symbols = query_to_dict("SELECT symbol FROM symbols")
+    included_symbols = [x["symbol"] for x in _included_symbols]
+    nasdaq_raw_splits = retrieve_nasdaq_splits(driver, included_symbols)
     nasdaq_splits = parse_nasdaq_splits(nasdaq_raw_splits)
     nasdaq_symbols = nasdaq_splits["symbol"].to_list()
-    yahoo_raw_splits = retrieve_yahoo_splits(driver)
+    yahoo_raw_splits = retrieve_yahoo_splits(driver, included_symbols)
     yahoo_splits = parse_yahoo_splits(yahoo_raw_splits, nasdaq_symbols)
     return pd.concat([nasdaq_splits, yahoo_splits])
 

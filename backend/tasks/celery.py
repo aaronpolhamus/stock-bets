@@ -4,9 +4,19 @@ from backend.logic.base import TIMEZONE
 from logic.stock_data import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
-from sqlalchemy.exc import OperationalError as SQLAOpError, InvalidRequestError, ProgrammingError
-from sqlalchemy.exc import ResourceClosedError, StatementError
-from selenium.common.exceptions import TimeoutException
+from sqlalchemy.exc import (
+    OperationalError as SQLAOpError,
+    InvalidRequestError,
+    ProgrammingError
+)
+from sqlalchemy.exc import (
+    ResourceClosedError,
+    StatementError
+)
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException
+)
 
 # task execution defaults
 PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB
@@ -24,7 +34,8 @@ RETRY_INVENTORY = (
     InvalidRequestError,
     ProgrammingError,
     SeleniumDriverError,
-    TimeoutException
+    TimeoutException,
+    NoSuchElementException
 )
 
 
@@ -109,6 +120,6 @@ celery.conf.beat_schedule = {
     # apply stock splits in the morning prior to trading
     "apply_stock_splits": {
         "task": "async_apply_stock_splits",
-        "schedule": crontab(hour="8", minute="15")
+        "schedule": crontab(hour="8", minute="30")
     }
 }
