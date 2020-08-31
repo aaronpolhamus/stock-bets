@@ -394,7 +394,7 @@ MOCK_DATA = {
     "game_balances": [
         # Game 3, user id #1
         {"user_id": 1, "game_id": 3, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": 100_000, "symbol": None, "transaction_type": "kickoff"},
+         "balance_type": "virtual_cash", "balance": 100_000, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash", "balance": 100_000 - get_stock_start_price("AMZN") * 10, "symbol": None},
         {"user_id": 1, "game_id": 3, "order_status_id": 2, "timestamp": simulation_start_time,

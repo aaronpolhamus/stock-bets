@@ -217,6 +217,7 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
         excluded_symbols = []
     df = df[~df["symbol"].isin(excluded_symbols)]
     if df.empty:
+        del df["ratio"]
         return df
     df[num_cols] = df["ratio"].str.split(" - ", expand=True)
     df[num_cols] = df[num_cols].apply(pd.to_numeric)
