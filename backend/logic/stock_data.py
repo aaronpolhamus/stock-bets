@@ -177,7 +177,7 @@ def retrieve_nasdaq_splits(driver, timeout=45) -> pd.DataFrame:
 
 
 def parse_nasdaq_splits(df: pd.DataFrame):
-    num_cols = ["denominator", "numerator"]
+    num_cols = ["numerator", "denominator"]
     current_datetime = posix_to_datetime(time.time(), timezone="UTC")  # because selenium defaults to UTC
     current_date = current_datetime.date()
     df["executionDate"] = pd.to_datetime(df["executionDate"])
@@ -210,7 +210,7 @@ def retrieve_yahoo_splits(driver, timeout=45):
 
 def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     current_datetime = posix_to_datetime(time.time(), timezone="UTC")  # because selenium defaults to UTC
-    num_cols = ["numerator", "denominator"]
+    num_cols = ["denominator", "numerator"]
     if excluded_symbols is None:
         excluded_symbols = []
     df = df[~df["symbol"].isin(excluded_symbols)]

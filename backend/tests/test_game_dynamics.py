@@ -3,6 +3,7 @@
 import json
 import time
 import unittest
+from freezegun import freeze_time
 from datetime import datetime as dt
 from unittest import TestCase
 from unittest.mock import patch
@@ -1080,6 +1081,5 @@ class TestPayoutTime(TestCase):
         self.assertFalse(check_if_payout_time(friday_during_trading, weekend_payout_time))
         self.assertTrue(check_if_payout_time(friday_during_trading, friday_during_trading - 10))
         self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
-
         base_time_mock.time.return_value = friday_after_close
         self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))

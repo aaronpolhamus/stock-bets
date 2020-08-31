@@ -53,7 +53,8 @@ balances_and_prices_table_schema = {
     "timestamp": ([VALID_TIME_TYPES, False]),
     "balance": ([float, np.int64], False),
     "price": ([float, np.int64], False),
-    "value": ([float, np.int64], False)
+    "value": ([float, np.int64], False),
+    "last_transaction_type": ([pd.StringDtype], True)
 }
 
 # visuals.py

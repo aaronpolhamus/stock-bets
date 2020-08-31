@@ -104,7 +104,7 @@ celery.conf.beat_schedule = {
     # clear the balances and prices cache every day
     "clear_balances_and_prices_cache": {
         "task": "async_clear_balances_and_prices_cache",
-        "schedule": crontab(hour="17")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-15", day_of_week="1-5")
     },
     # apply stock splits in the morning prior to trading
     "apply_stock_splits": {

@@ -555,6 +555,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 
     order_df = make_order_labels(order_df)
     order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
+    order_df["cleared_amount"] = order_df["clear_price_fulfilled"] * order_df["quantity"]
 
     # add bookend times and resample
     cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
@@ -574,8 +575,10 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 
     def _make_cumulative_sales(subset):
         sales_diffs = subset["balance"].diff(1).fillna(0)
-        sales_diffs[sales_diffs > 0] = 0
-        subset["cum_sales"] = sales_diffs.abs().cumsum()
+        sales_diffs[sales_diffs > 0] = 0  # remove stock buys
+        subset["sales_diffs"] = sales_diffs
+        subset["sales_diffs"][subset["last_transaction_type"] == "stock_split"] = 0  # remove stock splits
+        subset["cum_sales"] = subset["sales_diffs"].abs().cumsum()
         return subset.reset_index(drop=True)
 
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
@@ -585,21 +588,20 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     for order_label in order_df["order_label"].unique():
         order_subset = order_df[order_df["order_label"] == order_label]
         bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
+        bp_subset["start_value"] = bp_subset[~bp_subset["value"].isnull()].iloc[0]["value"]
+        right_cols = ["timestamp", "cum_sales", "start_value", "value"]
         del bp_subset["symbol"]
-        right_cols = ["timestamp", "price", "cum_sales"]
         df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
-                                 right_on="timestamp", direction="nearest")
-
+                                 right_on="timestamp", direction="forward")
         # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
         mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
         true_index = list(np.where(mask)[0])
         if true_index[-1] < df_slice.shape[0] - 1:
             true_index.append(true_index[-1] + 1)
-
         df_slice = df_slice.iloc[true_index]
-        slices.append(df_slice)
+        slices.append(df_slice.fillna(method="ffill").fillna(method="bfill"))
     df = pd.concat(slices)
-    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
+    df["return"] = ((df["value"] / df["start_value"] - 1) * 100)
     df["return"] = df["return"].round(2)
     return df
 
