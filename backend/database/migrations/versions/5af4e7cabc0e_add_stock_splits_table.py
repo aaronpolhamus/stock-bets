@@ -30,6 +30,8 @@ def upgrade():
     op.alter_column('game_status', 'status',
                existing_type=mysql.ENUM('pending', 'active', 'finished', 'expired', 'cancelled'),
                nullable=True)
+    op.alter_column('order_status', 'status', existing_type=mysql.ENUM('pending', 'fulfilled', 'cancelled', 'expired'),
+                    nullable=False, type_=mysql.ENUM('pending', 'fulfilled', 'cancelled', 'expired', 'split_adjust'))
     # ### end Alembic commands ###
 
 
