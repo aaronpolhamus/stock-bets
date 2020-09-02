@@ -323,7 +323,6 @@ const PlayGame = () => {
                         'Buy/Sell',
                         'Order type',
                         'Time in force',
-                        'Market price',
                         'Placed on',
                         'Order price'
                       ]}
@@ -333,6 +332,7 @@ const PlayGame = () => {
                           'Symbol',
                           'Quantity',
                           'Clear price',
+                          'Market price',
                           'Hypothetical return'
                         ]
                       }}
