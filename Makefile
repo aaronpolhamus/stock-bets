@@ -83,6 +83,9 @@ make airflow-start:
 make airflow-stop:
 	docker-compose stop airflow
 
+make airflow-clear-logs:
+	rm -rf ./backend/airflow/logs
+
 make airflow-restart: airflow-stop airflow-start
 
 airflow-logs:
@@ -91,13 +94,12 @@ airflow-logs:
 airflow-bash:
 	docker-compose exec airflow bash
 
-
 # backend
 # -------
 backend-up:
 	docker-compose up -d api
 
-backend-build:
+backend-build: airflow-clear-logs s3-reset
 	docker-compose build backend
 
 backend-test: api-up db-mock-data worker-restart airflow-restart
