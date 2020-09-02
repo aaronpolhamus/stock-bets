@@ -123,7 +123,10 @@ class TestStockSplitsInternal(BaseTestCase):
         ])
         cash_balance_pre = get_current_game_cash_balance(user_id, game_id)
         balances_pre = get_active_balances(game_id, user_id)
-        apply_stock_splits(splits)
+        with patch("backend.logic.stock_data.pd.read_sql") as db_splits_mock:
+            db_splits_mock.return_values = splits
+            apply_stock_splits()
+
         cash_balance_post = get_current_game_cash_balance(user_id, game_id)
         balances_post = get_active_balances(game_id, user_id)
 
