@@ -515,7 +515,7 @@ class TestGameIntegration(BaseTestCase):
 
             game_status_entry = query_to_dict(
                 "SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;", game_id)[0]
-            self.assertEqual(game_status_entry["status"], "expired")
+            self.assertEqual(game_status_entry["status"], "cancelled")
             self.assertEqual(json.loads(game_status_entry["users"]), [])
             game_invites_entries = query_to_dict(
                 "SELECT * FROM game_invites WHERE game_id = %s ORDER BY id DESC LIMIT 0, 3;", game_id)

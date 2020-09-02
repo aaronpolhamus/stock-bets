@@ -272,8 +272,8 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
                                     cash_balance=cash_balance,
                                     portfolio_value=portfolio_value,
                                     stocks_held=stocks_held,
-                                    return_ratio=rds.get(f"return_ratio_{game_id}_{user_id}"),
-                                    sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{user_id}"))
+                                    return_ratio=rds.get(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}"),
+                                    sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}"))
         records.append({**user_info, **stat_info})
 
     if check_single_player_mode(game_id):
@@ -283,8 +283,8 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
                                         cash_balance=None,
                                         portfolio_value=portfolio_value,
                                         stocks_held=[],
-                                        return_ratio=rds.get(f"return_ratio_{game_id}_{index}"),
-                                        sharpe_ratio=rds.get(f"sharpe_ratio_{game_id}_{index}"))
+                                        return_ratio=rds.get(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}"),
+                                        sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}"))
             index_info = dict(username=index, profile_pic=None)
             records.append({**index_info, **stat_info})
 

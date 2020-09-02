@@ -318,7 +318,7 @@ def leave_game(game_id: int, user_id: int):
     current_game_users = get_active_game_user_ids(game_id)
     remaining_game_users = [x for x in current_game_users if x != user_id]
     if not remaining_game_users:
-        add_row("game_status", game_id=game_id, status="expired", users=[], timestamp=current_time)
+        add_row("game_status", game_id=game_id, status="cancelled", users=[], timestamp=current_time)
         return
     add_row("game_status", game_id=game_id, status="active", users=remaining_game_users, timestamp=current_time)
 
@@ -368,6 +368,7 @@ def service_open_game(game_id: int):
         # If we have quorum, game is active and we can mark it as such on the game status table
         kick_off_game(game_id, accepted_invite_user_ids, update_time)
     else:
+        # if the game has been left open and no one responded, cancel it
         close_open_game(game_id, update_time)
 
 
@@ -401,6 +402,7 @@ def update_game_if_all_invites_responded(game_id: int):
         if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
             kick_off_game(game_id, accepted_invite_user_ids, time.time())
         else:
+            # if everyone invited declines to join, cancel the game
             close_open_game(game_id, time.time(), "cancelled")
             refund_cancelled_game(game_id)
 
@@ -471,15 +473,6 @@ def get_user_invite_statuses_for_pending_game(game_id: int):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
-
-
-def expire_finished_game(game_id: int):
-    game_info = get_game_info(game_id)
-    expiration_time = game_info["start_time"] + game_info["duration"] * SECONDS_IN_A_DAY + TIME_TO_SHOW_FINISHED_GAMES
-    current_time = time.time()
-    if current_time >= expiration_time:
-        game_users = get_active_game_user_ids(game_id)
-        add_row("game_status", game_id=game_id, status="expired", users=game_users, timestamp=current_time)
 
 
 # Functions for handling placing and execution of orders

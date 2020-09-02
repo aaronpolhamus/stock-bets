@@ -26,7 +26,6 @@ from backend.logic.base import (
 )
 from backend.logic.games import (
     get_active_game_user_ids,
-    expire_finished_game,
     DEFAULT_INVITE_OPEN_WINDOW
 )
 from backend.logic.visuals import (
@@ -642,12 +641,6 @@ def make_redis_mocks():
             # winners/payouts table
             serialize_and_pack_winners_table(g_id)
 
-    with patch("backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
-        mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
-        game_ids = [3, 6, 7, 8]
-        for game_id in game_ids:
-            _build_assets(game_id)
-            expire_finished_game(game_id)
 
     # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()

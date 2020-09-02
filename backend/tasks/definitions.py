@@ -22,8 +22,7 @@ from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_ids_past_window,
-    service_open_game,
-    expire_finished_game
+    service_open_game
 )
 from backend.tasks.celery import (
     celery,
@@ -150,10 +149,6 @@ def async_update_all_games(self):
     active_ids = get_game_ids_by_status()
     for game_id in active_ids:
         async_update_game_data.delay(game_id)
-
-    finished_ids = get_game_ids_by_status("finished")
-    for game_id in finished_ids:
-        expire_finished_game(game_id)
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
