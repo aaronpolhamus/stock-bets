@@ -278,7 +278,7 @@ def get_most_recent_prices(symbols: List):
         return pd.read_sql(sql, conn, params=symbols)
 
 
-def apply_stock_splits(start_time: float = None, end_time: float = None):
+def get_splits(start_time: float, end_time: float) -> pd.DataFrame:
     if start_time is None:
         start_time = datetime_to_posix(dt.utcnow().replace(hour=0, minute=0))
 
@@ -287,10 +287,15 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
 
     # get active games and symbols
     with engine.connect() as conn:
-        splits = pd.read_sql("SELECT * FROM stock_splits WHERE exec_date >= %s AND exec_date <= %s", conn, params=[
+        return pd.read_sql("SELECT * FROM stock_splits WHERE exec_date >= %s AND exec_date <= %s", conn, params=[
             start_time, end_time])
+
+
+def apply_stock_splits(start_time: float = None, end_time: float = None):
+    splits = get_splits(start_time, end_time)
     if splits.empty:
         return
+
     active_ids = get_game_ids_by_status()
     last_prices = get_most_recent_prices(splits["symbol"].to_list())
     for i, row in splits.iterrows():
