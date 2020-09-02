@@ -592,7 +592,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
         right_cols = ["timestamp", "cum_sales", "start_value", "value"]
         del bp_subset["symbol"]
         df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
-                                 right_on="timestamp", direction="forward")
+                                 right_on="timestamp", direction="nearest")
         # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
         mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
         true_index = list(np.where(mask)[0])

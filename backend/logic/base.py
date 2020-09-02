@@ -390,7 +390,7 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
             price_subsets.append(balance_subset)
             continue
         del prices_subset["symbol"]
-        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="backward"))
+        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
     df = pd.concat(price_subsets, axis=0)
     df["value"] = df["balance"] * df["price"]
     return df

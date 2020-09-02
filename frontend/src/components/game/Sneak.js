@@ -179,7 +179,6 @@ const Sneak = props => {
                           'Buy/Sell',
                           'Order type',
                           'Time in force',
-                          'Market price',
                           'Placed on',
                           'Order price'
                         ]}
@@ -187,7 +186,9 @@ const Sneak = props => {
                           md: [
                             'Symbol',
                             'Quantity',
+                            'Cleared on',
                             'Clear price',
+                            'Market price',
                             'Hypothetical return'
                           ]
                         }}
