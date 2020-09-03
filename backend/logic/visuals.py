@@ -7,13 +7,11 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from database.db import engine
 from backend.logic.base import (
     get_active_balances,
     get_trading_calendar,
     get_all_game_usernames,
     get_game_info,
-    add_bookends,
     get_order_details,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
@@ -24,16 +22,15 @@ from backend.logic.base import (
     get_usernames,
     posix_to_datetime,
     DEFAULT_VIRTUAL_CASH,
-    RESAMPLING_INTERVAL,
     get_active_game_user_ids,
     check_single_player_mode,
     get_index_portfolio_value_data,
     TIMEZONE,
     USD_FORMAT,
     get_end_of_last_trading_day,
-    SECONDS_IN_A_DAY
+    SECONDS_IN_A_DAY,
+    RESAMPLING_INTERVAL
 )
-from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
     STARTING_SHARPE_RATIO,
@@ -53,11 +50,11 @@ from backend.logic.schemas import (
     order_details_schema,
     apply_validation
 )
-
+from backend.logic.stock_data import TRACKED_INDEXES
+from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-from backend.logic.stock_data import get_most_recent_prices
-
+from database.db import engine
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -91,31 +88,29 @@ RETURN_TIME_FORMAT = "%a, %-d %b %Y %H:%M:%S EST"
 # -------------- #
 
 FULFILLED_ORDER_MAPPINGS = {
-                         "symbol": "Symbol",
-                         "timestamp_pending": "Placed on",
-                         "timestamp_fulfilled": "Cleared on",
-                         "buy_or_sell": "Buy/Sell",
-                         "quantity": "Quantity",
-                         "order_type": "Order type",
-                         "time_in_force": "Time in force",
-                         "price": "Order price",
-                         "clear_price_fulfilled": "Clear price",
-                         "Market price": "Market price",
-                         "as of": "as of",
-                         "Hypothetical return": "Hypothetical return"}
-
+    "symbol": "Symbol",
+    "timestamp_pending": "Placed on",
+    "timestamp_fulfilled": "Cleared on",
+    "buy_or_sell": "Buy/Sell",
+    "quantity": "Quantity",
+    "order_type": "Order type",
+    "time_in_force": "Time in force",
+    "price": "Order price",
+    "clear_price_fulfilled": "Clear price",
+    "Market price": "Market price",
+    "as of": "as of",
+    "Hypothetical return": "Hypothetical return"}
 
 PENDING_ORDER_MAPPINGS = {
-                         "symbol": "Symbol",
-                         "timestamp_pending": "Placed on",
-                         "buy_or_sell": "Buy/Sell",
-                         "quantity": "Quantity",
-                         "order_type": "Order type",
-                         "time_in_force": "Time in force",
-                         "price": "Order price",
-                         "Market price": "Market price",
-                         "as of": "as of"}
-
+    "symbol": "Symbol",
+    "timestamp_pending": "Placed on",
+    "buy_or_sell": "Buy/Sell",
+    "quantity": "Quantity",
+    "order_type": "Order type",
+    "time_in_force": "Time in force",
+    "price": "Order price",
+    "Market price": "Market price",
+    "as of": "as of"}
 
 PORTFOLIO_DETAIL_MAPPINGS = {
     "symbol": "Symbol",
@@ -451,9 +446,7 @@ def make_null_chart(null_label: str):
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
     chart_json = make_null_chart("Cash")
-    if df.shape[0] > 1:
-        # see comment for serialize_and_pack_portfolio_comps_chart. a dataframe with a single row means that this user
-        # just got started and is only holding cash in their portfolio
+    if df.shape[0] > 1:  # a dataframe with a single row means that this user just got started and is only holding cash
         df.sort_values("timestamp", inplace=True)
         apply_validation(df, balances_chart_schema)
         chart_json = make_chart_json(df, "symbol", "value")
@@ -549,61 +542,89 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     # get historical order details
     order_df = get_order_details(game_id, user_id, start_time, end_time)
-    order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["buy_or_sell"] == "buy")]
+    bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
+    order_df = order_df[order_df["status"] == "fulfilled"]
     if order_df.empty:
         return order_df
 
     order_df = make_order_labels(order_df)
-    order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
-    order_df["cleared_amount"] = order_df["clear_price_fulfilled"] * order_df["quantity"]
+    bp_df_columns = ["symbol", "timestamp", "price"]
+    order_details_columns = ["symbol", "order_label", "buy_or_sell", "quantity", "clear_price_fulfilled",
+                             "timestamp_fulfilled"]
+    orders = order_df[order_details_columns]
+    balances = bp_df[bp_df_columns]
+    orders = orders.pivot_table(index=["symbol", "order_label", "clear_price_fulfilled", "timestamp_fulfilled"],
+                                columns="buy_or_sell", values="quantity", aggfunc="first").reset_index().fillna(0)
+    orders["timestamp_fulfilled"] = orders["timestamp_fulfilled"].apply(lambda x: posix_to_datetime(x))
+    orders.sort_values("timestamp_fulfilled", inplace=True)
+    order_performances_slices = []
+    for symbol in balances["symbol"].unique():
+        if symbol == "Cash":
+            continue
 
-    # add bookend times and resample
-    cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
-    cum_sum_df.columns = ['symbol', 'cum_buys']
-    order_df = order_df.merge(cum_sum_df)
-    order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled",
-                            end_time=end_time)
-    order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
-        pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
-    order_df.set_index("timestamp_fulfilled", inplace=True)
-    order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
-    order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
-    order_df.reset_index(inplace=True)
-    del order_df["level_0"]
-    # get historical balances and prices
-    bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
+        balances_subset = balances[balances["symbol"] == symbol]
+        order_subset = orders[orders["symbol"] == symbol]
+        del order_subset["symbol"]
+        merged_df = pd.merge_asof(balances_subset, order_subset, left_on="timestamp", right_on="timestamp_fulfilled",
+                                  direction="nearest", tolerance=pd.Timedelta(f"{RESAMPLING_INTERVAL/2} Min"))
+        merged_df[["buy", "sell"]] = merged_df[["buy", "sell"]].fillna(0)
+        if symbol == "SQ":
+            import ipdb;
+            ipdb.set_trace()
+            print("hi")
+        for order_label in order_subset["order_label"].unique():
+            pass
 
-    def _make_cumulative_sales(subset):
-        sales_diffs = subset["balance"].diff(1).fillna(0)
-        sales_diffs[sales_diffs > 0] = 0  # remove stock buys
-        subset["sales_diffs"] = sales_diffs
-        subset["sales_diffs"][subset["last_transaction_type"] == "stock_split"] = 0  # remove stock splits
-        subset["cum_sales"] = subset["sales_diffs"].abs().cumsum()
-        return subset.reset_index(drop=True)
-
-    bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
-
-    # merge running balance  information with order history
-    slices = []
-    for order_label in order_df["order_label"].unique():
-        order_subset = order_df[order_df["order_label"] == order_label]
-        bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
-        bp_subset["start_value"] = bp_subset[~bp_subset["value"].isnull()].iloc[0]["value"]
-        right_cols = ["timestamp", "cum_sales", "start_value", "value"]
-        del bp_subset["symbol"]
-        df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
-                                 right_on="timestamp", direction="nearest")
-        # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
-        mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
-        true_index = list(np.where(mask)[0])
-        if true_index[-1] < df_slice.shape[0] - 1:
-            true_index.append(true_index[-1] + 1)
-        df_slice = df_slice.iloc[true_index]
-        slices.append(df_slice.fillna(method="ffill").fillna(method="bfill"))
-    df = pd.concat(slices)
-    df["return"] = ((df["value"] / df["start_value"] - 1) * 100)
-    df["return"] = df["return"].round(2)
-    return df
+    # orders.pivot(columns="buy_or_sell", values="quantity").fillna(0)
+    # order_df = make_order_labels(order_df)
+    # order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
+    #
+    # # add bookend times and resample
+    # cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
+    # cum_sum_df.columns = ['symbol', 'cum_buys']
+    # order_df = order_df.merge(cum_sum_df)
+    # order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled",
+    #                         end_time=end_time)
+    # order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
+    #     pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
+    # order_df.set_index("timestamp_fulfilled", inplace=True)
+    # order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
+    # order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
+    # order_df.reset_index(inplace=True)
+    # del order_df["level_0"]
+    # # get historical balances and prices
+    # bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
+    #
+    # def _make_cumulative_sales(subset):
+    #     sales_diffs = subset["balance"].diff(1).fillna(0)
+    #     sales_diffs[sales_diffs > 0] = 0
+    #     subset["cum_sales"] = sales_diffs.abs().cumsum()
+    #     return subset.reset_index(drop=True)
+    #
+    # bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
+    #
+    # # merge running balance  information with order history
+    # slices = []
+    # for order_label in order_df["order_label"].unique():
+    #     order_subset = order_df[order_df["order_label"] == order_label]
+    #     bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
+    #     del bp_subset["symbol"]
+    #     right_cols = ["timestamp", "price", "cum_sales"]
+    #     df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
+    #                              right_on="timestamp", direction="nearest")
+    #
+    #     # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
+    #     mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
+    #     true_index = list(np.where(mask)[0])
+    #     if true_index[-1] < df_slice.shape[0] - 1:
+    #         true_index.append(true_index[-1] + 1)
+    #
+    #     df_slice = df_slice.iloc[true_index]
+    #     slices.append(df_slice)
+    # df = pd.concat(slices)
+    # df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
+    # df["return"] = df["return"].round(2)
+    # return df
 
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,
@@ -746,6 +767,11 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
         lambda x: percent_formatter(x))
     del df["close_price"]
     df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
+
+    # add closed balances as separate concern -- we need this for interaction with the charts
+    # update dataframe (the complement of all traded symbols and active balances)
+    # update symbols
+
     symbols_colors = assign_colors(symbols)
     df["color"] = df["symbol"].apply(lambda x: symbols_colors[x])
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)

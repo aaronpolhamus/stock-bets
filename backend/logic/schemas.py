@@ -54,11 +54,21 @@ balances_and_prices_table_schema = {
     "balance": ([float, np.int64], False),
     "price": ([float, np.int64], False),
     "value": ([float, np.int64], False),
-    "last_transaction_type": ([pd.StringDtype, float], True)
 }
 
 # visuals.py
 # ----------
+
+order_performance_schema = {
+    "order_id": ([pd.Int8Dtype], True),
+    "symbol": ([pd.StringDtype], True),
+    "balance": ([float], True),
+    "timestamp": ([VALID_TIME_TYPES, True]),
+    "price": ([float], True),
+    "original_value": ([float], True),
+    "cum_sold": ([float], True),
+    "remaining_value": ([float], True)
+}
 
 balances_chart_schema = {
     # the instrument (stocks and ETFs for now), defining the data series

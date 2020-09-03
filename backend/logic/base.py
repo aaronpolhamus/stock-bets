@@ -136,11 +136,13 @@ def get_time_defaults(game_id: int, start_time: float = None, end_time: float = 
     """There are several places in the code that deal with time where we optionally set a time window as [game_start,
     present_time], depending on whether the user has passed those values in manually. This code wraps that operation.
     """
+    game_start, game_end = get_game_start_and_end(game_id)
     if start_time is None:
-        start_time, _ = get_game_start_and_end(game_id)
+        start_time = game_start
 
     if end_time is None:
-        end_time = time.time()
+        current_time = time.time()
+        end_time = current_time if current_time < game_end else game_end
 
     return start_time, end_time
 
@@ -365,7 +367,7 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
 
 def resample_values(symbol_subset):
     # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last", "last_transaction_type": "last"})
+    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
     return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
@@ -466,7 +468,7 @@ def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_
     """Extracts a running record of a user's balances through time.
     """
     sql = """
-            SELECT timestamp, balance_type, symbol, balance, transaction_type as last_transaction_type
+            SELECT timestamp, balance_type, symbol, balance
             FROM game_balances
             WHERE
               game_id = %s AND
