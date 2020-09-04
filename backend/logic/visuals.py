@@ -56,6 +56,14 @@ from backend.tasks import s3_cache
 from backend.tasks.redis import rds
 from database.db import engine
 
+
+# Exceptions
+# ----------
+class BadOrderMerge(Exception):
+
+    def __str__(self):
+        return "The merge of balance-prices history on orders failed. Check for either redundant or missing orders"
+
 # -------------------------------- #
 # Prefixes for redis caching layer #
 # -------------------------------- #
@@ -539,6 +547,25 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     return order_df
 
 
+def merge_orders_on_balances(balances: pd.DataFrame, orders: pd.DataFrame, symbol: str):
+    """it would be ideal to calculate the buy/sell points based purely on the changes in balances. we can't do this,
+    however, because of splits. merging the actual order data back onto the balances series ends up being the
+    right way to go, but because this is a re-sampled, running tally, it's a soft merge. the assert statement,
+    below, ensures that we haven't duplicated or missed any orders."""
+
+    balances_subset = balances[balances["symbol"] == symbol]
+    order_subset = orders[orders["symbol"] == symbol]
+    order_merge_keys = ["timestamp_fulfilled", "buy", "sell"]
+    merged_df = pd.merge_asof(balances_subset, order_subset[order_merge_keys], left_on="timestamp",
+                              right_on="timestamp_fulfilled", direction="nearest",
+                              tolerance=pd.Timedelta(f"{RESAMPLING_INTERVAL / 2} Min"))
+    merged_times = set([x for x in merged_df["timestamp_fulfilled"].to_list() if x is not pd.NaT])
+    order_times = set(order_subset["timestamp_fulfilled"].to_list())
+    if merged_times != order_times:
+        raise BadOrderMerge
+    return merged_df, order_subset
+
+
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     # get historical order details
     order_df = get_order_details(game_id, user_id, start_time, end_time)
@@ -548,7 +575,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
         return order_df
 
     order_df = make_order_labels(order_df)
-    bp_df_columns = ["symbol", "timestamp", "price"]
+    bp_df_columns = ["symbol", "timestamp", "balance", "price"]
     order_details_columns = ["symbol", "order_label", "buy_or_sell", "quantity", "clear_price_fulfilled",
                              "timestamp_fulfilled"]
     orders = order_df[order_details_columns]
@@ -562,18 +589,17 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
         if symbol == "Cash":
             continue
 
-        balances_subset = balances[balances["symbol"] == symbol]
-        order_subset = orders[orders["symbol"] == symbol]
-        del order_subset["symbol"]
-        merged_df = pd.merge_asof(balances_subset, order_subset, left_on="timestamp", right_on="timestamp_fulfilled",
-                                  direction="nearest", tolerance=pd.Timedelta(f"{RESAMPLING_INTERVAL/2} Min"))
+        merged_df, order_subset = merge_orders_on_balances(balances, orders, symbol)
         merged_df[["buy", "sell"]] = merged_df[["buy", "sell"]].fillna(0)
-        if symbol == "SQ":
-            import ipdb;
-            ipdb.set_trace()
-            print("hi")
-        for order_label in order_subset["order_label"].unique():
-            pass
+        for _, order_row in order_subset[order_subset["buy"] > 0].iterrows():  # order perf is for buy orders
+            perf_df = merged_df.copy(deep=True)
+            start_idx = np.where(perf_df["timestamp_fulfilled"] == order_row["timestamp_fulfilled"])[0][0]
+            perf_df = perf_df.iloc[start_idx:]
+            perf_df["original_value"] = order_row["clear_price_fulfilled"] * order_row["buy"]
+            if symbol == "SQ":
+                import ipdb;
+                ipdb.set_trace()
+                print("hi")
 
     # orders.pivot(columns="buy_or_sell", values="quantity").fillna(0)
     # order_df = make_order_labels(order_df)
