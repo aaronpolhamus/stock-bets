@@ -54,7 +54,8 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-from database.db import engine
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 
 
 # Exceptions
@@ -550,7 +551,7 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
 def get_game_balances(game_id: int, user_id: int):
     with engine.connect() as conn:
         return pd.read_sql("""
-          SELECT symbol, balance, transaction_type, order_status_id FROM game_balances
+          SELECT symbol, balance, transaction_type, order_status_id, stock_split_id FROM game_balances
           WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock'
           ORDER BY symbol, id;""", conn, params=[game_id, user_id])
 
@@ -576,14 +577,18 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
         buys_subset = buys_df[buys_df["symbol"] == symbol]
         events_queue = events_df[events_df["symbol"] == symbol].to_dict(orient="records")
         for _, buy_order in buys_subset.iterrows():
+            order_value = buy_order["quantity"] * buy_order["clear_price_fulfilled"]
             remaining_balance = buy_order["quantity"]
             pct_sold = 0
             for event in events_queue:
                 if event["transaction_type"] == "stock_split":
-                    remaining_balance = event["balance"]
+                    split_entry = query_to_dict("SELECT * FROM stock_splits WHERE id = %s", event["stock_split_id"])
+                    remaining_balance *= split_entry["numerator"] / split_entry["denominator"]
+                    events_queue.pop(0)
 
-        if symbol == "LABD":
-            import ipdb;ipdb.set_trace()
+                if event["transaction_type"] == "stock_sale":
+                    pass
+
 
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,

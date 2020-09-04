@@ -49,22 +49,22 @@ if __name__ == '__main__':
 
         # patch in stock splits by hand for now
         game_balances["stock_split_id"] = None
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "MUTE"][
-            "stock_split_id"] = 1
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "PASS"][
-            "stock_split_id"] = 2
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "WEBS"][
-            "stock_split_id"] = 3
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "LABD"][
-            "stock_split_id"] = 4
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "DRIP"][
-            "stock_split_id"] = 5
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "SOXS"][
-            "stock_split_id"] = 6
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "AAPL"][
-            "stock_split_id"] = 27
-        game_balances[(game_balances["transaction_type"] == "stock_split") & (game_balances["symbol"]) == "TSLA"][
-            "stock_split_id"] = 28
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "MUTE"), "stock_split_id"] = 1
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "PASS"), "stock_split_id"] = 2
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "WEBS"), "stock_split_id"] = 3
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "LABD"), "stock_split_id"] = 4
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "DRIP"), "stock_split_id"] = 5
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "SOXS"), "stock_split_id"] = 6
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "AAPL"), "stock_split_id"] = 27
+        game_balances.loc[(game_balances["transaction_type"] == "stock_split") & (
+                    game_balances["symbol"] == "TSLA"), "stock_split_id"] = 28
         orders = pd.read_pickle("orders.pkl")
         order_status = pd.read_pickle("order_status.pkl")
         splits = pd.read_pickle("splits.pkl")
@@ -75,7 +75,7 @@ if __name__ == '__main__':
             game_balances.to_sql("game_balances", conn, if_exists="replace", index=False)
             orders.to_sql("orders", conn, if_exists="replace", index=False)
             order_status.to_sql("order_status", conn, if_exists="replace", index=False)
-            splits.to_sql("splits", conn, if_exists="replace", index=False)
+            splits.to_sql("stock_splits", conn, if_exists="replace", index=False)
             prices.to_sql("prices", conn, if_exists="replace", index=False)
         os.system("rm -rf database/fixtures/canonical_games/splits_game.sql")
         os.system("mysqldump -h db -uroot main > database/fixtures/canonical_games/splits_game.sql")

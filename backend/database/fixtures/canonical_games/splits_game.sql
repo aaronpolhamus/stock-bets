@@ -32,7 +32,7 @@ CREATE TABLE `game_balances` (
   `balance` double DEFAULT NULL,
   `symbol` text,
   `transaction_type` text,
-  `stock_split_id` text
+  `stock_split_id` bigint DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -42,7 +42,7 @@ CREATE TABLE `game_balances` (
 
 LOCK TABLES `game_balances` WRITE;
 /*!40000 ALTER TABLE `game_balances` DISABLE KEYS */;
-INSERT INTO `game_balances` VALUES (2265,1,82,NULL,1598484949.23366,'virtual_cash',1000000,NULL,'kickoff',NULL),(2279,1,82,2327,1598535001.8686,'virtual_cash',912857,NULL,'stock_purchase',NULL),(2280,1,82,2327,1598535001.8686,'virtual_stock',21100,'MUTE','stock_purchase',NULL),(2281,1,82,2328,1598535003.63028,'virtual_cash',824659,NULL,'stock_purchase',NULL),(2282,1,82,2328,1598535003.63028,'virtual_stock',21100,'PASS','stock_purchase',NULL),(2283,1,82,2329,1598535005.66577,'virtual_cash',737516,NULL,'stock_purchase',NULL),(2284,1,82,2329,1598535005.66577,'virtual_stock',21100,'WEBS','stock_purchase',NULL),(2285,1,82,2330,1598535006.62553,'virtual_cash',593511,NULL,'stock_purchase',NULL),(2286,1,82,2330,1598535006.62553,'virtual_stock',41500,'LABD','stock_purchase',NULL),(2287,1,82,2331,1598535007.4765,'virtual_cash',499578,NULL,'stock_purchase',NULL),(2288,1,82,2331,1598535007.4765,'virtual_stock',18900,'DRIP','stock_purchase',NULL),(2289,1,82,2332,1598535008.46027,'virtual_cash',393678,NULL,'stock_purchase',NULL),(2290,1,82,2332,1598535008.46027,'virtual_stock',30000,'SOXS','stock_purchase',NULL),(2291,1,82,2333,1598535009.37378,'virtual_cash',291930,NULL,'stock_purchase',NULL),(2292,1,82,2333,1598535009.37378,'virtual_stock',200,'AAPL','stock_purchase',NULL),(2293,1,82,2334,1598535010.25804,'virtual_cash',182677.75,NULL,'stock_purchase',NULL),(2294,1,82,2334,1598535010.25804,'virtual_stock',50,'TSLA','stock_purchase',NULL),(2295,1,82,2335,1598535011.49184,'virtual_cash',64189.75,NULL,'stock_purchase',NULL),(2296,1,82,2335,1598535011.49184,'virtual_stock',800,'TREX','stock_purchase',NULL),(2317,1,82,NULL,1598621400,'virtual_stock',2110,'MUTE','stock_split',NULL),(2318,1,82,NULL,1598621400,'virtual_stock',2110,'PASS','stock_split',NULL),(2319,1,82,NULL,1598621400,'virtual_stock',2110,'WEBS','stock_split',NULL),(2320,1,82,NULL,1598621400,'virtual_stock',2075,'LABD','stock_split',NULL),(2321,1,82,NULL,1598621400,'virtual_stock',1890,'DRIP','stock_split',NULL),(2322,1,82,NULL,1598621400,'virtual_stock',2500,'SOXS','stock_split',NULL),(2353,1,82,NULL,1598880600,'virtual_stock',800,'AAPL','stock_split',NULL),(2366,1,82,NULL,1598880600,'virtual_stock',250,'TSLA','stock_split',NULL),(2588,1,82,2589,1599226210.52071,'virtual_cash',120589.75,NULL,'stock_sale',NULL),(2589,1,82,2589,1599226210.52071,'virtual_stock',400,'TREX','stock_sale',NULL),(2590,1,82,2590,1599226211.78457,'virtual_cash',174289.75,NULL,'stock_sale',NULL),(2591,1,82,2590,1599226211.78457,'virtual_stock',890,'DRIP','stock_sale',NULL),(2592,1,82,2591,1599226212.75566,'virtual_cash',246289.75,NULL,'stock_sale',NULL),(2593,1,82,2591,1599226212.75566,'virtual_stock',1075,'LABD','stock_sale',NULL),(2594,1,82,2592,1599226214.42921,'virtual_cash',338180.25,NULL,'stock_sale',NULL),(2595,1,82,2592,1599226214.42921,'virtual_stock',0,'WEBS','stock_sale',NULL),(2596,1,82,2593,1599226216.89789,'virtual_cash',429437.75,NULL,'stock_sale',NULL),(2597,1,82,2593,1599226216.89789,'virtual_stock',0,'MUTE','stock_sale',NULL),(2600,1,82,2597,1599232103.8257,'virtual_cash',442811.75,NULL,'stock_sale',NULL),(2601,1,82,2597,1599232103.8257,'virtual_stock',300,'TREX','stock_sale',NULL),(2602,1,82,2599,1599232112.93018,'virtual_cash',429437.75,NULL,'stock_purchase',NULL),(2603,1,82,2599,1599232112.93018,'virtual_stock',400,'TREX','stock_purchase',NULL),(2604,1,82,2601,1599232122.22291,'virtual_cash',456185.75,NULL,'stock_sale',NULL),(2605,1,82,2601,1599232122.22291,'virtual_stock',200,'TREX','stock_sale',NULL),(2606,1,82,2603,1599234333.77534,'virtual_cash',506230.45,NULL,'stock_sale',NULL),(2607,1,82,2603,1599234333.77534,'virtual_stock',0,'DRIP','stock_sale',NULL),(2608,1,82,2605,1599236549.59708,'virtual_cash',551310.45,NULL,'stock_sale',NULL),(2609,1,82,2605,1599236549.59708,'virtual_stock',500,'LABD','stock_sale',NULL),(2610,1,82,2607,1599236560.0951,'virtual_cash',511996.45,NULL,'stock_purchase',NULL),(2611,1,82,2607,1599236560.0951,'virtual_stock',1000,'LABD','stock_purchase',NULL),(2612,1,82,2609,1599236574.9613,'virtual_cash',551131.45,NULL,'stock_sale',NULL),(2613,1,82,2609,1599236574.9613,'virtual_stock',500,'LABD','stock_sale',NULL),(2614,1,82,2611,1599236587.77923,'virtual_cash',590266.45,NULL,'stock_sale',NULL),(2615,1,82,2611,1599236587.77923,'virtual_stock',0,'LABD','stock_sale',NULL);
+INSERT INTO `game_balances` VALUES (2265,1,82,NULL,1598484949.23366,'virtual_cash',1000000,NULL,'kickoff',NULL),(2279,1,82,2327,1598535001.8686,'virtual_cash',912857,NULL,'stock_purchase',NULL),(2280,1,82,2327,1598535001.8686,'virtual_stock',21100,'MUTE','stock_purchase',NULL),(2281,1,82,2328,1598535003.63028,'virtual_cash',824659,NULL,'stock_purchase',NULL),(2282,1,82,2328,1598535003.63028,'virtual_stock',21100,'PASS','stock_purchase',NULL),(2283,1,82,2329,1598535005.66577,'virtual_cash',737516,NULL,'stock_purchase',NULL),(2284,1,82,2329,1598535005.66577,'virtual_stock',21100,'WEBS','stock_purchase',NULL),(2285,1,82,2330,1598535006.62553,'virtual_cash',593511,NULL,'stock_purchase',NULL),(2286,1,82,2330,1598535006.62553,'virtual_stock',41500,'LABD','stock_purchase',NULL),(2287,1,82,2331,1598535007.4765,'virtual_cash',499578,NULL,'stock_purchase',NULL),(2288,1,82,2331,1598535007.4765,'virtual_stock',18900,'DRIP','stock_purchase',NULL),(2289,1,82,2332,1598535008.46027,'virtual_cash',393678,NULL,'stock_purchase',NULL),(2290,1,82,2332,1598535008.46027,'virtual_stock',30000,'SOXS','stock_purchase',NULL),(2291,1,82,2333,1598535009.37378,'virtual_cash',291930,NULL,'stock_purchase',NULL),(2292,1,82,2333,1598535009.37378,'virtual_stock',200,'AAPL','stock_purchase',NULL),(2293,1,82,2334,1598535010.25804,'virtual_cash',182677.75,NULL,'stock_purchase',NULL),(2294,1,82,2334,1598535010.25804,'virtual_stock',50,'TSLA','stock_purchase',NULL),(2295,1,82,2335,1598535011.49184,'virtual_cash',64189.75,NULL,'stock_purchase',NULL),(2296,1,82,2335,1598535011.49184,'virtual_stock',800,'TREX','stock_purchase',NULL),(2317,1,82,NULL,1598621400,'virtual_stock',2110,'MUTE','stock_split',1),(2318,1,82,NULL,1598621400,'virtual_stock',2110,'PASS','stock_split',2),(2319,1,82,NULL,1598621400,'virtual_stock',2110,'WEBS','stock_split',3),(2320,1,82,NULL,1598621400,'virtual_stock',2075,'LABD','stock_split',4),(2321,1,82,NULL,1598621400,'virtual_stock',1890,'DRIP','stock_split',5),(2322,1,82,NULL,1598621400,'virtual_stock',2500,'SOXS','stock_split',6),(2353,1,82,NULL,1598880600,'virtual_stock',800,'AAPL','stock_split',27),(2366,1,82,NULL,1598880600,'virtual_stock',250,'TSLA','stock_split',28),(2588,1,82,2589,1599226210.52071,'virtual_cash',120589.75,NULL,'stock_sale',NULL),(2589,1,82,2589,1599226210.52071,'virtual_stock',400,'TREX','stock_sale',NULL),(2590,1,82,2590,1599226211.78457,'virtual_cash',174289.75,NULL,'stock_sale',NULL),(2591,1,82,2590,1599226211.78457,'virtual_stock',890,'DRIP','stock_sale',NULL),(2592,1,82,2591,1599226212.75566,'virtual_cash',246289.75,NULL,'stock_sale',NULL),(2593,1,82,2591,1599226212.75566,'virtual_stock',1075,'LABD','stock_sale',NULL),(2594,1,82,2592,1599226214.42921,'virtual_cash',338180.25,NULL,'stock_sale',NULL),(2595,1,82,2592,1599226214.42921,'virtual_stock',0,'WEBS','stock_sale',NULL),(2596,1,82,2593,1599226216.89789,'virtual_cash',429437.75,NULL,'stock_sale',NULL),(2597,1,82,2593,1599226216.89789,'virtual_stock',0,'MUTE','stock_sale',NULL),(2600,1,82,2597,1599232103.8257,'virtual_cash',442811.75,NULL,'stock_sale',NULL),(2601,1,82,2597,1599232103.8257,'virtual_stock',300,'TREX','stock_sale',NULL),(2602,1,82,2599,1599232112.93018,'virtual_cash',429437.75,NULL,'stock_purchase',NULL),(2603,1,82,2599,1599232112.93018,'virtual_stock',400,'TREX','stock_purchase',NULL),(2604,1,82,2601,1599232122.22291,'virtual_cash',456185.75,NULL,'stock_sale',NULL),(2605,1,82,2601,1599232122.22291,'virtual_stock',200,'TREX','stock_sale',NULL),(2606,1,82,2603,1599234333.77534,'virtual_cash',506230.45,NULL,'stock_sale',NULL),(2607,1,82,2603,1599234333.77534,'virtual_stock',0,'DRIP','stock_sale',NULL),(2608,1,82,2605,1599236549.59708,'virtual_cash',551310.45,NULL,'stock_sale',NULL),(2609,1,82,2605,1599236549.59708,'virtual_stock',500,'LABD','stock_sale',NULL),(2610,1,82,2607,1599236560.0951,'virtual_cash',511996.45,NULL,'stock_purchase',NULL),(2611,1,82,2607,1599236560.0951,'virtual_stock',1000,'LABD','stock_purchase',NULL),(2612,1,82,2609,1599236574.9613,'virtual_cash',551131.45,NULL,'stock_sale',NULL),(2613,1,82,2609,1599236574.9613,'virtual_stock',500,'LABD','stock_sale',NULL),(2614,1,82,2611,1599236587.77923,'virtual_cash',590266.45,NULL,'stock_sale',NULL),(2615,1,82,2611,1599236587.77923,'virtual_stock',0,'LABD','stock_sale',NULL);
 /*!40000 ALTER TABLE `game_balances` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -186,13 +186,13 @@ INSERT INTO `prices` VALUES (1544780,'AAPL',508.755,1598535057.134),(1544932,'AA
 UNLOCK TABLES;
 
 --
--- Table structure for table `splits`
+-- Table structure for table `stock_splits`
 --
 
-DROP TABLE IF EXISTS `splits`;
+DROP TABLE IF EXISTS `stock_splits`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `splits` (
+CREATE TABLE `stock_splits` (
   `id` bigint DEFAULT NULL,
   `symbol` text,
   `numerator` bigint DEFAULT NULL,
@@ -202,13 +202,13 @@ CREATE TABLE `splits` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `splits`
+-- Dumping data for table `stock_splits`
 --
 
-LOCK TABLES `splits` WRITE;
-/*!40000 ALTER TABLE `splits` DISABLE KEYS */;
-INSERT INTO `splits` VALUES (1,'MUTE',10,1,1598621400),(2,'PASS',10,1,1598621400),(3,'WEBS',10,1,1598621400),(4,'LABD',20,1,1598621400),(5,'DRIP',10,1,1598621400),(6,'SOXS',12,1,1598621400),(27,'AAPL',4,1,1598880600),(28,'TSLA',5,1,1598880600);
-/*!40000 ALTER TABLE `splits` ENABLE KEYS */;
+LOCK TABLES `stock_splits` WRITE;
+/*!40000 ALTER TABLE `stock_splits` DISABLE KEYS */;
+INSERT INTO `stock_splits` VALUES (1,'MUTE',10,1,1598621400),(2,'PASS',10,1,1598621400),(3,'WEBS',10,1,1598621400),(4,'LABD',20,1,1598621400),(5,'DRIP',10,1,1598621400),(6,'SOXS',12,1,1598621400),(27,'AAPL',4,1,1598880600),(28,'TSLA',5,1,1598880600);
+/*!40000 ALTER TABLE `stock_splits` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -220,4 +220,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2020-09-04 19:56:42
+-- Dump completed on 2020-09-04 20:16:32
