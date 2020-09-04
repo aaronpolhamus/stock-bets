@@ -547,110 +547,43 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     return order_df
 
 
-def merge_orders_on_balances(balances: pd.DataFrame, orders: pd.DataFrame, symbol: str):
-    """it would be ideal to calculate the buy/sell points based purely on the changes in balances. we can't do this,
-    however, because of splits. merging the actual order data back onto the balances series ends up being the
-    right way to go, but because this is a re-sampled, running tally, it's a soft merge. the assert statement,
-    below, ensures that we haven't duplicated or missed any orders."""
-
-    balances_subset = balances[balances["symbol"] == symbol]
-    order_subset = orders[orders["symbol"] == symbol]
-    order_merge_keys = ["timestamp_fulfilled", "buy", "sell"]
-    merged_df = pd.merge_asof(balances_subset, order_subset[order_merge_keys], left_on="timestamp",
-                              right_on="timestamp_fulfilled", direction="nearest",
-                              tolerance=pd.Timedelta(f"{RESAMPLING_INTERVAL / 2} Min"))
-    merged_times = set([x for x in merged_df["timestamp_fulfilled"].to_list() if x is not pd.NaT])
-    order_times = set(order_subset["timestamp_fulfilled"].to_list())
-    if merged_times != order_times:
-        raise BadOrderMerge
-    return merged_df, order_subset
+def get_game_balances(game_id: int, user_id: int):
+    with engine.connect() as conn:
+        return pd.read_sql("""
+          SELECT symbol, balance, transaction_type, order_status_id FROM game_balances
+          WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock'
+          ORDER BY symbol, id;""", conn, params=[game_id, user_id])
 
 
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     # get historical order details
     order_df = get_order_details(game_id, user_id, start_time, end_time)
-    bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
-    order_df = order_df[order_df["status"] == "fulfilled"]
+    order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["symbol"] != "Cash")]
     if order_df.empty:
         return order_df
-
     order_df = make_order_labels(order_df)
-    bp_df_columns = ["symbol", "timestamp", "balance", "price"]
-    order_details_columns = ["symbol", "order_label", "buy_or_sell", "quantity", "clear_price_fulfilled",
-                             "timestamp_fulfilled"]
+    order_details_columns = ["symbol", "order_status_id", "order_label", "buy_or_sell", "quantity",
+                             "clear_price_fulfilled", "timestamp_fulfilled"]
     orders = order_df[order_details_columns]
-    balances = bp_df[bp_df_columns]
-    orders = orders.pivot_table(index=["symbol", "order_label", "clear_price_fulfilled", "timestamp_fulfilled"],
-                                columns="buy_or_sell", values="quantity", aggfunc="first").reset_index().fillna(0)
     orders["timestamp_fulfilled"] = orders["timestamp_fulfilled"].apply(lambda x: posix_to_datetime(x))
-    orders.sort_values("timestamp_fulfilled", inplace=True)
-    order_performances_slices = []
-    for symbol in balances["symbol"].unique():
-        if symbol == "Cash":
-            continue
+    balances = get_game_balances(game_id, user_id)
+    df = balances.merge(orders, on=["symbol", "order_status_id"], how="left")
 
-        merged_df, order_subset = merge_orders_on_balances(balances, orders, symbol)
-        merged_df[["buy", "sell"]] = merged_df[["buy", "sell"]].fillna(0)
-        for _, order_row in order_subset[order_subset["buy"] > 0].iterrows():  # order perf is for buy orders
-            perf_df = merged_df.copy(deep=True)
-            start_idx = np.where(perf_df["timestamp_fulfilled"] == order_row["timestamp_fulfilled"])[0][0]
-            perf_df = perf_df.iloc[start_idx:]
-            perf_df["original_value"] = order_row["clear_price_fulfilled"] * order_row["buy"]
-            if symbol == "SQ":
-                import ipdb;
-                ipdb.set_trace()
-                print("hi")
+    buys_df = df[df["buy_or_sell"] == "buy"]
+    events_df = df[df["transaction_type"].isin(["stock_sale", "stock_split"])]
 
-    # orders.pivot(columns="buy_or_sell", values="quantity").fillna(0)
-    # order_df = make_order_labels(order_df)
-    # order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
-    #
-    # # add bookend times and resample
-    # cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
-    # cum_sum_df.columns = ['symbol', 'cum_buys']
-    # order_df = order_df.merge(cum_sum_df)
-    # order_df = add_bookends(order_df, group_var="order_label", condition_var="quantity", time_var="timestamp_fulfilled",
-    #                         end_time=end_time)
-    # order_df["timestamp_fulfilled"] = pd.DatetimeIndex(
-    #     pd.to_datetime(order_df['timestamp_fulfilled'], unit='s')).tz_localize('UTC').tz_convert(TIMEZONE)
-    # order_df.set_index("timestamp_fulfilled", inplace=True)
-    # order_df.sort_values(["symbol", "timestamp_fulfilled", "order_label"], inplace=True)
-    # order_df = order_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
-    # order_df.reset_index(inplace=True)
-    # del order_df["level_0"]
-    # # get historical balances and prices
-    # bp_df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
-    #
-    # def _make_cumulative_sales(subset):
-    #     sales_diffs = subset["balance"].diff(1).fillna(0)
-    #     sales_diffs[sales_diffs > 0] = 0
-    #     subset["cum_sales"] = sales_diffs.abs().cumsum()
-    #     return subset.reset_index(drop=True)
-    #
-    # bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
-    #
-    # # merge running balance  information with order history
-    # slices = []
-    # for order_label in order_df["order_label"].unique():
-    #     order_subset = order_df[order_df["order_label"] == order_label]
-    #     bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
-    #     del bp_subset["symbol"]
-    #     right_cols = ["timestamp", "price", "cum_sales"]
-    #     df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
-    #                              right_on="timestamp", direction="nearest")
-    #
-    #     # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
-    #     mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
-    #     true_index = list(np.where(mask)[0])
-    #     if true_index[-1] < df_slice.shape[0] - 1:
-    #         true_index.append(true_index[-1] + 1)
-    #
-    #     df_slice = df_slice.iloc[true_index]
-    #     slices.append(df_slice)
-    # df = pd.concat(slices)
-    # df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
-    # df["return"] = df["return"].round(2)
-    # return df
+    for symbol in df["symbol"].unique():
+        buys_subset = buys_df[buys_df["symbol"] == symbol]
+        events_queue = events_df[events_df["symbol"] == symbol].to_dict(orient="records")
+        for _, buy_order in buys_subset.iterrows():
+            remaining_balance = buy_order["quantity"]
+            pct_sold = 0
+            for event in events_queue:
+                if event["transaction_type"] == "stock_split":
+                    remaining_balance = event["balance"]
+
+        if symbol == "LABD":
+            import ipdb;ipdb.set_trace()
 
 
 def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,

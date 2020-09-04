@@ -164,6 +164,7 @@ class GameBalances(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
     order_status_id = db.Column(db.Integer, db.ForeignKey("order_status.id"))
+    stock_split_id = db.Column(db.Integer, db.ForeignKey("stock_splits.id"))
     timestamp = db.Column(db.Float(precision=32))
     balance_type = db.Column(db.Enum(GameBalanceTypes))
     balance = db.Column(db.Float(precision=32))

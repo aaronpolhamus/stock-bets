@@ -220,7 +220,7 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
     status, and clear_price.
     """
     pivot_df = order_details.set_index(
-        ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
+        ["order_id", "order_status_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
     pivot_df = pivot_df.pivot(columns="status").reset_index()
     pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
     if "clear_price_pending" in pivot_df.columns:
@@ -243,6 +243,7 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
         SELECT
             o.id as order_id, 
             relevant_orders.status,
+            relevant_orders.id as order_status_id,
             symbol, 
             relevant_orders.timestamp, 
             buy_or_sell, 
@@ -253,7 +254,7 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
             relevant_orders.clear_price 
         FROM orders o
         INNER JOIN (
-          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
+          SELECT os_full.id, os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
           FROM order_status os_full
           INNER JOIN (
             SELECT os.order_id
