@@ -14,7 +14,7 @@ from backend.logic.visuals import (
     calculate_and_pack_game_metrics,
     serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details,
-    serialize_and_pack_order_performance_chart,
+    serialize_and_pack_order_performance_assets,
     serialize_and_pack_winners_table
 )
 from backend.logic.metrics import log_winners
@@ -68,7 +68,7 @@ def make_order_performance_chart_with_context(**context):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         print(f"*** user id: {user_id} ***")
-        serialize_and_pack_order_performance_chart(game_id, user_id, start_time, end_time)
+        serialize_and_pack_order_performance_assets(game_id, user_id, start_time, end_time)
 
 
 def log_multiplayer_winners_with_context(**context):

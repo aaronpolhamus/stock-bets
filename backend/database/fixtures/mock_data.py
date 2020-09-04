@@ -34,7 +34,7 @@ from backend.logic.visuals import (
     make_the_field_charts,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_order_details,
-    serialize_and_pack_order_performance_chart,
+    serialize_and_pack_order_performance_assets,
     make_chart_json,
     serialize_and_pack_winners_table
 )
@@ -635,7 +635,7 @@ def make_redis_mocks():
             # game/user-level assets
             serialize_and_pack_order_details(g_id, user_id)
             serialize_and_pack_portfolio_details(g_id, user_id)
-            serialize_and_pack_order_performance_chart(g_id, user_id)
+            serialize_and_pack_order_performance_assets(g_id, user_id)
 
         if not check_single_player_mode(g_id):
             # winners/payouts table

@@ -576,8 +576,10 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     for symbol in df["symbol"].unique():
         buys_subset = buys_df[buys_df["symbol"] == symbol]
         events_queue = events_df[events_df["symbol"] == symbol].to_dict(orient="records")
+
+        performance_records = []
         for _, buy_order in buys_subset.iterrows():
-            order_value = buy_order["quantity"] * buy_order["clear_price_fulfilled"]
+            buy_order_value = buy_order["quantity"] * buy_order["clear_price_fulfilled"]
             remaining_balance = buy_order["quantity"]
             pct_sold = 0
             for event in events_queue:
@@ -587,12 +589,58 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                     events_queue.pop(0)
 
                 if event["transaction_type"] == "stock_sale":
-                    pass
+                    sell_order_value = event["quantity"] * event["clear_price_fulfilled"]
+                    quantity_sold = event["quantity"]
+                    balance_minus_sold = remaining_balance - quantity_sold
+                    if balance_minus_sold < 0:
+                        # if the sale closes the order on a FIFO basis, allocation the portion off the sale
+                        # appropriately and adjust the event quantity for the next iteration
+                        quantity_sold = -balance_minus_sold
+                        event["quantity"] -= balance_minus_sold
+                    else:
+                        # if the sale doesn't close the order on a FIFO basis we're ready to consume the next event in
+                        # the queue
+                        events_queue.pop(0)
+                    sale_pct = (1 - pct_sold) * quantity_sold / remaining_balance
+                    pct_sold += sale_pct
+                    remaining_balance -= quantity_sold
+                    performance_records.append(dict(
+                        symbol=symbol,
+                        order_label=buy_order["order_label"],
+                        balance=remaining_balance,
+                        original_value=buy_order_value,
+                        timestamp=event["timestamp_fulfilled"],
+                        realized_pl=sell_order_value - sale_pct * buy_order_value,
+                        unrealized_pl=remaining_balance * event["clear_price_fulfilled"]
+                    ))
+
+            if remaining_balance:
+                performance_records.append(dict(
+                    symbol=symbol,
+                    order_label=buy_order["order_label"],
+                    balance=remaining_balance,
+                    original_value=buy_order_value,
+                    timestamp=time.time(),
+                    realized_pl=None,
+                    unrealized_pl=None
+                ))
+
+    # target schema
+    # -------------
+    # - symbol
+    # - order_label
+    # - balance
+    # - original_value
+    # - balance
+    # - timestamp
+    # - realized_pl
+    # - unrealized_pl
 
 
-
-def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start_time: float = None,
+def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, start_time: float = None,
                                                end_time: float = None):
+    """This function uses the output of make_order_perormancce
+    """
     table = make_order_performance_table(game_id, user_id, start_time, end_time)
     table = table.where(pd.notnull(table), None)  # swaps any NaNs from upstream processing for Null values
     order_perf = table
@@ -828,7 +876,7 @@ def init_game_assets(game_id: int):
         # game/user-level assets
         serialize_and_pack_order_details(game_id, user_id)
         serialize_and_pack_portfolio_details(game_id, user_id)
-        serialize_and_pack_order_performance_chart(game_id, user_id)
+        serialize_and_pack_order_performance_assets(game_id, user_id)
 
     if not check_single_player_mode(game_id):
         # winners/payouts table

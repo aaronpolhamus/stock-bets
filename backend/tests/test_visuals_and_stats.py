@@ -41,7 +41,7 @@ from backend.logic.visuals import (
     serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
     compile_and_pack_player_leaderboard,
-    serialize_and_pack_order_performance_chart,
+    serialize_and_pack_order_performance_assets,
     make_user_balances_chart_data,
     make_the_field_charts,
     LEADERBOARD_PREFIX,
@@ -284,7 +284,7 @@ class TestVisuals(BaseTestCase):
 
         user_ids = get_active_game_user_ids(game_id)
         for player_id in user_ids:
-            serialize_and_pack_order_performance_chart(game_id, player_id)
+            serialize_and_pack_order_performance_assets(game_id, player_id)
 
         op_chart_3_1 = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart_3_1["datasets"]])
@@ -452,7 +452,7 @@ class TestSinglePlayerLogic(BaseTestCase):
         self.assertEqual(len(fulfilled_orders_table["data"]), 2)
         self.assertEqual(set([x["Symbol"] for x in fulfilled_orders_table["data"]]), {"NVDA", "NKE"})
 
-        serialize_and_pack_order_performance_chart(game_id, user_id)
+        serialize_and_pack_order_performance_assets(game_id, user_id)
         self.assertIn(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", s3_cache.keys())
         op_chart = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}")
         chart_stocks = set([x["label"].split("/")[0] for x in op_chart["datasets"]])
