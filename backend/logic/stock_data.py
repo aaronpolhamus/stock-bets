@@ -4,6 +4,13 @@ from datetime import datetime as dt
 from re import sub
 from typing import List
 
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
+from backend.tasks.redis import rds
+
 import pandas as pd
 import requests
 from backend.database.db import engine
@@ -16,7 +23,7 @@ from backend.logic.base import (
     posix_to_datetime,
     get_trading_calendar,
     get_schedule_start_and_end,
-    get_current_game_cash_balance
+    get_current_game_cash_balance,
 )
 from backend.tasks.redis import rds
 from config import Config
@@ -348,3 +355,90 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
         del df["fractional_balance"]
         with engine.connect() as conn:
             df.to_sql("game_balances", conn, index=False, if_exists="append")
+
+
+def insert_dividends_to_db():
+    table = parse_dividends()
+    with engine.connect() as conn:
+        table.to_sql('dividends', conn, if_exists='append', index=False)
+
+
+def parse_dividends(date=dt.now(), timeout=120) -> pd.DataFrame:
+    day_of_month = str(date.day)
+    month = date.strftime('%B %Y')
+    driver = get_web_driver()
+    driver.get('https://www.thestreet.com/dividends/index.html')
+    table_x_path = '//*[@id="listed_divdates"]/table/tbody[2]'
+    if day_of_month != str(dt.now().day):
+        click_calendar(day_of_month, month, driver, timeout)
+    next_page = True
+    first_page = True
+    dividends_table = []
+    while next_page:
+        table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_x_path)))
+        dividends_table += get_table_values(table)
+        next_page = click_next_page(table, first_page)
+        first_page = False
+    df = pd.DataFrame(dividends_table, columns=['symbol', 'company', 'amount', 'yield', 'exec_date'])
+    del df['yield']
+    df['amount'] = df['amount'].replace('[\$,]', '', regex=True).astype(float)
+    dividend_exdate = pd.to_datetime(df['exec_date'].iloc[0])
+    posix_dividend_exdate = datetime_to_posix(dividend_exdate)
+    df['exec_date'] = posix_dividend_exdate
+    df.drop_duplicates(inplace=True)
+    return df.reset_index(drop=True)
+
+
+def get_table_values(table) -> list:
+    rows = table.find_elements_by_tag_name('tr')
+    current_rows = []
+    for row in rows:
+        current_rows.append(row.text.split('\n'))
+    return current_rows
+
+
+def select_day_in_calendar(month, day_of_month) -> int:
+    calendar_days = month.text.split('\n')
+    day_index = 0
+    for day in calendar_days:
+        if day == day_of_month:
+            return day_index
+        if len(day) > 2:
+            day_index += len(day.split())
+        else:
+            day_index += 1
+
+
+def click_calendar(day_of_month, target_month, driver, timeout) -> None:
+    choose_month(driver, target_month)
+    calendar_x_path = '//*[@id="cal1_0"]/tbody'
+    month = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, calendar_x_path)))
+    day_index = select_day_in_calendar(month, day_of_month)
+    day_x_path = f'//*[@id="cal1_0_cell{day_index}"]/a'
+    day_cell = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, day_x_path)))
+    day_cell.click()
+
+
+def click_next_page(driver, first) -> bool:
+    page = 3
+    if first:
+        page = 1
+    button_x_path = f'/html/body/div[8]/div[2]/div[1]/table/tbody/tr/td/div[2]/div[2]/div[3]/a[{page}]'
+    try:
+        next_button = driver.find_element_by_xpath(button_x_path)
+    except NoSuchElementException:
+        return False
+    if next_button is not None:
+        next_button.click()
+        return True
+    return False
+
+
+def choose_month(driver, month):
+    back_row_xpath = '/html/body/div[8]/div[2]/div[1]/table/tbody/tr/td/div[2]/div[1]/div[1]/table/thead/tr[1]/th/div/a'
+    current_month_xpath = '//*[@id="cal1_0"]/thead/tr[1]/th/div'
+    current_month = driver.find_element_by_xpath(current_month_xpath).text.split('\n')[-1]
+    while current_month != month:
+        back_arrow = driver.find_element_by_xpath(back_row_xpath)
+        back_arrow.click()
+        current_month = driver.find_element_by_xpath(current_month_xpath).text.split('\n')[-1]
