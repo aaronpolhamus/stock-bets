@@ -186,7 +186,25 @@ const MakeGame = ({ gameMode }) => {
             <Form.Group>
               <Form.Label>
                 Benchmark
-                <Tooltip message="Simple return is your total portfolio value at the end of your game divided by what you started with. The Sharpe ratio is trickier, and it's important to understand it if you're going to use it as a benchmark. It's possible, for example, to have a positive Sharpe ratio even if your total return is negative. Check out this video for the details of how we calculate the Sharpe ratio: https://www.youtube.com/watch?v=s0bxoD_0fAU" />
+                <Tooltip
+                  message={
+                    <>
+                      <p>
+                        The Benchmark is how the player's portfolios are going to be compared, thus, it defines who is winning. 
+                      </p>
+                      <p>
+                        <strong>Simple Return</strong> is your total portfolio value divided by what you started with.
+                      </p>
+                      <p>
+                        <strong>Sharpe Ratio</strong> is a risk-adjusted measure of return. If you're not sure, choose Simple Return.
+                      </p>
+                      <p>
+                        Check out <a href='https://www.youtube.com/watch?v=s0bxoD_0fAU' target="_blank" rel="noreferrer noopener">
+                          this video</a> to learn how we calculate the Sharpe ratio
+                      </p>
+                    </>
+                  }
+                />
               </Form.Label>
               <RadioButtons
                 options={defaults.benchmarks}

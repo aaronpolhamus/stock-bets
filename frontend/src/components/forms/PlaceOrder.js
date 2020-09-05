@@ -333,7 +333,21 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           <Form.Group>
             <Form.Label>
                   Order type
-              <Tooltip message="A market order clears right away, at  whatever price is currently on the market. A 'limit' order is an order where the price direction is in your favor, e.g. a buy-limit order clears when the market price is less than or equal to the price you set. A sell-limit order, on the other hand, clears when the market price is greater than or equal to your order price. A sell-stop order is a common way to reduce exposure to loss, and clears when the market price is at or below the sale order price. Orders only clear during trading day--if you're placing orders outside of trading hours, you should see them reflected in your orders table as pending." />
+              <Tooltip
+                message={
+                  <>
+                    <p>
+                      A <strong>Market Order</strong> clears right away, at  whatever price is currently on the market.
+                    </p>
+                    <p>
+                      A <strong>Limit Order</strong> clears when the market price reaches or exceeds the limit price you set.
+                    </p>
+                    <p>
+                     A <strong>Stop Order</strong> clears when the market price is at or below the sale order price
+                    </p>
+                  </>
+                }
+              />
             </Form.Label>
             <RadioButtons
               name='order_type'

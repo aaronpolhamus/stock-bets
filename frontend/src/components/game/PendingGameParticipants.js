@@ -26,8 +26,8 @@ const PendingGameParticipants = ({ participants }) => {
   const participantsBuilder = (participants) => {
     return participants.map((participant, index) => {
       return (
-        <tr>
-          <td key={index}>
+        <tr key={index}>
+          <td>
             <UserMiniCard
               avatarSrc={participant.profile_pic}
               avatarSize='small'

@@ -22,6 +22,7 @@ const JoinGame = () => {
   const { gameId } = useParams()
   const [gameInfo, setGameInfo] = useState([])
   const [gameParticipants, setGameParticipants] = useState([])
+  const [gameInvitees, setGameInvitees] = useState([])
   const [showPaypalModal, setShowPaypalModal] = useState(false)
   const [showConfirmationModal, setShowConfirmationModal] = useState(false)
   const [redirect, setRedirect] = useState(false)
@@ -37,6 +38,8 @@ const JoinGame = () => {
       'get_pending_game_info'
     )
     setGameParticipants(gameParticipantsData.platform_invites)
+    setGameInvitees(gameParticipantsData.email_invites)
+    console.log(gameParticipantsData)
   }
 
   useEffect(() => {
