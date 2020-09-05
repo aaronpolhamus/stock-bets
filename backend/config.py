@@ -9,16 +9,17 @@ class Config:
         CORS_ORIGINS = "http://localhost:3000"
         PAYPAL_URL = "https://api.sandbox.paypal.com"
         PAYPAL_TEST_USER_ID = getenv("PAYPAL_TEST_USER_ID")
+        IEX_API_URL = "https://sandbox.iexapis.com/"
 
     if ENV == "prod":
         CORS_ORIGINS = "https://app.stockbets.io"
         PAYPAL_URL = "https://api.paypal.com"
+        IEX_API_URL = "https://cloud.iexapis.com/"
 
     # External dependencies:
     # ----------------------
     GOOGLE_VALIDATION_URL = "https://www.googleapis.com/oauth2/v3/tokeninfo"
     FACEBOOK_VALIDATION_URL = "https://graph.facebook.com/me"
-    SYMBOLS_TABLE_URL = "https://iextrading.com/trading/eligible-symbols/"
     YAHOO_FINANCE_URL = "https://finance.yahoo.com/"
     EMAIL_SENDER = getenv('EMAIL_SENDER')
     SENDGRID_API_KEY = getenv('SENDGRID_API_KEY')
@@ -71,9 +72,7 @@ class Config:
 
     # Data harvesting
     # ---------------
-    IEX_API_PRODUCTION = bool(getenv("IEX_API_PRODUCTION") == "True")
-    IEX_API_SECRET_PROD = getenv("IEX_API_SECRET_PROD")
-    IEX_API_SECRET_SANDBOX = getenv("IEX_API_SECRET_SANDBOX")
+    IEX_API_SECRET = getenv("IEX_API_SECRET")
 
     # S3 Credentials
     # --------------
@@ -81,6 +80,7 @@ class Config:
     AWS_SECRET_ACCESS_KEY = getenv("AWS_SECRET_ACCESS_KEY")
     AWS_ENDPOINT_URL = getenv('AWS_ENDPOINT_URL')
     AWS_PUBLIC_BUCKET_NAME = getenv("AWS_PUBLIC_BUCKET_NAME")
+    AWS_PRIVATE_BUCKET_NAME = getenv("AWS_PRIVATE_BUCKET_NAME")
     AWS_PUBLIC_ENDPOINT = getenv("AWS_PUBLIC_ENDPOINT")
 
     # Payments

@@ -11,7 +11,6 @@ RUN apt-get update \
   unzip \
   gnupg \
   libev-dev \
-  firefox \
   mysql-client \
   chromium-chromedriver \
   netcat \
@@ -19,6 +18,7 @@ RUN apt-get update \
   python3-pip \
   python3-setuptools \
   python3.7-dev \
+  python3-wheel \
   && cd /usr/local/bin \
   && ln -s /usr/bin/python3.7 python \
   && rm -rf /var/lib/apt/lists/*
@@ -31,6 +31,6 @@ ENV PYTHONPATH="$PYTHONPATH:/home"
 
 # Copy source and install python dependencies
 # -------------------------------------------
-RUN python -m pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install -r requirements.txt
 
 ENTRYPOINT ["./docker/backend-entrypoint.sh"]

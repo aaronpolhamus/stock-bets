@@ -30,7 +30,6 @@ from backend.logic.base import (
     SECONDS_IN_A_DAY,
     get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
-    fetch_price,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -48,6 +47,7 @@ from backend.logic.payments import (
     get_payment_profile_uuids,
     send_paypal_payment
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
     removing_pending_order,
     serialize_and_pack_portfolio_details,
@@ -261,28 +261,6 @@ def get_open_game_ids_past_window():
     return [x[0] for x in result]
 
 
-def get_game_ids_by_status(status="active"):
-    with engine.connect() as conn:
-        result = conn.execute("""
-        SELECT g.id
-        FROM games g
-        INNER JOIN
-        (
-          SELECT gs.game_id, gs.status
-          FROM game_status gs
-          INNER JOIN
-          (SELECT game_id, max(id) as max_id
-            FROM game_status
-            GROUP BY game_id) grouped_gs
-          ON
-            gs.id = grouped_gs.max_id
-          WHERE gs.status = %s
-        ) pending_game_ids
-        ON
-          g.id = pending_game_ids.game_id;""", status).fetchall()
-    return [x[0] for x in result]
-
-
 def get_invite_list_by_status(game_id: int, status: str = "joined"):
     with engine.connect() as conn:
         result = conn.execute("""
@@ -325,7 +303,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=DEFAULT_VIRTUAL_CASH)
+                balance=DEFAULT_VIRTUAL_CASH, transaction_type="kickoff")
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
@@ -680,10 +658,13 @@ def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, c
     """This function books an order and updates a user's cash balance at the same time.
     """
     sign = 1 if buy_or_sell == "buy" else -1
+    ttype = "stock_purchase" if buy_or_sell == "buy" else "stock_sale"
     add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-            balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price)
+            balance_type="virtual_cash", balance=cash_balance - sign * order_quantity * order_price,
+            transaction_type=ttype)
     add_row("game_balances", user_id=user_id, game_id=game_id, order_status_id=order_status_id, timestamp=timestamp,
-            balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol)
+            balance_type="virtual_stock", balance=current_holding + sign * order_quantity, symbol=symbol,
+            transaction_type=ttype)
 
 
 def place_order(user_id: int, game_id: int, symbol: str, buy_or_sell: str, cash_balance: float, current_holding: int,

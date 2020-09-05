@@ -8,7 +8,7 @@ import { BaseChart } from 'components/charts/BaseCharts'
 const Admin = () => {
   const [redirect, setRedirect] = useState(false)
   const [validated, setValidated] = useState(false)
-  const [stock, setStock] = useState(null)
+  const [username, setUsername] = useState(null)
   const [gamesPerUserData, setGamesPerUserData] = useState(null)
   const [ordersPerUserData, setOrdersPerUserData] = useState(null)
 
@@ -42,40 +42,23 @@ const Admin = () => {
     getOrdersPerUserData()
   }, [validated])
 
-  const fetchPrice = async (symbol) => {
-    await api.post('/api/fetch_price', {
-      symbol: symbol,
-      withCredentials: true
-    })
+  const changeUser = async (username) => {
+    await api.post('/api/change_user', { username: username })
+      .then(() => setRedirect(true))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmitChangeUser = (e) => {
     e.preventDefault()
-    fetchPrice(stock)
+    changeUser(username)
   }
 
-  const handleChange = (e) => {
-    setStock(e.target.value)
+  const handleChangeUser = (e) => {
+    setUsername(e.target.value)
   }
   if (redirect) return <Redirect to='/' />
   if (!validated) return <></>
   return (
     <>
-      <Form onSubmit={handleSubmit}>
-        <br />
-        <Form.Group>
-          <Form.Control
-            name='check_stock_price'
-            as='input'
-            onChange={handleChange}
-            placeholder='Pick a stock to price check'
-          />
-        </Form.Group>
-        <Button variant='primary' type='submit'>
-          Fetch
-        </Button>
-      </Form>
-      <br />
       <Row>
         <Button onClick={async () => api.post('/api/refresh_game_statuses')}>
           Refresh all game statuses
@@ -86,6 +69,22 @@ const Admin = () => {
         <Button onClick={async () => api.post('/api/refresh_metrics')}>
           Refresh KPIs
         </Button>
+      </Row>
+      <Row>
+        <Form onSubmit={handleSubmitChangeUser}>
+          <br />
+          <Form.Group>
+            <Form.Control
+              name='change_user'
+              as='input'
+              onChange={handleChangeUser}
+              placeholder='What user do you want to check out?'
+            />
+          </Form.Group>
+          <Button variant='primary' type='submit'>
+            Switch
+          </Button>
+        </Form>
       </Row>
       <br />
       {gamesPerUserData && <BaseChart data={gamesPerUserData} />}

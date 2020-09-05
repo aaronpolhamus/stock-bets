@@ -11,6 +11,7 @@ from backend.database.helpers import (
     query_to_dict
 )
 from backend.logic.base import (
+    get_time_defaults,
     get_schedule_start_and_end,
     get_next_trading_day_schedule,
     during_trading_day,
@@ -41,10 +42,11 @@ RISK_FREE_RATE_DEFAULT = 0
 
 
 def portfolio_value_by_day(game_id: int, user_id: int, start_time: float, end_time: float) -> pd.DataFrame:
-    df = make_historical_balances_and_prices_table(game_id, user_id, start_time, end_time)
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    df = make_historical_balances_and_prices_table(game_id, user_id)
+    df = df[(df["timestamp"] >= posix_to_datetime(start_time)) & (df["timestamp"] <= posix_to_datetime(end_time))]
     df = df.groupby(["symbol", "timestamp"], as_index=False)["value"].agg("last")
-    df = df.groupby("timestamp", as_index=False)["value"].sum()
-    return df
+    return df.groupby("timestamp", as_index=False)["value"].sum()
 
 
 def portfolio_return_ratio(df: pd.DataFrame):

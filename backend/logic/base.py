@@ -3,57 +3,40 @@ as we build out the logic library.
 """
 import calendar
 import json
-import sys
 import time
 from datetime import datetime as dt, timedelta
-from re import sub
 from typing import List, Union
 
 import numpy as np
 import pandas as pd
 import pandas_market_calendars as mcal
 import pytz
-import requests
-from backend.config import Config
-from backend.database.helpers import (
-    query_to_dict,
-    add_row,
-    read_table_cache,
-    write_table_cache
-)
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 from backend.logic.schemas import (
     apply_validation,
     balances_and_prices_table_schema
 )
 from backend.tasks.redis import (
-    rds,
     redis_cache,
     DEFAULT_CACHE_EXPIRATION
 )
-from database.db import engine
 from pandas.tseries.offsets import DateOffset
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-
-USD_FORMAT = "${:,.2f}"
 
 # -------- #
 # Defaults #
 # -------- #
 
-TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
+USD_FORMAT = "${:,.2f}"
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
-IEX_BASE_SANBOX_URL = "https://sandbox.iexapis.com/"
-IEX_BASE_PROD_URL = "https://cloud.iexapis.com/"
+SECONDS_IN_A_DAY = 60 * 60 * 24
+TIMEZONE = 'America/New_York'
+RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 
 # --------------------------------- #
 # Managing time and trade schedules #
 # --------------------------------- #
-SECONDS_IN_A_DAY = 60 * 60 * 24
-TIMEZONE = 'America/New_York'
-RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
+
 nyse = mcal.get_calendar('NYSE')
 pd.options.mode.chained_assignment = None
 
@@ -71,6 +54,7 @@ def get_user_ids_from_passed_emails(invited_user_emails: List[str]) -> List[int]
     if res:
         return [x[0] for x in res]
     return []
+
 
 # ----------------------------------------------------------------------------------------------------------------- $
 # Time handlers. Pro tip: This is a _sensitive_ part of the code base in terms of testing. Times need to be mocked, #
@@ -196,7 +180,7 @@ def get_game_info(game_id: int):
     return info
 
 
-def get_active_game_user_ids(game_id):
+def get_active_game_user_ids(game_id: int):
     with engine.connect() as conn:
         result = conn.execute("""
             SELECT users FROM game_status 
@@ -205,7 +189,7 @@ def get_active_game_user_ids(game_id):
     return json.loads(result)
 
 
-def get_current_game_cash_balance(user_id, game_id):
+def get_current_game_cash_balance(user_id: int, game_id: int):
     """Get the user's current virtual cash balance for a given game. Expects a valid database connection for query
     execution to be passed in from the outside
     """
@@ -337,8 +321,9 @@ def get_all_game_usernames(game_id: int):
 # --------- #
 
 
-def get_user_information(user_id):
-    return query_to_dict("SELECT * FROM users WHERE id = %s", user_id)[0]
+def get_user_information(user_id: int):
+    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
+    return query_to_dict(sql, user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
@@ -378,9 +363,9 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
     return df.sort_values("timestamp")
 
 
-def resample_values(symbol_subset, value_col="balance"):
+def resample_values(symbol_subset):
     # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({value_col: "last"})
+    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last", "last_transaction_type": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
     return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
@@ -405,7 +390,7 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
             price_subsets.append(balance_subset)
             continue
         del prices_subset["symbol"]
-        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
+        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="backward"))
     df = pd.concat(price_subsets, axis=0)
     df["value"] = df["balance"] * df["price"]
     return df
@@ -481,7 +466,8 @@ def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_
     """Extracts a running record of a user's balances through time.
     """
     sql = """
-            SELECT timestamp, balance_type, symbol, balance FROM game_balances
+            SELECT timestamp, balance_type, symbol, balance, transaction_type as last_transaction_type
+            FROM game_balances
             WHERE
               game_id = %s AND
               user_id = %s AND
@@ -496,176 +482,27 @@ def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_
     return balances
 
 
-def handle_balances_cache(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
-    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
-    cached_df = read_table_cache("balances_and_prices_cache", start_time, end_time, game_id=game_id, user_id=user_id)
-    cached_df.drop(["game_id", "user_id"], axis=1, inplace=True)
-    cache_end = 0
-    if not cached_df.empty:
-        cache_end = float(cached_df["timestamp"].max())
-
-    balances_df = get_user_balance_history(game_id, user_id, cache_end, end_time)
-    if not balances_df.empty:
-        balances_df = balances_df[balances_df["timestamp"] > cache_end]
-        prepend_df = cached_df.loc[
-            cached_df["timestamp"] == cached_df["timestamp"].max(), ["symbol", "timestamp", "balance"]]
-        balances_df = pd.concat([prepend_df, balances_df])
-
-    return balances_df, cached_df, cache_end
-
-
 def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_time: float = None,
                                               end_time: float = None) -> pd.DataFrame:
-    """This is a very important function that aggregates user balance and price information and is used both for
-    plotting and calculating winners. It's the reason the 7 functions above exist.
-
-    start_time and end_time control the window that the function will construct a merged series of running balances
-    and price for. if left as None, respective, they will default to the game start and the current time
+    """start_time and end_time control the window that the function will construct a merged series of running balances
+    and prices. If left as None they will default to the game start and the current time.
 
     the end_time argument determines the reference date for calculating the "bookends" of the running balances series.
     if this is passed as its default value, None, it will use the present time as the bookend reference. being able to
     control this value explicitly lets us "freeze time" when running DAG tests.
-
-    another quick note about this function -- while you can technical pass in any start_time, the internal logic here
-    requires prior knowledge of past balances to run properly, othwerwise you'll likely end up ignoring users' past
-    purchases. for the best outcome, generally leave the start_time default behavior alone, unless working in a
-    testing env where you need to "freeze" time to the test fixture window.
     """
-    balances_df, cached_df, cache_end = handle_balances_cache(game_id, user_id, start_time, end_time)
-    if balances_df.empty:  # this means that there's nothing new to add -- no need for the logic below
-        balances_df = add_bookends(cached_df, end_time=end_time)
-    else:
-        balances_df = add_bookends(balances_df, end_time=end_time)
-    update_df = append_price_data_to_balance_histories(balances_df)  # price appends + resampling happen here
-    update_df = filter_for_trade_time(update_df)
-    apply_validation(update_df, balances_and_prices_table_schema, strict=True)
-    cached_df["timestamp"] = cached_df["timestamp"].apply(lambda x: posix_to_datetime(x))
-    df = pd.concat([cached_df, update_df], axis=0)
-    df["timestamp"] = pd.to_datetime(df["timestamp"])  # this ensure datetime dtype for when cached_df is empty
-    df = df[~df.duplicated(["symbol", "timestamp"])]
-    if not update_df.empty:
-        cache_update = df[df["timestamp"] > posix_to_datetime(cache_end)]
-        cache_update["timestamp"] = cache_update["timestamp"].apply(lambda x: datetime_to_posix(x))
-        write_table_cache("balances_and_prices_cache", cache_update, game_id=game_id, user_id=user_id)
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
+    balances_df = get_user_balance_history(game_id, user_id, start_time, end_time)
+    df = add_bookends(balances_df, end_time=end_time)
+    df = append_price_data_to_balance_histories(df)  # price appends + resampling happen here
+    df = filter_for_trade_time(df)
+    apply_validation(df, balances_and_prices_table_schema, strict=True)
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
 
-# Price and stock data harvesting tools
-# -------------------------------------
-
-
-class SeleniumDriverError(Exception):
-
-    def __str__(self):
-        return "It looks like the selenium web driver failed to instantiate properly"
-
-
-def currency_string_to_float(money_string):
-    if type(money_string) == str:
-        return float(sub(r'[^\d.]', '', money_string))
-    return money_string
-
-
-def get_web_table_object():
-    print("starting selenium web driver...")
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(options=options)
-
-
-def extract_row_data(row):
-    list_entry = dict()
-    split_entry = row.text.split(" ")
-    list_entry["symbol"] = split_entry[0]
-    list_entry["name"] = " ".join(split_entry[2:])
-    return list_entry
-
-
-def get_symbols_table(n_rows=None, timeout=20):
-    driver = get_web_table_object()
-    driver.get(Config.SYMBOLS_TABLE_URL)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.TAG_NAME, "table")))
-    rows = table.find_elements_by_tag_name("tr")
-    row_list = list()
-    n = len(rows)
-    print(f"extracting available {n} rows of symbols data...")
-    for i, row in enumerate(rows):
-        list_entry = extract_row_data(row)
-        if list_entry["symbol"] == "Symbol":
-            continue
-        row_list.append(list_entry)
-        sys.stdout.write(f"\r{i} / {n} rows")
-        sys.stdout.flush()
-        if n_rows and len(row_list) == n_rows:
-            # just here for low-cost testing
-            break
-
-    return pd.DataFrame(row_list)
-
-
-def get_index_value(symbol, timeout=20):
-    quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
-    driver = get_web_table_object()
-    driver.get(quote_url)
-    header = WebDriverWait(driver, timeout).until(
-        EC.visibility_of_element_located((By.XPATH, '//*[@id="quote-header-info"]/div[3]/div/div/span[1]')))
-    return currency_string_to_float(header.text)
-
-
-def update_index_value(symbol):
-    value = get_index_value(symbol)
-    if during_trading_day():
-        add_row("indexes", symbol=symbol, value=value, timestamp=time.time())
-        return True
-
-    # a bit of logic to get the close of day price
-    with engine.connect() as conn:
-        max_time = conn.execute("SELECT MAX(timestamp) FROM indexes WHERE symbol = %s;", symbol).fetchone()[0]
-        if max_time is None:
-            max_time = 0
-
-    ref_day = time.time()
-    eod = get_end_of_last_trading_day(ref_day)
-    while eod > ref_day:
-        ref_day -= SECONDS_IN_A_DAY
-        eod = get_end_of_last_trading_day(ref_day)
-
-    if max_time < eod <= time.time():
-        add_row("indexes", symbol=symbol, value=value, timestamp=eod)
-        return True
-
-    return False
-
-
-def get_cache_price(symbol):
-    data = rds.get(symbol)
-    if data is None:
-        return None, None
-    return [float(x) for x in data.split("_")]
-
-
-def fetch_price_iex(symbol):
-    secret = Config.IEX_API_SECRET_SANDBOX if not Config.IEX_API_PRODUCTION else Config.IEX_API_SECRET_PROD
-    base_url = IEX_BASE_SANBOX_URL if not Config.IEX_API_PRODUCTION else IEX_BASE_PROD_URL
-    res = requests.get(f"{base_url}/stable/stock/{symbol}/quote?token={secret}")
-    if res.status_code == 200:
-        quote = res.json()
-        timestamp = quote["latestUpdate"] / 1000
-        if Config.IEX_API_PRODUCTION is False:
-            timestamp = time.time()
-        price = quote["latestPrice"]
-        return price, timestamp
-
-
-def fetch_price(symbol, provider="iex"):
-    if provider == "iex":
-        return fetch_price_iex(symbol)
-
-
-def set_cache_price(symbol, price, timestamp):
-    rds.set(symbol, f"{price}_{timestamp}")
+# ------------------------------------- #
+# Price and stock data harvesting tools #
+# ------------------------------------- #
 
 
 def get_all_active_symbols():
@@ -688,9 +525,9 @@ def get_active_balances(game_id: int, user_id: int):
     """It gets a bit messy, but this query also tacks on the price that the last order for a stock cleared at.
     """
     sql = """
-        SELECT symbol, balance, os.timestamp, clear_price
+        SELECT g.symbol, g.balance, g.timestamp, os.clear_price
         FROM order_status os
-        INNER JOIN
+        RIGHT JOIN
         (
           SELECT gb.symbol, gb.balance, gb.balance_type, gb.timestamp, gb.order_status_id
           FROM game_balances gb
@@ -705,9 +542,8 @@ def get_active_balances(game_id: int, user_id: int):
           ON
             gb.id = grouped_gb.max_id
           WHERE balance > 0
-        ) balances
-        WHERE balances.order_status_id = os.id;
-    """
+        ) g
+        ON g.order_status_id = os.id;"""
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 
@@ -720,9 +556,8 @@ def check_single_player_mode(game_id: int) -> bool:
     return game_mode[0] == "single_player"
 
 
-# -------------------------------------------------- #
-# Methods for handling indexes in single-player mode #
-# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode
+# --------------------------------------------------
 
 
 def get_index_reference(game_id: int, symbol: str) -> float:
@@ -769,3 +604,4 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+

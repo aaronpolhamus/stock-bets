@@ -6,10 +6,8 @@ from typing import List
 import random
 import time
 
-from airflow.api.client.local_client import Client
+from airflow.api.common.experimental import trigger_dag
 from airflow.models.dagrun import DagRun
-
-afc = Client(None, None)
 
 
 def log_headline(keys: tuple, values: List):
@@ -29,11 +27,11 @@ def get_dag_run_state(dag_id: str, run_id: str):
     return DagRun.find(dag_id=dag_id, run_id=run_id)[0].state
 
 
-def trigger_dag(dag_id: str, wait_for_complete: bool = False, **kwargs):
+def start_dag(dag_id: str, wait_for_complete: bool = False, **kwargs):
     run_hash = '%030x' % random.randrange(16**30)
     kwarg_list = [f"{str(k)}:{str(v)}" for k, v in kwargs.items()]
     run_id = f"{run_hash}-{'_'.join(kwarg_list)}"
-    afc.trigger_dag(dag_id, run_id=run_id, conf=kwargs)
+    trigger_dag.trigger_dag(dag_id, run_id=run_id, conf=kwargs, replace_microseconds=False)
     while wait_for_complete and get_dag_run_state(dag_id, run_id) == "running":
         time.sleep(1)
         continue

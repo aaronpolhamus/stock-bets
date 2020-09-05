@@ -9,7 +9,6 @@ Stock bets' goal is to make it fun for groups of friends to place competitive, r
   - `TEST_CASE_EMAIL` (you@example.com): Same as above for the uuid: you should define these right next to each other in your dev `.env` file.  
   - `TEST_CASE_NAME` (string): How would you like your username to show up while developing locally?
   - `GECKO_DRIVER_LOCATION` (string): The url for downloading the Mozilla gecko driver in case Selenium needs to fallback from using Chromium. This is generally not going to be required for development.
-  - `IEX_API_PRODUCTION` (True/False): Always False for development! Otherwise you'll consume paid price data from IEX when developing locally.
   - `IEX_API_SECRET_PROD` (string): IEX production API secret
   - `IEX_API_SECRET_SANDBOX` (string): IEX sandbox API secret
   - `SENDGRID_API_KEY` (string): SENDGRID API to send emails 
@@ -50,12 +49,13 @@ The business logic modules stored in `/backend/logic` have an order that is impo
 ```
 1) schemas.py
 2) base.py
-3) payments.py
-4) metrics.py
-5) visuals.py
-6) friends.py
-7) games.py
-8) auth.py
+3) stock_data.py
+4) payments.py
+5) metrics.py
+6) visuals.py
+7) friends.py
+8) games.py
+9) auth.py
 ```
 
 When asking yourself "where do I put this piece of business logic?" the answer is "as far downstream (i.e. close to the games module) as you can whie respecting this order". We've tried to further break down the logical modules with comments indicating what different branches of application logic they deal with, but there is room for constant improvement here. 
@@ -92,5 +92,4 @@ When asking yourself "where do I put this piece of business logic?" the answer i
 * `RABBITMQ_HOST`
 * `REDIS_HOST`
 * `GECKO_DRIVER_LOCATION`
-* `IEX_API_PRODUCTION` (should be equal to `True`)
 * `IEX_API_SECRET_PROD`

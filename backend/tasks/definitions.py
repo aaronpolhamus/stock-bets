@@ -3,21 +3,25 @@ import time
 from backend.database.db import engine
 from backend.database.helpers import add_row
 from backend.logic.base import (
-    TRACKED_INDEXES,
     during_trading_day,
-    get_cache_price,
-    set_cache_price,
-    SeleniumDriverError,
+    get_all_active_symbols
+)
+from logic.stock_data import (
     get_symbols_table,
+    update_index_value,
+    get_cache_price,
     fetch_price,
-    get_all_active_symbols,
-    update_index_value
+    set_cache_price,
+    get_stock_splits,
+    apply_stock_splits,
+    TRACKED_INDEXES,
+    get_game_ids_by_status,
+    SeleniumDriverError
 )
 from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_ids_past_window,
-    get_game_ids_by_status,
     service_open_game,
     expire_finished_game
 )
@@ -29,17 +33,14 @@ from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
     serialize_and_pack_orders_per_active_user
 )
-from backend.tasks.redis import (
-    redis_lock,
-    TASK_LOCK_MSG,
-    task_lock
-)
-from backend.tasks.airflow import trigger_dag
+from backend.tasks.redis import task_lock
+from backend.tasks.airflow import start_dag
 
 TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
+
 
 # -------------------------- #
 # Price fetching and caching #
@@ -97,12 +98,22 @@ def async_service_open_games(self):
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
 
+
+@celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
+def async_apply_stock_splits(self):
+    splits = get_stock_splits()
+    if not splits.empty:
+        with engine.connect() as conn:
+            splits.to_sql("stock_splits", conn, if_exists="append", index=False)
+        apply_stock_splits(splits)
+
+
 # ---------------- #
 # Order management #
 # ---------------- #
 
 
-@celery.task(name="async_update_symbols_table", bind=True, default_retry_delay=10, base=BaseTask)
+@celery.task(name="async_update_symbols_table", bind=True, base=BaseTask)
 def async_update_symbols_table(self, n_rows=None):
     symbols_table = get_symbols_table(n_rows)
     if symbols_table.empty:
@@ -110,20 +121,15 @@ def async_update_symbols_table(self, n_rows=None):
 
     with engine.connect() as conn:
         conn.execute("TRUNCATE TABLE symbols;")
-
-    with engine.connect() as conn:
         symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
 @celery.task(name="async_process_all_orders_in_game", bind=True, base=BaseTask)
+@task_lock(main_key="async_process_all_orders_in_game", timeout=PROCESS_ORDERS_LOCK_TIMEOUT)
 def async_process_all_orders_in_game(self, game_id: int):
-    with redis_lock(f"process_all_orders_{game_id}", PROCESS_ORDERS_LOCK_TIMEOUT) as acquired:
-        if not acquired:
-            return TASK_LOCK_MSG
-
-        open_orders = get_all_open_orders(game_id)
-        for order_id, _ in open_orders.items():
-            process_order(order_id)
+    open_orders = get_all_open_orders(game_id)
+    for order_id, _ in open_orders.items():
+        process_order(order_id)
 
 
 @celery.task(name="async_process_all_open_orders", bind=True, base=BaseTask)
@@ -152,12 +158,12 @@ def async_update_all_games(self):
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
-    trigger_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
-
+    start_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
 # ----------- #
 # Key metrics #
 # ----------- #
+
 
 @celery.task(name="async_calculate_key_metrics", bind=True, base=BaseTask)
 def async_calculate_key_metrics(self):

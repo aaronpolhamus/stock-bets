@@ -3,6 +3,7 @@
 import json
 import time
 import unittest
+from freezegun import freeze_time
 from datetime import datetime as dt
 from unittest import TestCase
 from unittest.mock import patch
@@ -27,7 +28,6 @@ from backend.logic.base import (
 from backend.logic.games import (
     get_invite_list_by_status,
     add_game,
-    get_game_ids_by_status,
     get_game_info_for_user,
     expire_finished_game,
     suggest_symbols,
@@ -58,7 +58,7 @@ from backend.logic.games import (
     get_external_invite_list_by_status,
     init_game_assets
 )
-from backend.logic.metrics import check_if_payout_time
+from logic.stock_data import get_game_ids_by_status
 from backend.logic.schemas import (
     balances_chart_schema,
     apply_validation,
@@ -68,7 +68,9 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     init_order_details
 )
-from backend.tasks.redis import unpack_redis_json
+
+from backend.logic.metrics import check_if_payout_time
+from backend.tasks import s3_cache
 from backend.tests import BaseTestCase
 from freezegun import freeze_time
 
@@ -165,7 +167,6 @@ class TestGameLogic(BaseTestCase):
             df = pd.read_sql(
                 "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
                 params=str(game_id))
-            self.assertEqual(df.shape, (2, 8))
             self.assertEqual(df["user_id"].to_list(), [4, 3])
             self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
 
@@ -1058,7 +1059,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
         external_example_user_id2 = get_user_ids(["frederick2"])[0]
         respond_to_game_invite(game_1_id, external_example_user_id2, "joined", time.time())
 
-        field_chart = unpack_redis_json(f"{FIELD_CHART_PREFIX}_{game_1_id}")
+        field_chart = s3_cache.unpack_s3_json(f"{game_1_id}/{FIELD_CHART_PREFIX}")
         players = [x["label"] for x in field_chart["datasets"]]
         self.assertEqual(set(players), {'cheetos', 'jack', 'jadis', 'minion1', 'minion2', 'frederick', 'frederick2'})
 
@@ -1079,6 +1080,5 @@ class TestPayoutTime(TestCase):
         self.assertFalse(check_if_payout_time(friday_during_trading, weekend_payout_time))
         self.assertTrue(check_if_payout_time(friday_during_trading, friday_during_trading - 10))
         self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
-
         base_time_mock.time.return_value = friday_after_close
         self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))

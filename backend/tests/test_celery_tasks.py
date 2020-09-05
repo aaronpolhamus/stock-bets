@@ -8,12 +8,12 @@ from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     get_active_game_user_ids,
     SECONDS_IN_A_DAY,
-    fetch_price,
     get_end_of_last_trading_day,
     posix_to_datetime,
     during_trading_day,
     get_trading_calendar,
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.friends import (
     suggest_friends,
     get_friend_invites_list,
@@ -44,13 +44,11 @@ from backend.logic.visuals import (
     serialize_and_pack_order_details,
     serialize_and_pack_portfolio_details
 )
-from backend.tasks.redis import (
-    rds,
-    TASK_LOCK_MSG
-)
+from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
 from database.db import engine
 from logic.visuals import calculate_and_pack_game_metrics
+from tasks import s3_cache
 
 
 def mock_send_invite_email(_requester_id, _email):
@@ -127,7 +125,7 @@ class TestStockDataTasks(BaseTestCase):
             df = pd.read_sql("SELECT * FROM indexes;", conn)
 
         iteration = 0
-        while df.shape != (3, 4) and iteration < 30:
+        while df.shape != (3, 4) and iteration < 120:
             time.sleep(1)
             with self.engine.connect() as conn:
                 df = pd.read_sql("SELECT * FROM indexes;", conn)
@@ -675,18 +673,19 @@ class TestTaskLocking(TestCase):
     def test_task_locking(self):
         """This test simulates a case where multiple process open orders tasks are queued simultaneously. We don't want
         this to happen because it can result in an order being cleared multiple times"""
-        rds.flushall()
+        s3_cache.flushall()
         res1 = async_test_task_lock.delay(3)
         res2 = async_test_task_lock.delay(5)
         self.assertFalse(res1.ready())
         self.assertFalse(res2.ready())
         res3 = async_test_task_lock.delay(5)
         res4 = async_test_task_lock.delay(5)
-        self.assertEqual(res3.get(), TASK_LOCK_MSG)
-        self.assertEqual(res4.get(), TASK_LOCK_MSG)
+        self.assertEqual(res3.get(), "async_test_task_lock_5")
+        self.assertEqual(res4.get(), "async_test_task_lock_5")
         time.sleep(TASK_LOCK_TEST_SLEEP)
         res5 = async_test_task_lock.delay(3)
         self.assertFalse(res5.ready())
+        self.assertNotEqual(res5.get(), "async_test_task_lock_3")
 
 
 class TestRedisCaching(TestCase):
@@ -702,5 +701,5 @@ class TestRedisCaching(TestCase):
         _ = get_trading_calendar(test_time, test_time)
         time2 = time.time() - start
 
-        self.assertLess(time2, time1 / 4)  # "4" is a hueristic for 'substantial performance improvement'
+        self.assertLess(time2, time1 / 2)  # "2" is a hueristic for 'substantial performance improvement'
         self.assertIn("rc:get_trading_calendar", rds.keys()[0])

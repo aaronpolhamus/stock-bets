@@ -10,7 +10,7 @@ from backend.database.helpers import (
 )
 from backend.database.db import engine
 from backend.logic.auth import create_jwt
-from tasks.redis import rds
+from tasks import s3_cache
 
 
 class BaseTestCase(unittest.TestCase):
@@ -24,7 +24,7 @@ class BaseTestCase(unittest.TestCase):
         # Establish data base API and setup mock data
         self.engine = engine
         self.requests_session = requests.Session()
-        rds.flushall()
+        s3_cache.flushall()
         reset_db()
         os.system("mysql -h db -uroot main < mockdata.sql")
 

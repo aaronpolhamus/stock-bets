@@ -100,7 +100,7 @@ backend-up:
 backend-build:
 	docker-compose build backend
 
-backend-test: db-mock-data worker-restart airflow-restart
+backend-test: api-up db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v
@@ -112,6 +112,7 @@ api-up:
 	docker-compose up -d api
 	./backend/docker/await-db.sh
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
 api-logs:

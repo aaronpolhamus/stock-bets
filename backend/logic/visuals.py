@@ -27,13 +27,13 @@ from backend.logic.base import (
     RESAMPLING_INTERVAL,
     get_active_game_user_ids,
     check_single_player_mode,
-    TRACKED_INDEXES,
     get_index_portfolio_value_data,
     TIMEZONE,
     USD_FORMAT,
     get_end_of_last_trading_day,
     SECONDS_IN_A_DAY
 )
+from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
     STARTING_SHARPE_RATIO,
@@ -53,11 +53,11 @@ from backend.logic.schemas import (
     order_details_schema,
     apply_validation
 )
-from backend.tasks.redis import (
-    unpack_redis_json,
-    rds,
-    DEFAULT_ASSET_EXPIRATION
-)
+
+from backend.tasks import s3_cache
+from backend.tasks.redis import rds
+from backend.logic.stock_data import get_most_recent_prices
+
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -217,23 +217,6 @@ def _days_left(game_id: int):
     return seconds_left // (24 * 60 * 60)
 
 
-def get_most_recent_prices(symbols: List):
-    if len(symbols) == 0:
-        return None
-    sql = f"""
-        SELECT p.symbol, p.price, p.timestamp
-        FROM prices p
-        INNER JOIN (
-        SELECT symbol, max(id) as max_id
-          FROM prices
-          GROUP BY symbol) max_price
-        ON p.id = max_price.max_id
-        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
-    """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
-
-
 def get_portfolio_value(game_id: int, user_id: int) -> float:
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     balances = get_active_balances(game_id, user_id)
@@ -308,7 +291,7 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
     records = sorted(records, key=lambda x: -x[benchmark])
     output = dict(days_left=_days_left(game_id), records=records)
-    rds.set(f"{LEADERBOARD_PREFIX}_{game_id}", json.dumps(output), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{LEADERBOARD_PREFIX}", json.dumps(output))
 
 
 # ------------------ #
@@ -382,8 +365,9 @@ def make_user_balances_chart_data(game_id: int, user_id: int, start_time: float 
         df["label"] = None  # for downstream compliance with schema validation
         return df
     df = build_labels(df)
-    return df.groupby(["symbol", "t_index"], as_index=False).aggregate(
+    df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
         {"label": "last", "value": "last", "timestamp": "last"})
+    return df[~df["value"].isnull()]  # necessary for when merge_asof didn't find a balance-price match
 
 
 def serialize_pandas_rows_to_dataset(df: pd.DataFrame, dataset_label: str, dataset_color: str, labels: List[str],
@@ -466,7 +450,6 @@ def make_null_chart(null_label: str):
 
 
 def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: int):
-    df = df.where(pd.notnull(df), None)  # swaps any NaNs from upstream processing for Null values
     chart_json = make_null_chart("Cash")
     if df.shape[0] > 1:
         # see comment for serialize_and_pack_portfolio_comps_chart. a dataframe with a single row means that this user
@@ -474,7 +457,7 @@ def serialize_and_pack_balances_chart(df: pd.DataFrame, game_id: int, user_id: i
         df.sort_values("timestamp", inplace=True)
         apply_validation(df, balances_chart_schema)
         chart_json = make_chart_json(df, "symbol", "value")
-    rds.set(f"{BALANCES_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}", json.dumps(chart_json))
 
 
 def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
@@ -495,9 +478,9 @@ def serialize_and_pack_portfolio_comps_chart(df: pd.DataFrame, game_id: int):
             colors.append(user_colors[username])
         chart_json = make_chart_json(df, "username", "value", colors=colors)
 
-    leaderboard = unpack_redis_json(f"{LEADERBOARD_PREFIX}_{game_id}")
+    leaderboard = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
     chart_json["leaderboard"] = leaderboard["records"]
-    rds.set(f"{FIELD_CHART_PREFIX}_{game_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{FIELD_CHART_PREFIX}", json.dumps(chart_json))
 
 
 def aggregate_portfolio_value(df: pd.DataFrame):
@@ -572,6 +555,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 
     order_df = make_order_labels(order_df)
     order_df = order_df[["symbol", "quantity", "clear_price_fulfilled", "timestamp_fulfilled", "order_label"]]
+    order_df["cleared_amount"] = order_df["clear_price_fulfilled"] * order_df["quantity"]
 
     # add bookend times and resample
     cum_sum_df = order_df.groupby('symbol')['quantity'].agg('sum').reset_index()
@@ -591,8 +575,10 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
 
     def _make_cumulative_sales(subset):
         sales_diffs = subset["balance"].diff(1).fillna(0)
-        sales_diffs[sales_diffs > 0] = 0
-        subset["cum_sales"] = sales_diffs.abs().cumsum()
+        sales_diffs[sales_diffs > 0] = 0  # remove stock buys
+        subset["sales_diffs"] = sales_diffs
+        subset["sales_diffs"][subset["last_transaction_type"] == "stock_split"] = 0  # remove stock splits
+        subset["cum_sales"] = subset["sales_diffs"].abs().cumsum()
         return subset.reset_index(drop=True)
 
     bp_df = bp_df.groupby("symbol", as_index=False).apply(_make_cumulative_sales).reset_index(drop=True)
@@ -602,21 +588,20 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     for order_label in order_df["order_label"].unique():
         order_subset = order_df[order_df["order_label"] == order_label]
         bp_subset = bp_df[bp_df["symbol"] == order_subset.iloc[0]["symbol"]]
+        bp_subset["start_value"] = bp_subset[~bp_subset["value"].isnull()].iloc[0]["value"]
+        right_cols = ["timestamp", "cum_sales", "start_value", "value"]
         del bp_subset["symbol"]
-        right_cols = ["timestamp", "price", "cum_sales"]
         df_slice = pd.merge_asof(order_subset, bp_subset[right_cols], left_on="timestamp_fulfilled",
-                                 right_on="timestamp", direction="nearest")
-
+                                 right_on="timestamp", direction="forward")
         # a bit of kludgy logic to make sure that we also get the sale data point included in the return series
         mask = (df_slice["cum_buys"] >= df_slice["cum_sales"]).to_list()
         true_index = list(np.where(mask)[0])
         if true_index[-1] < df_slice.shape[0] - 1:
             true_index.append(true_index[-1] + 1)
-
         df_slice = df_slice.iloc[true_index]
-        slices.append(df_slice)
+        slices.append(df_slice.fillna(method="ffill").fillna(method="bfill"))
     df = pd.concat(slices)
-    df["return"] = ((df["price"] / df["clear_price_fulfilled"] - 1) * 100)
+    df["return"] = ((df["value"] / df["start_value"] - 1) * 100)
     df["return"] = df["return"].round(2)
     return df
 
@@ -641,7 +626,7 @@ def serialize_and_pack_order_performance_chart(game_id: int, user_id: int, start
             colors.append(order_label_colors[order_label])
         chart_json = make_chart_json(order_perf, "order_label", "return", "label", colors=colors)
 
-    rds.set(f"{ORDER_PERF_CHART_PREFIX}_{game_id}_{user_id}", json.dumps(chart_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
 
 
 # ------ #
@@ -680,8 +665,7 @@ def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
     df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
     df = df[df["status"] == "fulfilled"]
     fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(fulfilled_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
 
 
 def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
@@ -690,8 +674,7 @@ def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
     df = df.rename(columns=PENDING_ORDER_MAPPINGS)
     df = df[df["status"] == "pending"]
     pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.values()))
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(pending_order_records),
-            ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", json.dumps(pending_order_records))
 
 
 def serialize_and_pack_order_details(game_id: int, user_id: int):
@@ -714,16 +697,16 @@ def serialize_and_pack_order_details(game_id: int, user_id: int):
 def init_order_details(game_id: int, user_id: int):
     """Before we have any order information to log, make a blank entry to kick  off a game"""
     init_pending_json = dict(data=[], headers=list(PENDING_ORDER_MAPPINGS.values()))
-    rds.set(f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}", json.dumps(init_pending_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", json.dumps(init_pending_json))
     init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
-    rds.set(f"{FULFILLED_ORDER_PREFIX}_{game_id}_{user_id}", json.dumps(init_fufilled_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
 
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
-    fn = f"{PENDING_ORDERS_PREFIX}_{game_id}_{user_id}"
-    order_json = unpack_redis_json(fn)
+    fn = f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}"
+    order_json = s3_cache.unpack_s3_json(fn)
     order_json["data"] = [entry for entry in order_json["data"] if entry["order_id"] != order_id]
-    rds.set(fn, json.dumps(order_json), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(fn, json.dumps(order_json))
 
 
 def get_last_close_prices(symbols: List):
@@ -746,7 +729,7 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     out_dict = dict(data=[], headers=list(PORTFOLIO_DETAIL_MAPPINGS.values()))
     balances = get_active_balances(game_id, user_id)
     if balances.empty:
-        rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
+        s3_cache.set(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}", json.dumps(out_dict))
         return
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     symbols = balances["symbol"].unique()
@@ -760,15 +743,16 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     close_prices = get_last_close_prices(symbols)
     df = df.merge(close_prices, how="left")
     df["Change since last close"] = ((df["price"] - df["close_price"]) / df["close_price"]).apply(
-        lambda x: percent_formatter(x)).fillna(NA_TEXT_SYMBOL)
+        lambda x: percent_formatter(x))
     del df["close_price"]
     df = number_columns_to_currency(df, ["price", "clear_price", "Value"])
     symbols_colors = assign_colors(symbols)
     df["color"] = df["symbol"].apply(lambda x: symbols_colors[x])
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
+    df.fillna(NA_TEXT_SYMBOL, inplace=True)
     records = df.to_dict(orient="records")
     out_dict["data"] = records
-    rds.set(f"{CURRENT_BALANCES_PREFIX}_{game_id}_{user_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}", json.dumps(out_dict))
 
 
 def make_payout_table_entry(start_date: dt, end_date: dt, winner: str, payout: float, type: str, benchmark: str = None,
@@ -836,7 +820,7 @@ def serialize_and_pack_winners_table(game_id: int):
 
     data.append(final_entry)
     out_dict = dict(data=data, headers=list(data[0].keys()))
-    rds.set(f"{PAYOUTS_PREFIX}_{game_id}", json.dumps(out_dict), ex=DEFAULT_ASSET_EXPIRATION)
+    s3_cache.set(f"{game_id}/{PAYOUTS_PREFIX}", json.dumps(out_dict))
 
 
 def init_game_assets(game_id: int):
@@ -866,13 +850,13 @@ def init_game_assets(game_id: int):
 def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_time: float = None):
     for user_id in get_active_game_user_ids(game_id):
         return_ratio, sharpe_ratio = calculate_metrics(game_id, user_id, start_time, end_time)
-        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio)
+        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio)
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
             index_return_ratio = portfolio_return_ratio(df)
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
-            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio, ex=DEFAULT_ASSET_EXPIRATION)
-            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio, ex=DEFAULT_ASSET_EXPIRATION)
+            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio)
+            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio)

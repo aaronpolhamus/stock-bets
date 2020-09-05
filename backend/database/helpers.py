@@ -57,13 +57,13 @@ def query_to_dict(sql_query, *args):
         return pd.read_sql(sql_query, conn, params=[*args]).to_dict(orient="records")
 
 
-def aws_client(service='s3', region='us-east-1'):
-    """TODO this will highly depend on how we authenticate the container in the cloud, if it is with
-        credentials or via IAM Roles, if it is the second we should also delete the access keys in this client
+def aws_client(service='s3', region='us-east-1', endpoint_url: str = Config.AWS_ENDPOINT_URL):
+    """endpoint_url is for when working in a local development context only. This variable should not be set in
+    production
     """
-    boto_config = {'service_name': service, 'endpoint_url': Config.AWS_ENDPOINT_URL, 'region_name': region,
+    boto_config = {'service_name': service, 'endpoint_url': endpoint_url, 'region_name': region,
                    'aws_access_key_id': Config.AWS_ACCESS_KEY_ID, 'aws_secret_access_key': Config.AWS_SECRET_ACCESS_KEY}
-    if Config.AWS_ENDPOINT_URL is None:
+    if endpoint_url is None:
         del boto_config['endpoint_url']
     client = boto3.client(**boto_config)
     return client
