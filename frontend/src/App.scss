@@ -181,6 +181,10 @@ input.form-control{
 
 }
 
+.popover-body p:last-of-type{
+  margin-bottom: 0;
+}
+
 // Autosuggest
 .react-autosuggest__container {
   position: relative;

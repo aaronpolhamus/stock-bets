@@ -34,7 +34,7 @@ const PlayerRow = styled.div`
     display: none;
   }
 
-  p{
+  label p{
     display: flex;
     margin-bottom: 0;
     &::before{
@@ -45,7 +45,7 @@ const PlayerRow = styled.div`
     }
   }
 
-  p span{
+  label p span{
     color: var(--color-text-gray);
     display: inline-block;
     width: 100%;
