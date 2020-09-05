@@ -367,7 +367,7 @@ def get_pending_game_info():
 
     records = dict()
     records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
-    records["email_invites"] = get_external_invite_list_by_status(game_id, "pending")
+    records["email_invites"] = get_external_invite_list_by_status(game_id)
     return jsonify(records)
 
 
