@@ -10,4 +10,6 @@ class TestSplits(CanonicalSplitsCase):
     unrealized P & L. This canonical test makes sure that we're nailing that  logic, and also does some values testing
     of the asset """
     def test_splits(self):
-        make_order_performance_table(self.game_id, self.user_id)
+        df = make_order_performance_table(self.game_id, self.user_id)
+        import ipdb;ipdb.set_trace()
+        print("hi")

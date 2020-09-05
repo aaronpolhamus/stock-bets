@@ -551,12 +551,23 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
 def get_game_balances(game_id: int, user_id: int):
     with engine.connect() as conn:
         return pd.read_sql("""
-          SELECT symbol, balance, transaction_type, order_status_id, stock_split_id FROM game_balances
+          SELECT timestamp, symbol, balance, transaction_type, order_status_id, stock_split_id FROM game_balances
           WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock'
           ORDER BY symbol, id;""", conn, params=[game_id, user_id])
 
 
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
+    """the order performance table provides the basis for the order performance chart and the order performance table
+    in the UI. it looks at each purchase order as a separate entity, and then iterates over subsequent sale and stock
+    split events to iteratively 'unwind' the P&L associated with that buy order. the function handles multiple buy
+    orders for the same stock by considering the buy order events and the split/sale events to each be their own queue.
+    as the function iterates over the buy orders it "consumes" split/sell orders from the queue. the sales portion of
+    the queue is unique to each stock symbol -- this part of the queue is built at the outermost loop, and sales events
+    are "consumed" and removed from the queue as the function iterates over the different buy events. stock splits,
+    on the other hand, are unique in time, and can apply to multiple buy orders. this portion of the queue is therefore
+    reconstructed in the buy order portion of the loop. the "event queue" is a sorted comubination of the sales and
+    split queue.
+    """
     # get historical order details
     order_df = get_order_details(game_id, user_id, start_time, end_time)
     order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["symbol"] != "Cash")]
@@ -571,21 +582,49 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     df = balances.merge(orders, on=["symbol", "order_status_id"], how="left")
 
     buys_df = df[df["buy_or_sell"] == "buy"]
-    events_df = df[df["transaction_type"].isin(["stock_sale", "stock_split"])]
-
+    sales_df = df[df["transaction_type"] == "stock_sale"]
+    splits_df = df[df["transaction_type"] == "stock_split"]
+    performance_records = []
     for symbol in df["symbol"].unique():
         buys_subset = buys_df[buys_df["symbol"] == symbol]
-        events_queue = events_df[events_df["symbol"] == symbol].to_dict(orient="records")
-
-        performance_records = []
+        sales_queue = sales_df[sales_df["symbol"] == symbol].to_dict(orient="records")
         for _, buy_order in buys_subset.iterrows():
-            buy_order_value = buy_order["quantity"] * buy_order["clear_price_fulfilled"]
+            basis = buy_order["quantity"] * buy_order["clear_price_fulfilled"]
+            performance_records.append(dict(
+                symbol=symbol,
+                order_label=buy_order["order_label"],
+                event_type="buy",
+                balance=buy_order["quantity"],
+                basis=basis,
+                timestamp=buy_order["timestamp_fulfilled"],
+                realized_pl=0,
+                unrealized_pl=0,
+                pct_sold=0
+            ))
             remaining_balance = buy_order["quantity"]
             pct_sold = 0
-            for event in events_queue:
+
+            # reconstruct the events queue with splits refreshed each time
+            mask = (splits_df["symbol"] == symbol) & (splits_df["timestamp"] >= buy_order["timestamp"])
+            splits_queue = splits_df[mask].to_dict(orient="records")
+            events_queue = splits_queue + sales_queue
+            events_queue = sorted(events_queue, key=lambda k: k['timestamp'])
+            while remaining_balance > 0 and len(events_queue) > 0:
+                event = events_queue[0]  # 'consume' events from the queue as we unwind P&L
                 if event["transaction_type"] == "stock_split":
-                    split_entry = query_to_dict("SELECT * FROM stock_splits WHERE id = %s", event["stock_split_id"])
+                    split_entry = query_to_dict("SELECT * FROM stock_splits WHERE id = %s", event["stock_split_id"])[0]
                     remaining_balance *= split_entry["numerator"] / split_entry["denominator"]
+                    performance_records.append(dict(
+                        symbol=symbol,
+                        order_label=buy_order["order_label"],
+                        event_type="split",
+                        balance=remaining_balance,
+                        basis=basis,
+                        timestamp=posix_to_datetime(split_entry["exec_date"]),
+                        realized_pl=None,
+                        unrealized_pl=None,
+                        pct_sold=None
+                    ))
                     events_queue.pop(0)
 
                 if event["transaction_type"] == "stock_sale":
@@ -598,43 +637,25 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                         quantity_sold = -balance_minus_sold
                         event["quantity"] -= balance_minus_sold
                     else:
-                        # if the sale doesn't close the order on a FIFO basis we're ready to consume the next event in
-                        # the queue
-                        events_queue.pop(0)
+                        # if the sale doesn't close the order on a FIFO basis then we've 'consumed' this sale event and
+                        # remove it from the queue
+                        sales_queue.pop(0)
+                    events_queue.pop(0)
                     sale_pct = (1 - pct_sold) * quantity_sold / remaining_balance
                     pct_sold += sale_pct
                     remaining_balance -= quantity_sold
                     performance_records.append(dict(
                         symbol=symbol,
                         order_label=buy_order["order_label"],
+                        event_type="sell",
                         balance=remaining_balance,
-                        original_value=buy_order_value,
+                        basis=basis,
                         timestamp=event["timestamp_fulfilled"],
-                        realized_pl=sell_order_value - sale_pct * buy_order_value,
-                        unrealized_pl=remaining_balance * event["clear_price_fulfilled"]
+                        realized_pl=sell_order_value - sale_pct * basis,
+                        unrealized_pl=remaining_balance * event["clear_price_fulfilled"],
+                        pct_sold=pct_sold
                     ))
-
-            if remaining_balance:
-                performance_records.append(dict(
-                    symbol=symbol,
-                    order_label=buy_order["order_label"],
-                    balance=remaining_balance,
-                    original_value=buy_order_value,
-                    timestamp=time.time(),
-                    realized_pl=None,
-                    unrealized_pl=None
-                ))
-
-    # target schema
-    # -------------
-    # - symbol
-    # - order_label
-    # - balance
-    # - original_value
-    # - balance
-    # - timestamp
-    # - realized_pl
-    # - unrealized_pl
+    return pd.DataFrame(performance_records)
 
 
 def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, start_time: float = None,
