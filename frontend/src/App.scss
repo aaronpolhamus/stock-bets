@@ -266,6 +266,15 @@ input.form-control{
   }
 }
 
+.badge-pill{
+  font-size: var(--font-size-min)
+}
+
+.annotation{
+  line-height: 1.2;
+  margin-top: var(--space-50);
+  color: var(--color-text-gray);
+}
 
 @include media-breakpoint-down(md) {
   #tidio-chat iframe{

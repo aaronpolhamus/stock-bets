@@ -340,10 +340,13 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
                       A <strong>Market Order</strong> clears right away, at  whatever price is currently on the market.
                     </p>
                     <p>
-                      A <strong>Limit Order</strong> clears when the market price reaches or exceeds the limit price you set.
+                      A <strong>Limit Order</strong> clears if the price is equal or better* than your limit price.
                     </p>
                     <p>
-                     A <strong>Stop Order</strong> clears when the market price is at or below the sale order price
+                     A <strong>Stop Order</strong> triggers a market order when the price reaches your stop price.
+                    </p>
+                    <p className='annotation'>
+                      <small>*Better is less than your price if you're buying and greater than your price if you're selling. <a href=''>Read more about market, limit and stop orders</a></small>
                     </p>
                   </>
                 }

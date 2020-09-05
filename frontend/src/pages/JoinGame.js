@@ -39,7 +39,6 @@ const JoinGame = () => {
     )
     setGameParticipants(gameParticipantsData.platform_invites)
     setGameInvitees(gameParticipantsData.email_invites)
-    console.log(gameParticipantsData)
   }
 
   useEffect(() => {
@@ -96,6 +95,7 @@ const JoinGame = () => {
         )
     }
   }
+  console.log(gameInvitees, gameParticipants)
   if (redirect) return <Redirect to='/' />
   return (
     <>
@@ -125,7 +125,10 @@ const JoinGame = () => {
             <GameSettings gameInfo={gameInfo} />
           </PageSection>
           <PageSection>
-            <PendingGameParticipants participants={gameParticipants} />
+            <PendingGameParticipants
+              participants={gameParticipants}
+              invitees={gameInvitees}
+            />
           </PageSection>
         </Column>
       </Layout>
