@@ -12,11 +12,11 @@ import { useParams, Link, Redirect } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Breadcrumb,
-  Column,
+  GameSidebar,
+  GameContent,
   Layout,
   PageSection,
   PageFooter,
-  Sidebar
 } from 'components/layout/Layout'
 import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
@@ -111,15 +111,15 @@ const PlayGame = () => {
   if (redirect) return <Redirect to='/' />
   return (
     <Layout>
-      <Sidebar md={3}>
+      <GameSidebar md={3}>
         <PlaceOrder
           gameId={gameId}
           onPlaceOrder={handlePlacedOrder}
           update={updateInfo}
           cashData={cashData}
         />
-      </Sidebar>
-      <Column md={9}>
+      </GameSidebar>
+      <GameContent md={9}>
         <PageSection
           $marginBottom='var(--space-400)'
           $marginBottomMd='var(--space-400)'
@@ -147,7 +147,7 @@ const PlayGame = () => {
               </PageSection>
               <PageSection>
                 <Row>
-                  <Col sm={6}>
+                  <Col xl={6}>
                     <SectionTitle>
                       Pending Orders
                     </SectionTitle>
@@ -198,7 +198,7 @@ const PlayGame = () => {
                       }}
                     />
                   </Col>
-                  <Col sm={6}>
+                  <Col xl={6}>
                     <SectionTitle>
                       Fulfilled Orders
                     </SectionTitle>
@@ -405,7 +405,7 @@ const PlayGame = () => {
           <Button onClick={getTransactionData} variant='secondary'>Download transactions to csv</Button>
           <Button variant='outline-danger' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         </PageFooter>
-      </Column>
+      </GameContent>
       <Toast
         style={{
           position: 'fixed',

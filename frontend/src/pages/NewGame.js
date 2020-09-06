@@ -43,7 +43,7 @@ const NewGame = () => {
                 single_player: 'You vs. The Market'
               }}
               name='invite_type'
-              defaultChecked={gameMode}
+              $defaultChecked={gameMode}
               onClick={(e) => {
                 setGameMode(e.target.value)
               }}

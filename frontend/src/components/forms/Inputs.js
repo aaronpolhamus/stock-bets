@@ -78,14 +78,16 @@ const TabbedRadio = styled(Form.Check)`
 
 const buildRadios = (props, mode) => {
   if (props.options === undefined) return null
-  return Object.keys(props.options).map((key, index) => {
+  const optionsIsArray = Array.isArray(props.options)
+  const mappable = optionsIsArray ? props.options : Object.keys(props.options)
+  return mappable.map((key, index) => {
     const commonProps = {
       type: 'radio',
-      label: props.options[key],
-      value: key,
+      label: optionsIsArray ? key : props.options[key],
+      value: optionsIsArray ? key : props.options[key],
       key: index,
       id: `${props.name}-${index}`,
-      checked: props.defaultChecked === key,
+      checked: props.$defaultChecked === key,
       ...props
     }
 

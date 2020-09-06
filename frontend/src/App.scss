@@ -246,10 +246,14 @@ input.form-control{
 //Forms
 .form-label {
   text-transform: uppercase;
+  align-items: center;
   font-size: var(--font-size-min);
   letter-spacing: var(--letter-spacing-smallcaps);
   font-weight: bold;
   color: var(--color-text-gray);
+  a {
+    color: inherit;
+  }
 }
 
 .home-layout{

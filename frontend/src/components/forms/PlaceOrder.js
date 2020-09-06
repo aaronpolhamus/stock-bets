@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import api from 'services/api'
-import { Row, Col, Button, Form } from 'react-bootstrap'
+import { Row, Col, Button, Form, InputGroup } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
 import { optionBuilder } from 'components/functions/forms'
 import { AuxiliarText, FormFooter } from 'components/textComponents/Text'
@@ -12,6 +12,7 @@ import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
+import CurrencyInput from 'react-currency-input'
 
 const StyledOrderForm = styled(Form)`
   position: relative;
@@ -141,6 +142,12 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     setOrderTicket(orderTicketCopy)
   }
 
+  const handleChangeAmount = (e, masked, float) => {
+    const orderTicketCopy = { ...orderTicket }
+    orderTicketCopy.amount = float
+    setOrderTicket(orderTicketCopy)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const orderTicketCopy = { ...orderTicket }
@@ -197,6 +204,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
   ) => {
     // This part of the code handles the dynamically-updating price ticker when a stock pick gets made. We need to clear the old interval and set
     // a new one each time there is a change
+
+    if (method === 'enter') {
+      event.preventDefault()
+    }
     if (intervalId) {
       clearInterval(intervalId)
     }
@@ -234,6 +245,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     })
     setPriceData(response.data)
   }
+
   return (
     <StyledOrderForm
       onSubmit={handleSubmit}
@@ -256,7 +268,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         <TabbedRadioButtons
           mode='tabbed'
           name='buy_or_sell'
-          defaultChecked={orderTicket.buy_or_sell}
+          $defaultChecked={orderTicket.buy_or_sell}
           onChange={handleChange}
           onClick={handleBuySellClicked}
           options={gameInfo.buy_sell_options}
@@ -266,15 +278,29 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       </OrderFormHeader>
       <CashInfo cashData={cashData} balance={false} />
       <Form.Group>
-        <Form.Label>Symbol</Form.Label>
+        <Form.Label>
+          Symbol
+          <small>
+            <a
+              href='https://iexcloud.io'
+              target='_blank'
+              rel='noopener noreferrer'
+            >
+              Data by IEX Cloud
+            </a>
+          </small>
+        </Form.Label>
         {symbolSuggestions && (
           <Autosuggest
+            required
             ref={autosugestRef}
             suggestions={symbolSuggestions}
             onSuggestionsFetchRequested={onSuggestionsFetchRequested}
             onSuggestionsClearRequested={onSuggestionsClearRequested}
             getSuggestionValue={getSuggestionValue}
             renderSuggestion={renderSuggestion}
+            highlightFirstSuggestion={true}
+            focusInputOnSuggestionClick={true}
             onSuggestionSelected={onSuggestionSelected}
             inputProps={{
               placeholder: 'What are we trading today?',
@@ -283,21 +309,17 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             }}
           />
         )}
-        {Object.keys(priceData).length > 0 && symbolValue !== '' && (
-          <AuxiliarText color='var(--color-light-gray)'>
-            <strong>
-              {symbolLabel} ${priceData.price}
-            </strong>
-            <br />
-            <small>Last updated: {priceData.last_updated}</small>
-            <br />
-            <small>
-              <a href='https://iexcloud.io' target='_blank' rel='noopener noreferrer'>
-                    Data provided by IEX Cloud
-              </a>
-            </small>
-          </AuxiliarText>
-        )}
+
+        <AuxiliarText color='var(--color-light-gray)'>
+          <strong>
+            {symbolValue !== '' && priceData.price && `${symbolLabel} $${priceData.price}`}
+          </strong>
+          <br/>
+          <small>
+            {symbolValue !== '' && `Last updated: ${priceData.last_updated}`}
+          </small>
+        </AuxiliarText>
+
       </Form.Group>
       <Row>
         <Col>
@@ -308,23 +330,20 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
                 ? 'Quantity'
                 : 'Amount'}
             </Form.Label>
-            <Form.Control required name='amount' as='input' onChange={handleChange} />
-          </Form.Group>
-        </Col>
-        <Col>
-          <Form.Group>
-            <Form.Label>Shares or USD</Form.Label>
-            <Form.Control
-              name='quantity_type'
-              as='select'
-              defaultValue={orderTicket.quantity_type}
-              onChange={handleChange}
-            >
-              {gameInfo.quantity_options &&
-                    gameInfo.quantity_options.map((value) => (
-                      <option key={value}>{value}</option>
-                    ))}
-            </Form.Control>
+            <InputGroup>
+              <Form.Control required name='amount' onChangeEvent={handleChangeAmount} precision={0} value={orderTicket.amount}/>
+              <InputGroup.Append>
+                <TabbedRadioButtons
+                  mode='tabbed'
+                  name='quantity_type'
+                  $defaultChecked={orderTicket.quantity_type}
+                  onChange={handleChange}
+                  options={gameInfo.quantity_options}
+                  color='var(--color-text-light-gray)'
+                  $colorChecked='var(--color-lightest)'
+                />
+              </InputGroup.Append>
+            </InputGroup>
           </Form.Group>
         </Col>
       </Row>
@@ -354,7 +373,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <RadioButtons
               name='order_type'
-              defaultChecked={orderTicket.order_type}
+              $defaultChecked={orderTicket.order_type}
               onChange={handleChange}
               options={gameInfo.order_type_options}
               color='var(--color-text-light-gray)'

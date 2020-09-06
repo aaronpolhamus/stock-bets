@@ -172,16 +172,16 @@ const ModalOverflowControls = styled.div`
   transform: translateY(100%);
 `
 
-const Column = ({ children, ...props }) => (
-  <Col {...props}>
+const Column = ({ children, className, ...props }) => (
+  <Col className={className} {...props}>
     <ColContent>
       {children}
     </ColContent>
   </Col>
 )
 
-const Sidebar = ({ children, size, ...props }) => (
-  <SidebarWrapper size={size} {...props}>
+const Sidebar = ({ children, className, ...props }) => (
+  <SidebarWrapper className={className} {...props}>
     <SidebarContent>
       <Logo href='/'>Stockbets</Logo>
 
@@ -189,6 +189,19 @@ const Sidebar = ({ children, size, ...props }) => (
     </SidebarContent>
   </SidebarWrapper>
 )
+const GameContent = styled(Column)`
+  @media screen and (min-width: ${breakpoints.md}){
+    flex-basis: calc(100vw - 330px);
+    max-width: none;
+  }
+`
+
+const GameSidebar = styled(Sidebar)`
+  @media screen and (min-width: ${breakpoints.md}){
+    flex-basis: 330px;
+    max-width: none;
+  }
+`
 
 const SmallColumn = ({ children, ...props }) => (
   <SmallColumnWrapper {...props}>
@@ -208,6 +221,8 @@ export {
   Breadcrumb,
   Column,
   Content,
+  GameContent,
+  GameSidebar,
   Header,
   Layout,
   ModalOverflowControls,
