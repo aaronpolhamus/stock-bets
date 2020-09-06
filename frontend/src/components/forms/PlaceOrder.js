@@ -12,7 +12,7 @@ import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
-import CurrencyInput from 'react-currency-input'
+import CurrencyInput from 'components/ui/inputs/CurrencyInput'
 
 const StyledOrderForm = styled(Form)`
   position: relative;
@@ -109,6 +109,32 @@ const OrderFormHeader = styled(Form.Group)`
     input:checked + label::after {
       background-color: var(--color-primary);
     }
+  }
+`
+
+const AmountInput = styled.div`
+  .form-check{
+    font-size: var(--font-size-min);
+    margin-bottom: 0;
+    margin-left: var(--space-100);
+    &:first-child{
+      margin-left: 0;
+    }
+  }
+  label{
+    min-width: 0;
+    padding: 9px var(--space-50) 0;
+    display: inline-block;
+  }
+  .input-group-append{
+    background-color: #fff;
+    border-radius: 0 var(--space-50) var(--space-50) 0;
+    padding: 0 var(--space-100);
+    border: 1px solid #ced4da;
+    border-left-color: transparent; 
+  }
+  .form-control {
+    border-right-color: transparent; 
   }
 `
 
@@ -291,7 +317,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           </small>
         </Form.Label>
         {symbolSuggestions && (
-          <Autosuggest
+          <Form.Control as={Autosuggest}
             required
             ref={autosugestRef}
             suggestions={symbolSuggestions}
@@ -310,13 +336,13 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           />
         )}
 
-        <AuxiliarText color='var(--color-light-gray)'>
+        <AuxiliarText color={symbolValue !== '' ? 'var(--color-light-gray)' : 'transparent'}>
           <strong>
             {symbolValue !== '' && priceData.price && `${symbolLabel} $${priceData.price}`}
           </strong>
           <br/>
           <small>
-            {symbolValue !== '' && `Last updated: ${priceData.last_updated}`}
+            {symbolValue !== '' ? `Last updated: ${priceData.last_updated}` : '-'}
           </small>
         </AuxiliarText>
 
@@ -330,20 +356,24 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
                 ? 'Quantity'
                 : 'Amount'}
             </Form.Label>
-            <InputGroup>
-              <Form.Control required name='amount' onChangeEvent={handleChangeAmount} precision={0} value={orderTicket.amount}/>
-              <InputGroup.Append>
-                <TabbedRadioButtons
-                  mode='tabbed'
-                  name='quantity_type'
-                  $defaultChecked={orderTicket.quantity_type}
-                  onChange={handleChange}
-                  options={gameInfo.quantity_options}
-                  color='var(--color-text-light-gray)'
-                  $colorChecked='var(--color-lightest)'
-                />
-              </InputGroup.Append>
-            </InputGroup>
+            <AmountInput>
+              <InputGroup>
+                <Form.Control required as={CurrencyInput} placeholder="0.00" type="text" name='amount' onChangeEvent={handleChangeAmount} precision={0} value={orderTicket.amount}/>
+                
+                <InputGroup.Append>
+                  <TabbedRadioButtons
+                    mode='tabbed'
+                    name='quantity_type'
+                    $defaultChecked={orderTicket.quantity_type}
+                    onChange={handleChange}
+                    options={gameInfo.quantity_options}
+                    colorTab='var(--color-lightest)'
+                    color='var(--color-text-gray)'
+                    $colorChecked='var(--color-secondary)'
+                  />
+                </InputGroup.Append>
+              </InputGroup>
+            </AmountInput>
           </Form.Group>
         </Col>
       </Row>

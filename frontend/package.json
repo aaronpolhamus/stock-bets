@@ -43,9 +43,11 @@
     "react-paypal-button-v2": "^2.6.2",
     "react-router-dom": "^5.1.2",
     "react-scripts": "^3.4.3",
+    "react-text-mask": "^5.4.3",
     "react-twitter-auth": "0.0.13",
     "react-use-googlelogin": "^0.11.2",
     "styled-components": "^5.1.1",
+    "text-mask-addons": "^3.8.0",
     "typescript": "^3.9.6"
   },
   "scripts": {
