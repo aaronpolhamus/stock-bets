@@ -620,7 +620,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
             ))
 
             # instantiate variable for balances and sold percentages
-            remaining_balance = buy_order["quantity"]
+            balance = buy_order["quantity"]
             total_pct_sold = 0
 
             # reconstruct the events queue with splits refreshed each time
@@ -628,21 +628,21 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
             splits_queue = splits_df[mask].to_dict(orient="records")
             events_queue = splits_queue + sales_queue
             events_queue = sorted(events_queue, key=lambda k: k['timestamp'])
-            while remaining_balance > 0 and len(events_queue) > 0:
+            while balance > 0 and len(events_queue) > 0:
                 event = events_queue[0]  # 'consume' events from the queue as we unwind P&L
                 if event["transaction_type"] == "stock_split":
                     split_entry = query_to_dict("SELECT * FROM stock_splits WHERE id = %s", event["stock_split_id"])[0]
-                    remaining_balance *= split_entry["numerator"] / split_entry["denominator"]
+                    balance *= split_entry["numerator"] / split_entry["denominator"]
                     price = price_df[price_df["timestamp"] >= event["timestamp"]].iloc[0]["price"]
                     performance_records.append(dict(
                         symbol=symbol,
                         order_label=buy_order["order_label"],
                         event_type="split",
-                        balance=remaining_balance,
+                        balance=balance,
                         basis=basis,
                         timestamp=posix_to_datetime(split_entry["exec_date"]),
                         realized_pl=0,
-                        unrealized_pl=remaining_balance * price - (1 - total_pct_sold) * basis,
+                        unrealized_pl=balance * price - (1 - total_pct_sold) * basis,
                         total_pct_sold=total_pct_sold
                     ))
                     events_queue.pop(0)
@@ -650,7 +650,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                 if event["transaction_type"] == "stock_sale":
                     sale_price = event["clear_price_fulfilled"]
                     quantity_sold = event["quantity"]
-                    balance_minus_sold = remaining_balance - quantity_sold
+                    balance_minus_sold = balance - quantity_sold
                     if balance_minus_sold < 0:
                         quantity_sold = -balance_minus_sold
 
@@ -658,18 +658,18 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                     if event["quantity"] == 0:
                         sales_queue.pop(0)
                     events_queue.pop(0)
-                    sale_pct = (1 - total_pct_sold) * quantity_sold / remaining_balance
+                    sale_pct = (1 - total_pct_sold) * quantity_sold / balance
                     total_pct_sold += sale_pct
-                    remaining_balance -= quantity_sold
+                    balance -= quantity_sold
                     performance_records.append(dict(
                         symbol=symbol,
                         order_label=buy_order["order_label"],
                         event_type="sell",
-                        balance=remaining_balance,
+                        balance=balance,
                         basis=basis,
                         timestamp=event["timestamp_fulfilled"],
                         realized_pl=quantity_sold * sale_price - sale_pct * basis,
-                        unrealized_pl=remaining_balance * sale_price - (1 - total_pct_sold) * basis,
+                        unrealized_pl=balance * sale_price - (1 - total_pct_sold) * basis,
                         total_pct_sold=total_pct_sold
                     ))
     return pd.DataFrame(performance_records)
@@ -694,11 +694,11 @@ def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, star
     if df.empty:
         chart_json = make_null_chart("Waiting for orders...")
     else:
+        agg_rules = {"symbol": "first", "balance": "last", "basis": "first", "timestamp": "first",
+                     "realized_pl": "sum", "unrealized_pl": "last"}
+        tab = df.groupby("order_label", as_index=False).agg(agg_rules)
         import ipdb;
         ipdb.set_trace()
-        agg_rules = {"symbol": "first", "balance": "first", "basis": "first", "order_label": "first",
-                     "timestamp": "first", "realized_pl": "sum", "unrealized_pl": "last"}
-        tab = df.groupby("order_label").agg(agg_rules)
 
         # make order performance table
         # s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
