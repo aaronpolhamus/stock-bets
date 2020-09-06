@@ -168,9 +168,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     setOrderTicket(orderTicketCopy)
   }
 
-  const handleChangeAmount = (e, masked, float) => {
+  const handleChangeAmount = (e) => {
     const orderTicketCopy = { ...orderTicket }
-    orderTicketCopy.amount = float
+    const amount = parseFloat(e.target.value.replace(',', ''))
+    orderTicketCopy.amount = amount
     setOrderTicket(orderTicketCopy)
   }
 
@@ -358,8 +359,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <AmountInput>
               <InputGroup>
-                <Form.Control required as={CurrencyInput} placeholder="0.00" type="text" name='amount' onChangeEvent={handleChangeAmount} precision={0} value={orderTicket.amount}/>
-                
+                <Form.Control required as={CurrencyInput} placeholder="0.00" type="text" name='amount' onChange={handleChangeAmount} precision={0} value={orderTicket.amount}/>
                 <InputGroup.Append>
                   <TabbedRadioButtons
                     mode='tabbed'
