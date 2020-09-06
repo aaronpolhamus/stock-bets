@@ -2,7 +2,10 @@
 """
 from backend.tests import CanonicalSplitsCase
 
-from backend.logic.visuals import make_order_performance_table
+from backend.logic.visuals import (
+    make_order_performance_table,
+    serialize_and_pack_order_performance_assets
+)
 
 
 class TestSplits(CanonicalSplitsCase):
@@ -10,6 +13,7 @@ class TestSplits(CanonicalSplitsCase):
     unrealized P & L. This canonical test makes sure that we're nailing that  logic, and also does some values testing
     of the asset """
     def test_splits(self):
-        df = make_order_performance_table(self.game_id, self.user_id)
+        serialize_and_pack_order_performance_assets(self.game_id, self.user_id)
+        # df = make_order_performance_table(self.game_id, self.user_id)
         import ipdb;ipdb.set_trace()
         print("hi")

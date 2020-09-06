@@ -26,7 +26,6 @@ from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
     get_user_information,
-    get_game_info,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
@@ -49,10 +48,11 @@ from backend.logic.payments import (
 )
 from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
+    add_fulfilled_order_entry,
     removing_pending_order,
     serialize_and_pack_portfolio_details,
     init_game_assets,
-    serialize_and_pack_order_details
+    serialize_and_pack_pending_orders
 )
 from funkybob import RandomNameGenerator
 from textdistance import hamming
@@ -717,7 +717,8 @@ def process_order(order_id: int):
                                       clear_price=market_price)
             update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
                             market_price, quantity, symbol)
-            serialize_and_pack_order_details(game_id, user_id)  # refresh the pending and fulfilled orders table
+            serialize_and_pack_pending_orders(game_id, user_id)  # refresh the pending orders table
+            add_fulfilled_order_entry(game_id, user_id, order_id)  # add the new fulfilled orders entry to the table
             serialize_and_pack_portfolio_details(game_id, user_id)
         else:
             # if a market order was placed after hours, there may not be enough cash on hand to clear it at the new

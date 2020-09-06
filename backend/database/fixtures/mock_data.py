@@ -4,7 +4,6 @@ test runner to construct a .sql data dump that we can quickly scan into the DB.
 import hashlib
 import json
 from datetime import timedelta
-from unittest.mock import patch
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -33,10 +32,11 @@ from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
     make_the_field_charts,
     serialize_and_pack_portfolio_details,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_order_performance_assets,
     make_chart_json,
-    serialize_and_pack_winners_table
+    serialize_and_pack_winners_table,
+    init_order_details
 )
 from backend.tasks import s3_cache
 from sqlalchemy import MetaData
@@ -633,7 +633,8 @@ def make_redis_mocks():
         user_ids = get_active_game_user_ids(g_id)
         for user_id in user_ids:
             # game/user-level assets
-            serialize_and_pack_order_details(g_id, user_id)
+            init_order_details(g_id, user_id)
+            serialize_and_pack_pending_orders(g_id, user_id)
             serialize_and_pack_portfolio_details(g_id, user_id)
             serialize_and_pack_order_performance_assets(g_id, user_id)
 

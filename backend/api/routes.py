@@ -83,8 +83,9 @@ from backend.logic.games import (
 from backend.logic.payments import check_payment_profile
 from backend.logic.visuals import (
     format_time_for_response,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
+    add_fulfilled_order_entry,
     PENDING_ORDERS_PREFIX,
     FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -465,7 +466,7 @@ def api_place_order():
         async_cache_price.delay(symbol, market_price, last_updated)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        place_order(
+        order_id = place_order(
             user_id,
             game_id,
             symbol,
@@ -481,7 +482,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    serialize_and_pack_order_details(game_id, user_id)
+    serialize_and_pack_pending_orders(game_id, user_id)
+    add_fulfilled_order_entry(game_id, user_id, order_id)
     serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 

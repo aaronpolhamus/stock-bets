@@ -37,7 +37,7 @@ from backend.logic.metrics import (
 from backend.logic.visuals import (
     trade_time_index,
     serialize_and_pack_winners_table,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_balances_chart,
     compile_and_pack_player_leaderboard,
@@ -161,7 +161,7 @@ class TestGameKickoff(BaseTestCase):
                 amount=1,
                 time_in_force="day"
             )
-            serialize_and_pack_order_details(game_id, self.user_id)
+            serialize_and_pack_pending_orders(game_id, self.user_id)
 
     def test_visuals_after_hours(self):
         game_id = 5
@@ -169,7 +169,7 @@ class TestGameKickoff(BaseTestCase):
         self._start_game_runner(start_time, game_id)
 
         # These are the internals of the celery tasks that called to update their state
-        serialize_and_pack_order_details(game_id, self.user_id)
+        serialize_and_pack_pending_orders(game_id, self.user_id)
         pending_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{self.user_id}/{PENDING_ORDERS_PREFIX}")
         self.assertEqual(pending_orders_table["data"][0]["Symbol"], self.stock_pick)
         self.assertEqual(len(pending_orders_table["data"]), 1)
@@ -204,7 +204,7 @@ class TestGameKickoff(BaseTestCase):
 
         # now have a user put in a couple orders. Valid market orders should clear and reflect in the balances table,
         # valid stop/limit orders should post to pending orders
-        serialize_and_pack_order_details(game_id, self.user_id)
+        serialize_and_pack_pending_orders(game_id, self.user_id)
         pending_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{self.user_id}/{PENDING_ORDERS_PREFIX}")
         fulfilled_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{self.user_id}/{FULFILLED_ORDER_PREFIX}")
 
@@ -254,7 +254,7 @@ class TestVisuals(BaseTestCase):
 
         # this is basically the internals of async_update_all_games for one game
         for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_pending_orders(game_id, user_id)
             serialize_and_pack_portfolio_details(game_id, user_id)
 
         # Verify that the JSON objects for chart visuals were computed and cached as expected
@@ -274,7 +274,7 @@ class TestVisuals(BaseTestCase):
         mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
         game_id = 3
         user_id = 1
-        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
         pending_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}")
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
         df = pd.concat([pd.DataFrame(pending_order_table["data"]), pd.DataFrame(fulfilled_order_table["data"])])
@@ -445,7 +445,7 @@ class TestSinglePlayerLogic(BaseTestCase):
         mock_base_time.time.return_value = mock_game_time.time.return_value = simulation_end_time
         game_id = 8
         user_id = 1
-        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
         pending_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}")
         fulfilled_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
         self.assertEqual(len(pending_orders_table["data"]), 0)

@@ -41,7 +41,7 @@ from backend.tasks.definitions import (
     TASK_LOCK_TEST_SLEEP
 )
 from backend.logic.visuals import (
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details
 )
 from backend.tasks.redis import rds
@@ -534,7 +534,7 @@ class TestVisualAssetsTasks(BaseTestCase):
         # seed the open orders and portfolio table
         user_ids = get_active_game_user_ids(game_id)
         for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_pending_orders(game_id, user_id)
             serialize_and_pack_portfolio_details(game_id, user_id)
 
         # Place a guaranteed-to-clear order

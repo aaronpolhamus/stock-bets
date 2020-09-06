@@ -44,7 +44,7 @@ from backend.logic.visuals import (
     make_user_balances_chart_data,
     serialize_and_pack_balances_chart,
     serialize_and_pack_winners_table,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     calculate_and_pack_game_metrics,
     LEADERBOARD_PREFIX,
     CURRENT_BALANCES_PREFIX,
@@ -465,7 +465,7 @@ class TestPlayGame(BaseTestCase):
         user_id = 1
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
-        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
         market_price, _ = fetch_price(stock_pick)

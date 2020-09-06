@@ -347,7 +347,6 @@ def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
         """, user_ids).fetchall()
     return [x[0] for x in usernames]
 
-
 # --------------- #
 # Data processing #
 # --------------- #
@@ -358,8 +357,7 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
         SELECT timestamp, price, symbol FROM prices
         WHERE 
           symbol IN ({','.join(['%s'] * len(symbols))}) AND 
-          timestamp >= %s AND timestamp <= %s;
-    """
+          timestamp >= %s AND timestamp <= %s ORDER BY symbol, timestamp;"""
     params_list = list(symbols) + [min_time, max_time]
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params=params_list)

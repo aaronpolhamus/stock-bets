@@ -7,6 +7,8 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     get_active_balances,
     get_trading_calendar,
@@ -29,7 +31,7 @@ from backend.logic.base import (
     USD_FORMAT,
     get_end_of_last_trading_day,
     SECONDS_IN_A_DAY,
-    RESAMPLING_INTERVAL
+    get_price_histories
 )
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
@@ -54,8 +56,6 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-from backend.database.db import engine
-from backend.database.helpers import query_to_dict
 
 
 # Exceptions
@@ -64,6 +64,7 @@ class BadOrderMerge(Exception):
 
     def __str__(self):
         return "The merge of balance-prices history on orders failed. Check for either redundant or missing orders"
+
 
 # -------------------------------- #
 # Prefixes for redis caching layer #
@@ -536,6 +537,11 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
     serialize_and_pack_portfolio_comps_chart(relabelled_df, game_id)
 
 
+# ------ #
+# Orders #
+# ------ #
+
+
 def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     apply_validation(order_df, order_details_schema)
     # add a label that uniquely identifies a purchase order
@@ -556,18 +562,23 @@ def get_game_balances(game_id: int, user_id: int):
           ORDER BY symbol, id;""", conn, params=[game_id, user_id])
 
 
+def make_order_colors(df: pd.DataFrame):
+    label_colors = assign_colors(df.loc[df["status"] == "fulfilled", "order_label"].unique())
+    df["color"] = df["order_label"].apply(lambda x: label_colors.get(x))
+    return df
+
+
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
     """the order performance table provides the basis for the order performance chart and the order performance table
     in the UI. it looks at each purchase order as a separate entity, and then iterates over subsequent sale and stock
     split events to iteratively 'unwind' the P&L associated with that buy order. the function handles multiple buy
     orders for the same stock by considering the buy order events and the split/sale events to each be their own queue.
-    as the function iterates over the buy orders it "consumes" split/sell orders from the queue. the sales portion of
-    the queue is unique to each stock symbol -- this part of the queue is built at the outermost loop, and sales events
-    are "consumed" and removed from the queue as the function iterates over the different buy events. stock splits,
-    on the other hand, are unique in time, and can apply to multiple buy orders. this portion of the queue is therefore
-    reconstructed in the buy order portion of the loop. the "event queue" is a sorted comubination of the sales and
-    split queue.
-    """
+    as the function iterates over the buy orders it "consumes" split/sell events from the queue. the sales event portion
+    of the queue is unique to each stock symbol -- this part of the queue is built at the outermost loop, and sales
+    events are "consumed" and removed from the queue as the function iterates over the different buy events. stock
+    splits, on the other hand can apply to multiple buy orders and aren't dropped from the queue in the same way that
+    sales events are. this portion of the queue is therefore reconstructed for each buy order iteration before being
+    blended with the remaining sales events in the queue. """
     # get historical order details
     order_df = get_order_details(game_id, user_id, start_time, end_time)
     order_df = order_df[(order_df["status"] == "fulfilled") & (order_df["symbol"] != "Cash")]
@@ -586,6 +597,12 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     splits_df = df[df["transaction_type"] == "stock_split"]
     performance_records = []
     for symbol in df["symbol"].unique():
+        # look up price ranged need to calculating unrealized p&l for split events
+        min_time = float(df[df["symbol"] == symbol]["timestamp"].min())
+        max_time = time.time()
+        price_df = get_price_histories([symbol], min_time, max_time)
+
+        # iterate over buy and sales queues
         buys_subset = buys_df[buys_df["symbol"] == symbol]
         sales_queue = sales_df[sales_df["symbol"] == symbol].to_dict(orient="records")
         for _, buy_order in buys_subset.iterrows():
@@ -599,10 +616,12 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                 timestamp=buy_order["timestamp_fulfilled"],
                 realized_pl=0,
                 unrealized_pl=0,
-                pct_sold=0
+                total_pct_sold=0
             ))
+
+            # instantiate variable for balances and sold percentages
             remaining_balance = buy_order["quantity"]
-            pct_sold = 0
+            total_pct_sold = 0
 
             # reconstruct the events queue with splits refreshed each time
             mask = (splits_df["symbol"] == symbol) & (splits_df["timestamp"] >= buy_order["timestamp"])
@@ -614,6 +633,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                 if event["transaction_type"] == "stock_split":
                     split_entry = query_to_dict("SELECT * FROM stock_splits WHERE id = %s", event["stock_split_id"])[0]
                     remaining_balance *= split_entry["numerator"] / split_entry["denominator"]
+                    price = price_df[price_df["timestamp"] >= event["timestamp"]].iloc[0]["price"]
                     performance_records.append(dict(
                         symbol=symbol,
                         order_label=buy_order["order_label"],
@@ -621,28 +641,25 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                         balance=remaining_balance,
                         basis=basis,
                         timestamp=posix_to_datetime(split_entry["exec_date"]),
-                        realized_pl=None,
-                        unrealized_pl=None,
-                        pct_sold=None
+                        realized_pl=0,
+                        unrealized_pl=remaining_balance * price - (1 - total_pct_sold) * basis,
+                        total_pct_sold=total_pct_sold
                     ))
                     events_queue.pop(0)
 
                 if event["transaction_type"] == "stock_sale":
-                    sell_order_value = event["quantity"] * event["clear_price_fulfilled"]
+                    sale_price = event["clear_price_fulfilled"]
                     quantity_sold = event["quantity"]
                     balance_minus_sold = remaining_balance - quantity_sold
                     if balance_minus_sold < 0:
-                        # if the sale closes the order on a FIFO basis, allocation the portion off the sale
-                        # appropriately and adjust the event quantity for the next iteration
                         quantity_sold = -balance_minus_sold
-                        event["quantity"] -= balance_minus_sold
-                    else:
-                        # if the sale doesn't close the order on a FIFO basis then we've 'consumed' this sale event and
-                        # remove it from the queue
+
+                    event["quantity"] -= quantity_sold
+                    if event["quantity"] == 0:
                         sales_queue.pop(0)
                     events_queue.pop(0)
-                    sale_pct = (1 - pct_sold) * quantity_sold / remaining_balance
-                    pct_sold += sale_pct
+                    sale_pct = (1 - total_pct_sold) * quantity_sold / remaining_balance
+                    total_pct_sold += sale_pct
                     remaining_balance -= quantity_sold
                     performance_records.append(dict(
                         symbol=symbol,
@@ -651,36 +668,43 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                         balance=remaining_balance,
                         basis=basis,
                         timestamp=event["timestamp_fulfilled"],
-                        realized_pl=sell_order_value - sale_pct * basis,
-                        unrealized_pl=remaining_balance * event["clear_price_fulfilled"],
-                        pct_sold=pct_sold
+                        realized_pl=quantity_sold * sale_price - sale_pct * basis,
+                        unrealized_pl=remaining_balance * sale_price - (1 - total_pct_sold) * basis,
+                        total_pct_sold=total_pct_sold
                     ))
     return pd.DataFrame(performance_records)
 
 
+def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
+    # s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
+    pass
+
+
+def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
+    df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
+    df = df[df["status"] == "fulfilled"]
+    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
+    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
+
+
 def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, start_time: float = None,
-                                               end_time: float = None):
-    """This function uses the output of make_order_perormancce
-    """
-    table = make_order_performance_table(game_id, user_id, start_time, end_time)
-    table = table.where(pd.notnull(table), None)  # swaps any NaNs from upstream processing for Null values
-    order_perf = table
-    if order_perf.empty:
+                                                end_time: float = None):
+    # TODO: embed a schema check in make_order_performance table -- lots going on here
+    df = make_order_performance_table(game_id, user_id, start_time, end_time)
+    if df.empty:
         chart_json = make_null_chart("Waiting for orders...")
     else:
-        order_perf = build_labels(order_perf)
-        order_perf = order_perf.groupby(["order_label", "t_index"], as_index=False)[
-            ["label", "return", "timestamp"]].last()
-        order_perf.sort_values("t_index", inplace=True)
-        # add logic here
-        order_label_colors = assign_colors(order_perf["order_label"].unique())
-        colors = []
-        # TODO: map this operation to a mapping function
-        for order_label in order_perf["order_label"].unique():
-            colors.append(order_label_colors[order_label])
-        chart_json = make_chart_json(order_perf, "order_label", "return", "label", colors=colors)
+        import ipdb;
+        ipdb.set_trace()
+        agg_rules = {"symbol": "first", "balance": "first", "basis": "first", "order_label": "first",
+                     "timestamp": "first", "realized_pl": "sum", "unrealized_pl": "last"}
+        tab = df.groupby("order_label").agg(agg_rules)
 
-    s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
+        # make order performance table
+        # s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
+
+    # make order performance chart
+    # s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
 
 
 # ------ #
@@ -709,43 +733,23 @@ def add_market_prices_to_order_details(df):
     return df
 
 
-def make_order_colors(df: pd.DataFrame):
-    label_colors = assign_colors(df.loc[df["status"] == "fulfilled", "order_label"].unique())
-    df["color"] = df["order_label"].apply(lambda x: label_colors.get(x))
-    return df
-
-
-def pack_fulfilled_orders(df: pd.DataFrame, game_id: int, user_id: int):
-    df = df.rename(columns=FULFILLED_ORDER_MAPPINGS)
-    df = df[df["status"] == "fulfilled"]
-    fulfilled_order_records = dict(data=df.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
-    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_records))
-
-
-def pack_pending_orders(df: pd.DataFrame, game_id: int, user_id: int):
+def serialize_and_pack_pending_orders(game_id: int, user_id: int):
+    df = get_order_details(game_id, user_id)
+    df = df[df["status"] == "pending"]
+    if df.empty:
+        init_order_details(game_id, user_id)
+        return
+    df["timestamp_pending"] = df["timestamp_pending"].apply(lambda x: format_posix_time(x))
+    df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
+    df = add_market_prices_to_order_details(df)
+    df = number_columns_to_currency(df, ["price", "clear_price_fulfilled", "Market price"])
+    df.fillna(NA_TEXT_SYMBOL, inplace=True)
     mapped_columns_to_drop = ["Hypothetical return", "clear_price_fulfilled", "timestamp_fulfilled"]
     df = df.drop(mapped_columns_to_drop, axis=1)
     df = df.rename(columns=PENDING_ORDER_MAPPINGS)
     df = df[df["status"] == "pending"]
     pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", json.dumps(pending_order_records))
-
-
-def serialize_and_pack_order_details(game_id: int, user_id: int):
-    df = get_order_details(game_id, user_id)
-    if df.empty:
-        init_order_details(game_id, user_id)
-        return
-    df = make_order_labels(df)
-    df = make_order_colors(df)
-    df["timestamp_pending"] = df["timestamp_pending"].apply(lambda x: format_posix_time(x))
-    df["timestamp_fulfilled"] = df["timestamp_fulfilled"].apply(lambda x: format_posix_time(x))
-    df["time_in_force"] = df["time_in_force"].apply(lambda x: "Day" if x == "day" else "Until cancelled")
-    df = add_market_prices_to_order_details(df)
-    df = number_columns_to_currency(df, ["price", "clear_price_fulfilled", "Market price"])
-    df.fillna(NA_TEXT_SYMBOL, inplace=True)
-    pack_fulfilled_orders(df, game_id, user_id)
-    pack_pending_orders(df, game_id, user_id)
 
 
 def init_order_details(game_id: int, user_id: int):
@@ -895,7 +899,7 @@ def init_game_assets(game_id: int):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
-        serialize_and_pack_order_details(game_id, user_id)
+        init_order_details(game_id, user_id)
         serialize_and_pack_portfolio_details(game_id, user_id)
         serialize_and_pack_order_performance_assets(game_id, user_id)
 

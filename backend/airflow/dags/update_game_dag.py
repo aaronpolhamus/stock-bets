@@ -12,7 +12,7 @@ from backend.logic.visuals import (
     make_the_field_charts,
     compile_and_pack_player_leaderboard,
     calculate_and_pack_game_metrics,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_order_performance_assets,
     serialize_and_pack_winners_table
@@ -51,7 +51,7 @@ def refresh_order_details_with_context(**context):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         print(f"*** user id: {user_id} ***")
-        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
 
 
 def refresh_portfolio_details_with_context(**context):
