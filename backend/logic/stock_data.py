@@ -364,6 +364,8 @@ def insert_dividends_to_db():
 
 
 def parse_dividends(date=dt.now(), timeout=120) -> pd.DataFrame:
+    if len(get_trading_calendar(date, date)) == 0:
+        return pd.DataFrame()
     day_of_month = str(date.day)
     month = date.strftime('%B %Y')
     driver = get_web_driver()
@@ -435,7 +437,7 @@ def click_next_page(driver, first) -> bool:
 
 
 def choose_month(driver, month):
-    back_row_xpath = '/html/body/div[8]/div[2]/div[1]/table/tbody/tr/td/div[2]/div[1]/div[1]/table/thead/tr[1]/th/div/a'
+    back_row_xpath = '//*[@id="cal1_0"]/thead/tr[1]/th/div/a'
     current_month_xpath = '//*[@id="cal1_0"]/thead/tr[1]/th/div'
     current_month = driver.find_element_by_xpath(current_month_xpath).text.split('\n')[-1]
     while current_month != month:

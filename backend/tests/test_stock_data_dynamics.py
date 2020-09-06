@@ -21,7 +21,7 @@ from backend.logic.stock_data import (
     fetch_price,
     get_stock_splits,
     apply_stock_splits,
-    get_most_recent_prices
+    get_most_recent_prices, parse_dividends
 )
 from backend.tests import BaseTestCase
 
@@ -147,3 +147,25 @@ class TestStockSplitsInternal(BaseTestCase):
         last_spxu_price = last_prices[last_prices["symbol"] == "SPXU"].iloc[0]["price"]
         self.assertAlmostEqual(cash_balance_pre + (pre_tsla * 5 / 2 - post_tsla) * last_tsla_price + (
                     pre_spxu * 2.22 / 3.45 - post_spxu) * last_spxu_price, cash_balance_post, 3)
+
+
+class TestDividendScrapper(BaseTestCase):
+    july_7_dividends = pd.DataFrame({'symbol': {0: 'BDN', 1: 'CEA', 2: 'IDCC', 3: 'ROP', 4: 'SCS', 5: 'TGLS'},
+                        'company': {0: 'Brandywine Realty Trust',
+                                    1: 'China Eastern Airlines Corp. Ltd.',
+                                    2: 'InterDigital Inc.',
+                                    3: 'Roper Technologies Inc.',
+                                    4: 'Steelcase Inc.',
+                                    5: 'Tecnoglass Inc.'},
+                        'amount': {0: 0.19, 1: 0.32, 2: 0.35, 3: 0.51, 4: 0.1, 5: 0.03},
+                        'exec_date': {0: 1594080000,
+                                      1: 1594080000,
+                                      2: 1594080000,
+                                      3: 1594080000,
+                                      4: 1594080000,
+                                      5: 1594080000}})
+    scrapped_july_7 = parse_dividends(dt(2020, 7, 7))
+
+    def test_parse_dividends_data(self):
+        self.assertTrue(parse_dividends(dt(2020, 9, 6)).empty)
+        pd.testing.assert_frame_equal(self.scrapped_july_7, self.july_7_dividends)
