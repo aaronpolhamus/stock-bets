@@ -134,8 +134,7 @@ const Sneak = props => {
                           },
                           'Clear price': function clearPriceFormat (value, row) {
                             const qty = row.Quantity
-                            const price = value.replace(/\$|,/g, '')
-                            const totalPrice = (qty * price).toLocaleString()
+                            const totalPrice = (qty * value).toLocaleString()
                             return (
                               <>
                                 <strong>
