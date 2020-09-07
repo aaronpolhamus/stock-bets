@@ -60,14 +60,17 @@ balances_and_prices_table_schema = {
 # ----------
 
 order_performance_schema = {
-    "order_id": ([pd.Int8Dtype], True),
     "symbol": ([pd.StringDtype], True),
-    "balance": ([float], True),
-    "timestamp": ([VALID_TIME_TYPES, True]),
-    "price": ([float], True),
-    "original_value": ([float], True),
-    "cum_sold": ([float], True),
-    "remaining_value": ([float], True)
+    "order_label": ([pd.StringDtype], True),
+    "basis": ([float], True),
+    "quantity": ([float], False),
+    "clear_price": ([float], False),
+    "event_type": ([pd.StringDtype], True),
+    "fifo_balance": ([float], True),
+    "timestamp": ([float], True),
+    "realized_pl": ([float], True),
+    "unrealized_pl": ([float], True),
+    "total_pct_sold": ([float], True),
 }
 
 balances_chart_schema = {

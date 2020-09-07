@@ -13,12 +13,8 @@ from backend.database.helpers import (
 )
 from backend.logic.base import (
     get_game_info,
-    make_date_offset,
-    posix_to_datetime,
     get_user_information,
-    make_historical_balances_and_prices_table
 )
-from backend.logic.metrics import calculate_metrics
 from backend.tests import BaseTestCase
 
 
