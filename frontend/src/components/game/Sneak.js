@@ -39,7 +39,7 @@ const Sneak = props => {
       >
         Sneak on other players
         <IconBinoculars
-          stroke-width={2}
+          strokeWidth={2}
           stroke='var(--color-primary-darken)'
           width={22}
           style={{
@@ -56,7 +56,7 @@ const Sneak = props => {
         <Modal.Header>
           <h1>
             <IconBinoculars
-              stroke-width={2}
+              strokeWidth={2}
               stroke='var(--color-primary-darken)'
               width={32}
               height={32}

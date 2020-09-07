@@ -12,16 +12,16 @@ import { useParams, Link, Redirect } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
   Breadcrumb,
-  Column,
+  GameSidebar,
+  GameContent,
   Layout,
   PageSection,
-  PageFooter,
-  Sidebar
+  PageFooter
 } from 'components/layout/Layout'
 import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
 import { GameHeader } from 'components/game/GameHeader'
-import { ChevronLeft } from 'react-feather'
+import { ChevronLeft, Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
@@ -31,6 +31,7 @@ import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
+import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
 
 const PlayGame = () => {
@@ -111,15 +112,15 @@ const PlayGame = () => {
   if (redirect) return <Redirect to='/' />
   return (
     <Layout>
-      <Sidebar md={3}>
+      <GameSidebar md={3}>
         <PlaceOrder
           gameId={gameId}
           onPlaceOrder={handlePlacedOrder}
           update={updateInfo}
           cashData={cashData}
         />
-      </Sidebar>
-      <Column md={9}>
+      </GameSidebar>
+      <GameContent md={9}>
         <PageSection
           $marginBottom='var(--space-400)'
           $marginBottomMd='var(--space-400)'
@@ -137,7 +138,15 @@ const PlayGame = () => {
         </PageSection>
         <PageSection>
           <Tabs>
-            <Tab eventKey='field-chart' title='The Field'>
+            <Tab
+              eventKey='field-chart'
+              title={(
+                <>
+                  <IconTabs><Map /></IconTabs>
+                  The Field
+                </>
+              )}
+            >
               <PageSection>
                 <FieldChart gameId={gameId} />
                 {gameMode === 'multi_player' &&
@@ -147,7 +156,7 @@ const PlayGame = () => {
               </PageSection>
               <PageSection>
                 <Row>
-                  <Col sm={6}>
+                  <Col xl={6}>
                     <SectionTitle>
                       Pending Orders
                     </SectionTitle>
@@ -197,7 +206,7 @@ const PlayGame = () => {
                       }}
                     />
                   </Col>
-                  <Col sm={6}>
+                  <Col xl={6}>
                     <SectionTitle>
                       Fulfilled Orders
                     </SectionTitle>
@@ -241,7 +250,15 @@ const PlayGame = () => {
                 </Row>
               </PageSection>
             </Tab>
-            <Tab eventKey='orders' title='Order Performance'>
+            <Tab
+              eventKey='orders'
+              title={(
+                <>
+                  <IconTabs><TrendingUp /></IconTabs>
+                  Order Performance
+                </>
+              )}
+            >
               <CompoundChart
                 gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
@@ -279,17 +296,9 @@ const PlayGame = () => {
                           const totalPrice = (qty * value).toLocaleString()
                           return (
                             <>
-                              <strong>
-                                {`$${totalPrice}`}
+                              <strong title={`Total price: $${totalPrice}`}>
+                                {`${value}`}
                               </strong>
-                              <br />
-                              <span
-                                style={{
-                                  color: 'var(--color-text-gray)'
-                                }}
-                              >
-                                {`(${value})`}
-                              </span>
                             </>
                           )
                         }
@@ -318,7 +327,15 @@ const PlayGame = () => {
                 }
               </CompoundChart>
             </Tab>
-            <Tab eventKey='balances' title='Balances'>
+            <Tab
+              eventKey='balances'
+              title={(
+                <>
+                  <IconTabs><BarChart /></IconTabs>
+                  Balances
+                </>
+              )}
+            >
               <CompoundChart
                 gameId={gameId}
                 chartDataEndpoint='get_balances_chart'
@@ -374,7 +391,15 @@ const PlayGame = () => {
               </CompoundChart>
             </Tab>
             {gameMode === 'multi_player' &&
-              <Tab eventKey='payouts' title='Payouts'>
+              <Tab
+                eventKey='payouts'
+                title={(
+                  <>
+                    <IconTabs><DollarSign /></IconTabs>
+                    Payouts
+                  </>
+                )}
+              >
                 <PayoutsTable gameId={gameId} />
               </Tab>}
           </Tabs>
@@ -390,7 +415,7 @@ const PlayGame = () => {
           <Button onClick={getTransactionData} variant='secondary'>Download transactions to csv</Button>
           <Button variant='outline-danger' onClick={() => setShowLeaveBox(true)}>Leave game</Button>
         </PageFooter>
-      </Column>
+      </GameContent>
       <Toast
         style={{
           position: 'fixed',

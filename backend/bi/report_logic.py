@@ -4,7 +4,7 @@ import time
 
 from backend.database.db import engine
 from backend.logic.base import posix_to_datetime
-from backend.logic.visuals import make_chart_json
+from backend.logic.visuals import make_chart_json, DATE_LABEL_FORMAT
 from backend.tasks import s3_cache
 
 GAMES_PER_USER_PREFIX = "game_per_user"

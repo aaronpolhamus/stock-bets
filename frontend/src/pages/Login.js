@@ -249,7 +249,7 @@ export default function Login () {
             <LoginDialog>
               <LoginDialogHeader>
                 <TabbedRadioButtons
-                  defaultChecked={loginSelection}
+                  $defaultChecked={loginSelection}
                   onClick={(e) => {
                     setLoginSelection(e.target.value)
                   }}

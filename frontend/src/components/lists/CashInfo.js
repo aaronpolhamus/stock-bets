@@ -44,9 +44,6 @@ const CashInfo = ({ cashData, balance = true, buyingPower = true }) => {
                 <p>
                   <strong>Buying power</strong> is your cash minus any outstanding buy order.
                 </p>
-                <p>
-                  If this is negative, consider cancelling a few.
-                </p>
               </>
             }
           />

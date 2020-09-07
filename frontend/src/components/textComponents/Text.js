@@ -8,10 +8,12 @@ const SimplifiedCurrency = ({ value }) => (
 )
 
 const AuxiliarText = styled.span`
+  display: inline-block;
   color: ${(props) => props.color || 'var(--color-text-gray)'};
   font-weight: bold;
   font-size: var(--font-size-min);
   line-height: 1.2;
+  margin-top: var(--space-50);
 `
 
 const SmallText = styled.span`

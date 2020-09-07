@@ -62,7 +62,6 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
   }
 
   const breakpoint = breakpoints[context] || 0
-  console.log(iconNotifications)
   return (
     <div>
       {icon &&
