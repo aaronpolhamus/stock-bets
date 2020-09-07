@@ -131,7 +131,6 @@ class OrderStatusTypes(Enum):
     fulfilled = "Fulfilled"
     cancelled = "Cancelled"
     expired = "Expired"
-    split_adjust = "Adjust for split"
 
 
 class Transactions(db.Model):
