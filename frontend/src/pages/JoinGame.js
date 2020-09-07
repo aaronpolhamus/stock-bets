@@ -95,7 +95,7 @@ const JoinGame = () => {
         )
     }
   }
-  console.log(gameInvitees, gameParticipants)
+
   if (redirect) return <Redirect to='/' />
   return (
     <>

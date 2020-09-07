@@ -16,12 +16,12 @@ import {
   GameContent,
   Layout,
   PageSection,
-  PageFooter,
+  PageFooter
 } from 'components/layout/Layout'
 import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
 import { GameHeader } from 'components/game/GameHeader'
-import { ChevronLeft } from 'react-feather'
+import { ChevronLeft, Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { PayoutsTable } from 'components/tables/PayoutsTable'
@@ -31,6 +31,7 @@ import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
 import { CSVLink } from 'react-csv'
 import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
+import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
 
 const PlayGame = () => {
@@ -137,7 +138,15 @@ const PlayGame = () => {
         </PageSection>
         <PageSection>
           <Tabs>
-            <Tab eventKey='field-chart' title='The Field'>
+            <Tab
+              eventKey='field-chart'
+              title={(
+                <>
+                  <IconTabs><Map/></IconTabs>
+                  The Field
+                </>
+              )}
+            >
               <PageSection>
                 <FieldChart gameId={gameId} />
                 {gameMode === 'multi_player' &&
@@ -243,7 +252,15 @@ const PlayGame = () => {
                 </Row>
               </PageSection>
             </Tab>
-            <Tab eventKey='orders' title='Order Performance'>
+            <Tab
+              eventKey='orders'
+              title={(
+                <>
+                  <IconTabs><TrendingUp/></IconTabs>
+                  Order Performance
+                </>
+              )}
+            >
               <CompoundChart
                 gameId={gameId}
                 chartDataEndpoint='get_order_performance_chart'
@@ -333,7 +350,15 @@ const PlayGame = () => {
                 }
               </CompoundChart>
             </Tab>
-            <Tab eventKey='balances' title='Balances'>
+            <Tab
+              eventKey='balances'
+              title={(
+                <>
+                  <IconTabs><BarChart/></IconTabs>
+                  Balances
+                </>
+              )}
+            >
               <CompoundChart
                 gameId={gameId}
                 chartDataEndpoint='get_balances_chart'
@@ -389,7 +414,15 @@ const PlayGame = () => {
               </CompoundChart>
             </Tab>
             {gameMode === 'multi_player' &&
-              <Tab eventKey='payouts' title='Payouts'>
+              <Tab
+                eventKey='payouts'
+                title={(
+                  <>
+                    <IconTabs><DollarSign/></IconTabs>
+                    Payouts
+                  </>
+                )}
+              >
                 <PayoutsTable gameId={gameId} />
               </Tab>}
           </Tabs>

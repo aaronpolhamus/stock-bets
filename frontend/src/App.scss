@@ -54,6 +54,8 @@ label {
     line-height: 1rem;
     text-transform: uppercase;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
     @include media-breakpoint-down(md) {
       font-size: var(--font-size-min);
       padding: var(--space-100);
