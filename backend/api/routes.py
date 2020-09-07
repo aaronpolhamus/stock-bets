@@ -31,8 +31,7 @@ from backend.logic.base import (
     get_game_info,
     get_pending_buy_order_value,
     get_user_information,
-    standardize_email,
-    USD_FORMAT
+    standardize_email
 )
 from logic.stock_data import fetch_price
 from backend.logic.friends import (
@@ -82,7 +81,6 @@ from backend.logic.games import (
 )
 from backend.logic.payments import check_payment_profile
 from backend.logic.visuals import (
-    format_time_for_response,
     serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     add_fulfilled_order_entry,
@@ -451,9 +449,7 @@ def api_place_order():
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
     valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
     checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
-    an ongoing basis by the celery schedule and book as their requirements are satisfies
-    """
-
+    an ongoing basis by the celery schedule and book as their requirements are satisfies"""
     user_id = decode_token(request)
     order_ticket = request.json
     game_id = order_ticket["game_id"]
@@ -502,7 +498,7 @@ def api_fetch_price():
     symbol = request.json.get("symbol")
     price, timestamp = fetch_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
-    return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
+    return jsonify({"price": price, "last_updated": timestamp})
 
 
 @routes.route("/api/suggest_symbols", methods=["POST"])
@@ -678,7 +674,7 @@ def get_cash_balances():
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
-    return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+    return jsonify({"cash_balance": cash_balance, "buying_power": buying_power})
 
 
 @routes.route("/api/get_transactions_table", methods=["POST"])

@@ -182,7 +182,6 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical return',
                         'as of',
                         'Buy/Sell',
                         'Order Type',
@@ -221,7 +220,6 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical return',
                         'Cleared on',
                         'Order price',
                         'as of',
@@ -276,24 +274,6 @@ const PlayGame = () => {
                             </strong>
                           )
                         },
-                        'Hypothetical return': function netChangeFormat (value) {
-                          let color = 'var(--color-text-gray)'
-                          if (parseFloat(value) < 0) {
-                            color = 'var(--color-danger)'
-                          } else if (parseFloat(value) > 0) {
-                            color = 'var(--color-success)'
-                          }
-
-                          return (
-                            <strong
-                              style={{
-                                color: color
-                              }}
-                            >
-                              {value}
-                            </strong>
-                          )
-                        },
                         'Clear price': function clearPriceFormat (value, row) {
                           const qty = row.Quantity
                           const price = value.replace(/\$|,/g, '')
@@ -326,14 +306,12 @@ const PlayGame = () => {
                         'Placed on',
                         'Order price'
                       ]}
-                      sortBy='Hypothetical return'
                       showColumns={{
                         md: [
                           'Symbol',
                           'Quantity',
                           'Clear price',
-                          'Market price',
-                          'Hypothetical return'
+                          'Market price'
                         ]
                       }}
                     />

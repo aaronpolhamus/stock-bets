@@ -55,7 +55,8 @@ from backend.logic.visuals import (
     SHARPE_RATIO_PREFIX,
     NULL_RGBA,
     N_PLOT_POINTS,
-    NA_TEXT_SYMBOL
+    NA_TEXT_SYMBOL,
+    add_fulfilled_order_entry
 )
 from backend.logic.payments import PERCENT_TO_USER
 from backend.tests import BaseTestCase
@@ -148,7 +149,7 @@ class TestGameKickoff(BaseTestCase):
             stock_pick = self.stock_pick
             cash_balance = get_current_game_cash_balance(self.user_id, game_id)
             current_holding = get_current_stock_holding(self.user_id, game_id, stock_pick)
-            place_order(
+            order_id = place_order(
                 user_id=self.user_id,
                 game_id=game_id,
                 symbol=self.stock_pick,
@@ -162,6 +163,8 @@ class TestGameKickoff(BaseTestCase):
                 time_in_force="day"
             )
             serialize_and_pack_pending_orders(game_id, self.user_id)
+            add_fulfilled_order_entry(game_id, self.user_id, order_id)
+            serialize_and_pack_portfolio_details(game_id, self.user_id)
 
     def test_visuals_after_hours(self):
         game_id = 5
@@ -276,9 +279,6 @@ class TestVisuals(BaseTestCase):
         user_id = 1
         serialize_and_pack_pending_orders(game_id, user_id)
         pending_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}")
-        fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
-        df = pd.concat([pd.DataFrame(pending_order_table["data"]), pd.DataFrame(fulfilled_order_table["data"])])
-        self.assertEqual(df.shape, (8, 16))
         self.assertNotIn("order_id", pending_order_table["headers"])
         self.assertEqual(len(pending_order_table["headers"]), 9)
 
@@ -446,6 +446,7 @@ class TestSinglePlayerLogic(BaseTestCase):
         game_id = 8
         user_id = 1
         serialize_and_pack_pending_orders(game_id, user_id)
+        serialize_and_pack_order_performance_assets(game_id, user_id)
         pending_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}")
         fulfilled_orders_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
         self.assertEqual(len(pending_orders_table["data"]), 0)

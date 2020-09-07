@@ -36,7 +36,7 @@ const GameSettings = ({ gameInfo }) => {
               <dt>
                 <Label>Buy In</Label>
               </dt>
-              <StyledDd>{gameInfo.stakes_formatted}</StyledDd>
+              <StyledDd>{gameInfo.stakes}</StyledDd>
             </div>
             <div>
               <dt>

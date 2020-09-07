@@ -24,7 +24,6 @@ from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
-    USD_FORMAT,
     during_trading_day)
 from backend.logic.stock_data import fetch_price
 from backend.logic.games import (
@@ -51,16 +50,13 @@ from backend.logic.visuals import (
     PENDING_ORDERS_PREFIX,
     FULFILLED_ORDER_PREFIX,
     PAYOUTS_PREFIX,
-    BALANCES_CHART_PREFIX
+    BALANCES_CHART_PREFIX,
+    init_order_details
 )
 from backend.tasks.airflow import start_dag
-from backend.tasks.redis import (
-    rds,
-    unpack_redis_json
-)
-
+from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
-from tasks import s3_cache
+from backend.tasks import s3_cache
 
 HOST_URL = 'https://localhost:5000/api'
 
@@ -349,7 +345,7 @@ class TestCreateGame(BaseTestCase):
         """
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
-        self.assertEqual(player_cash_balances.shape, (3, 9))
+        self.assertEqual(player_cash_balances.shape, (3, 10))
         self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
@@ -462,9 +458,10 @@ class TestPlayGame(BaseTestCase):
     def test_play_game(self):
         """Use the canonical game #3 to interact with the game play API
         """
-        user_id = 1
-        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         game_id = 3
+        user_id = 1
+        init_order_details(game_id, user_id)
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         serialize_and_pack_pending_orders(game_id, user_id)
         stock_pick = "JETS"
         order_quantity = 25
@@ -490,8 +487,6 @@ class TestPlayGame(BaseTestCase):
         self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}"))
         self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}"))
 
-        start_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
-
         with self.engine.connect() as conn:
             last_order = conn.execute("""
                 SELECT symbol FROM orders
@@ -505,6 +500,8 @@ class TestPlayGame(BaseTestCase):
         self.assertEqual(res.status_code, 200)
         stocks_in_table_response = [x["Symbol"] for x in res.json()["data"]]
         self.assertIn(stock_pick, stocks_in_table_response)
+
+        start_dag("update_game_dag", wait_for_complete=True, game_id=game_id)
 
         balances_chart = s3_cache.get(f"{game_id}/{user_id}/{BALANCES_CHART_PREFIX}")
         while balances_chart is None:
@@ -612,7 +609,7 @@ class TestPlayGame(BaseTestCase):
         # this just test that last close is at least producing something -- the backgroun test data isn't setup to
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
-        self.assertEqual(nvda_entry, "0.00%")
+        self.assertEqual(nvda_entry, 0.0)
 
         # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
         res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",
@@ -622,7 +619,7 @@ class TestPlayGame(BaseTestCase):
 
         self.assertIn("color", res.json()["data"][0])
         self.assertEqual(set([x["Symbol"] for x in res.json()["data"]]), {"AMZN", "TSLA", "LYFT", "SPXU", "NVDA"})
-        self.assertEqual(len(res.json()["data"]), 6)  # because we have a buy and a sell order for AMZN
+        self.assertEqual(len(res.json()["data"]), 5)  # because we only consider buy orders
 
         res = self.requests_session.post(f"{HOST_URL}/get_transactions_table", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": game_id})
@@ -663,8 +660,7 @@ class TestGetGameStats(BaseTestCase):
         db_dict = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
         for k, v in res.json().items():
             if k in ["creator_username", "game_mode", "benchmark", "game_status", "user_status", "end_time",
-                     "start_time", "benchmark_formatted", "leaderboard", "is_host", "creator_profile_pic",
-                     "stakes_formatted"]:
+                     "start_time", "benchmark_formatted", "leaderboard", "is_host", "creator_profile_pic"]:
                 continue
             self.assertEqual(db_dict[k], v)
 
@@ -860,8 +856,8 @@ class TestHomePage(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_cash_balances", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": 1})
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json()["cash_balance"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
-        self.assertEqual(res.json()["buying_power"], USD_FORMAT.format(DEFAULT_VIRTUAL_CASH))
+        self.assertEqual(res.json()["cash_balance"], DEFAULT_VIRTUAL_CASH)
+        self.assertEqual(res.json()["buying_power"], DEFAULT_VIRTUAL_CASH)
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {

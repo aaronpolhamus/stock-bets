@@ -27,7 +27,6 @@ from pandas.tseries.offsets import DateOffset
 # Defaults #
 # -------- #
 
-USD_FORMAT = "${:,.2f}"
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
@@ -141,8 +140,7 @@ def get_time_defaults(game_id: int, start_time: float = None, end_time: float = 
         start_time = game_start
 
     if end_time is None:
-        current_time = time.time()
-        end_time = current_time if current_time < game_end else game_end
+        end_time = time.time()  # TODO: constrain this in a way where we can still run TestPlayGame.test_play_game
 
     return start_time, end_time
 
@@ -174,7 +172,6 @@ def get_game_info(game_id: int):
     info["creator_username"] = get_usernames([creator_id])[0]
     info["creator_profile_pic"] = query_to_dict("SELECT * FROM users WHERE id = %s", creator_id)[0]["profile_pic"]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
-    info["stakes_formatted"] = USD_FORMAT.format(info["buy_in"]) if info["stakes"] == 'real' else "Just for fun"
     info["game_status"] = get_current_game_status(game_id)
     info["start_time"] = info["end_time"] = None
     if info["game_status"] in ["active", "finished"]:
@@ -241,23 +238,28 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     query = """
         SELECT
-            o.id as order_id, 
+            o.id as order_id,
             relevant_orders.status,
-            relevant_orders.id as order_status_id,
-            symbol, 
-            relevant_orders.timestamp, 
-            buy_or_sell, 
-            quantity, 
+            relevant_orders.order_status_id,
+            symbol,
+            relevant_orders.timestamp,
+            buy_or_sell,
+            quantity,
             order_type,
             time_in_force,
             price,
-            relevant_orders.clear_price 
+            relevant_orders.clear_price
         FROM orders o
         INNER JOIN (
-          SELECT os_full.id, os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
+          SELECT os_full.id,
+                 os_full.timestamp,
+                 os_full.order_id,
+                 os_full.clear_price,
+                 os_full.status,
+                 os_relevant.order_status_id
           FROM order_status os_full
           INNER JOIN (
-            SELECT os.order_id
+            SELECT os.order_id, grouped_os.max_id as order_status_id
             FROM order_status os
               INNER JOIN
                  (SELECT order_id, max(id) as max_id
@@ -499,6 +501,7 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     df.sort_values(["symbol", "timestamp"])
     df["value"] = df["balance"] * df["price"]
     df = filter_for_trade_time(df)
+    df[["balance", "price", "value"]] = df[["balance", "price", "value"]].astype(float)
     apply_validation(df, balances_and_prices_table_schema, strict=True)
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 

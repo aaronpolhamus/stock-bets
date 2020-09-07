@@ -18,7 +18,10 @@ from backend.logic.base import (
     get_game_start_and_end,
     datetime_to_posix,
     make_historical_balances_and_prices_table,
-    USD_FORMAT
+    get_game_info,
+    get_active_game_user_ids,
+    posix_to_datetime,
+    make_date_offset
 )
 from backend.logic.payments import (
     send_paypal_payment,
@@ -29,12 +32,11 @@ from backend.logic.payments import (
 # -------- #
 # Defaults #
 # -------- #
-from logic.base import get_game_info, get_active_game_user_ids, posix_to_datetime, make_date_offset
 
 STARTING_SHARPE_RATIO = 0
 STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
-
+USD_FORMAT = "${:,.2f}"
 
 # ------------------------------------ #
 # Base methods for calculating metrics #

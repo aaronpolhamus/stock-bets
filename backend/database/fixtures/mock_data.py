@@ -24,6 +24,7 @@ from backend.logic.base import (
     check_single_player_mode
 )
 from backend.logic.games import (
+    init_game_assets,
     get_active_game_user_ids,
     DEFAULT_INVITE_OPEN_WINDOW
 )
@@ -32,11 +33,8 @@ from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
     make_the_field_charts,
     serialize_and_pack_portfolio_details,
-    serialize_and_pack_pending_orders,
-    serialize_and_pack_order_performance_assets,
     make_chart_json,
     serialize_and_pack_winners_table,
-    init_order_details
 )
 from backend.tasks import s3_cache
 from sqlalchemy import MetaData
@@ -619,31 +617,10 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-    def _build_assets(g_id):
-        # performance metrics
-        calculate_and_pack_game_metrics(g_id)
+    game_ids = [3, 6, 7, 8]
+    for game_id in game_ids:
+        init_game_assets(game_id)
 
-        # leaderboard
-        compile_and_pack_player_leaderboard(g_id)
-
-        # the field and balance charts
-        make_the_field_charts(g_id)
-
-        # tables and performance breakout charts
-        user_ids = get_active_game_user_ids(g_id)
-        for user_id in user_ids:
-            # game/user-level assets
-            init_order_details(g_id, user_id)
-            serialize_and_pack_pending_orders(g_id, user_id)
-            serialize_and_pack_portfolio_details(g_id, user_id)
-            serialize_and_pack_order_performance_assets(g_id, user_id)
-
-        if not check_single_player_mode(g_id):
-            # winners/payouts table
-            serialize_and_pack_winners_table(g_id)
-
-
-    # key metrics for the admin panel
     serialize_and_pack_games_per_user_chart()
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
     df = make_games_per_user_data()

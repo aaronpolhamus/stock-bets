@@ -4,8 +4,6 @@ import time
 
 from backend.database.db import engine
 from backend.logic.base import posix_to_datetime
-from backend.logic.visuals import make_chart_json, DATE_LABEL_FORMAT
-from backend.tasks.redis import DEFAULT_ASSET_EXPIRATION
 from backend.tasks import s3_cache
 
 GAMES_PER_USER_PREFIX = "game_per_user"
@@ -110,7 +108,6 @@ def make_orders_per_active_user():
 
 def serialize_and_pack_orders_per_active_user():
     df = make_orders_per_active_user()
-    df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df["series_label"] = "Orders per active user"
     chart_json = make_chart_json(df, "series_label", "orders_per_users", "timestamp")
     s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))

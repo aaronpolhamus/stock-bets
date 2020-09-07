@@ -159,9 +159,9 @@ end_task = DummyOperator(
     dag=dag
 )
 
-start_task >> make_order_performance_chart
-make_order_performance_chart >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
-make_order_performance_chart >> log_multiplayer_winners >> make_winners_table >> end_task
+
+start_task >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
+start_task >> log_multiplayer_winners >> make_winners_table >> end_task
+start_task >> make_order_performance_chart >> end_task
 start_task >> refresh_order_details >> end_task
 start_task >> refresh_portfolio_details >> end_task
-

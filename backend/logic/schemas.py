@@ -10,6 +10,7 @@ import pandas as pd
 
 
 VALID_TIME_TYPES = [pd.Timedelta, np.dtype('<M8[ns]'), pd.DatetimeTZDtype]
+VALID_NUMERIC_TYPES = [float, int]
 
 
 class FailedValidation(Exception):
@@ -18,9 +19,6 @@ class FailedValidation(Exception):
 
 
 def apply_validation(df: pd.DataFrame, schema_definition: dict, strict: bool = False) -> bool:
-    """I don't love pandas_schema. If we want to swap out the internals for something customized at some point we can
-    do that here.
-    """
     target_columns = schema_definition.keys()
     set_diff = set(target_columns) - set(df.columns)
     if len(set_diff) > 0:
@@ -50,10 +48,10 @@ def apply_validation(df: pd.DataFrame, schema_definition: dict, strict: bool = F
 # -------
 balances_and_prices_table_schema = {
     "symbol": ([pd.StringDtype], False),
-    "timestamp": ([VALID_TIME_TYPES, False]),
-    "balance": ([float, np.int64], False),
-    "price": ([float, np.int64], False),
-    "value": ([float, np.int64], False),
+    "timestamp": (VALID_TIME_TYPES, False),
+    "balance": (VALID_NUMERIC_TYPES, False),
+    "price": (VALID_NUMERIC_TYPES, False),
+    "value": (VALID_NUMERIC_TYPES, False),
 }
 
 # visuals.py
@@ -62,24 +60,25 @@ balances_and_prices_table_schema = {
 order_performance_schema = {
     "symbol": ([pd.StringDtype], True),
     "order_label": ([pd.StringDtype], True),
-    "basis": ([float], True),
-    "quantity": ([float], False),
-    "clear_price": ([float], False),
+    "order_id": (VALID_NUMERIC_TYPES, False),
+    "basis": (VALID_NUMERIC_TYPES, True),
+    "quantity": (VALID_NUMERIC_TYPES, False),
+    "clear_price": (VALID_NUMERIC_TYPES, False),
     "event_type": ([pd.StringDtype], True),
-    "fifo_balance": ([float], True),
-    "timestamp": ([float], True),
-    "realized_pl": ([float], True),
-    "unrealized_pl": ([float], True),
-    "total_pct_sold": ([float], True),
+    "fifo_balance": (VALID_NUMERIC_TYPES, True),
+    "timestamp": (VALID_NUMERIC_TYPES, True),
+    "realized_pl": (VALID_NUMERIC_TYPES, True),
+    "unrealized_pl": (VALID_NUMERIC_TYPES, True),
+    "total_pct_sold": (VALID_NUMERIC_TYPES, True),
 }
 
 balances_chart_schema = {
     # the instrument (stocks and ETFs for now), defining the data series
     "symbol": ([pd.StringDtype], True),
     # the value of that position
-    "value": ([float, np.int64], False),
+    "value": (VALID_NUMERIC_TYPES, False),
     # the formatted x-axis label. trade_time_index and build_labels work together to make this
-    "label": ([pd.StringDtype], True),
+    "label": (VALID_NUMERIC_TYPES, True),
     # balances chart data should preserve original datetime information for sorting prior to being passed-in
     "timestamp": (VALID_TIME_TYPES, False)
 }
@@ -88,16 +87,16 @@ portfolio_comps_schema = {
     # the different game participants define the data series. For single-player mode these will be index tickers
     "username": ([pd.StringDtype], True),
     # the total value of that user's holding. for indexes this will just be a normalized data series of the index value
-    "value": ([float, np.int64], False),
+    "value": (VALID_NUMERIC_TYPES, False),
     # the formatted x-axis label. trade_time_index and build_labels work together to make this
-    "label": ([pd.StringDtype], True),
+    "label": (VALID_NUMERIC_TYPES, True),
     # balances chart data should preserve original datetime information for sorting prior to being passed-in
     "timestamp": (VALID_TIME_TYPES, False)
 }
 
 order_details_schema = {
     "symbol": ([pd.StringDtype], False),
-    "timestamp_fulfilled": ([float, np.int64], True),
-    "quantity": ([float, np.int64], False),
-    "clear_price_fulfilled": ([float, np.int64], True)
+    "timestamp_fulfilled": (VALID_NUMERIC_TYPES, True),
+    "quantity": (VALID_NUMERIC_TYPES, False),
+    "clear_price_fulfilled": (VALID_NUMERIC_TYPES, True)
 }
