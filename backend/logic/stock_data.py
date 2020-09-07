@@ -24,6 +24,7 @@ from backend.logic.base import (
     get_trading_calendar,
     get_schedule_start_and_end,
     get_current_game_cash_balance,
+    get_active_balances,
 )
 from backend.tasks.redis import rds
 from config import Config
@@ -355,6 +356,20 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
         del df["fractional_balance"]
         with engine.connect() as conn:
             df.to_sql("game_balances", conn, index=False, if_exists="append")
+
+
+def apply_dividends_to_game(game_id, user_id, date):
+    active_balances = get_active_balances(game_id, user_id)
+    dividends_in_date = get_dividends_of_date(date)
+    stocks_with_dividends = active_balances.merge(dividends_in_date)
+    if len(stocks_with_dividends) == 0:
+        return None
+    stocks_with_dividends['new_cash'] = stocks_with_dividends['amount'] * stocks_with_dividends['balance']
+
+
+def get_dividends_of_date(date):
+    posix = datetime_to_posix(date)
+    return query_to_dict(f"select * from dividends where exec_date={posix}")
 
 
 def insert_dividends_to_db():
