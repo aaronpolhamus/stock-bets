@@ -315,8 +315,7 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
                   balance > 0
                 GROUP BY game_id, user_id
               ) grouped_db
-              ON grouped_db.max_id = g.id
-            """, conn, params=[symbol] + active_ids)
+              ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
         if df.empty:
             continue
 

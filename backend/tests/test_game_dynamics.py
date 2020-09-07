@@ -780,21 +780,21 @@ class TestSchemaValidation(TestCase):
     def test_schema_validators(self):
         # all data is proper
         df = pd.DataFrame(
-            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         result = apply_validation(df, balances_chart_schema)
         self.assertTrue(result)
 
         # columns are there but data has a bad type
         df = pd.DataFrame(
-            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
         # a column is missing
         df = pd.DataFrame(
-            dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(value=[20, 30, 40], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)

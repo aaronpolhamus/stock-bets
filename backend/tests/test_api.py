@@ -896,9 +896,6 @@ class TestPriceFetching(BaseTestCase):
                                          json={"symbol": "TSLA"}, verify=False)
         self.assertEqual(res.status_code, 200)
 
-        self.assertNotIn("GMT", res.json()["last_updated"])
-        self.assertIn("EST", res.json()["last_updated"])
-
         # we only expect a database entry during trading hours
         if during_trading_day():
             while "TSLA" not in rds.keys():
