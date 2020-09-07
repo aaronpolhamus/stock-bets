@@ -13,13 +13,13 @@ const IconBuySell = props => {
             top: '-2px',
             marginRight: 'var(--space-50)'
           }}
-          stroke-width={3}
+          strokeWidth={3}
           color='var(--color-danger)'
         />
         : <Icon.ArrowDownLeft
           color='var(--color-success)'
           size={16}
-          stroke-width={3}
+          strokeWidth={3}
           style={{
             position: 'relative',
             top: '-2px',

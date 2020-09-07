@@ -54,6 +54,8 @@ label {
     line-height: 1rem;
     text-transform: uppercase;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
     @include media-breakpoint-down(md) {
       font-size: var(--font-size-min);
       padding: var(--space-100);
@@ -181,6 +183,10 @@ input.form-control{
 
 }
 
+.popover-body p:last-of-type{
+  margin-bottom: 0;
+}
+
 // Autosuggest
 .react-autosuggest__container {
   position: relative;
@@ -242,10 +248,14 @@ input.form-control{
 //Forms
 .form-label {
   text-transform: uppercase;
+  align-items: center;
   font-size: var(--font-size-min);
   letter-spacing: var(--letter-spacing-smallcaps);
   font-weight: bold;
   color: var(--color-text-gray);
+  a {
+    color: inherit;
+  }
 }
 
 .home-layout{
@@ -262,6 +272,15 @@ input.form-control{
   }
 }
 
+.badge-pill{
+  font-size: var(--font-size-min)
+}
+
+.annotation{
+  line-height: 1.2;
+  margin-top: var(--space-50);
+  color: var(--color-text-gray);
+}
 
 @include media-breakpoint-down(md) {
   #tidio-chat iframe{

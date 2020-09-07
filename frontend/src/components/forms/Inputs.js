@@ -49,6 +49,10 @@ const TabbedRadio = styled(Form.Check)`
   padding-left: 0;
   display: inline-block;
   margin-bottom: var(--space-100);
+  font-size: var(--font-size-small);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-smallcaps);
 
   label {
     cursor: pointer;
@@ -58,12 +62,8 @@ const TabbedRadio = styled(Form.Check)`
     border-bottom-color: ${(props) =>
       props.colorTab || 'var(--color-secondary-muted)'};
     padding: var(--space-100) var(--space-300);
-    text-transform: uppercase;
-    font-size: var(--font-size-small);
-    font-weight: bold;
     min-width: var(--space-lg-100);
     text-align: center;
-    letter-spacing: var(--letter-spacing-smallcaps);
   }
 
   input {
@@ -78,14 +78,16 @@ const TabbedRadio = styled(Form.Check)`
 
 const buildRadios = (props, mode) => {
   if (props.options === undefined) return null
-  return Object.keys(props.options).map((key, index) => {
+  const optionsIsArray = Array.isArray(props.options)
+  const mappable = optionsIsArray ? props.options : Object.keys(props.options)
+  return mappable.map((key, index) => {
     const commonProps = {
       type: 'radio',
-      label: props.options[key],
-      value: key,
+      label: optionsIsArray ? key : props.options[key],
+      value: optionsIsArray ? props.options[key] : key,
       key: index,
       id: `${props.name}-${index}`,
-      checked: props.defaultChecked === key,
+      defaultChecked: props.$defaultChecked === key,
       ...props
     }
 
@@ -109,7 +111,9 @@ const RadioButtons = (props) => (
 // colorTab: tab underline color
 // colorTabChecked: selected tab underline color
 const TabbedRadioButtons = (props) => (
-  <>{props.options && buildRadios(props, 'tabbed')}</>
+  <>
+    {props.options && buildRadios(props, 'tabbed')}
+  </>
 )
 
 RadioButtons.propTypes = {

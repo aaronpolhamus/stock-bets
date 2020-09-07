@@ -30,10 +30,42 @@ const CheckboxText = styled.span`
   input:checked + &::before{
     border-width: 8px;
   }
+  tr:hover &::before{
+    border-width: 6px;
+  }
+  tr:hover input:checked + &::before{
+    border-width: 8px;
+  }
 `
 
 const simpleTokenize = (string) => {
   return string.toLowerCase().replace('%', '').replace(/\s/g, '-')
+}
+
+const sorter = (array, key, order) => {
+  const cleanValue = `${array[0][key]}`.replace('$', '')
+
+  const isString = isNaN(parseFloat(cleanValue))
+
+  return array.sort((a, b) => {
+    switch (isString) {
+      case false:
+        a = parseFloat(a[key])
+        b = parseFloat(b[key])
+        break
+      default:
+        a = a[key]
+        b = b[key]
+        break
+    }
+
+    switch (order) {
+      case 'DESC':
+        return a > b ? -1 : 1
+      default:
+        return a < b ? -1 : 1
+    }
+  })
 }
 
 // The name option allows us to specify unique id's for the table headers. This for accesibility and for css manipulation in Formattable mode
@@ -66,8 +98,6 @@ const FormattableTable = (props) => {
 
   const createResponsiveStyles = () => {
     let styles = ''
-    console.log(`props: ${props.showColumns}`)
-    console.log(`tableData: ${tableData}`)
     if (props.showColumns && tableData) {
       tableData.headers.map((key, index) => {
         Object.keys(props.showColumns).map((col, colIndex) => {
@@ -234,11 +264,9 @@ const FormattableTable = (props) => {
   }
 
   if (tableData && tableData.data) {
-    // The data outputted when a row is selected, determined by the tableRowOutput prop
+    // Sorts the table data by the key provided if sortBy prop is present
     if (props.sortBy) {
-      tableData.data.sort((a, b) => {
-        return a[props.sortBy] > b[props.sortBy] ? -1 : 1
-      })
+      tableData.data = sorter(tableData.data, props.sortBy, props.sortOrder)
     }
 
     // What format you expect to be outputted when you select rows in the table
@@ -277,6 +305,7 @@ FormattableTable.propTypes = {
   onRowSelect: PropTypes.func,
   showColumns: PropTypes.object,
   sortBy: PropTypes.string,
+  sortOrder: PropTypes.string,
   striped: PropTypes.bool,
   tableCellCheckbox: PropTypes.number,
   formatCells: PropTypes.object,
@@ -287,7 +316,8 @@ FormattableTable.propTypes = {
 }
 
 FormattableTable.defaultProps = {
-  tableRowOutput: {}
+  tableRowOutput: {},
+  sortOrder: 'ASC'
 }
 
 export { FormattableTable }

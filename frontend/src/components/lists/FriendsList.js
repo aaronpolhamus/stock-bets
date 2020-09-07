@@ -27,6 +27,7 @@ const FriendsListItem = styled.li`
 const FriendRequest = styled.p`
   font-size: var(--font-size-small);
   display: flex;
+  cursor: pointer;
   align-items: center;
   justify-content: space-between;
 `
@@ -126,7 +127,7 @@ const FriendsList = ({ onLoadFriends }) => {
         </FriendsListList>
 
         <Modal show={show} onHide={handleClose} centered>
-          <Modal.Header closeButton>
+          <Modal.Header>
             <Modal.Title>
               New friend invite from
               <strong> {requester}</strong>!

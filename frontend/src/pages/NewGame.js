@@ -31,24 +31,26 @@ const NewGame = () => {
             <h1>New Game</h1>
           </Header>
         </PageSection>
-        <Form.Group>
-          <Form.Label>
-            Choose a Game Mode
-          </Form.Label>
+        <PageSection>
+          <Form.Group>
+            <Form.Label>
+              Choose a Game Mode
+            </Form.Label>
 
-          <RadioButtons
-            options={{
-              multi_player: 'Play with your friends',
-              single_player: 'You vs. The Market'
-            }}
-            name='invite_type'
-            defaultChecked={gameMode}
-            onClick={(e) => {
-              setGameMode(e.target.value)
-            }}
-          />
-        </Form.Group>
-        <MakeGame gameMode={gameMode} />
+            <RadioButtons
+              options={{
+                multi_player: 'Play with your friends',
+                single_player: 'You vs. The Market'
+              }}
+              name='invite_type'
+              $defaultChecked={gameMode}
+              onClick={(e) => {
+                setGameMode(e.target.value)
+              }}
+            />
+          </Form.Group>
+          <MakeGame gameMode={gameMode} />
+        </PageSection>
       </Column>
     </Layout>
   )
