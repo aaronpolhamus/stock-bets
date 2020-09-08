@@ -367,18 +367,24 @@ def apply_dividends_to_game(game_id, user_id, date):
     stocks_with_dividends['new_cash'] = stocks_with_dividends['amount'] * stocks_with_dividends['balance']
 
 
-def get_dividends_of_date(date):
+def get_games_with_certain_stock(stock):
+    df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
+    return df.set_index('id').reset_index(drop=True)
+
+
+def get_dividends_of_date(date=dt.now().replace(hour=0, minute=0, second=0, microsecond=0)):
     posix = datetime_to_posix(date)
-    return query_to_dict(f"select * from dividends where exec_date={posix}")
+    return pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}")).set_index('id').reset_index(
+        drop=True)
 
 
-def insert_dividends_to_db():
-    table = parse_dividends()
+def insert_dividends_to_db(date=dt.now()):
+    table = parse_dividends(date)
     with engine.connect() as conn:
         table.to_sql('dividends', conn, if_exists='append', index=False)
 
 
-def parse_dividends(date=dt.now(), timeout=120) -> pd.DataFrame:
+def parse_dividends(date, timeout=120) -> pd.DataFrame:
     if len(get_trading_calendar(date, date)) == 0:
         return pd.DataFrame()
     day_of_month = str(date.day)
