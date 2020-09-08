@@ -24,7 +24,6 @@ import { GameHeader } from 'components/game/GameHeader'
 import { ChevronLeft, Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { CompoundChart } from 'components/charts/CompoundChart'
 import { FormattableTable } from 'components/tables/FormattableTable'
 import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
@@ -413,6 +412,7 @@ const PlayGame = () => {
                   endpoint='get_payouts_table'
                   name='payouts-table'
                   simpleFormatCells={{
+                    Payout: ['currency'],
                     Start: ['date'],
                     End: ['date']
                   }}

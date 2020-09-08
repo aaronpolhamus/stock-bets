@@ -13,6 +13,7 @@ import { breakpoints } from 'design-tokens'
 import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 import CurrencyInput from 'components/ui/inputs/CurrencyInput'
+import { toFormattedDate } from 'components/functions/formattingHelpers'
 
 const StyledOrderForm = styled(Form)`
   position: relative;
@@ -344,7 +345,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           </strong>
           <br />
           <small>
-            {symbolValue !== '' ? `Last updated: ${priceData.last_updated}` : '-'}
+            {symbolValue !== '' ? `Last updated: ${toFormattedDate(priceData.last_updated)}` : '-'}
           </small>
         </AuxiliarText>
 
