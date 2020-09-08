@@ -137,7 +137,7 @@ const Sneak = props => {
                                 {value}
                               </strong>
                             )
-                          },
+                          }
                         }}
                         excludeRows={(row) => {
                           return row['Buy/Sell'] === 'sell'
@@ -208,7 +208,7 @@ const Sneak = props => {
                                 {value}
                               </strong>
                             )
-                          },
+                          }
                         }}
                         sortBy='Balance'
                         showColumns={{

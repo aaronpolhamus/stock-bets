@@ -407,7 +407,16 @@ const PlayGame = () => {
                   </>
                 )}
               >
-                <PayoutsTable gameId={gameId} />
+                <FormattableTable
+                  hover
+                  gameId={gameId}
+                  endpoint='get_payouts_table'
+                  name='payouts-table'
+                  simpleFormatCells={{
+                    Start: ['date'],
+                    End: ['date']
+                  }}
+                />
               </Tab>}
           </Tabs>
         </PageSection>

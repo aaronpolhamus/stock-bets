@@ -191,7 +191,7 @@ const Home = () => {
         <Form>
           <Modal.Body>
             <div>
-              <Form.Group style={{textAlign: 'left'}}>
+              <Form.Group style={{ textAlign: 'left' }}>
                 <Form.Label>
                 Pick a username
                 </Form.Label>
@@ -214,7 +214,8 @@ const Home = () => {
                     </span>
                   }
                   onChange={() => setAcceptedTerms(!acceptedTerms)}
-                  id='terms-and-conditions-check' />
+                  id='terms-and-conditions-check'
+                />
                 <Form.Check
                   type='checkbox'
                   label={
@@ -223,7 +224,8 @@ const Home = () => {
                     </span>
                   }
                   onChange={() => setAcceptedPrivacy(!acceptedPrivacy)}
-                  id='privacy-policy-check' />
+                  id='privacy-policy-check'
+                />
               </div>
             </div>
           </Modal.Body>
