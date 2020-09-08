@@ -54,7 +54,7 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    get_external_invite_list_by_status,
+    get_external_email_invite_list,
     init_game_assets
 )
 from logic.stock_data import get_game_ids_by_status
@@ -986,7 +986,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
             respond_to_game_invite(game_1_id, user_id, "joined", time.time())
 
         # test external invite accepted update
-        accepted_invite_emails = get_external_invite_list_by_status(game_1_id, "accepted")
+        _tmp = query_to_dict("SELECT * FROM external_invites WHERE game_id = %s AND status = 'accepted'", game_1_id)
+        accepted_invite_emails = [x["invited_email"] for x in _tmp]
         accepted_invite_ids = get_user_ids_from_passed_emails(accepted_invite_emails)
         self.assertEqual({minion1_user_id, minion_2_user_id}, set(accepted_invite_ids))
 

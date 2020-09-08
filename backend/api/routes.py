@@ -45,7 +45,7 @@ from backend.logic.friends import (
 )
 from backend.logic.games import (
     get_downloadable_transactions_table,
-    get_external_invite_list_by_status,
+    get_external_email_invite_list,
     add_user_via_platform,
     add_user_via_email,
     leave_game,
@@ -366,7 +366,7 @@ def get_pending_game_info():
 
     records = dict()
     records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
-    records["email_invites"] = get_external_invite_list_by_status(game_id)
+    records["email_invites"] = get_external_email_invite_list(game_id)
     return jsonify(records)
 
 
