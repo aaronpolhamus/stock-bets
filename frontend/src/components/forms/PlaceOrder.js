@@ -114,14 +114,14 @@ const OrderFormHeader = styled(Form.Group)`
 
 const AmountInput = styled.div`
   .form-check{
-    font-size: var(--font-size-min);
     margin-bottom: 0;
     margin-left: var(--space-100);
     &:first-child{
       margin-left: 0;
     }
   }
-  label{
+  .form-check-label{
+    font-size: var(--font-size-min);
     min-width: 0;
     padding: 9px var(--space-50) 0;
     display: inline-block;
