@@ -278,21 +278,33 @@ def get_invite_list_by_status(game_id: int, status: str = "joined"):
     return [x[0] for x in result]
 
 
-def get_external_invite_list_by_status(game_id: int, status: str = "invited"):
+def get_external_email_invite_list(game_id: int):
     with engine.connect() as conn:
         result = conn.execute("""
-            SELECT ex.invited_email 
+            SELECT ex.invited_email
             FROM external_invites ex
             INNER JOIN
               (SELECT game_id, invited_email, max(id) as max_id
                 FROM external_invites
                 WHERE type = 'game'
                 GROUP BY game_id, invited_email) grouped_ex
-            ON
+              ON
               ex.id = grouped_ex.max_id
-            WHERE 
-              ex.game_id = %s AND 
-              status = %s;""", game_id, status).fetchall()
+            INNER JOIN
+               (SELECT ex2.invited_email, ex2.status, ex2.type
+                FROM external_invites ex2
+                INNER JOIN
+                  (SELECT invited_email, max(id) as max_id
+                    FROM external_invites
+                    WHERE type = 'platform'
+                    GROUP BY invited_email) grouped_ex2
+                ON
+                ex2.id = grouped_ex2.max_id) platform_ex
+              ON platform_ex.invited_email = ex.invited_email
+            WHERE
+              ex.game_id = %s AND
+              ex.status = 'invited' AND
+              platform_ex.status != 'accepted';""", game_id).fetchall()
     return [x[0] for x in result]
 
 
@@ -396,7 +408,7 @@ def refund_cancelled_game(game_id: int):
 def update_game_if_all_invites_responded(game_id: int):
     accepted_invite_user_ids = get_invite_list_by_status(game_id)
     pending_invite_ids = get_invite_list_by_status(game_id, "invited")
-    pending_email_invites = get_external_invite_list_by_status(game_id, "invited")
+    pending_email_invites = get_external_email_invite_list(game_id)
     all_pending_invites = pending_invite_ids + pending_email_invites
     if len(all_pending_invites) == 0:
         if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
