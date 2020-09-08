@@ -269,7 +269,7 @@ class TestVisuals(BaseTestCase):
 
         # verify chart information
         test_user_data = [x for x in field_chart["datasets"] if x["label"] == "cheetos"][0]
-        self.assertEqual(len(test_user_data["data"]), N_PLOT_POINTS)
+        self.assertLessEqual(len(test_user_data["data"]), N_PLOT_POINTS)
 
     @patch("backend.logic.base.time")
     @patch("backend.logic.games.time")

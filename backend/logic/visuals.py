@@ -679,37 +679,6 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     return pd.DataFrame(performance_records)
 
 
-def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
-    """Add a fulfilled order to the fulfilled orders table without rebuilding the entire asset"""
-    order_status_entry = query_to_dict("""
-        SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1""", order_id)[0]
-    if order_status_entry["status"] == "fulfilled":
-        order_entry = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id)[0]
-        symbol = order_entry['symbol']
-        timestamp = order_status_entry["timestamp"]
-        clear_price = order_status_entry["clear_price"]
-        quantity = order_entry["quantity"]
-        order_label = f"{symbol}/{int(quantity)} @ {USD_FORMAT.format(clear_price)}/{format_posix_time(timestamp)}"
-        new_entry = {
-            "order_label": order_label,
-            "Symbol": symbol,
-            "Cleared on": timestamp,
-            "Quantity": quantity,
-            "Clear price": clear_price,
-            "Basis": quantity * clear_price,
-            "Balance (FIFO)": quantity,
-            "Realized P&L": 0,
-            "Unrealized P&L": 0,
-            "Market price": clear_price,
-            "as of": timestamp,
-            "color": NULL_RGBA
-        }
-        assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
-        fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
-        fulfilled_order_table["data"] = [new_entry] + fulfilled_order_table["data"]
-        s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
-
-
 def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, user_id: int):
     if df.empty:
         chart_json = make_null_chart("Waiting for orders...")
@@ -742,19 +711,53 @@ def no_fulfilled_orders_table(game_id: int, user_id: int):
     s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
 
 
+def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
+    """Add a fulfilled order to the fulfilled orders table without rebuilding the entire asset"""
+    order_status_entry = query_to_dict("""
+        SELECT * FROM order_status WHERE order_id = %s ORDER BY id DESC LIMIT 0, 1""", order_id)[0]
+    if order_status_entry["status"] == "fulfilled":
+        order_entry = query_to_dict("SELECT * FROM orders WHERE id = %s;", order_id)[0]
+        symbol = order_entry['symbol']
+        timestamp = order_status_entry["timestamp"]
+        clear_price = order_status_entry["clear_price"]
+        quantity = order_entry["quantity"]
+        order_label = f"{symbol}/{int(quantity)} @ {USD_FORMAT.format(clear_price)}/{format_posix_time(timestamp)}"
+        new_entry = {
+            "order_label": order_label,
+            "Symbol": symbol,
+            "Cleared on": timestamp,
+            "Quantity": quantity,
+            "Clear price": clear_price,
+            "Basis": quantity * clear_price,
+            "Balance (FIFO)": quantity,
+            "Realized P&L": 0,
+            "Unrealized P&L": 0,
+            "Market price": clear_price,
+            "as of": timestamp,
+            "color": NULL_RGBA
+        }
+        assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
+        fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
+        fulfilled_order_table["data"] = [new_entry] + fulfilled_order_table["data"]
+        s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
+
+
 def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, user_id: int):
     if df.empty:
         no_fulfilled_orders_table(game_id, user_id)
         return
     apply_validation(df, order_performance_schema, True)
     agg_rules = {"symbol": "first", "quantity": "first", "clear_price": "first", "timestamp": "first",
-                 "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last"}
+                 "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last",
+                 "total_pct_sold": "last"}
     tab = df.groupby("order_label", as_index=False).agg(agg_rules)
     recent_prices = get_most_recent_prices(tab["symbol"].unique())
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
     tab = tab.merge(recent_prices, how="left")
     tab.sort_values(["order_label", "timestamp"], inplace=True)
     label_colors = assign_colors(tab["order_label"].to_list())
+    tab["unrealized_pl"] = tab["fifo_balance"] * tab["Market price"] - (1 - tab["total_pct_sold"]) * tab["basis"]
+    del tab["total_pct_sold"]
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab["color"] = tab["order_label"].apply(lambda x: label_colors.get(x))
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
