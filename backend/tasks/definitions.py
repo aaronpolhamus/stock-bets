@@ -103,7 +103,6 @@ def async_apply_stock_splits(self):
     get_stock_splits()
     apply_stock_splits()
 
-
 # ---------------- #
 # Order management #
 # ---------------- #

@@ -71,6 +71,12 @@ const Admin = () => {
         </Button>
       </Row>
       <Row>
+        {/* TODO: remove once splits are debugged */}
+        <Button onClick={async () => api.post('/api/get_splits')}>
+          Get splits
+        </Button>
+      </Row>
+      <Row>
         <Form onSubmit={handleSubmitChangeUser}>
           <br />
           <Form.Group>

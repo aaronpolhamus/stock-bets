@@ -3,8 +3,8 @@ import pandas as pd
 import time
 
 from backend.database.db import engine
-from backend.logic.base import posix_to_datetime
-from backend.logic.visuals import make_chart_json, DATE_LABEL_FORMAT
+from backend.logic.base import posix_to_datetime, datetime_to_posix
+from backend.logic.visuals import make_chart_json
 from backend.tasks import s3_cache
 
 GAMES_PER_USER_PREFIX = "game_per_user"
@@ -104,7 +104,9 @@ def make_orders_per_active_user():
     df = pd.concat([daily_active_users, order_totals], axis=1)
     df["orders_per_users"] = df["id"] / df["user_count"]
     df.fillna(0, inplace=True)
-    return df.reset_index()
+    df = df.reset_index()
+    df["timestamp"] = df["timestamp"].apply(lambda x: datetime_to_posix(x)).astype(float)
+    return df
 
 
 def serialize_and_pack_orders_per_active_user():

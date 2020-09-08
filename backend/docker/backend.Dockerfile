@@ -31,6 +31,6 @@ ENV PYTHONPATH="$PYTHONPATH:/home"
 
 # Copy source and install python dependencies
 # -------------------------------------------
-RUN python -m pip install -r requirements.txt
+RUN python -m pip install -r --no-cache-dir requirements.txt
 
 ENTRYPOINT ["./docker/backend-entrypoint.sh"]
