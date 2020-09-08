@@ -121,7 +121,10 @@ RadioButtons.propTypes = {
 }
 
 TabbedRadioButtons.propTypes = {
-  options: PropTypes.object
+  options: PropTypes.oneOfType([
+    PropTypes.array,
+    PropTypes.object
+  ])
 }
 
 export { RadioButtons, TabbedRadioButtons }

@@ -167,6 +167,9 @@ const PlayGame = () => {
                       endpoint='get_pending_orders_table'
                       name='pending-orders'
                       gameId={gameId}
+                      simpleFormatCells={{
+                        'Placed on': ['date']
+                      }}
                       formatCells={{
                         Symbol: function formatSymbol (value, row) {
                           return (
@@ -177,9 +180,6 @@ const PlayGame = () => {
                               </strong>
                             </>
                           )
-                        },
-                        'Placed on': function placedOn (value, row) {
-                          return value
                         },
                         'Order price': function placedOn (value, row) {
                           return (
@@ -220,6 +220,10 @@ const PlayGame = () => {
                       endpoint='get_fulfilled_orders_table'
                       name='fulfilled-orders'
                       gameId={gameId}
+                      simpleFormatCells={{
+                        'Clear price': ['currency'],
+                        Basis: ['currency']
+                      }}
                       formatCells={{
                         Symbol: function formatSymbol (value, row) {
                           return (
@@ -240,7 +244,10 @@ const PlayGame = () => {
                         'Order Type',
                         'Time in force',
                         'Market price',
-                        'Order type'
+                        'Order type',
+                        'Balance (FIFO)',
+                        'Realized P&L',
+                        'Unrealized P&L'
                       ]}
                       sortBy='Placed on'
                       order='DESC'
@@ -287,23 +294,18 @@ const PlayGame = () => {
                           color: output.color
                         }
                       }}
+                      simpleFormatCells={{
+                        'Cleared on': ['date'],
+                        'Clear price': ['currency'],
+                        'Market price': ['currency'],
+                        Basis: ['currency', 'bold']
+                      }}
                       formatCells={{
-                        Symbol: function renderSymbol (value, row) {
+                        Symbol: function renderSymbol (value) {
                           return (
                             <strong>
                               {value}
                             </strong>
-                          )
-                        },
-                        'Clear price': function clearPriceFormat (value, row) {
-                          const qty = row.Quantity
-                          const totalPrice = (qty * value).toLocaleString()
-                          return (
-                            <>
-                              <strong title={`Total price: $${totalPrice}`}>
-                                {`${value}`}
-                              </strong>
-                            </>
                           )
                         }
                       }}
@@ -364,15 +366,16 @@ const PlayGame = () => {
                           color: output.color
                         }
                       }}
+                      simpleFormatCells={{
+                        'Last order price': ['currency'],
+                        Value: ['currency'],
+                        'Portfolio %': ['percentage'],
+                        'Change since last close': ['percentage'],
+                        'Market price': ['currency'],
+                        'Updated at': ['date']
+                      }}
                       formatCells={{
                         Symbol: function renderSymbol (value, row) {
-                          return (
-                            <strong>
-                              {value}
-                            </strong>
-                          )
-                        },
-                        'Change since last close': function formatForNetChange (value) {
                           return (
                             <strong>
                               {value}

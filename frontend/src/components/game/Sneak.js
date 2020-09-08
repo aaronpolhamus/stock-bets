@@ -124,6 +124,12 @@ const Sneak = props => {
                             color: output.color
                           }
                         }}
+                        simpleFormatCells={{
+                          'Cleared on': ['date'],
+                          'Clear price': ['currency'],
+                          'Market price': ['currency'],
+                          Basis: ['currency', 'bold']
+                        }}
                         formatCells={{
                           Symbol: function renderSymbol (value, row) {
                             return (
@@ -132,25 +138,6 @@ const Sneak = props => {
                               </strong>
                             )
                           },
-                          'Clear price': function clearPriceFormat (value, row) {
-                            const qty = row.Quantity
-                            const totalPrice = (qty * value).toLocaleString()
-                            return (
-                              <>
-                                <strong>
-                                  {`$${totalPrice}`}
-                                </strong>
-                                <br />
-                                <span
-                                  style={{
-                                    color: 'var(--color-text-gray)'
-                                  }}
-                                >
-                                  {`(${value})`}
-                                </span>
-                              </>
-                            )
-                          }
                         }}
                         excludeRows={(row) => {
                           return row['Buy/Sell'] === 'sell'
@@ -206,6 +193,14 @@ const Sneak = props => {
                             color: output.color
                           }
                         }}
+                        simpleFormatCells={{
+                          Value: ['currency', 'bold'],
+                          'Updated at': ['date'],
+                          'Last order price': ['currency'],
+                          'Market price': ['currency'],
+                          'Portfolio %': ['percentage'],
+                          'Change since last close': ['percentage']
+                        }}
                         formatCells={{
                           Symbol: function renderSymbol (value, row) {
                             return (
@@ -214,13 +209,6 @@ const Sneak = props => {
                               </strong>
                             )
                           },
-                          'Change since last close': function formatForNetChange (value) {
-                            return (
-                              <strong>
-                                {value}
-                              </strong>
-                            )
-                          }
                         }}
                         sortBy='Balance'
                         showColumns={{

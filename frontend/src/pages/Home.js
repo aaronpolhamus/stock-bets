@@ -185,27 +185,57 @@ const Home = () => {
       className='home-layout'
     >
       <Modal show={data.username === null && showWelcome} onHide={() => {}} centered>
-        <Modal.Body>
-          <Form>
-            <Form.Label>
-              Welcome! Pick a publicly-visible username and let's get started.
-            </Form.Label>
-            <Form.Control
-              onChange={handleChange}
-              type='input'
-              name='username'
-              placeholder='Enter name here'
-            />
-            <Form.Check type='checkbox' label={<a href='/terms'>I agree to stockbets.io terms and conditions</a>} onChange={() => setAcceptedTerms(!acceptedTerms)} id='terms-and-conditions-check' />
-            <Form.Check type='checkbox' label={<a href='/privacy'>I agree to the stockbets.io privacy policy</a>} onChange={() => setAcceptedPrivacy(!acceptedPrivacy)} id='terms-and-conditions-check' />
-            <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
-              Submit
-            </Button>
+        <Modal.Header>
+          Welcome! Let&quot;s get started.
+        </Modal.Header>
+        <Form>
+          <Modal.Body>
+            <div>
+              <Form.Group style={{textAlign: 'left'}}>
+                <Form.Label>
+                Pick a username
+                </Form.Label>
+                <Form.Control
+                  onChange={handleChange}
+                  type='input'
+                  name='username'
+                  placeholder='Your username'
+                />
+                <Form.Text>
+                  This will be your publicly visible username.
+                </Form.Text>
+              </Form.Group>
+              <div>
+                <Form.Check
+                  type='checkbox'
+                  label={
+                    <span>
+                      I agree to stockbets.io <a href='/terms'>terms and conditions</a>
+                    </span>
+                  }
+                  onChange={() => setAcceptedTerms(!acceptedTerms)}
+                  id='terms-and-conditions-check' />
+                <Form.Check
+                  type='checkbox'
+                  label={
+                    <span>
+                      I agree to the stockbets.io <a href='/privacy'>privacy policy</a>
+                    </span>
+                  }
+                  onChange={() => setAcceptedPrivacy(!acceptedPrivacy)}
+                  id='privacy-policy-check' />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer className='centered'>
             <Button onClick={() => window.history.go(-2)} variant='light'>
               I'll come back later
             </Button>
-          </Form>
-        </Modal.Body>
+            <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
+              Submit
+            </Button>
+          </Modal.Footer>
+        </Form>
       </Modal>
       <Modal show={showStartGame} centered>
         <Modal.Body>

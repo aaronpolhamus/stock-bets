@@ -16,14 +16,14 @@ const Playground = () => {
       </h1>
       <CompoundChart
         gameId={gameId}
-        chartDataEndpoint='get_order_performance_chart'
+        chartDataEndpoint='get_balances_chart'
         legends={false}
       >
         {
           ({ handleSelectedLines }) => (
             <FormattableTable
               hover
-              endpoint='get_fulfilled_orders_table'
+              endpoint='get_current_balances_table'
               name='orders_table'
               gameId={gameId}
               onRowSelect={(output) => {
@@ -67,6 +67,13 @@ const Playground = () => {
               }}
               excludeRows={(row) => {
                 return row['Buy/Sell'] === 'sell'
+              }}
+              simpleFormatCells={{
+                'Last order price': ['currency', 'bold'],
+                Value: ['currency'],
+                'Portfolio %': ['percentage'],
+                'Change since last close': ['percentage'],
+                'Updated at': ['date']
               }}
               exclude={[
                 'as of',

@@ -41,6 +41,10 @@ label {
   margin-bottom: var(--space-400);
 }
 
+.form-check {
+  text-align: left;
+}
+
 //Tabs
 .nav-tabs {
   border-bottom: 1px solid var(--color-light-gray);
@@ -135,7 +139,7 @@ input.form-control{
 .modal-body{
   text-align: center;
   color: var(--color-text-gray);
-  div + div{
+  & > div + div{
     margin-top: var(--space-300);
   }
 }
@@ -255,6 +259,22 @@ input.form-control{
   color: var(--color-text-gray);
   a {
     color: inherit;
+  }
+}
+
+.form-check input{
+  margin-top: var(--space-50);
+}
+
+.form-check + .form-check{
+  margin-top: var(--space-100);
+}
+.form-check-label{
+  font-size: var(--font-size-small);
+  color: var(--color-text-primary);
+  a{
+    color: inherit;
+    text-decoration: underline;
   }
 }
 

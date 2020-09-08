@@ -2,22 +2,28 @@ import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
-import { simplifyCurrency } from 'components/functions/formattingHelpers'
+import { simplifyCurrency, toCurrency, toFormattedDate } from 'components/functions/formattingHelpers'
 import { SectionTitle } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
+import moment from 'moment'
 
 const BaseChart = forwardRef(
   (
-    { data, height, yScaleType = 'count', maxXticks = 25, legends = true }
+    { data, dataFormat, height, yScaleType = 'count', maxXticks = 25, legends = true }
     , ref
   ) => {
     // Check the documentation here: https://github.com/jerairrest/react-chartjs-2
+    if (Object.keys(data).length > 0) {
+      data.labels = data.labels.map((value) => {
+        return toFormattedDate(value)
+      })
+    }
     return (
       <Line
         ref={ref}
         data={data}
-        height={height || 'auto'}
+        height={height}
         options={{
           spanGaps: true,
           legend: {
@@ -28,9 +34,6 @@ const BaseChart = forwardRef(
               padding: 10
             },
             display: legends
-          },
-          legendCallback: (chart) => {
-            return '<p>hey hey</p>'
           },
           elements: {
             point: {
@@ -67,7 +70,10 @@ const BaseChart = forwardRef(
             xAxes: [{
               ticks: {
                 autoSkip: true,
-                autoSkipPadding: 5
+                autoSkipPadding: 5,
+                callback: function (value, index, values) {
+                  return moment(value).format('MMM D')
+                }
               }
             }]
           },
@@ -201,6 +207,7 @@ const UserDropDownChart = ({ gameId, endpoint, height, yScaleType = 'dollar', ti
 
 BaseChart.propTypes = {
   data: PropTypes.object,
+  dataFormat: PropTypes.string,
   height: PropTypes.string,
   yScaleType: PropTypes.string,
   legends: PropTypes.bool,

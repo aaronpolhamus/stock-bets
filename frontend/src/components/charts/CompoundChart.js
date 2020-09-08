@@ -4,7 +4,7 @@ import { apiPost } from 'components/functions/api'
 import { BaseChart } from 'components/charts/BaseCharts'
 import { PageSection } from 'components/layout/Layout'
 
-const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username, yScaleType }) => {
+const CompoundChart = ({ children, gameId, chartDataEndpoint, update, legends, username, yScaleType, dataFormat }) => {
   const [chartData, setChartData] = useState(null)
   const chartRef = useRef()
 
@@ -103,6 +103,7 @@ CompoundChart.propTypes = {
     PropTypes.arrayOf(PropTypes.node),
     PropTypes.node
   ]),
+  dataFormat: PropTypes.string,
   gameId: PropTypes.string,
   legends: PropTypes.bool,
   tableCellCheckbox: PropTypes.number,
@@ -110,7 +111,8 @@ CompoundChart.propTypes = {
   tableDataEndpoint: PropTypes.string,
   tableId: PropTypes.string,
   update: PropTypes.string,
-  username: PropTypes.string
+  username: PropTypes.string,
+  yScaleType: PropTypes.string
 }
 
 export { CompoundChart }

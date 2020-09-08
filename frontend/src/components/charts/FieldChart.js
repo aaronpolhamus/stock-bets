@@ -92,6 +92,7 @@ const FieldChart = ({ gameId, height }) => {
           ref={chartRef}
           data={dataCopy}
           yScaleType='dollar'
+          dataFormat='currency'
           legends={false}
         />
       </Col>

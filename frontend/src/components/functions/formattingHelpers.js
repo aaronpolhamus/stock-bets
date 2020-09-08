@@ -1,3 +1,5 @@
+import moment from 'moment'
+
 const simplifyCurrency = (value, decimals, dollarSign) => {
   let affix = ''
   let baseline = 1
@@ -24,7 +26,13 @@ const simplifyCurrency = (value, decimals, dollarSign) => {
 }
 
 const toCurrency = (value) => {
-  return `$${value.toLocaleString()}`
+  return `$${value.toLocaleString(undefined,
+ { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const toFormattedDate = (value, format) => {
+  format = format || 'MMM D, HH:mm'
+  return moment(value * 1000).format(format)
 }
 
 const numberToOrdinal = number => {
@@ -60,4 +68,4 @@ const daysLeft = seconds => {
   }
 }
 
-export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft, toCurrency }
+export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft, toCurrency, toFormattedDate }
