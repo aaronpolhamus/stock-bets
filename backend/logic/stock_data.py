@@ -369,7 +369,13 @@ def apply_dividends_to_game(game_id, user_id, date):
 
 def get_games_with_certain_stock(stock):
     df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
-    return df.set_index('id').reset_index(drop=True)
+    return df.groupby(['user_id', 'game_id'])['balance'].sum().to_frame().reset_index()
+
+
+def add_virtual_cash(game_id, user_id, amount):
+    current_cash = get_current_game_cash_balance(user_id, game_id) + amount
+    now = datetime_to_posix(dt.now())
+    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash', balance=current_cash)
 
 
 def get_dividends_of_date(date=dt.now().replace(hour=0, minute=0, second=0, microsecond=0)):
