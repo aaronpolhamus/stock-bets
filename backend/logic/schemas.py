@@ -77,7 +77,7 @@ balances_chart_schema = {
     "symbol": ([pd.StringDtype], True),
     # the value of that position
     "value": (VALID_NUMERIC_TYPES, False),
-    # the formatted x-axis label. trade_time_index and build_labels work together to make this
+    # the formatted x-axis label. trade_time_index and add_time_labels work together to make this
     "label": (VALID_NUMERIC_TYPES, True),
     # balances chart data should preserve original datetime information for sorting prior to being passed-in
     "timestamp": (VALID_TIME_TYPES, False)
@@ -88,7 +88,7 @@ portfolio_comps_schema = {
     "username": ([pd.StringDtype], True),
     # the total value of that user's holding. for indexes this will just be a normalized data series of the index value
     "value": (VALID_NUMERIC_TYPES, False),
-    # the formatted x-axis label. trade_time_index and build_labels work together to make this
+    # the formatted x-axis label. trade_time_index and add_time_labels work together to make this
     "label": (VALID_NUMERIC_TYPES, True),
     # balances chart data should preserve original datetime information for sorting prior to being passed-in
     "timestamp": (VALID_TIME_TYPES, False)
