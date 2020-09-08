@@ -8,7 +8,7 @@ import { FormattableTable } from 'components/tables/FormattableTable'
 
 const players = ['player1', 'player3', 'player3']
 const Playground = () => {
-  const gameId = 3
+  const gameId = '3'
   return (
     <Container>
       <h1>
@@ -16,14 +16,14 @@ const Playground = () => {
       </h1>
       <CompoundChart
         gameId={gameId}
-        chartDataEndpoint='get_balances_chart'
+        chartDataEndpoint='get_order_performance_chart'
         legends={false}
       >
         {
           ({ handleSelectedLines }) => (
             <FormattableTable
               hover
-              endpoint='get_current_balances_table'
+              endpoint='get_fulfilled_orders_table'
               name='orders_table'
               gameId={gameId}
               onRowSelect={(output) => {
@@ -31,7 +31,7 @@ const Playground = () => {
               }}
               tableCellCheckbox={0}
               formatOutput={(output) => {
-                const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
+                const label = output.order_label
                 return {
                   label: label,
                   color: output.color

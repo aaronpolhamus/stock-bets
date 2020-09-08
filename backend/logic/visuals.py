@@ -37,7 +37,6 @@ from backend.logic.base import (
     append_price_data_to_balance_histories,
     datetime_to_posix
 )
-from logic.metrics import USD_FORMAT
 from backend.logic.metrics import (
     STARTING_RETURN_RATIO,
     STARTING_SHARPE_RATIO,
@@ -62,6 +61,7 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
+from logic.metrics import USD_FORMAT
 
 
 # Exceptions
@@ -94,7 +94,7 @@ SHARPE_RATIO_PREFIX = "sharpe_ratio"
 CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
-N_PLOT_POINTS = 100
+N_PLOT_POINTS = 150
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 
 # -------------- #
@@ -184,6 +184,7 @@ def palette_generator(n):
             i = 0
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
+
 
 # --------------- #
 # Dynamic display #
@@ -305,6 +306,15 @@ def format_posix_time(ts: float):
     return dtime.strftime(DATE_LABEL_FORMAT)
 
 
+def downsample_time_series(sr: pd.Series, n: int):
+    """if at some point in the future we want to remove downsampling for high chart resolution all that's required is
+    to convert the passed in series to a list with sr.to_list()
+    """
+    if sr.nunique() < n:
+        n = sr.nunique()
+    return pd.cut(sr, n, right=True, labels=False, include_lowest=False).to_list()
+
+
 def trade_time_index(timestamp_sr: pd.Series) -> List:
     """this function solves the problem of how to create a continuous, linear index across a bunch of purchases and
     sales happening at different times across trade days. Simply trying to get the timestamp for a fixed number of bins
@@ -343,13 +353,10 @@ def trade_time_index(timestamp_sr: pd.Series) -> List:
 
     tt_df = df.join(adjustment_df)
     tt_df["trade_time"] = tt_df["time_diff"] - tt_df["adjustment"]
-    n_plot_points = N_PLOT_POINTS
-    if tt_df["trade_time"].nunique() < N_PLOT_POINTS:
-        n_plot_points = tt_df["trade_time"].nunique()
-    return pd.cut(tt_df["trade_time"], n_plot_points, right=True, labels=False, include_lowest=False).to_list()
+    return downsample_time_series(tt_df["trade_time"], N_PLOT_POINTS)
 
 
-def build_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
+def add_time_labels(df: pd.DataFrame, time_col: dt = "timestamp") -> pd.DataFrame:
     df.sort_values(time_col, inplace=True)
     df["t_index"] = trade_time_index(df[time_col])
     labels = df.groupby("t_index", as_index=False)[time_col].max().rename(columns={time_col: "label"})
@@ -364,7 +371,7 @@ def make_user_balances_chart_data(game_id: int, user_id: int, start_time: float 
     if df.empty:  # this should only happen outside of trading hours
         df["label"] = None  # for downstream compliance with schema validation
         return df
-    df = build_labels(df)
+    df = add_time_labels(df)
     df = df.groupby(["symbol", "t_index"], as_index=False).aggregate(
         {"label": "last", "value": "last", "timestamp": "last"})
     return df[~df["value"].isnull()]  # necessary for when merge_asof didn't find a balance-price match
@@ -496,7 +503,7 @@ def relabel_aggregated_portfolios(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return df
     del df["label"]  # delete the old labels, since we'll be re-assigning them based on the merged data here
-    df = build_labels(df)
+    df = add_time_labels(df)
     df.sort_values("timestamp", inplace=True)
     return df.groupby(["username", "label"], as_index=False)[["value", "timestamp"]].agg("last")
 
@@ -520,7 +527,7 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
             df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
-            df = build_labels(df)
+            df = add_time_labels(df)
             df = df.groupby("t_index", as_index=False).agg(
                 {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
             apply_validation(df, portfolio_comps_schema)
@@ -529,6 +536,7 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
     relabelled_df.sort_values("timestamp", inplace=True)
     serialize_and_pack_portfolio_comps_chart(relabelled_df, game_id)
+
 
 # ------ #
 # Orders #
@@ -671,6 +679,38 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     return pd.DataFrame(performance_records)
 
 
+def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, user_id: int):
+    if df.empty:
+        chart_json = make_null_chart("Waiting for orders...")
+    else:
+        apply_validation(df, order_performance_schema, True)
+        # order performance chart
+        plot_df = add_bookends(df, condition_var="fifo_balance")
+        plot_df["cum_pl"] = plot_df.groupby("order_label")["realized_pl"].cumsum()
+        plot_df["timestamp"] = plot_df["timestamp"].apply(lambda x: posix_to_datetime(x))
+        plot_df.set_index("timestamp", inplace=True)
+        plot_df = plot_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
+        plot_df = plot_df.reset_index(level=1)
+        plot_df = filter_for_trade_time(plot_df)
+        plot_df = append_price_data_to_balance_histories(plot_df)
+        plot_df.sort_values(["order_label", "timestamp"], inplace=True)
+        plot_df = add_time_labels(plot_df)
+        plot_df = plot_df.groupby(["order_label", "t_index"], as_index=False).agg("last")
+        plot_df["label"] = plot_df["timestamp"].apply(lambda x: datetime_to_posix(x)).astype(float)
+        plot_df["total_pl"] = plot_df["cum_pl"] + plot_df["fifo_balance"] * plot_df["price"] - (
+                1 - plot_df["total_pct_sold"]) * plot_df["basis"]
+        plot_df["return"] = plot_df["total_pl"] / plot_df["basis"]
+        label_colors = assign_colors(plot_df["order_label"].unique())
+        plot_df["color"] = plot_df["order_label"].apply(lambda x: label_colors.get(x))
+        chart_json = make_chart_json(plot_df, "order_label", "return", "label", colors=plot_df["color"].unique())
+    s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
+
+
+def no_fulfilled_orders_table(game_id: int, user_id: int):
+    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
+    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
+
+
 def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
     """Add a fulfilled order to the fulfilled orders table without rebuilding the entire asset"""
     order_status_entry = query_to_dict("""
@@ -702,43 +742,22 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
         s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
 
 
-def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, user_id: int):
-    if df.empty:
-        chart_json = make_null_chart("Waiting for orders...")
-    else:
-        apply_validation(df, order_performance_schema, True)
-        # order performance chart
-        plot_df = add_bookends(df, condition_var="fifo_balance")
-        plot_df["cum_pl"] = plot_df.groupby("order_label")["realized_pl"].cumsum()
-        plot_df["timestamp"] = plot_df["timestamp"].apply(lambda x: posix_to_datetime(x))
-        plot_df.set_index("timestamp", inplace=True)
-        plot_df = plot_df.groupby("order_label", as_index=False).resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
-        plot_df = plot_df.reset_index(level=1)
-        plot_df = filter_for_trade_time(plot_df)
-        plot_df = append_price_data_to_balance_histories(plot_df)
-        plot_df.sort_values(["order_label", "timestamp"], inplace=True)
-        plot_df["label"] = plot_df["timestamp"].apply(lambda x: datetime_to_posix(x)).astype(float)
-        plot_df["total_pl"] = plot_df["cum_pl"] + plot_df["fifo_balance"] * plot_df["price"] - (
-                1 - plot_df["total_pct_sold"]) * plot_df["basis"]
-        plot_df["return"] = plot_df["total_pl"] / plot_df["basis"]
-        label_colors = assign_colors(plot_df["order_label"].unique())
-        plot_df["color"] = plot_df["order_label"].apply(lambda x: label_colors.get(x))
-        chart_json = make_chart_json(plot_df, "order_label", "return", "label", colors=plot_df["color"].unique())
-    s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
-
-
 def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, user_id: int):
     if df.empty:
+        no_fulfilled_orders_table(game_id, user_id)
         return
     apply_validation(df, order_performance_schema, True)
     agg_rules = {"symbol": "first", "quantity": "first", "clear_price": "first", "timestamp": "first",
-                 "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last"}
+                 "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last",
+                 "total_pct_sold": "last"}
     tab = df.groupby("order_label", as_index=False).agg(agg_rules)
     recent_prices = get_most_recent_prices(tab["symbol"].unique())
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
     tab = tab.merge(recent_prices, how="left")
     tab.sort_values(["order_label", "timestamp"], inplace=True)
     label_colors = assign_colors(tab["order_label"].to_list())
+    tab["unrealized_pl"] = tab["fifo_balance"] * tab["Market price"] - (1 - tab["total_pct_sold"]) * tab["basis"]
+    del tab["total_pct_sold"]
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab["color"] = tab["order_label"].apply(lambda x: label_colors.get(x))
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
@@ -750,6 +769,7 @@ def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, star
     df = make_order_performance_table(game_id, user_id, start_time, end_time)
     serialize_and_pack_order_performance_chart(df, game_id, user_id)
     serialize_and_pack_order_performance_table(df, game_id, user_id)
+
 
 # ------ #
 # Tables #
@@ -782,13 +802,6 @@ def serialize_and_pack_pending_orders(game_id: int, user_id: int):
     df = df[df["status"] == "pending"]
     pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", json.dumps(pending_order_records))
-
-
-def init_order_details(game_id: int, user_id: int):
-    """Before we have any order information to log, make a blank entry to kick  off a game"""
-    no_pending_orders_table(game_id, user_id)
-    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
-    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
 
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
@@ -925,9 +938,9 @@ def init_game_assets(game_id: int):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
-        init_order_details(game_id, user_id)
-        serialize_and_pack_portfolio_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
         serialize_and_pack_order_performance_assets(game_id, user_id)
+        serialize_and_pack_portfolio_details(game_id, user_id)
 
     if not check_single_player_mode(game_id):
         # winners/payouts table

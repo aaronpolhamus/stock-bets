@@ -42,8 +42,8 @@ from backend.tasks.definitions import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
-    serialize_and_pack_portfolio_details,
-    init_order_details
+    no_pending_orders_table,
+    no_fulfilled_orders_table
 )
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
@@ -533,13 +533,8 @@ class TestVisualAssetsTasks(BaseTestCase):
         game_id = 3
         _user_ids = get_active_game_user_ids(game_id)
         for _user_id in _user_ids:
-            init_order_details(game_id, _user_id)
-
-        # seed the open orders and portfolio table
-        user_ids = get_active_game_user_ids(game_id)
-        for user_id in user_ids:
-            serialize_and_pack_pending_orders(game_id, user_id)
-            serialize_and_pack_portfolio_details(game_id, user_id)
+            no_pending_orders_table(game_id, _user_id)
+            no_fulfilled_orders_table(game_id, _user_id)
 
         # Place a guaranteed-to-clear order
         buy_stock = "MSFT"

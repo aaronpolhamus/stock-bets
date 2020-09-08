@@ -13,6 +13,7 @@ import { breakpoints } from 'design-tokens'
 import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 import CurrencyInput from 'components/ui/inputs/CurrencyInput'
+import { toFormattedDate } from 'components/functions/formattingHelpers'
 
 const StyledOrderForm = styled(Form)`
   position: relative;
@@ -114,14 +115,14 @@ const OrderFormHeader = styled(Form.Group)`
 
 const AmountInput = styled.div`
   .form-check{
-    font-size: var(--font-size-min);
     margin-bottom: 0;
     margin-left: var(--space-100);
     &:first-child{
       margin-left: 0;
     }
   }
-  label{
+  .form-check-label{
+    font-size: var(--font-size-min);
     min-width: 0;
     padding: 9px var(--space-50) 0;
     display: inline-block;
@@ -170,7 +171,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
 
   const handleChangeAmount = (e) => {
     const orderTicketCopy = { ...orderTicket }
-    const amount = parseFloat(e.target.value.replace(',', ''))
+    const cleanValue = e.target.value.split(',').join('')
+    const amount = cleanValue === '' ? '' : parseFloat(cleanValue)
+
     orderTicketCopy.amount = amount
     setOrderTicket(orderTicketCopy)
   }
@@ -344,7 +347,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           </strong>
           <br />
           <small>
-            {symbolValue !== '' ? `Last updated: ${priceData.last_updated}` : '-'}
+            {symbolValue !== '' ? `Last updated: ${toFormattedDate(priceData.last_updated)}` : '-'}
           </small>
         </AuxiliarText>
 

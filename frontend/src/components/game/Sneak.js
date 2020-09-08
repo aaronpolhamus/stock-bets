@@ -118,7 +118,7 @@ const Sneak = props => {
                         }}
                         tableCellCheckbox={0}
                         formatOutput={(output) => {
-                          const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
+                          const label = output.order_label
                           return {
                             label: label,
                             color: output.color
@@ -137,7 +137,7 @@ const Sneak = props => {
                                 {value}
                               </strong>
                             )
-                          },
+                          }
                         }}
                         excludeRows={(row) => {
                           return row['Buy/Sell'] === 'sell'
@@ -208,7 +208,7 @@ const Sneak = props => {
                                 {value}
                               </strong>
                             )
-                          },
+                          }
                         }}
                         sortBy='Balance'
                         showColumns={{

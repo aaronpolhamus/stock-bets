@@ -66,7 +66,12 @@ const HomeFooter = styled.div`
     height: auto;
     background: none;
   }
+`
 
+const FormCheckStack = styled.div`
+  .form-check + .form-check{
+     margin-top: var(--space-100);
+  }
 `
 
 const Home = () => {
@@ -191,7 +196,7 @@ const Home = () => {
         <Form>
           <Modal.Body>
             <div>
-              <Form.Group style={{textAlign: 'left'}}>
+              <Form.Group style={{ textAlign: 'left' }}>
                 <Form.Label>
                 Pick a username
                 </Form.Label>
@@ -205,7 +210,7 @@ const Home = () => {
                   This will be your publicly visible username.
                 </Form.Text>
               </Form.Group>
-              <div>
+              <FormCheckStack>
                 <Form.Check
                   type='checkbox'
                   label={
@@ -214,7 +219,8 @@ const Home = () => {
                     </span>
                   }
                   onChange={() => setAcceptedTerms(!acceptedTerms)}
-                  id='terms-and-conditions-check' />
+                  id='terms-and-conditions-check'
+                />
                 <Form.Check
                   type='checkbox'
                   label={
@@ -223,8 +229,9 @@ const Home = () => {
                     </span>
                   }
                   onChange={() => setAcceptedPrivacy(!acceptedPrivacy)}
-                  id='privacy-policy-check' />
-              </div>
+                  id='privacy-policy-check'
+                />
+              </FormCheckStack>
             </div>
           </Modal.Body>
           <Modal.Footer className='centered'>

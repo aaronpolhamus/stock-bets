@@ -24,7 +24,6 @@ import { GameHeader } from 'components/game/GameHeader'
 import { ChevronLeft, Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
-import { PayoutsTable } from 'components/tables/PayoutsTable'
 import { CompoundChart } from 'components/charts/CompoundChart'
 import { FormattableTable } from 'components/tables/FormattableTable'
 import { CancelOrderButton } from 'components/ui/buttons/CancelOrderButton'
@@ -53,6 +52,7 @@ const PlayGame = () => {
   const csvLink = useRef()
 
   const handlePlacedOrder = (order) => {
+    console.log(order)
     setLastOrder(order)
     setShowToast(true)
     handleUpdateInfo()
@@ -288,7 +288,7 @@ const PlayGame = () => {
                       }}
                       tableCellCheckbox={0}
                       formatOutput={(output) => {
-                        const label = `${output.Symbol}/${output.Quantity} @ ${output['Clear price']}/${output['Cleared on']}`
+                        const label = output.order_label
                         return {
                           label: label,
                           color: output.color
@@ -407,7 +407,17 @@ const PlayGame = () => {
                   </>
                 )}
               >
-                <PayoutsTable gameId={gameId} />
+                <FormattableTable
+                  hover
+                  gameId={gameId}
+                  endpoint='get_payouts_table'
+                  name='payouts-table'
+                  simpleFormatCells={{
+                    Payout: ['currency'],
+                    Start: ['date'],
+                    End: ['date']
+                  }}
+                />
               </Tab>}
           </Tabs>
         </PageSection>
