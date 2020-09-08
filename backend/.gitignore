@@ -139,3 +139,5 @@ celerybeat-schedule.db
 mockdata.sql
 *RHistory
 .localstack
+*pkl
+*xlsx

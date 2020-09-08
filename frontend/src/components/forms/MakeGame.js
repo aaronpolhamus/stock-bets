@@ -190,7 +190,7 @@ const MakeGame = ({ gameMode }) => {
                   message={
                     <>
                       <p>
-                        The Benchmark is how the player's portfolios are going to be compared, thus, it defines who is winning. 
+                        The Benchmark is how the player's portfolios are going to be compared, thus, it defines who is winning.
                       </p>
                       <p>
                         <strong>Simple Return</strong> is your total portfolio value divided by what you started with.
@@ -199,8 +199,9 @@ const MakeGame = ({ gameMode }) => {
                         <strong>Sharpe Ratio</strong> is a risk-adjusted measure of return. If you're not sure, choose Simple Return.
                       </p>
                       <p>
-                        Check out <a href='https://www.youtube.com/watch?v=s0bxoD_0fAU' target="_blank" rel="noreferrer noopener">
-                          this video</a> to learn how we calculate the Sharpe ratio
+                        Check out <a href='https://www.youtube.com/watch?v=s0bxoD_0fAU' target='_blank' rel='noreferrer noopener'>
+                          this video
+                        </a> to learn how we calculate the Sharpe ratio
                       </p>
                     </>
                   }

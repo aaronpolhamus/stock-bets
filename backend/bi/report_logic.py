@@ -109,9 +109,6 @@ def make_orders_per_active_user():
 
 def serialize_and_pack_orders_per_active_user():
     df = make_orders_per_active_user()
-    df["timestamp"] = df["timestamp"].apply(lambda x: x.strftime(DATE_LABEL_FORMAT))
     df["series_label"] = "Orders per active user"
     chart_json = make_chart_json(df, "series_label", "orders_per_users", "timestamp")
     s3_cache.set(f"{ORDERS_PER_ACTIVE_USER_PREFIX}", json.dumps(chart_json))
-
-

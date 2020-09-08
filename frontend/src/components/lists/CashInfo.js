@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import PropTypes from 'prop-types'
 import { Tooltip } from 'components/forms/Tooltips'
+import { toCurrency } from 'components/functions/formattingHelpers'
 
 const CashInfoWrapper = styled.div`
   text-align: left;
@@ -29,14 +30,14 @@ const CashInfo = ({ cashData, balance = true, buyingPower = true }) => {
         <p>
           <span>
             <strong>Cash Balance: </strong>
-            {cashData.cash_balance && cashData.cash_balance}
+            {cashData.cash_balance && toCurrency(cashData.cash_balance)}
           </span>
         </p>}
       {buyingPower &&
         <p>
           <small>
             <strong>Buying power: </strong>
-            {cashData.buying_power && cashData.buying_power}
+            {cashData.buying_power && toCurrency(cashData.buying_power)}
           </small>
           <Tooltip
             message={

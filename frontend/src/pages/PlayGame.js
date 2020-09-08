@@ -33,6 +33,7 @@ import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
 import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
+import { toCurrency } from 'components/functions/formattingHelpers'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -142,7 +143,7 @@ const PlayGame = () => {
               eventKey='field-chart'
               title={(
                 <>
-                  <IconTabs><Map/></IconTabs>
+                  <IconTabs><Map /></IconTabs>
                   The Field
                 </>
               )}
@@ -166,6 +167,9 @@ const PlayGame = () => {
                       endpoint='get_pending_orders_table'
                       name='pending-orders'
                       gameId={gameId}
+                      simpleFormatCells={{
+                        'Placed on': ['date']
+                      }}
                       formatCells={{
                         Symbol: function formatSymbol (value, row) {
                           return (
@@ -180,7 +184,7 @@ const PlayGame = () => {
                         'Order price': function placedOn (value, row) {
                           return (
                             <>
-                              {value}
+                              {toCurrency(value)}
                               <CancelOrderButton
                                 gameId={gameId}
                                 orderInfo={row}
@@ -191,7 +195,6 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical return',
                         'as of',
                         'Buy/Sell',
                         'Order Type',
@@ -217,6 +220,10 @@ const PlayGame = () => {
                       endpoint='get_fulfilled_orders_table'
                       name='fulfilled-orders'
                       gameId={gameId}
+                      simpleFormatCells={{
+                        'Clear price': ['currency'],
+                        Basis: ['currency']
+                      }}
                       formatCells={{
                         Symbol: function formatSymbol (value, row) {
                           return (
@@ -230,7 +237,6 @@ const PlayGame = () => {
                         }
                       }}
                       exclude={[
-                        'Hypothetical return',
                         'Cleared on',
                         'Order price',
                         'as of',
@@ -238,7 +244,10 @@ const PlayGame = () => {
                         'Order Type',
                         'Time in force',
                         'Market price',
-                        'Order type'
+                        'Order type',
+                        'Balance (FIFO)',
+                        'Realized P&L',
+                        'Unrealized P&L'
                       ]}
                       sortBy='Placed on'
                       order='DESC'
@@ -256,7 +265,7 @@ const PlayGame = () => {
               eventKey='orders'
               title={(
                 <>
-                  <IconTabs><TrendingUp/></IconTabs>
+                  <IconTabs><TrendingUp /></IconTabs>
                   Order Performance
                 </>
               )}
@@ -285,42 +294,18 @@ const PlayGame = () => {
                           color: output.color
                         }
                       }}
+                      simpleFormatCells={{
+                        'Cleared on': ['date'],
+                        'Clear price': ['currency'],
+                        'Market price': ['currency'],
+                        Basis: ['currency', 'bold']
+                      }}
                       formatCells={{
-                        Symbol: function renderSymbol (value, row) {
+                        Symbol: function renderSymbol (value) {
                           return (
                             <strong>
                               {value}
                             </strong>
-                          )
-                        },
-                        'Hypothetical return': function netChangeFormat (value) {
-                          let color = 'var(--color-text-gray)'
-                          if (parseFloat(value) < 0) {
-                            color = 'var(--color-danger)'
-                          } else if (parseFloat(value) > 0) {
-                            color = 'var(--color-success)'
-                          }
-
-                          return (
-                            <strong
-                              style={{
-                                color: color
-                              }}
-                            >
-                              {value}
-                            </strong>
-                          )
-                        },
-                        'Clear price': function clearPriceFormat (value, row) {
-                          const qty = row.Quantity
-                          const price = value.replace(/\$|,/g, '')
-                          const totalPrice = (qty * price).toLocaleString()
-                          return (
-                            <>
-                              <strong title={`Total price: $${totalPrice}`}>
-                                {`${value}`}
-                              </strong>
-                            </>
                           )
                         }
                       }}
@@ -335,14 +320,12 @@ const PlayGame = () => {
                         'Placed on',
                         'Order price'
                       ]}
-                      sortBy='Hypothetical return'
-                      sortOrder='DESC'
                       showColumns={{
                         md: [
                           'Symbol',
                           'Quantity',
                           'Clear price',
-                          'Hypothetical return'
+                          'Market price'
                         ]
                       }}
                     />
@@ -354,7 +337,7 @@ const PlayGame = () => {
               eventKey='balances'
               title={(
                 <>
-                  <IconTabs><BarChart/></IconTabs>
+                  <IconTabs><BarChart /></IconTabs>
                   Balances
                 </>
               )}
@@ -383,15 +366,16 @@ const PlayGame = () => {
                           color: output.color
                         }
                       }}
+                      simpleFormatCells={{
+                        'Last order price': ['currency'],
+                        Value: ['currency'],
+                        'Portfolio %': ['percentage'],
+                        'Change since last close': ['percentage'],
+                        'Market price': ['currency'],
+                        'Updated at': ['date']
+                      }}
                       formatCells={{
                         Symbol: function renderSymbol (value, row) {
-                          return (
-                            <strong>
-                              {value}
-                            </strong>
-                          )
-                        },
-                        'Change since last close': function formatForNetChange (value) {
                           return (
                             <strong>
                               {value}
@@ -418,7 +402,7 @@ const PlayGame = () => {
                 eventKey='payouts'
                 title={(
                   <>
-                    <IconTabs><DollarSign/></IconTabs>
+                    <IconTabs><DollarSign /></IconTabs>
                     Payouts
                   </>
                 )}

@@ -29,7 +29,6 @@ from backend.logic.games import (
     get_invite_list_by_status,
     add_game,
     get_game_info_for_user,
-    expire_finished_game,
     suggest_symbols,
     process_order,
     execute_order,
@@ -55,7 +54,7 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    get_external_invite_list_by_status,
+    get_external_email_invite_list,
     init_game_assets
 )
 from logic.stock_data import get_game_ids_by_status
@@ -781,21 +780,21 @@ class TestSchemaValidation(TestCase):
     def test_schema_validators(self):
         # all data is proper
         df = pd.DataFrame(
-            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         result = apply_validation(df, balances_chart_schema)
         self.assertTrue(result)
 
         # columns are there but data has a bad type
         df = pd.DataFrame(
-            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(symbol=[1, 2, 3], value=["20", "30", "40"], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
 
         # a column is missing
         df = pd.DataFrame(
-            dict(value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(value=[20, 30, 40], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema)
@@ -811,39 +810,10 @@ class TestSchemaValidation(TestCase):
 
         # strict mode is on, and there is an extra column
         df = pd.DataFrame(
-            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=["Jun 1 9:30", "Jun 2 9:35", "Jun 3 9:40"],
+            dict(symbol=["TSLA", "AMZN", "JETS"], value=[20, 30, 40], label=[1, 2, 3],
                  timestamp=[dt.now(), dt.now(), dt.now()], bad_column=["x", "y", "z"]))
         with self.assertRaises(FailedValidation):
             apply_validation(df, balances_chart_schema, strict=True)
-
-
-class TestGameExpiration(BaseTestCase):
-
-    def test_game_expiration(self):
-        # we have two mock games that are "finished." One has been done for less than a week, and should still be
-        # visible to the frontend. The other has been finished for two weeks and should be hidden
-        user_id = 1
-        visible_game_id = 6
-        expired_game_id = 7
-        finished_ids = get_game_ids_by_status("finished")
-        self.assertEqual(set(finished_ids), {visible_game_id, expired_game_id})
-        with freeze_time(posix_to_datetime(simulation_start_time + 7 * SECONDS_IN_A_DAY)):
-            for game_id in finished_ids:
-                expire_finished_game(game_id)
-
-        # when we check the game information for our test user, game 6 should be in there, game 7 should not
-        game_info = get_game_info_for_user(user_id)
-        self.assertEqual(len(game_info), 4)
-        active_game = [x for x in game_info if x["game_id"] == 3][0]
-        self.assertEqual(active_game["title"], "test game")
-        pending_game = [x for x in game_info if x["game_id"] == 5][0]
-        self.assertEqual(pending_game["title"], "valiant roset")
-        finished_game = [x for x in game_info if x["game_id"] == visible_game_id][0]
-        self.assertEqual(finished_game["title"], "finished game to show")
-        finished_game = [x for x in game_info if x["game_mode"] == "single_player"][0]
-        self.assertEqual(finished_game["title"], "single player test")
-
-        # TODO: tests that if all users cancel the game is also moved to cancelled
 
 
 class TestExternalInviteFunctionality(BaseTestCase):
@@ -1016,7 +986,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
             respond_to_game_invite(game_1_id, user_id, "joined", time.time())
 
         # test external invite accepted update
-        accepted_invite_emails = get_external_invite_list_by_status(game_1_id, "accepted")
+        _tmp = query_to_dict("SELECT * FROM external_invites WHERE game_id = %s AND status = 'accepted'", game_1_id)
+        accepted_invite_emails = [x["invited_email"] for x in _tmp]
         accepted_invite_ids = get_user_ids_from_passed_emails(accepted_invite_emails)
         self.assertEqual({minion1_user_id, minion_2_user_id}, set(accepted_invite_ids))
 

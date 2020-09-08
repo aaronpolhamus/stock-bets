@@ -1,18 +1,11 @@
-from datetime import datetime as dt
 import sys
 import time
+from datetime import datetime as dt
 from re import sub
 from typing import List
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-from backend.tasks.redis import rds
-
 import pandas as pd
 import requests
-from config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row, query_to_dict
 from backend.logic.base import (
@@ -25,6 +18,12 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     get_current_game_cash_balance
 )
+from backend.tasks.redis import rds
+from config import Config
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
@@ -225,7 +224,7 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     return df[["symbol", "exec_date"] + num_cols]
 
 
-def get_stock_splits() -> pd.DataFrame:
+def get_stock_splits():
     driver = get_web_driver()
     _included_symbols = query_to_dict("SELECT symbol FROM symbols")
     included_symbols = [x["symbol"] for x in _included_symbols]
@@ -234,7 +233,10 @@ def get_stock_splits() -> pd.DataFrame:
     nasdaq_symbols = nasdaq_splits["symbol"].to_list()
     yahoo_raw_splits = retrieve_yahoo_splits(driver, included_symbols)
     yahoo_splits = parse_yahoo_splits(yahoo_raw_splits, nasdaq_symbols)
-    return pd.concat([nasdaq_splits, yahoo_splits])
+    df = pd.concat([nasdaq_splits, yahoo_splits])
+    if not df.empty:
+        with engine.connect() as conn:
+            df.to_sql("stock_splits", conn, if_exists="append", index=False)
 
 
 def get_game_ids_by_status(status="active"):
@@ -276,8 +278,24 @@ def get_most_recent_prices(symbols: List):
         return pd.read_sql(sql, conn, params=symbols)
 
 
-def apply_stock_splits(splits: pd.DataFrame):
+def get_splits(start_time: float, end_time: float) -> pd.DataFrame:
+    if start_time is None:
+        start_time = datetime_to_posix(dt.utcnow().replace(hour=0, minute=0))
+
+    if end_time is None:
+        end_time = time.time()
+
     # get active games and symbols
+    with engine.connect() as conn:
+        return pd.read_sql("SELECT * FROM stock_splits WHERE exec_date >= %s AND exec_date <= %s", conn, params=[
+            start_time, end_time])
+
+
+def apply_stock_splits(start_time: float = None, end_time: float = None):
+    splits = get_splits(start_time, end_time)
+    if splits.empty:
+        return
+
     active_ids = get_game_ids_by_status()
     last_prices = get_most_recent_prices(splits["symbol"].to_list())
     for i, row in splits.iterrows():
@@ -297,10 +315,12 @@ def apply_stock_splits(splits: pd.DataFrame):
                   balance > 0
                 GROUP BY game_id, user_id
               ) grouped_db
-              ON grouped_db.max_id = g.id
-            """, conn, params=[symbol] + active_ids)
+              ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
         if df.empty:
             continue
+
+        # make order status updates here. implement dask or spark here when the job getting to heavy to run locally
+        # (e.g. see https://docs.dask.org/en/latest/dataframe-api.html#dask.dataframe.read_sql_table)
         df["transaction_type"] = "stock_split"
         df["order_status_id"] = None
         df["timestamp"] = exec_date

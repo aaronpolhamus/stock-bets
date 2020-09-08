@@ -189,10 +189,10 @@ const Sidebar = ({ children, className, ...props }) => (
     </SidebarContent>
   </SidebarWrapper>
 )
+
 const GameContent = styled(Column)`
   @media screen and (min-width: ${breakpoints.md}){
-    flex-basis: calc(100vw - 330px);
-    max-width: none;
+    max-width: calc(100vw - 330px);
   }
 `
 

@@ -12,10 +12,14 @@ from backend.database.db import engine
 from backend.config import Config
 
 
-def reset_db():
+def drop_all_tables():
     db_metadata = MetaData(bind=engine)
     db_metadata.reflect()
     db_metadata.drop_all()
+
+
+def reset_db():
+    drop_all_tables()
     os.system("flask db upgrade")
 
 

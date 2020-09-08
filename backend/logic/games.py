@@ -26,7 +26,6 @@ from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
     get_user_information,
-    get_game_info,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
     DEFAULT_VIRTUAL_CASH,
@@ -49,10 +48,11 @@ from backend.logic.payments import (
 )
 from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
+    add_fulfilled_order_entry,
     removing_pending_order,
     serialize_and_pack_portfolio_details,
     init_game_assets,
-    serialize_and_pack_order_details
+    serialize_and_pack_pending_orders
 )
 from funkybob import RandomNameGenerator
 from textdistance import hamming
@@ -278,21 +278,33 @@ def get_invite_list_by_status(game_id: int, status: str = "joined"):
     return [x[0] for x in result]
 
 
-def get_external_invite_list_by_status(game_id: int, status: str = "invited"):
+def get_external_email_invite_list(game_id: int):
     with engine.connect() as conn:
         result = conn.execute("""
-            SELECT ex.invited_email 
+            SELECT ex.invited_email
             FROM external_invites ex
             INNER JOIN
               (SELECT game_id, invited_email, max(id) as max_id
                 FROM external_invites
                 WHERE type = 'game'
                 GROUP BY game_id, invited_email) grouped_ex
-            ON
+              ON
               ex.id = grouped_ex.max_id
-            WHERE 
-              ex.game_id = %s AND 
-              status = %s;""", game_id, status).fetchall()
+            INNER JOIN
+               (SELECT ex2.invited_email, ex2.status, ex2.type
+                FROM external_invites ex2
+                INNER JOIN
+                  (SELECT invited_email, max(id) as max_id
+                    FROM external_invites
+                    WHERE type = 'platform'
+                    GROUP BY invited_email) grouped_ex2
+                ON
+                ex2.id = grouped_ex2.max_id) platform_ex
+              ON platform_ex.invited_email = ex.invited_email
+            WHERE
+              ex.game_id = %s AND
+              ex.status = 'invited' AND
+              platform_ex.status != 'accepted';""", game_id).fetchall()
     return [x[0] for x in result]
 
 
@@ -318,7 +330,7 @@ def leave_game(game_id: int, user_id: int):
     current_game_users = get_active_game_user_ids(game_id)
     remaining_game_users = [x for x in current_game_users if x != user_id]
     if not remaining_game_users:
-        add_row("game_status", game_id=game_id, status="expired", users=[], timestamp=current_time)
+        add_row("game_status", game_id=game_id, status="cancelled", users=[], timestamp=current_time)
         return
     add_row("game_status", game_id=game_id, status="active", users=remaining_game_users, timestamp=current_time)
 
@@ -368,6 +380,7 @@ def service_open_game(game_id: int):
         # If we have quorum, game is active and we can mark it as such on the game status table
         kick_off_game(game_id, accepted_invite_user_ids, update_time)
     else:
+        # if the game has been left open and no one responded, cancel it
         close_open_game(game_id, update_time)
 
 
@@ -395,12 +408,13 @@ def refund_cancelled_game(game_id: int):
 def update_game_if_all_invites_responded(game_id: int):
     accepted_invite_user_ids = get_invite_list_by_status(game_id)
     pending_invite_ids = get_invite_list_by_status(game_id, "invited")
-    pending_email_invites = get_external_invite_list_by_status(game_id, "invited")
+    pending_email_invites = get_external_email_invite_list(game_id)
     all_pending_invites = pending_invite_ids + pending_email_invites
     if len(all_pending_invites) == 0:
         if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
             kick_off_game(game_id, accepted_invite_user_ids, time.time())
         else:
+            # if everyone invited declines to join, cancel the game
             close_open_game(game_id, time.time(), "cancelled")
             refund_cancelled_game(game_id)
 
@@ -471,15 +485,6 @@ def get_user_invite_statuses_for_pending_game(game_id: int):
     """
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id]).to_dict(orient="records")
-
-
-def expire_finished_game(game_id: int):
-    game_info = get_game_info(game_id)
-    expiration_time = game_info["start_time"] + game_info["duration"] * SECONDS_IN_A_DAY + TIME_TO_SHOW_FINISHED_GAMES
-    current_time = time.time()
-    if current_time >= expiration_time:
-        game_users = get_active_game_user_ids(game_id)
-        add_row("game_status", game_id=game_id, status="expired", users=game_users, timestamp=current_time)
 
 
 # Functions for handling placing and execution of orders
@@ -724,7 +729,8 @@ def process_order(order_id: int):
                                       clear_price=market_price)
             update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
                             market_price, quantity, symbol)
-            serialize_and_pack_order_details(game_id, user_id)  # refresh the pending and fulfilled orders table
+            serialize_and_pack_pending_orders(game_id, user_id)  # refresh the pending orders table
+            add_fulfilled_order_entry(game_id, user_id, order_id)  # add the new fulfilled orders entry to the table
             serialize_and_pack_portfolio_details(game_id, user_id)
         else:
             # if a market order was placed after hours, there may not be enough cash on hand to clear it at the new

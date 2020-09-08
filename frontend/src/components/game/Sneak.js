@@ -124,6 +124,12 @@ const Sneak = props => {
                             color: output.color
                           }
                         }}
+                        simpleFormatCells={{
+                          'Cleared on': ['date'],
+                          'Clear price': ['currency'],
+                          'Market price': ['currency'],
+                          Basis: ['currency', 'bold']
+                        }}
                         formatCells={{
                           Symbol: function renderSymbol (value, row) {
                             return (
@@ -132,44 +138,6 @@ const Sneak = props => {
                               </strong>
                             )
                           },
-                          'Hypothetical return': function netChangeFormat (value) {
-                            let color = 'var(--color-text-gray)'
-                            if (parseFloat(value) < 0) {
-                              color = 'var(--color-danger)'
-                            } else if (parseFloat(value) > 0) {
-                              color = 'var(--color-success)'
-                            }
-
-                            return (
-                              <strong
-                                style={{
-                                  color: color
-                                }}
-                              >
-                                {value}
-                              </strong>
-                            )
-                          },
-                          'Clear price': function clearPriceFormat (value, row) {
-                            const qty = row.Quantity
-                            const price = value.replace(/\$|,/g, '')
-                            const totalPrice = (qty * price).toLocaleString()
-                            return (
-                              <>
-                                <strong>
-                                  {`$${totalPrice}`}
-                                </strong>
-                                <br />
-                                <span
-                                  style={{
-                                    color: 'var(--color-text-gray)'
-                                  }}
-                                >
-                                  {`(${value})`}
-                                </span>
-                              </>
-                            )
-                          }
                         }}
                         excludeRows={(row) => {
                           return row['Buy/Sell'] === 'sell'
@@ -179,7 +147,6 @@ const Sneak = props => {
                           'Buy/Sell',
                           'Order type',
                           'Time in force',
-                          'Market price',
                           'Placed on',
                           'Order price'
                         ]}
@@ -187,8 +154,9 @@ const Sneak = props => {
                           md: [
                             'Symbol',
                             'Quantity',
+                            'Cleared on',
                             'Clear price',
-                            'Hypothetical return'
+                            'Market price'
                           ]
                         }}
                       />
@@ -225,6 +193,14 @@ const Sneak = props => {
                             color: output.color
                           }
                         }}
+                        simpleFormatCells={{
+                          Value: ['currency', 'bold'],
+                          'Updated at': ['date'],
+                          'Last order price': ['currency'],
+                          'Market price': ['currency'],
+                          'Portfolio %': ['percentage'],
+                          'Change since last close': ['percentage']
+                        }}
                         formatCells={{
                           Symbol: function renderSymbol (value, row) {
                             return (
@@ -233,13 +209,6 @@ const Sneak = props => {
                               </strong>
                             )
                           },
-                          'Change since last close': function formatForNetChange (value) {
-                            return (
-                              <strong>
-                                {value}
-                              </strong>
-                            )
-                          }
                         }}
                         sortBy='Balance'
                         showColumns={{

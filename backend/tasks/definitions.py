@@ -22,8 +22,7 @@ from backend.logic.games import (
     get_all_open_orders,
     process_order,
     get_open_game_ids_past_window,
-    service_open_game,
-    expire_finished_game
+    service_open_game
 )
 from backend.tasks.celery import (
     celery,
@@ -101,11 +100,8 @@ def async_service_one_open_game(self, game_id):
 
 @celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
 def async_apply_stock_splits(self):
-    splits = get_stock_splits()
-    if not splits.empty:
-        with engine.connect() as conn:
-            splits.to_sql("stock_splits", conn, if_exists="append", index=False)
-        apply_stock_splits(splits)
+    get_stock_splits()
+    apply_stock_splits()
 
 
 # ---------------- #
@@ -150,10 +146,6 @@ def async_update_all_games(self):
     active_ids = get_game_ids_by_status()
     for game_id in active_ids:
         async_update_game_data.delay(game_id)
-
-    finished_ids = get_game_ids_by_status("finished")
-    for game_id in finished_ids:
-        expire_finished_game(game_id)
 
 
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)

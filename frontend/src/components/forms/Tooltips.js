@@ -21,7 +21,7 @@ const Tooltip = ({ message }) => {
       />
       <Overlay
         placement='auto'
-        flip={true}
+        flip
         target={target.current}
         show={show}
         arrowProps={{

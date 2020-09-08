@@ -318,7 +318,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           </small>
         </Form.Label>
         {symbolSuggestions && (
-          <Form.Control as={Autosuggest}
+          <Form.Control
+            as={Autosuggest}
             required
             ref={autosugestRef}
             suggestions={symbolSuggestions}
@@ -326,8 +327,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             onSuggestionsClearRequested={onSuggestionsClearRequested}
             getSuggestionValue={getSuggestionValue}
             renderSuggestion={renderSuggestion}
-            highlightFirstSuggestion={true}
-            focusInputOnSuggestionClick={true}
+            highlightFirstSuggestion
+            focusInputOnSuggestionClick
             onSuggestionSelected={onSuggestionSelected}
             inputProps={{
               placeholder: 'What are we trading today?',
@@ -341,7 +342,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
           <strong>
             {symbolValue !== '' && priceData.price && `${symbolLabel} $${priceData.price}`}
           </strong>
-          <br/>
+          <br />
           <small>
             {symbolValue !== '' ? `Last updated: ${priceData.last_updated}` : '-'}
           </small>
@@ -359,7 +360,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <AmountInput>
               <InputGroup>
-                <Form.Control required as={CurrencyInput} placeholder="0.00" type="text" name='amount' onChange={handleChangeAmount} precision={0} value={orderTicket.amount}/>
+                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={orderTicket.amount} />
                 <InputGroup.Append>
                   <TabbedRadioButtons
                     mode='tabbed'

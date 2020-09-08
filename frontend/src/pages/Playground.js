@@ -16,14 +16,14 @@ const Playground = () => {
       </h1>
       <CompoundChart
         gameId={gameId}
-        chartDataEndpoint='get_order_performance_chart'
+        chartDataEndpoint='get_balances_chart'
         legends={false}
       >
         {
           ({ handleSelectedLines }) => (
             <FormattableTable
               hover
-              endpoint='get_fulfilled_orders_table'
+              endpoint='get_current_balances_table'
               name='orders_table'
               gameId={gameId}
               onRowSelect={(output) => {
@@ -45,28 +45,9 @@ const Playground = () => {
                     </strong>
                   )
                 },
-                'Hypothetical return': function netChangeFormat (value) {
-                  let color = 'var(--color-text-gray)'
-                  if (parseFloat(value) < 0) {
-                    color = 'var(--color-danger)'
-                  } else if (parseFloat(value) > 0) {
-                    color = 'var(--color-success)'
-                  }
-
-                  return (
-                    <strong
-                      style={{
-                        color: color
-                      }}
-                    >
-                      {value}
-                    </strong>
-                  )
-                },
                 'Clear price': function clearPriceFormat (value, row) {
                   const qty = row.Quantity
-                  const price = value.replace(/\$|,/g, '')
-                  const totalPrice = (qty * price).toLocaleString()
+                  const totalPrice = (qty * value).toLocaleString()
                   return (
                     <>
                       <strong>
@@ -87,6 +68,13 @@ const Playground = () => {
               excludeRows={(row) => {
                 return row['Buy/Sell'] === 'sell'
               }}
+              simpleFormatCells={{
+                'Last order price': ['currency', 'bold'],
+                Value: ['currency'],
+                'Portfolio %': ['percentage'],
+                'Change since last close': ['percentage'],
+                'Updated at': ['date']
+              }}
               exclude={[
                 'as of',
                 'Buy/Sell',
@@ -96,14 +84,11 @@ const Playground = () => {
                 'Placed on',
                 'Order price'
               ]}
-              sortBy='Hypothetical return'
-              sortOrder='DESC'
               showColumns={{
                 md: [
                   'Symbol',
                   'Quantity',
-                  'Clear price',
-                  'Hypothetical return'
+                  'Clear price'
                 ]
               }}
             />

@@ -41,8 +41,9 @@ from backend.tasks.definitions import (
     TASK_LOCK_TEST_SLEEP
 )
 from backend.logic.visuals import (
-    serialize_and_pack_order_details,
-    serialize_and_pack_portfolio_details
+    serialize_and_pack_pending_orders,
+    serialize_and_pack_portfolio_details,
+    init_order_details
 )
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
@@ -515,7 +516,7 @@ class TestGameIntegration(BaseTestCase):
 
             game_status_entry = query_to_dict(
                 "SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;", game_id)[0]
-            self.assertEqual(game_status_entry["status"], "expired")
+            self.assertEqual(game_status_entry["status"], "cancelled")
             self.assertEqual(json.loads(game_status_entry["users"]), [])
             game_invites_entries = query_to_dict(
                 "SELECT * FROM game_invites WHERE game_id = %s ORDER BY id DESC LIMIT 0, 3;", game_id)
@@ -530,11 +531,14 @@ class TestVisualAssetsTasks(BaseTestCase):
         base_time_mock.time.return_value = 1596738863.111858
         user_id = 1
         game_id = 3
+        _user_ids = get_active_game_user_ids(game_id)
+        for _user_id in _user_ids:
+            init_order_details(game_id, _user_id)
 
         # seed the open orders and portfolio table
         user_ids = get_active_game_user_ids(game_id)
         for user_id in user_ids:
-            serialize_and_pack_order_details(game_id, user_id)
+            serialize_and_pack_pending_orders(game_id, user_id)
             serialize_and_pack_portfolio_details(game_id, user_id)
 
         # Place a guaranteed-to-clear order

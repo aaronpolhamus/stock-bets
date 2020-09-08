@@ -12,9 +12,9 @@ from backend.logic.visuals import (
     make_the_field_charts,
     compile_and_pack_player_leaderboard,
     calculate_and_pack_game_metrics,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
-    serialize_and_pack_order_performance_chart,
+    serialize_and_pack_order_performance_assets,
     serialize_and_pack_winners_table
 )
 from backend.logic.metrics import log_winners
@@ -51,7 +51,7 @@ def refresh_order_details_with_context(**context):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         print(f"*** user id: {user_id} ***")
-        serialize_and_pack_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
 
 
 def refresh_portfolio_details_with_context(**context):
@@ -68,7 +68,7 @@ def make_order_performance_chart_with_context(**context):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         print(f"*** user id: {user_id} ***")
-        serialize_and_pack_order_performance_chart(game_id, user_id, start_time, end_time)
+        serialize_and_pack_order_performance_assets(game_id, user_id, start_time, end_time)
 
 
 def log_multiplayer_winners_with_context(**context):
@@ -159,9 +159,9 @@ end_task = DummyOperator(
     dag=dag
 )
 
-start_task >> make_order_performance_chart
-make_order_performance_chart >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
-make_order_performance_chart >> log_multiplayer_winners >> make_winners_table >> end_task
+
+start_task >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
+start_task >> log_multiplayer_winners >> make_winners_table >> end_task
+start_task >> make_order_performance_chart >> end_task
 start_task >> refresh_order_details >> end_task
 start_task >> refresh_portfolio_details >> end_task
-

@@ -27,7 +27,6 @@ from pandas.tseries.offsets import DateOffset
 # Defaults #
 # -------- #
 
-USD_FORMAT = "${:,.2f}"
 DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
 SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
@@ -136,11 +135,12 @@ def get_time_defaults(game_id: int, start_time: float = None, end_time: float = 
     """There are several places in the code that deal with time where we optionally set a time window as [game_start,
     present_time], depending on whether the user has passed those values in manually. This code wraps that operation.
     """
+    game_start, game_end = get_game_start_and_end(game_id)
     if start_time is None:
-        start_time, _ = get_game_start_and_end(game_id)
+        start_time = game_start
 
     if end_time is None:
-        end_time = time.time()
+        end_time = time.time()  # TODO: constrain this in a way where we can still run TestPlayGame.test_play_game
 
     return start_time, end_time
 
@@ -172,7 +172,6 @@ def get_game_info(game_id: int):
     info["creator_username"] = get_usernames([creator_id])[0]
     info["creator_profile_pic"] = query_to_dict("SELECT * FROM users WHERE id = %s", creator_id)[0]["profile_pic"]
     info["benchmark_formatted"] = info["benchmark"].upper().replace("_", " ")
-    info["stakes_formatted"] = USD_FORMAT.format(info["buy_in"]) if info["stakes"] == 'real' else "Just for fun"
     info["game_status"] = get_current_game_status(game_id)
     info["start_time"] = info["end_time"] = None
     if info["game_status"] in ["active", "finished"]:
@@ -218,7 +217,7 @@ def pivot_order_details(order_details: pd.DataFrame) -> pd.DataFrame:
     status, and clear_price.
     """
     pivot_df = order_details.set_index(
-        ["order_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
+        ["order_id", "order_status_id", "symbol", "buy_or_sell", "quantity", "order_type", "time_in_force", "price"])
     pivot_df = pivot_df.pivot(columns="status").reset_index()
     pivot_df.columns = ['_'.join(col).strip("_") for col in pivot_df.columns.values]
     if "clear_price_pending" in pivot_df.columns:
@@ -239,22 +238,28 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     query = """
         SELECT
-            o.id as order_id, 
+            o.id as order_id,
             relevant_orders.status,
-            symbol, 
-            relevant_orders.timestamp, 
-            buy_or_sell, 
-            quantity, 
+            relevant_orders.order_status_id,
+            symbol,
+            relevant_orders.timestamp,
+            buy_or_sell,
+            quantity,
             order_type,
             time_in_force,
             price,
-            relevant_orders.clear_price 
+            relevant_orders.clear_price
         FROM orders o
         INNER JOIN (
-          SELECT os_full.timestamp, os_full.order_id, os_full.clear_price, os_full.status
+          SELECT os_full.id,
+                 os_full.timestamp,
+                 os_full.order_id,
+                 os_full.clear_price,
+                 os_full.status,
+                 os_relevant.order_status_id
           FROM order_status os_full
           INNER JOIN (
-            SELECT os.order_id
+            SELECT os.order_id, grouped_os.max_id as order_status_id
             FROM order_status os
               INNER JOIN
                  (SELECT order_id, max(id) as max_id
@@ -344,7 +349,6 @@ def get_usernames(user_ids: List[int]) -> Union[str, List[str]]:
         """, user_ids).fetchall()
     return [x[0] for x in usernames]
 
-
 # --------------- #
 # Data processing #
 # --------------- #
@@ -355,8 +359,7 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
         SELECT timestamp, price, symbol FROM prices
         WHERE 
           symbol IN ({','.join(['%s'] * len(symbols))}) AND 
-          timestamp >= %s AND timestamp <= %s;
-    """
+          timestamp >= %s AND timestamp <= %s ORDER BY symbol, timestamp;"""
     params_list = list(symbols) + [min_time, max_time]
     with engine.connect() as conn:
         df = pd.read_sql(sql, conn, params=params_list)
@@ -365,24 +368,24 @@ def get_price_histories(symbols: List, min_time: float, max_time: float):
 
 def resample_values(symbol_subset):
     # first, take the last balance entry from each timestamp
-    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last", "last_transaction_type": "last"})
+    df = symbol_subset.groupby(["timestamp"]).aggregate({"balance": "last"})
     df.index = [posix_to_datetime(x) for x in df.index]
     return df.resample(f"{RESAMPLING_INTERVAL}T").last().ffill()
 
 
-def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.DataFrame:
+def append_price_data_to_balance_histories(df: pd.DataFrame) -> pd.DataFrame:
+    """the timestamp should be datetime formatted"""
     # Resample balances over the desired time interval within each symbol
-    resampled_balances = balances_df.groupby("symbol").apply(resample_values)
-    resampled_balances = resampled_balances.reset_index().rename(columns={"level_1": "timestamp"})
-    min_time = datetime_to_posix(resampled_balances["timestamp"].min())
-    max_time = datetime_to_posix(resampled_balances["timestamp"].max())
+    min_time = datetime_to_posix(df["timestamp"].min())
+    max_time = datetime_to_posix(df["timestamp"].max())
     # Now add price data
-    symbols = balances_df["symbol"].unique()
+    symbols = df["symbol"].unique()
     price_df = get_price_histories(symbols, min_time, max_time)
     price_df["timestamp"] = price_df["timestamp"].apply(lambda x: posix_to_datetime(x))
     price_subsets = []
     for symbol in symbols:
-        balance_subset = resampled_balances[resampled_balances["symbol"] == symbol]
+        balance_subset = df[df["symbol"] == symbol]
+        balance_subset.sort_values("timestamp", inplace=True)
         prices_subset = price_df[price_df["symbol"] == symbol]
         if prices_subset.empty and symbol == "Cash":
             # Special handling for cash
@@ -390,10 +393,8 @@ def append_price_data_to_balance_histories(balances_df: pd.DataFrame) -> pd.Data
             price_subsets.append(balance_subset)
             continue
         del prices_subset["symbol"]
-        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="backward"))
-    df = pd.concat(price_subsets, axis=0)
-    df["value"] = df["balance"] * df["price"]
-    return df
+        price_subsets.append(pd.merge_asof(balance_subset, prices_subset, on="timestamp", direction="nearest"))
+    return pd.concat(price_subsets, axis=0)
 
 
 def mask_time_creator(df: pd.DataFrame, start: int, end: int) -> pd.Series:
@@ -402,14 +403,14 @@ def mask_time_creator(df: pd.DataFrame, start: int, end: int) -> pd.Series:
     return mask_up & mask_down
 
 
-def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
+def filter_for_trade_time(df: pd.DataFrame, group_var: str = "symbol", time_var: str = "timestamp") -> pd.DataFrame:
     """Because we just resampled at a fine-grained interval in append_price_data_to_balance_histories we've introduced a
     lot of non-trading time to the series. We'll clean that out here.
     """
     # if we only observe cash in the balances, that means the game has only just kicked off or they haven't ordered.
-    if set(df["symbol"].unique()) == {'Cash'}:
-        min_time = df["timestamp"].min()
-        max_time = df["timestamp"].max()
+    if set(df[group_var].unique()) == {'Cash'}:
+        min_time = df[time_var].min()
+        max_time = df[time_var].max()
         trade_days_df = get_trading_calendar(min_time, max_time)
         if trade_days_df.empty:
             return df
@@ -420,7 +421,7 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
         if trade_days_df.empty:
             return df
 
-    days = df["timestamp"].dt.normalize().unique()
+    days = df[time_var].dt.normalize().unique()
     schedule_df = get_trading_calendar(min(days).date(), max(days).date())
     schedule_df['start'] = schedule_df['market_open'].apply(datetime_to_posix)
     schedule_df['end'] = schedule_df['market_close'].apply(datetime_to_posix)
@@ -433,7 +434,7 @@ def filter_for_trade_time(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop(["timestamp_utc", "timestamp_epoch", "mask"], axis=1)
 
 
-def make_bookend_time(max_time_val: float = None):
+def make_bookend_time(max_time_val: float = None) -> float:
     if max_time_val is None:
         max_time_val = time.time()
 
@@ -443,12 +444,12 @@ def make_bookend_time(max_time_val: float = None):
     return max_time_val
 
 
-def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
+def add_bookends(df: pd.DataFrame, group_var: str = "symbol", condition_var: str = "balance",
                  time_var: str = "timestamp", end_time: float = None) -> pd.DataFrame:
     """If the final balance entry that we have for a position is not 0, then we'll extend that position out
     until the current date.
 
-    :param balances: a pandas dataframe with a valid group_var, condition_var, and time_var
+    :param df: a pandas dataframe with a valid group_var, condition_var, and time_var
     :param group_var: what is the grouping unit that the bookend time is being added to?
     :param condition_var: We only add bookends when there is still a non-zero quantity for the final observation. Which
       column defines that rule?
@@ -456,17 +457,17 @@ def add_bookends(balances: pd.DataFrame, group_var: str = "symbol", condition_va
     :param end_time: reference time for bookend. defaults to present time if passed in as None
     """
     bookend_time = make_bookend_time(end_time)
-    last_entry_df = balances.groupby(group_var, as_index=False).last()
+    last_entry_df = df.groupby(group_var, as_index=False).last()
     to_append = last_entry_df[(last_entry_df[condition_var] > 0) & (last_entry_df[time_var] < bookend_time)]
     to_append[time_var] = bookend_time
-    return pd.concat([balances, to_append]).reset_index(drop=True)
+    return pd.concat([df, to_append]).reset_index(drop=True)
 
 
 def get_user_balance_history(game_id: int, user_id: int, start_time: float, end_time: float) -> pd.DataFrame:
     """Extracts a running record of a user's balances through time.
     """
     sql = """
-            SELECT timestamp, balance_type, symbol, balance, transaction_type as last_transaction_type
+            SELECT timestamp, balance_type, symbol, balance
             FROM game_balances
             WHERE
               game_id = %s AND
@@ -494,8 +495,13 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     balances_df = get_user_balance_history(game_id, user_id, start_time, end_time)
     df = add_bookends(balances_df, end_time=end_time)
+    df = df.groupby("symbol").apply(resample_values)
+    df = df.reset_index().rename(columns={"level_1": "timestamp"})
     df = append_price_data_to_balance_histories(df)  # price appends + resampling happen here
+    df.sort_values(["symbol", "timestamp"])
+    df["value"] = df["balance"] * df["price"]
     df = filter_for_trade_time(df)
+    df[["balance", "price", "value"]] = df[["balance", "price", "value"]].astype(float)
     apply_validation(df, balances_and_prices_table_schema, strict=True)
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 

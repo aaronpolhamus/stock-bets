@@ -31,8 +31,7 @@ from backend.logic.base import (
     get_game_info,
     get_pending_buy_order_value,
     get_user_information,
-    standardize_email,
-    USD_FORMAT
+    standardize_email
 )
 from logic.stock_data import fetch_price
 from backend.logic.friends import (
@@ -46,7 +45,7 @@ from backend.logic.friends import (
 )
 from backend.logic.games import (
     get_downloadable_transactions_table,
-    get_external_invite_list_by_status,
+    get_external_email_invite_list,
     add_user_via_platform,
     add_user_via_email,
     leave_game,
@@ -82,9 +81,9 @@ from backend.logic.games import (
 )
 from backend.logic.payments import check_payment_profile
 from backend.logic.visuals import (
-    format_time_for_response,
-    serialize_and_pack_order_details,
+    serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
+    add_fulfilled_order_entry,
     PENDING_ORDERS_PREFIX,
     FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -367,7 +366,7 @@ def get_pending_game_info():
 
     records = dict()
     records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
-    records["email_invites"] = get_external_invite_list_by_status(game_id)
+    records["email_invites"] = get_external_email_invite_list(game_id)
     return jsonify(records)
 
 
@@ -450,9 +449,7 @@ def api_place_order():
     market? Do we either have the adequate cash on hand, or enough of a position in the stock for this order to be
     valid? Here an order_ticket from the frontend--along with the user_id tacked on during the API call--gets decoded,
     checked for validity, and booked. Market orders are fulfilled in the same step. Stop/limit orders are monitored on
-    an ongoing basis by the celery schedule and book as their requirements are satisfies
-    """
-
+    an ongoing basis by the celery schedule and book as their requirements are satisfies"""
     user_id = decode_token(request)
     order_ticket = request.json
     game_id = order_ticket["game_id"]
@@ -465,7 +462,7 @@ def api_place_order():
         async_cache_price.delay(symbol, market_price, last_updated)
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         current_holding = get_current_stock_holding(user_id, game_id, symbol)
-        place_order(
+        order_id = place_order(
             user_id,
             game_id,
             symbol,
@@ -481,7 +478,8 @@ def api_place_order():
     except Exception as e:
         return make_response(str(e), 400)
 
-    serialize_and_pack_order_details(game_id, user_id)
+    serialize_and_pack_pending_orders(game_id, user_id)
+    add_fulfilled_order_entry(game_id, user_id, order_id)
     serialize_and_pack_portfolio_details(game_id, user_id)
     return make_response(ORDER_PLACED_MESSAGE, 200)
 
@@ -500,7 +498,7 @@ def api_fetch_price():
     symbol = request.json.get("symbol")
     price, timestamp = fetch_price(symbol)
     async_cache_price.delay(symbol, price, timestamp)
-    return jsonify({"price": price, "last_updated": format_time_for_response(timestamp)})
+    return jsonify({"price": price, "last_updated": timestamp})
 
 
 @routes.route("/api/suggest_symbols", methods=["POST"])
@@ -676,7 +674,7 @@ def get_cash_balances():
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     outstanding_buy_order_value = get_pending_buy_order_value(user_id, game_id)
     buying_power = cash_balance - outstanding_buy_order_value
-    return jsonify({"cash_balance": USD_FORMAT.format(cash_balance), "buying_power": USD_FORMAT.format(buying_power)})
+    return jsonify({"cash_balance": cash_balance, "buying_power": buying_power})
 
 
 @routes.route("/api/get_transactions_table", methods=["POST"])

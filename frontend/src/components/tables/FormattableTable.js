@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import PropTypes from 'prop-types'
 import { apiPost } from 'components/functions/api'
+import { toCurrency, toFormattedDate } from 'components/functions/formattingHelpers'
 
 const CheckboxGroup = styled.span`
   cursor: pointer;
@@ -42,6 +43,28 @@ const simpleTokenize = (string) => {
   return string.toLowerCase().replace('%', '').replace(/\s/g, '-')
 }
 
+const simpleFormat = (value, format) => {
+  format.map((operator, index) => {
+    switch (operator) {
+      case 'currency':
+        value = toCurrency(value)
+        break
+      case 'percentage':
+        value = `${(value * 100).toFixed(3)}%`
+        break
+      case 'date':
+        value = toFormattedDate(value)
+        break
+      case 'bold':
+        value = (<strong>{value}</strong>)
+        break
+      default :
+        break
+    }
+  }, [])
+  return value
+}
+
 const sorter = (array, key, order) => {
   const cleanValue = `${array[0][key]}`.replace('$', '')
 
@@ -70,6 +93,18 @@ const sorter = (array, key, order) => {
 
 // The name option allows us to specify unique id's for the table headers. This for accesibility and for css manipulation in Formattable mode
 // The exclude option allows us to leave out data that we don't necessarily want represented in our table, e.g. the order id for order cancellations
+const StyledTable = styled(Table)`
+  td{
+    cursor: pointer
+  }
+  td, th{
+    &:first-child{
+      text-align: left;
+    }
+    text-align: right;
+  }
+  ${props => props.$responsiveStyles}
+`
 const FormattableTable = (props) => {
   const [tableData, setTableData] = useState()
 
@@ -117,18 +152,6 @@ const FormattableTable = (props) => {
     return styles
   }
 
-  const StyledTable = styled(Table)`
-    td{
-      cursor: pointer
-    }
-    td, th{
-      &:first-child{
-        text-align: left;
-      }
-      text-align: right;
-    }
-    ${createResponsiveStyles()}
-  `
   const handleRowClick = (rowIndex, add) => {
     const firstParam = Object.keys(tableOutputs[rowIndex])[0]
     const firstValue = tableOutputs[rowIndex][firstParam]
@@ -176,6 +199,14 @@ const FormattableTable = (props) => {
     const formatCell = (key, value, index, row) => {
       // If there is no tableOptions or tableOptions has not a formatCell property the function returns the plain value
       let cellContent = value
+      if (props.simpleFormatCells !== undefined) {
+        const index = Object.keys(props.simpleFormatCells).indexOf(key)
+
+        if (index >= 0) {
+          const format = props.simpleFormatCells[key]
+          cellContent = simpleFormat(value, format)
+        }
+      }
       if (props.formatCells !== undefined) {
         // We need to know if the key exists in the formatCells Object
         const index = Object.keys(props.formatCells).indexOf(key)
@@ -280,6 +311,7 @@ const FormattableTable = (props) => {
         hover={props.hover}
         striped={props.striped}
         id={props.name}
+        $responsiveStyles={createResponsiveStyles()}
       >
         <thead>
           <tr>
@@ -306,6 +338,7 @@ FormattableTable.propTypes = {
   showColumns: PropTypes.object,
   sortBy: PropTypes.string,
   sortOrder: PropTypes.string,
+  simpleFormatCells: PropTypes.object,
   striped: PropTypes.bool,
   tableCellCheckbox: PropTypes.number,
   formatCells: PropTypes.object,
