@@ -51,7 +51,7 @@ from backend.logic.visuals import (
     FULFILLED_ORDER_PREFIX,
     PAYOUTS_PREFIX,
     BALANCES_CHART_PREFIX,
-    init_order_details
+    no_fulfilled_orders_table
 )
 from backend.tasks.airflow import start_dag
 from backend.tasks.redis import rds
@@ -460,7 +460,8 @@ class TestPlayGame(BaseTestCase):
         """
         game_id = 3
         user_id = 1
-        init_order_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
+        no_fulfilled_orders_table(game_id, user_id)
         session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
         serialize_and_pack_pending_orders(game_id, user_id)
         stock_pick = "JETS"

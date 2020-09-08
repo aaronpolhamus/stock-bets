@@ -42,8 +42,7 @@ from backend.tasks.definitions import (
 )
 from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
-    serialize_and_pack_portfolio_details,
-    init_order_details
+    serialize_and_pack_portfolio_details
 )
 from backend.tasks.redis import rds
 from backend.tests import BaseTestCase
@@ -533,7 +532,7 @@ class TestVisualAssetsTasks(BaseTestCase):
         game_id = 3
         _user_ids = get_active_game_user_ids(game_id)
         for _user_id in _user_ids:
-            init_order_details(game_id, _user_id)
+            serialize_and_pack_pending_orders(game_id, _user_id)
 
         # seed the open orders and portfolio table
         user_ids = get_active_game_user_ids(game_id)

@@ -727,8 +727,14 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
     s3_cache.set(f"{game_id}/{user_id}/{ORDER_PERF_CHART_PREFIX}", json.dumps(chart_json))
 
 
+def no_fulfilled_orders_table(game_id: int, user_id: int):
+    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
+    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
+
+
 def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, user_id: int):
     if df.empty:
+        no_fulfilled_orders_table(game_id, user_id)
         return
     apply_validation(df, order_performance_schema, True)
     agg_rules = {"symbol": "first", "quantity": "first", "clear_price": "first", "timestamp": "first",
@@ -782,13 +788,6 @@ def serialize_and_pack_pending_orders(game_id: int, user_id: int):
     df = df[df["status"] == "pending"]
     pending_order_records = dict(data=df.to_dict(orient="records"), headers=list(PENDING_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}", json.dumps(pending_order_records))
-
-
-def init_order_details(game_id: int, user_id: int):
-    """Before we have any order information to log, make a blank entry to kick  off a game"""
-    no_pending_orders_table(game_id, user_id)
-    init_fufilled_json = dict(data=[], headers=list(FULFILLED_ORDER_MAPPINGS.values()))
-    s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(init_fufilled_json))
 
 
 def removing_pending_order(game_id: int, user_id: int, order_id: int):
@@ -925,9 +924,9 @@ def init_game_assets(game_id: int):
     user_ids = get_active_game_user_ids(game_id)
     for user_id in user_ids:
         # game/user-level assets
-        init_order_details(game_id, user_id)
-        serialize_and_pack_portfolio_details(game_id, user_id)
+        serialize_and_pack_pending_orders(game_id, user_id)
         serialize_and_pack_order_performance_assets(game_id, user_id)
+        serialize_and_pack_portfolio_details(game_id, user_id)
 
     if not check_single_player_mode(game_id):
         # winners/payouts table
