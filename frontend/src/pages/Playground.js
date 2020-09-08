@@ -31,7 +31,6 @@ const Playground = () => {
               }}
               tableCellCheckbox={0}
               formatOutput={(output) => {
-                console.log(output.order_label)
                 const label = output.order_label
                 return {
                   label: label,

@@ -165,6 +165,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
 
   const handleChange = (e) => {
     const orderTicketCopy = { ...orderTicket }
+    console.log(e.target.name, e.target.value)
     orderTicketCopy[e.target.name] = e.target.value
     setOrderTicket(orderTicketCopy)
   }
