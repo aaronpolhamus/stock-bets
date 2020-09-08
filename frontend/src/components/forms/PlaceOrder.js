@@ -171,7 +171,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
 
   const handleChangeAmount = (e) => {
     const orderTicketCopy = { ...orderTicket }
-    const amount = parseFloat(e.target.value.replace(',', ''))
+    const cleanValue = e.target.value.split(',').join('')
+    const amount = cleanValue === '' ? '' : parseFloat(cleanValue)
+
     orderTicketCopy.amount = amount
     setOrderTicket(orderTicketCopy)
   }
