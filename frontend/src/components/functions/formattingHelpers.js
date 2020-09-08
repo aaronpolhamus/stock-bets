@@ -23,6 +23,10 @@ const simplifyCurrency = (value, decimals, dollarSign) => {
   return amount
 }
 
+const toCurrency = (value) => {
+  return `$${value.toLocaleString()}`
+}
+
 const numberToOrdinal = number => {
   const suffixes = ['th', 'st', 'nd', 'rd']
   const suffixIndex = number % 100
@@ -56,4 +60,4 @@ const daysLeft = seconds => {
   }
 }
 
-export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft }
+export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft, toCurrency }

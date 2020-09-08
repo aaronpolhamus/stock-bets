@@ -33,6 +33,7 @@ import api from 'services/api'
 import { IconBuySell } from 'components/ui/icons/IconBuySell'
 import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
+import { toCurrency } from 'components/functions/formattingHelpers'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -177,10 +178,13 @@ const PlayGame = () => {
                             </>
                           )
                         },
+                        'Placed on': function placedOn (value, row) {
+                          return value
+                        },
                         'Order price': function placedOn (value, row) {
                           return (
                             <>
-                              {value}
+                              {toCurrency(value)}
                               <CancelOrderButton
                                 gameId={gameId}
                                 orderInfo={row}
