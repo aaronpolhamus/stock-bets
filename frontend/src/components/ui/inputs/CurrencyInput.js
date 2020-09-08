@@ -14,17 +14,23 @@ const defaultMaskOptions = {
   decimalSymbol: '.',
   decimalLimit: 2, // how many digits allowed after the decimal
   integerLimit: 7, // limit length of integer numbers
-  allowNegative: false,
+  allowNegative: true,
   allowLeadingZeroes: false
 }
 
 const CurrencyInput = ({ maskOptions, ...inputProps }) => {
   const currencyMask = createNumberMask({
-    ...defaultMaskOptions,
-    ...maskOptions
+    ...defaultMaskOptions
   })
 
-  return <MaskedInput mask={currencyMask} {...inputProps} />
+  return (
+    <MaskedInput
+      mask={function (value) {
+        return value.toLocaleString()
+      }}
+      {...inputProps}
+    />
+  )
 }
 
 CurrencyInput.defaultProps = {
