@@ -202,7 +202,6 @@ const PlayGame = () => {
                         'Market price',
                         'Order type'
                       ]}
-                      sortBy=''
                       showColumns={{
                       }}
                       formatHeaders={{
@@ -249,7 +248,6 @@ const PlayGame = () => {
                         'Realized P&L',
                         'Unrealized P&L'
                       ]}
-                      sortBy='Placed on'
                       order='DESC'
                       showColumns={{
                       }}
@@ -317,7 +315,7 @@ const PlayGame = () => {
                         'Buy/Sell',
                         'Order type',
                         'Time in force',
-                        'Placed on',
+                        'Cleared on',
                         'Order price'
                       ]}
                       showColumns={{
@@ -383,7 +381,6 @@ const PlayGame = () => {
                           )
                         }
                       }}
-                      sortBy='Balance'
                       showColumns={{
                         md: [
                           'Symbol',
