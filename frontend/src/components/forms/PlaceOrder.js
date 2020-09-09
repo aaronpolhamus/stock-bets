@@ -187,7 +187,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setOrderProcessing(true)
-    await api.post('/api/place_order', {
+    const order = {
       game_id: gameId,
       symbol: symbolValue,
       buy_or_sell: buyOrSell,
@@ -196,7 +196,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       amount: amount,
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
-    })
+    }
+    if (onPlaceOrder !== undefined) onPlaceOrder(order)
+    await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)
         setOrderProcessing(false)

@@ -52,10 +52,11 @@ const PlayGame = () => {
   const csvLink = useRef()
 
   const handlePlacedOrder = (order) => {
-    console.log(order)
     setLastOrder(order)
     setShowToast(true)
-    handleUpdateInfo()
+    setTimeout(()=>{
+      handleUpdateInfo()
+    }, 2000)
   }
 
   const handleUpdateInfo = () => {
