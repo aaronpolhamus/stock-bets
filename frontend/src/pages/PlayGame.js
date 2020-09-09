@@ -54,9 +54,7 @@ const PlayGame = () => {
   const handlePlacedOrder = (order) => {
     setLastOrder(order)
     setShowToast(true)
-    setTimeout(()=>{
-      handleUpdateInfo()
-    }, 2000)
+    handleUpdateInfo()
   }
 
   const handleUpdateInfo = () => {
@@ -451,10 +449,10 @@ const PlayGame = () => {
         {lastOrder.quantity_type === 'Shares'
           ? <Toast.Body>
             {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === 1 ? 'share' : 'shares'}`}
-            </Toast.Body>
+          </Toast.Body>
           : <Toast.Body>
             {`${toCurrency(lastOrder.amount)} of ${lastOrder.symbol}`}
-            </Toast.Body>}
+          </Toast.Body>}
       </Toast>
       <Modal show={showLeaveBox}>
         <Modal.Body>
