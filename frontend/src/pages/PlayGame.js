@@ -296,6 +296,9 @@ const PlayGame = () => {
                         'Cleared on': ['date'],
                         'Clear price': ['currency'],
                         'Market price': ['currency'],
+                        'Balance (FIFO)': ['currency'],
+                        'Realized P&L': ['currency'],
+                        'Unrealized P&L': ['currency'],
                         Basis: ['currency', 'bold']
                       }}
                       formatCells={{
