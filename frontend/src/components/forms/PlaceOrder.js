@@ -284,6 +284,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     setPriceData(response.data)
   }
 
+  console.log(quantityType)
   return (
     <StyledOrderForm
       onSubmit={handleSubmit}
@@ -303,16 +304,17 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             color='var(--color-text-gray)'
           />
         </CollapsibleClose>
-        <TabbedRadioButtons
-          mode='tabbed'
-          name='buy_or_sell'
-          $defaultChecked={buyOrSell}
-          onChange={(e) => setBuyOrSell(e.target.value)}
-          onClick={handleBuySellClicked}
-          options={buySellOptions}
-          color='var(--color-text-light-gray)'
-          $colorChecked='var(--color-lightest)'
-        />
+        {buyOrSell &&
+          <TabbedRadioButtons
+            mode='tabbed'
+            name='buy_or_sell'
+            $defaultChecked={buyOrSell}
+            onChange={(e) => setBuyOrSell(e.target.value)}
+            onClick={handleBuySellClicked}
+            options={buySellOptions}
+            color='var(--color-text-light-gray)'
+            $colorChecked='var(--color-lightest)'
+          />}
       </OrderFormHeader>
       <CashInfo cashData={cashData} balance={false} />
       <Form.Group>
@@ -370,16 +372,17 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
               <InputGroup>
                 <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={amount} />
                 <InputGroup.Append>
-                  <TabbedRadioButtons
-                    mode='tabbed'
-                    name='quantity_type'
-                    $defaultChecked={quantityType}
-                    onChange={(e) => setQuantityType(e.target.value)}
-                    options={quantityOptions}
-                    colorTab='var(--color-lightest)'
-                    color='var(--color-text-gray)'
-                    $colorChecked='var(--color-secondary)'
-                  />
+                  {quantityType &&
+                    <TabbedRadioButtons
+                      mode='tabbed'
+                      name='quantity_type'
+                      $defaultChecked={quantityType}
+                      onChange={(e) => setQuantityType(e.target.value)}
+                      options={quantityOptions}
+                      colorTab='var(--color-lightest)'
+                      color='var(--color-text-gray)'
+                      $colorChecked='var(--color-secondary)'
+                    />}
                 </InputGroup.Append>
               </InputGroup>
             </AmountInput>
@@ -410,14 +413,15 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
                 }
               />
             </Form.Label>
-            <RadioButtons
-              name='order_type'
-              $defaultChecked={orderType}
-              onChange={(e) => setOrderType(e.target.value)}
-              options={orderTypeOptions}
-              color='var(--color-text-light-gray)'
-              $colorChecked='var(--color-lightest)'
-            />
+            {orderType &&
+              <RadioButtons
+                name='order_type'
+                $defaultChecked={orderType}
+                onChange={(e) => setOrderType(e.target.value)}
+                options={orderTypeOptions}
+                color='var(--color-text-light-gray)'
+                $colorChecked='var(--color-lightest)'
+              />}
           </Form.Group>
         </Col>
       </Row>

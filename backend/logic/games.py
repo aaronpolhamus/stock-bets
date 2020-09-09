@@ -71,8 +71,8 @@ DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 DEFAULT_STAKES = "real"
 
-QUANTITY_DEFAULT = "Shares"
-QUANTITY_OPTIONS = ["Shares", "USD"]
+QUANTITY_DEFAULT = "USD"
+QUANTITY_OPTIONS = ["USD", "Shares"]
 
 """Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
