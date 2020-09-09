@@ -684,7 +684,6 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         chart_json = make_null_chart("Waiting for orders...")
     else:
         apply_validation(df, order_performance_schema, True)
-        # order performance chart
         plot_df = add_bookends(df, condition_var="fifo_balance")
         plot_df["cum_pl"] = plot_df.groupby("order_label")["realized_pl"].cumsum()
         plot_df["timestamp"] = plot_df["timestamp"].apply(lambda x: posix_to_datetime(x))
@@ -697,6 +696,7 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         plot_df = add_time_labels(plot_df)
         plot_df = plot_df.groupby(["order_label", "t_index"], as_index=False).agg("last")
         plot_df["label"] = plot_df["timestamp"].apply(lambda x: datetime_to_posix(x)).astype(float)
+        plot_df.sort_values("timestamp", inplace=True)
         plot_df["total_pl"] = plot_df["cum_pl"] + plot_df["fifo_balance"] * plot_df["price"] - (
                 1 - plot_df["total_pct_sold"]) * plot_df["basis"]
         plot_df["return"] = plot_df["total_pl"] / plot_df["basis"]
