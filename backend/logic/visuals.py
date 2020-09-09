@@ -94,6 +94,7 @@ SHARPE_RATIO_PREFIX = "sharpe_ratio"
 CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
+NA_NUMERIC_VAL = -99
 N_PLOT_POINTS = 150
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 
@@ -731,12 +732,12 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
             "Quantity": quantity,
             "Clear price": clear_price,
             "Basis": quantity * clear_price if buy_or_sell == "buy" else NA_TEXT_SYMBOL,
-            "Balance (FIFO)": quantity if buy_or_sell == "buy" else -99,
-            "Realized P&L": quantity if buy_or_sell == "buy" else -99,
-            "Unrealized P&L": quantity if buy_or_sell == "buy" else -99,
-            "Market price": quantity if buy_or_sell == "buy" else -99,
-            "as of": quantity if buy_or_sell == "buy" else -99,
-            "color": quantity if buy_or_sell == "buy" else -99
+            "Balance (FIFO)": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Realized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Market price": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "as of": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "color": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL
         }
         assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
@@ -768,7 +769,7 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     tab = pd.concat([tab, sold_df], axis=0)
     tab.sort_values("timestamp", inplace=True)
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
-    tab.fillna(-99, inplace=True)
+    tab.fillna(NA_NUMERIC_VAL, inplace=True)
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
 
