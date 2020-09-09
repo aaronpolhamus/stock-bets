@@ -4,7 +4,7 @@ import { Row, Col, Button, Form, InputGroup } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
 import { optionBuilder } from 'components/functions/forms'
 import { AuxiliarText, FormFooter } from 'components/textComponents/Text'
-import { fetchGameData } from 'components/functions/api'
+import { apiPost } from 'components/functions/api'
 import { RadioButtons, TabbedRadioButtons } from 'components/forms/Inputs'
 import { Tooltip } from 'components/forms/Tooltips'
 import PropTypes from 'prop-types'
@@ -140,8 +140,17 @@ const AmountInput = styled.div`
 `
 
 const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
-  const [gameInfo, setGameInfo] = useState({})
-  const [orderTicket, setOrderTicket] = useState({})
+  const [buyOrSell, setBuyOrSell] = useState(null)
+  const [orderType, setOrderType] = useState(null)
+  const [quantityType, setQuantityType] = useState(null)
+  const [amount, setAmount] = useState(null)
+  const [timeInForce, setTimeInForce] = useState(null)
+  const [stopLimitPrice, setStopLimitPrice] = useState(null)
+  const [buySellOptions, setBuySellOptions] = useState([])
+  const [quantityOptions, setQuantityOptions] = useState([])
+  const [orderTypeOptions, setOrderTypeOptions] = useState([])
+  const [timeInForceOptions, setTimeInForceOptions] = useState([])
+
   const [symbolSuggestions, setSymbolSuggestions] = useState([])
   const [symbolValue, setSymbolValue] = useState('')
   const [symbolLabel, setSymbolLabel] = useState('')
@@ -154,41 +163,43 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
   const autosugestRef = useRef(null)
 
   const getFormInfo = async () => {
-    const data = await fetchGameData(gameId, 'order_form_defaults')
-    setOrderTicket(data)
-    setGameInfo(data)
+    const data = await apiPost('order_form_defaults')
+    setOrderTypeOptions(data.order_type_options)
+    setOrderType(data.order_type)
+    setBuySellOptions(data.buy_sell_options)
+    setBuyOrSell(data.buy_or_sell)
+    setTimeInForceOptions(data.time_in_force_options)
+    setTimeInForce(data.time_in_force)
+    setQuantityOptions(data.quantity_options)
+    setQuantityType(data.quantity_type)
   }
 
   useEffect(() => {
     getFormInfo()
   }, [gameId, update])
 
-  const handleChange = (e) => {
-    const orderTicketCopy = { ...orderTicket }
-    orderTicketCopy[e.target.name] = e.target.value
-    setOrderTicket(orderTicketCopy)
-  }
-
   const handleChangeAmount = (e) => {
-    const orderTicketCopy = { ...orderTicket }
     const cleanValue = e.target.value.split(',').join('')
-    const amount = cleanValue === '' ? '' : parseFloat(cleanValue)
-
-    orderTicketCopy.amount = amount
-    setOrderTicket(orderTicketCopy)
+    const _amount = cleanValue === '' ? '' : parseFloat(cleanValue)
+    setAmount(_amount)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const orderTicketCopy = { ...orderTicket }
-    orderTicketCopy.symbol = symbolValue
-    setOrderTicket(orderTicketCopy)
     setOrderProcessing(true)
-    await api.post('/api/place_order', orderTicketCopy)
+    await api.post('/api/place_order', {
+      game_id: gameId,
+      symbol: symbolValue,
+      buy_or_sell: buyOrSell,
+      order_type: orderType,
+      quantity_type: quantityType,
+      amount: amount,
+      time_in_force: timeInForce,
+      stop_limit_price: stopLimitPrice
+    })
       .then(request => {
         setShowCollapsible(false)
         setOrderProcessing(false)
-        onPlaceOrder(orderTicketCopy)
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
@@ -218,7 +229,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     const response = await api.post('/api/suggest_symbols', {
       text: text.value,
       game_id: gameId,
-      buy_or_sell: orderTicket.buy_or_sell,
+      buy_or_sell: buyOrSell,
       withCredentials: true
     })
     setSymbolSuggestions(response.data)
@@ -232,9 +243,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     event,
     { suggestion, suggestionValue, suggestionIndex, sectionIndex, method }
   ) => {
-    // This part of the code handles the dynamically-updating price ticker when a stock pick gets made. We need to clear the old interval and set
-    // a new one each time there is a change
-
     if (method === 'enter') {
       event.preventDefault()
     }
@@ -257,12 +265,12 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     return (
       <Form.Group>
         <Form.Label>
-          {orderTicket.order_type === 'stop' ? 'Stop' : 'Limit'} Price
+          {orderType === 'stop' ? 'Stop' : 'Limit'} Price
         </Form.Label>
         <Form.Control
           name='stop_limit_price'
           as='input'
-          onChange={handleChange}
+          onChange={(e) => setStopLimitPrice(e.target.value)}
         />
       </Form.Group>
     )
@@ -298,10 +306,10 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         <TabbedRadioButtons
           mode='tabbed'
           name='buy_or_sell'
-          $defaultChecked={orderTicket.buy_or_sell}
-          onChange={handleChange}
+          $defaultChecked={buyOrSell}
+          onChange={(e) => setBuyOrSell(e.target.value)}
           onClick={handleBuySellClicked}
-          options={gameInfo.buy_sell_options}
+          options={buySellOptions}
           color='var(--color-text-light-gray)'
           $colorChecked='var(--color-lightest)'
         />
@@ -356,21 +364,18 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         <Col>
           <Form.Group>
             <Form.Label>
-              {orderTicket.quantity_type &&
-                  orderTicket.quantity_type === 'Shares'
-                ? 'Quantity'
-                : 'Amount'}
+              {quantityType && quantityType === 'Shares' ? 'Quantity' : 'Amount'}
             </Form.Label>
             <AmountInput>
               <InputGroup>
-                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={orderTicket.amount} />
+                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={amount} />
                 <InputGroup.Append>
                   <TabbedRadioButtons
                     mode='tabbed'
                     name='quantity_type'
-                    $defaultChecked={orderTicket.quantity_type}
-                    onChange={handleChange}
-                    options={gameInfo.quantity_options}
+                    $defaultChecked={quantityType}
+                    onChange={(e) => setQuantityType(e.target.value)}
+                    options={quantityOptions}
                     colorTab='var(--color-lightest)'
                     color='var(--color-text-gray)'
                     $colorChecked='var(--color-secondary)'
@@ -407,9 +412,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <RadioButtons
               name='order_type'
-              $defaultChecked={orderTicket.order_type}
-              onChange={handleChange}
-              options={gameInfo.order_type_options}
+              $defaultChecked={orderType}
+              onChange={(e) => setOrderType(e.target.value)}
+              options={orderTypeOptions}
               color='var(--color-text-light-gray)'
               $colorChecked='var(--color-lightest)'
             />
@@ -418,8 +423,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       </Row>
       <Row>
         <Col>
-          {['stop', 'limit'].includes(orderTicket.order_type) &&
-                stopLimitElement()}
+          {['stop', 'limit'].includes(orderType) && stopLimitElement()}
         </Col>
       </Row>
       <Form.Group>
@@ -430,16 +434,15 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         <Form.Control
           name='time_in_force'
           as='select'
-          defaultValue={gameInfo.time_in_force}
-          onChange={handleChange}
+          defaultValue={timeInForce}
+          onChange={(e) => setTimeInForce(e.target.value)}
         >
-          {gameInfo.time_in_force_options &&
-                optionBuilder(gameInfo.time_in_force_options)}
+          {timeInForceOptions && optionBuilder(timeInForceOptions)}
         </Form.Control>
       </Form.Group>
       <FormFooter>
         <Button variant='primary' type='submit'>
-              Place {orderTicket.buy_or_sell === 'buy' ? 'Buy' : 'Sell'} Order
+              Place {buyOrSell === 'buy' ? 'Buy' : 'Sell'} Order
         </Button>
       </FormFooter>
     </StyledOrderForm>

@@ -447,9 +447,13 @@ const PlayGame = () => {
             {`${lastOrder.buy_or_sell} order placed`}
           </strong>
         </Toast.Header>
-        <Toast.Body>
-          {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === '1' ? 'share' : 'shares'}`}
-        </Toast.Body>
+        {lastOrder.quantity_type === 'Shares'
+          ? <Toast.Body>
+            {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === 1 ? 'share' : 'shares'}`}
+            </Toast.Body>
+          : <Toast.Body>
+            {`${toCurrency(lastOrder.amount)} of ${lastOrder.symbol}`}
+            </Toast.Body>}
       </Toast>
       <Modal show={showLeaveBox}>
         <Modal.Body>
