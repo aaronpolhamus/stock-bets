@@ -173,7 +173,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']} />
+                              <IconBuySell type={row.event_type} />
                               <strong>
                                 {value}
                               </strong>
@@ -226,7 +226,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']} />
+                              <IconBuySell type={row.event_type} />
                               <strong>
                                 {value}
                               </strong>
@@ -310,7 +310,7 @@ const PlayGame = () => {
                         }
                       }}
                       excludeRows={(row) => {
-                        return row['Buy/Sell'] === 'sell'
+                        return row.event_type === 'sell'
                       }}
                       exclude={[
                         'as of',

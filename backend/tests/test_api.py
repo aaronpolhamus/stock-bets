@@ -468,7 +468,6 @@ class TestPlayGame(BaseTestCase):
         order_quantity = 25
         market_price, _ = fetch_price(stock_pick)
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "limit",
@@ -531,7 +530,6 @@ class TestPlayGame(BaseTestCase):
 
         # can't buy a billion dollars of Amazon
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "limit",
@@ -549,7 +547,6 @@ class TestPlayGame(BaseTestCase):
 
         # also can't sell a million shares that we don't own
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "market",
@@ -567,7 +564,6 @@ class TestPlayGame(BaseTestCase):
 
         # Trigger the exception for a limit order that's effectively a market order
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "limit",
@@ -862,7 +858,6 @@ class TestHomePage(BaseTestCase):
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {
-            "user_id": 1,
             "game_id": 1,
             "symbol": "TSLA",
             "order_type": "market",

@@ -26,6 +26,7 @@ const simplifyCurrency = (value, decimals, dollarSign) => {
 }
 
 const toCurrency = (value) => {
+  if (value === '--') return null
   return `$${value.toLocaleString(undefined,
  { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }

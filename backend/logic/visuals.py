@@ -651,11 +651,11 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                 if event["transaction_type"] == "stock_sale":
                     sale_price = event["clear_price_fulfilled"]
                     quantity_sold = order_amount = event["quantity"]
-                    balance_minus_sold = fifo_balance - quantity_sold
-                    if balance_minus_sold < 0:
-                        quantity_sold = -balance_minus_sold
+                    if fifo_balance - quantity_sold < 0:
+                        quantity_sold = fifo_balance
 
                     event["quantity"] -= quantity_sold
+                    assert not event["quantity"] < 0
                     if event["quantity"] == 0:
                         sales_queue.pop(0)
                     events_queue.pop(0)
@@ -749,7 +749,7 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     apply_validation(df, order_performance_schema, True)
     agg_rules = {"symbol": "first", "quantity": "first", "clear_price": "first", "timestamp": "first",
                  "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last",
-                 "total_pct_sold": "last"}
+                 "total_pct_sold": "last", "event_type": "first"}
     tab = df.groupby("order_label", as_index=False).agg(agg_rules)
     recent_prices = get_most_recent_prices(tab["symbol"].unique())
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
@@ -758,8 +758,15 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     label_colors = assign_colors(tab["order_label"].to_list())
     tab["unrealized_pl"] = tab["fifo_balance"] * tab["Market price"] - (1 - tab["total_pct_sold"]) * tab["basis"]
     del tab["total_pct_sold"]
-    tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab["color"] = tab["order_label"].apply(lambda x: label_colors.get(x))
+    # tack on sold orders
+    sold_columns = ["symbol", "timestamp", "quantity", "clear_price", "event_type"]
+    sold_df = df.loc[df["event_type"] == "sell", sold_columns]
+    sold_df["basis"] = NA_TEXT_SYMBOL
+    tab = pd.concat([tab, sold_df], axis=0)
+    tab.sort_values("timestamp", inplace=True)
+    tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
+    tab.fillna(-99, inplace=True)
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
 
