@@ -730,7 +730,7 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
             "Cleared on": timestamp,
             "Quantity": quantity,
             "Clear price": clear_price,
-            "Basis": quantity * clear_price if buy_or_sell == "buy" else "--",
+            "Basis": quantity * clear_price if buy_or_sell == "buy" else NA_TEXT_SYMBOL,
             "Balance (FIFO)": quantity if buy_or_sell == "buy" else -99,
             "Realized P&L": quantity if buy_or_sell == "buy" else -99,
             "Unrealized P&L": quantity if buy_or_sell == "buy" else -99,
