@@ -179,8 +179,8 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
   }, [gameId, update])
 
   const handleChangeAmount = (e) => {
-    const cleanValue = e.target.value.split(',').join('')
-    const _amount = cleanValue === '' ? '' : parseFloat(cleanValue)
+    let _amount = e.target.value.split(',').join('')
+    _amount = _amount === '' ? '' : parseFloat(_amount)
     setAmount(_amount)
   }
 
@@ -284,7 +284,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
     setPriceData(response.data)
   }
 
-  console.log(quantityType)
   return (
     <StyledOrderForm
       onSubmit={handleSubmit}
