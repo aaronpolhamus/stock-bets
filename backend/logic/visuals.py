@@ -722,19 +722,21 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
         clear_price = order_status_entry["clear_price"]
         quantity = order_entry["quantity"]
         order_label = f"{symbol}/{int(quantity)} @ {USD_FORMAT.format(clear_price)}/{format_posix_time(timestamp)}"
+        buy_or_sell = order_entry["buy_or_sell"]
         new_entry = {
             "order_label": order_label,
+            "event_type": buy_or_sell,
             "Symbol": symbol,
             "Cleared on": timestamp,
             "Quantity": quantity,
             "Clear price": clear_price,
-            "Basis": quantity * clear_price,
-            "Balance (FIFO)": quantity,
-            "Realized P&L": 0,
-            "Unrealized P&L": 0,
-            "Market price": clear_price,
-            "as of": timestamp,
-            "color": NULL_RGBA
+            "Basis": quantity * clear_price if buy_or_sell == "buy" else "--",
+            "Balance (FIFO)": quantity if buy_or_sell == "buy" else -99,
+            "Realized P&L": quantity if buy_or_sell == "buy" else -99,
+            "Unrealized P&L": quantity if buy_or_sell == "buy" else -99,
+            "Market price": quantity if buy_or_sell == "buy" else -99,
+            "as of": quantity if buy_or_sell == "buy" else -99,
+            "color": quantity if buy_or_sell == "buy" else -99
         }
         assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
