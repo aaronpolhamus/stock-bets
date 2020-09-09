@@ -424,13 +424,7 @@ def api_game_info():
 @routes.route("/api/order_form_defaults", methods=["POST"])
 @authenticate
 def order_form_defaults():
-    game_id = request.json["game_id"]
-    with db.engine.connect() as conn:
-        title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
-
     resp = dict(
-        title=title,
-        game_id=game_id,
         order_type_options=ORDER_TYPES,
         order_type=DEFAULT_ORDER_TYPE,
         buy_sell_options=BUY_SELL_TYPES,

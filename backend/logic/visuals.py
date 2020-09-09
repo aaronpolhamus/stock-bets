@@ -699,7 +699,7 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         plot_df.sort_values("timestamp", inplace=True)
         plot_df["total_pl"] = plot_df["cum_pl"] + plot_df["fifo_balance"] * plot_df["price"] - (
                 1 - plot_df["total_pct_sold"]) * plot_df["basis"]
-        plot_df["return"] = plot_df["total_pl"] / plot_df["basis"]
+        plot_df["return"] = 100 * plot_df["total_pl"] / plot_df["basis"]
         label_colors = assign_colors(plot_df["order_label"].unique())
         plot_df["color"] = plot_df["order_label"].apply(lambda x: label_colors.get(x))
         chart_json = make_chart_json(plot_df, "order_label", "return", "label", colors=plot_df["color"].unique())

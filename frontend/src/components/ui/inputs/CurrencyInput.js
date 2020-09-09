@@ -19,9 +19,8 @@ const defaultMaskOptions = {
 }
 
 const CurrencyInput = ({ maskOptions, ...inputProps }) => {
-
   const currencyMask = createNumberMask({
-    ...defaultMaskOptions, 
+    ...defaultMaskOptions,
     ...maskOptions
   })
 
