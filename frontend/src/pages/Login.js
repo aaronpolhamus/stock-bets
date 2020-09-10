@@ -50,7 +50,7 @@ const RightCol = styled(Col)`
 
   @media screen and (min-width: ${breakpoints.md}){
     text-align: left;
-    padding: 8vw;
+    padding: 0 8vw;
     justify-content: flex-start;
 
     br{

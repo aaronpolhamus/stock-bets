@@ -192,7 +192,7 @@ const Sidebar = ({ children, className, ...props }) => (
 
 const GameContent = styled(Column)`
   @media screen and (min-width: ${breakpoints.md}){
-    max-width: calc(100vw - 330px);
+    max-width: calc(100% - 330px);
   }
 `
 
