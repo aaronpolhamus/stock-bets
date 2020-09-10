@@ -358,17 +358,10 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
             df.to_sql("game_balances", conn, index=False, if_exists="append")
 
 
-def apply_dividends_to_game(game_id, user_id, date):
-    active_balances = get_active_balances(game_id, user_id)
-    dividends_in_date = get_dividends_of_date(date)
-    stocks_with_dividends = active_balances.merge(dividends_in_date)
-    if len(stocks_with_dividends) == 0:
-        return None
-    stocks_with_dividends['new_cash'] = stocks_with_dividends['amount'] * stocks_with_dividends['balance']
-
-
 def get_games_with_certain_stock(stock):
     df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
+    if df.empty:
+        return pd.DataFrame()
     return df.groupby(['user_id', 'game_id'])['balance'].sum().to_frame().reset_index()
 
 
