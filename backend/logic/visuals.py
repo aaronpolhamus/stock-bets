@@ -763,9 +763,9 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     del tab["total_pct_sold"]
     tab["color"] = tab["order_label"].apply(lambda x: label_colors.get(x))
     # tack on sold orders
-    sold_columns = ["symbol", "timestamp", "quantity", "clear_price", "event_type"]
+    sold_columns = ["symbol", "timestamp", "quantity", "clear_price", "basis", "event_type"]
     sold_df = df.loc[df["event_type"] == "sell", sold_columns]
-    sold_df["basis"] = NA_TEXT_SYMBOL
+    sold_df["basis"] = -1 * sold_df["basis"]
     tab = pd.concat([tab, sold_df], axis=0)
     tab.sort_values("timestamp", inplace=True)
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
