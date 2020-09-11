@@ -36,7 +36,8 @@ from backend.logic.base import (
     during_trading_day,
     get_active_balances,
     get_user_ids_from_passed_emails,
-    get_user_ids
+    get_user_ids,
+    get_end_of_next_trading_day
 )
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
@@ -137,6 +138,12 @@ def create_game_invites_entries(game_id: int, creator_id: int, user_ids: List[in
         add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
 
 
+def duration_for_end_of_trade_day(opened_at: float, day_duration: int) -> float:
+    naive_end = opened_at + day_duration * SECONDS_IN_A_DAY
+    end_of_trade_time = get_end_of_next_trading_day(naive_end)
+    return (end_of_trade_time - opened_at) / SECONDS_IN_A_DAY
+
+
 def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, stakes: str = None,
              buy_in: float = None, side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None,
              invite_window: int = None, email_invitees: List[str] = None):
@@ -150,6 +157,8 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
     invite_window_posix = None
     if invite_window is not None:
         invite_window_posix = opened_at + int(invite_window) * SECONDS_IN_A_DAY
+
+    duration = duration_for_end_of_trade_day(opened_at, duration)
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,

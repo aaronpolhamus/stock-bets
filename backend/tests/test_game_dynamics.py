@@ -17,11 +17,13 @@ from backend.logic.auth import (
     add_external_game_invites
 )
 from backend.logic.base import (
+    get_end_of_next_trading_day,
     posix_to_datetime,
     get_user_ids_from_passed_emails,
     get_user_ids,
     get_pending_buy_order_value,
-    get_all_active_symbols
+    get_all_active_symbols,
+    SECONDS_IN_A_DAY
 )
 from backend.logic.games import (
     get_invite_list_by_status,
@@ -51,7 +53,8 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    init_game_assets
+    init_game_assets,
+    duration_for_end_of_trade_day
 )
 from logic.stock_data import get_game_ids_by_status
 from backend.logic.schemas import (
@@ -1051,3 +1054,37 @@ class TestPayoutTime(TestCase):
         self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
         base_time_mock.time.return_value = friday_after_close
         self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))
+
+
+class TestFractionalGameDuration(TestCase):
+
+    def test_fractional_game_duration(self):
+        duration = 7
+
+        # game starts after hours and ends on a trading day
+        opened_at = 1599782916.2238436
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600459200)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+
+        # game starts after hours and ends on a non-trading day
+        opened_at = 1599959752.6720343
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600718400)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+
+        # game starts before hours and ends on a trading day
+        opened_at = 1599815843.2893355
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600459200)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+
+        # game starts before hours and ends on a non-trading day
+        opened_at = 1599988707.8969195
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600718400)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
