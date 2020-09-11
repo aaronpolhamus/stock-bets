@@ -289,7 +289,6 @@ class TestCreateGame(BaseTestCase):
             self.assertIsNotNone(field)
 
         self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
-        self.assertEqual(game_settings["duration"], games_entry["duration"])
         self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
         self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
         self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
@@ -335,7 +334,6 @@ class TestCreateGame(BaseTestCase):
         # look good.
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        self.assertEqual(res.json()["days_left"], game_duration - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
@@ -351,7 +349,6 @@ class TestCreateGame(BaseTestCase):
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)

@@ -417,7 +417,6 @@ class TestSinglePlayerLogic(BaseTestCase):
         game_entry = query_to_dict("SELECT * FROM games WHERE title = %s;", title)[0]
         game_id = game_entry["id"]
         self.assertEqual(game_entry["game_mode"], "single_player")
-        self.assertEqual(game_entry["duration"], 365)
         self.assertEqual(game_entry["benchmark"], "return_ratio")
 
         # confirm that user is registered as joined

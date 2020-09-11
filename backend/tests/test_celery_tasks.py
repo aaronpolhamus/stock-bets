@@ -185,6 +185,8 @@ class TestGameIntegration(BaseTestCase):
         for k, v in mock_game.items():
             if k == "invitees":
                 continue
+            if k == "duration":
+                continue
             if k == "invite_window":
                 self.assertAlmostEqual(game_entry[k], start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, 3)
                 continue
