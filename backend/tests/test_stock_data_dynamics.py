@@ -21,7 +21,10 @@ from backend.logic.stock_data import (
     fetch_price,
     get_stock_splits,
     apply_stock_splits,
-    get_most_recent_prices, parse_dividends, get_dividends_of_date, insert_dividends_to_db
+    get_most_recent_prices,
+    parse_dividends,
+    insert_dividends_to_db,
+    calculate_dividends_for_all_stocks
 )
 from backend.tests import BaseTestCase
 
@@ -174,3 +177,9 @@ class TestDividendScrapper(BaseTestCase):
     def test_parse_dividends_data(self):
         self.assertTrue(parse_dividends(dt(2020, 9, 6)).empty)
         pd.testing.assert_frame_equal(self.scrapped_july_7, self.july_7_dividends)
+
+    def test_apply_dividends_to_games(self):
+        insert_dividends_to_db(self.fake_dividends)
+        user_1_game_8_balance = get_current_game_cash_balance(1, 8)
+        calculate_dividends_for_all_stocks()
+        self.assertEqual(get_current_game_cash_balance(1,8) - user_1_game_8_balance, 10695)

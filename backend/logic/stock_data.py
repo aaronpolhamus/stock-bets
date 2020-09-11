@@ -369,6 +369,15 @@ def calculate_dividends_to_certain_stock(stock, dividend):
     return df
 
 
+def calculate_dividends_for_all_stocks():
+    dividends = get_dividends_of_date()
+    if dividends is None:
+        return None
+    for stock, amount in zip(dividends['symbol'], dividends['amount']):
+        dividends_for_stock = calculate_dividends_to_certain_stock(stock, amount)
+        apply_dividends(dividends_for_stock)
+
+
 def apply_dividends(df):
     df.apply(lambda row: add_virtual_cash(row['game_id'], row['user_id'], row['amount']), axis=1)
 
