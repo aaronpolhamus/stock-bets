@@ -21,7 +21,7 @@ from backend.logic.stock_data import (
     fetch_price,
     get_stock_splits,
     apply_stock_splits,
-    get_most_recent_prices, parse_dividends, get_dividends_of_date
+    get_most_recent_prices, parse_dividends, get_dividends_of_date, insert_dividends_to_db
 )
 from backend.tests import BaseTestCase
 
@@ -166,7 +166,9 @@ class TestDividendScrapper(BaseTestCase):
                                                    5: 1594080000}})
     scrapped_july_7 = parse_dividends(dt(2020, 7, 7))
     date = datetime_to_posix(dt.now().replace(hour=0, minute=0, second=0, microsecond=0))
-    fake_dividends = ([['AMZN', 'Amazon INC', 10, date], ['TSLA', 'Tesla Motors', 20, date]])
+    fake_dividends = ([['AMZN', 'Amazon INC', 10, date],
+                       ['TSLA', 'Tesla Motors', 20, date],
+                       ['NVDA', 'Envidia SA', 15, date]])
     fake_dividends = pd.DataFrame(fake_dividends, columns=['symbol', 'company', 'amount', 'exec_date'])
 
     def test_parse_dividends_data(self):

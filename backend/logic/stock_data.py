@@ -358,11 +358,19 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
             df.to_sql("game_balances", conn, index=False, if_exists="append")
 
 
-def get_games_with_certain_stock(stock):
+def calculate_dividends_to_certain_stock(stock, dividend):
     df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
     if df.empty:
         return pd.DataFrame()
-    return df.groupby(['user_id', 'game_id'])['balance'].sum().to_frame().reset_index()
+    df = df.groupby(['user_id', 'game_id'])['balance'].sum().to_frame().reset_index()
+    df['amount'] = df['balance'] * dividend
+    df['user_id'] = df['user_id'].astype(str)
+    df['game_id'] = df['game_id'].astype(str)
+    return df
+
+
+def apply_dividends(df):
+    df.apply(lambda row: add_virtual_cash(row['game_id'], row['user_id'], row['amount']), axis=1)
 
 
 def add_virtual_cash(game_id, user_id, amount):
@@ -373,14 +381,14 @@ def add_virtual_cash(game_id, user_id, amount):
 
 def get_dividends_of_date(date=dt.now().replace(hour=0, minute=0, second=0, microsecond=0)):
     posix = datetime_to_posix(date)
-    return pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}")).set_index('id').reset_index(
-        drop=True)
+    df = pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}"))
+    if not df.empty:
+        return df.set_index('id').reset_index(drop=True)
 
 
-def insert_dividends_to_db(date=dt.now()):
-    table = parse_dividends(date)
+def insert_dividends_to_db(dividends: pd.DataFrame):
     with engine.connect() as conn:
-        table.to_sql('dividends', conn, if_exists='append', index=False)
+        dividends.to_sql('dividends', conn, if_exists='append', index=False)
 
 
 def parse_dividends(date, timeout=120) -> pd.DataFrame:
