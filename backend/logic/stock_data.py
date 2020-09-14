@@ -358,7 +358,7 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
             df.to_sql("game_balances", conn, index=False, if_exists="append")
 
 
-def calculate_dividends_to_certain_stock(stock, dividend):
+def calculate_dividends_to_certain_stock(stock, dividend, dividend_id):
     df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
     if df.empty:
         return pd.DataFrame()
@@ -366,6 +366,7 @@ def calculate_dividends_to_certain_stock(stock, dividend):
     df['amount'] = df['balance'] * dividend
     df['user_id'] = df['user_id'].astype(str)
     df['game_id'] = df['game_id'].astype(str)
+    df['dividend_id'] = dividend_id
     return df
 
 
@@ -373,26 +374,26 @@ def calculate_dividends_for_all_stocks():
     dividends = get_dividends_of_date()
     if dividends is None:
         return None
-    for stock, amount in zip(dividends['symbol'], dividends['amount']):
-        dividends_for_stock = calculate_dividends_to_certain_stock(stock, amount)
+    for stock, amount, index in zip(dividends['symbol'], dividends['amount'], dividends.index):
+        dividends_for_stock = calculate_dividends_to_certain_stock(stock, amount, index)
         apply_dividends(dividends_for_stock)
 
 
 def apply_dividends(df):
-    df.apply(lambda row: add_virtual_cash(row['game_id'], row['user_id'], row['amount']), axis=1)
+    df.apply(lambda row: add_virtual_cash(row['game_id'], row['user_id'], row['dividend_id'], row['amount']), axis=1)
 
 
-def add_virtual_cash(game_id, user_id, amount):
+def add_virtual_cash(game_id, user_id, dividend_id, amount):
     current_cash = get_current_game_cash_balance(user_id, game_id) + amount
     now = datetime_to_posix(dt.now())
-    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash', balance=current_cash)
+    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash',
+            balance=current_cash, dividend_id=dividend_id)
 
 
 def get_dividends_of_date(date=dt.now().replace(hour=0, minute=0, second=0, microsecond=0)):
     posix = datetime_to_posix(date)
     df = pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}"))
-    if not df.empty:
-        return df.set_index('id').reset_index(drop=True)
+    return df
 
 
 def insert_dividends_to_db(dividends: pd.DataFrame):

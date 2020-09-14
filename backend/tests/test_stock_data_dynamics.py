@@ -21,8 +21,7 @@ from backend.logic.stock_data import (
     fetch_price,
     get_stock_splits,
     apply_stock_splits,
-    get_most_recent_prices,
-    parse_dividends,
+    get_most_recent_prices, parse_dividends,
     insert_dividends_to_db,
     calculate_dividends_for_all_stocks
 )
@@ -182,4 +181,6 @@ class TestDividendScrapper(BaseTestCase):
         insert_dividends_to_db(self.fake_dividends)
         user_1_game_8_balance = get_current_game_cash_balance(1, 8)
         calculate_dividends_for_all_stocks()
-        self.assertEqual(get_current_game_cash_balance(1,8) - user_1_game_8_balance, 10695)
+        user_1_game_3_balance = get_current_game_cash_balance(1, 3)
+        should_remain_1_000_000 = get_current_game_cash_balance(1, 6)
+        self.assertEqual(get_current_game_cash_balance(1, 8) - user_1_game_8_balance, 10695)
