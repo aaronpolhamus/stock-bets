@@ -23,7 +23,6 @@ import {
   Users as IconUsers
 } from 'react-feather'
 import LogRocket from 'logrocket'
-import { AddFriends } from 'components/forms/AddFriends'
 import { breakpoints } from 'design-tokens'
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -339,10 +338,6 @@ const Home = () => {
             </Col>
           </Row>
         </PageSection>
-        <HomeFooter>
-          <AddFriends />
-        </HomeFooter>
-
       </Column>
     </Layout>
   )
