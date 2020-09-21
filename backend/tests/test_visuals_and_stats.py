@@ -316,9 +316,9 @@ class TestWinnerPayouts(BaseTestCase):
         self.assertEqual(offset, DateOffset(days=7))
 
         start_time = game_info["start_time"]
+        end_time = game_info["end_time"]
         self.assertEqual(start_time, simulation_start_time)
 
-        end_time = start_time + game_info["duration"] * 60 * 60 * 24
         n_sidebets = n_sidebets_in_game(start_time, end_time, offset)
         self.assertEqual(n_sidebets, 2)
 
@@ -337,7 +337,7 @@ class TestWinnerPayouts(BaseTestCase):
                 "backend.logic.base.time") as base_time_mock:
             time = Mock()
             time_1 = datetime_to_posix(posix_to_datetime(start_time) + offset)
-            time_2 = datetime_to_posix(posix_to_datetime(time_1) + offset)
+            time_2 = end_time
 
             time.time.side_effect = base_time_mock.time.side_effect = [time_1, time_2]
             portfolio_mocks.side_effect = [user_1_portfolio, user_3_portfolio, user_4_portfolio] * 4

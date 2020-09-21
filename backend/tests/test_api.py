@@ -600,10 +600,10 @@ class TestPlayGame(BaseTestCase):
                                          json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        # this just test that last close is at least producing something -- the backgroun test data isn't setup to
+        # this just test that last close is at least producing something -- the background test data isn't setup to
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
-        self.assertEqual(nvda_entry, 0.0)
+        self.assertIsNotNone(nvda_entry)
 
         # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
         res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",

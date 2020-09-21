@@ -53,9 +53,9 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    init_game_assets,
-    duration_for_end_of_trade_day
+    init_game_assets
 )
+from logic.base import duration_for_end_of_trade_day
 from logic.stock_data import get_game_ids_by_status
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -1066,25 +1066,25 @@ class TestFractionalGameDuration(TestCase):
         end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
         self.assertEqual(end_time, 1600459200)
         game_duration = duration_for_end_of_trade_day(opened_at, duration)
-        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+        self.assertEqual(opened_at + game_duration, end_time)
 
         # game starts after hours and ends on a non-trading day
         opened_at = 1599959752.6720343
         end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
         self.assertEqual(end_time, 1600718400)
         game_duration = duration_for_end_of_trade_day(opened_at, duration)
-        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+        self.assertEqual(opened_at + game_duration, end_time)
 
         # game starts before hours and ends on a trading day
         opened_at = 1599815843.2893355
         end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
         self.assertEqual(end_time, 1600459200)
         game_duration = duration_for_end_of_trade_day(opened_at, duration)
-        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+        self.assertEqual(opened_at + game_duration, end_time)
 
         # game starts before hours and ends on a non-trading day
         opened_at = 1599988707.8969195
         end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
         self.assertEqual(end_time, 1600718400)
         game_duration = duration_for_end_of_trade_day(opened_at, duration)
-        self.assertEqual(opened_at + game_duration * SECONDS_IN_A_DAY, end_time)
+        self.assertEqual(opened_at + game_duration, end_time)

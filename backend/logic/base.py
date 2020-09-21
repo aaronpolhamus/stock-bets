@@ -323,6 +323,12 @@ def get_pending_buy_order_value(user_id, game_id):
     return open_value
 
 
+def duration_for_end_of_trade_day(opened_at: float, day_duration: int) -> float:
+    naive_end = opened_at + day_duration * SECONDS_IN_A_DAY
+    end_of_trade_time = get_end_of_next_trading_day(naive_end)
+    return end_of_trade_time - opened_at
+
+
 def get_game_start_and_end(game_id: int):
     with engine.connect() as conn:
         start_time, duration = conn.execute("""
@@ -336,7 +342,7 @@ def get_game_start_and_end(game_id: int):
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
-    return start_time, start_time + duration * SECONDS_IN_A_DAY
+    return start_time, start_time + duration_for_end_of_trade_day(start_time, duration)
 
 
 def get_all_game_usernames(game_id: int):
@@ -633,4 +639,3 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
-
