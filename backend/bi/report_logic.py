@@ -1,11 +1,13 @@
 import json
 import pandas as pd
 import time
+from typing import List
 
 from backend.database.db import engine
 from backend.logic.base import posix_to_datetime, datetime_to_posix
 from backend.logic.visuals import make_chart_json
 from backend.tasks import s3_cache
+
 
 GAMES_PER_USER_PREFIX = "game_per_user"
 ORDERS_PER_ACTIVE_USER_PREFIX = "orders_per_active_user"
@@ -20,24 +22,36 @@ def inflate_game_status_rows(row):
     return pd.DataFrame(ls)
 
 
-def make_games_per_user_data():
+def make_user_cohorts(users: pd.DataFrame) -> pd.DataFrame:
+    users["created_at"] = users["created_at"].apply(lambda x: posix_to_datetime(x))
+    users["period"] = users["created_at"].dt.to_period("M")
+    label_df = users.groupby("period", as_index=False)["id"].count()
+    label_df["cohort"] = label_df["period"].astype(str) + " [" + label_df["id"].astype(str) + "]"
+    return users.merge(label_df[["period", "cohort"]])
+
+
+def make_games_per_user_data(excluded_user_ids: List[int] = None):
 
     # get user and game_status data
     with engine.connect() as conn:
         users = pd.read_sql("SELECT id, created_at FROM users;", conn)
         game_status = pd.read_sql("""
-            SELECT game_id, status, users FROM game_status 
-            WHERE status = 'active'""", conn)  # Note: this doesn't discriminate between active and finished games
+            SELECT game_id, status, users FROM game_status gs
+            INNER JOIN (
+                SELECT id FROM games WHERE title != 'intro game'
+            ) g ON g.id = gs.game_id
+            WHERE gs.status = 'active'""", conn)  # Note: this doesn't discriminate between active and finished games
         game_status["users"] = game_status["users"].apply(lambda x: json.loads(x))
 
     gs = game_status.groupby("game_id").apply(lambda row: inflate_game_status_rows(row)).reset_index(drop=True)
-    counts = gs.groupby("user_id", as_index=False).count().rename(columns={"game_id": "game_count"})
 
-    users["created_at"] = users["created_at"].apply(lambda x: posix_to_datetime(x))
-    users["period"] = users["created_at"].dt.to_period("M")
-    label_df = users.groupby("period", as_index=False)["id"].count()
-    label_df["cohort"] = label_df["period"].astype(str) + " [" + label_df["id"].astype(str) + "]"
-    users = users.merge(label_df[["period", "cohort"]])
+    # remove excluded uers
+    if excluded_user_ids:
+        gs = gs[~gs["user_id"].isin(excluded_user_ids)]
+        users = users[~users["id"].isin(excluded_user_ids)]
+
+    counts = gs.groupby("user_id", as_index=False).count().rename(columns={"game_id": "game_count"})
+    users = make_user_cohorts(users)
     df = users.merge(counts, how="left", left_on="id", right_on="user_id").fillna(0)
 
     cohort_data_array = []
