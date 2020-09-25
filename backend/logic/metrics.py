@@ -276,7 +276,7 @@ def log_winners(game_id: int, current_time: float):
 # --------------------------------------------------------------------------------------------
 
 
-def expected_elo(player_a, player_b):
+def expected_elo(player_a: float, player_b: float):
     """
     Calculate expected score of A in a match against B
     :param player_a: Elo rating for player A
@@ -285,12 +285,16 @@ def expected_elo(player_a, player_b):
     return 1 / (1 + 10 ** ((player_b - player_a) / 400))
 
 
-def elo_update(old, exp, score, k=ELO_K_FACTOR):
+def elo_update(old: float, expected: float, score: float, k: float = ELO_K_FACTOR):
     """
     Calculate the new Elo rating for a player
     :param old: The previous Elo rating
-    :param exp: The expected score for this match
+    :param expected: The expected score for this match
     :param score: The actual score for this match
     :param k: The k-factor for Elo (default: 32)
     """
-    return old + k * (score - exp)
+    return old + k * (score - expected)
+
+
+def update_stockbets_scores(game_id: int):
+    pass
