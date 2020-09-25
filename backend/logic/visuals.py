@@ -570,7 +570,7 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
         dup_order_df = dup_order_df.groupby("order_label").apply(_index_duplicate_labels).reset_index(drop=True)
         order_df = pd.concat([dup_order_df, order_df[~mask]])
 
-    return order_df.sort_values("order_status_id")
+    return order_df
 
 
 def get_game_balances(game_id: int, user_id: int):
