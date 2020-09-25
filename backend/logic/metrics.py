@@ -37,6 +37,9 @@ STARTING_SHARPE_RATIO = 0
 STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
 USD_FORMAT = "${:,.2f}"
+ELO_START = 1_000
+ELO_K_FACTOR = 32
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -269,3 +272,26 @@ def log_winners(game_id: int, current_time: float):
                     direction="outflow", timestamp=current_time)
 
     return update_performed
+
+
+# ---------------------------------------- #
+# Scoring logic based on Elo rating system #
+# ---------------------------------------- #
+
+"""Implementation of ELO rating system logic as define in https://en.wikipedia.org/wiki/Elo_rating_system#Mathematical_details
+"""
+
+
+def expected_elo_score(player_a_rating: float, player_b_rating: float) -> float:
+    return 1 / (1 + 10 ** (player_b_rating - player_a_rating) / 400)
+
+
+def elo_score_update(player_a_rating: float, player_b_rating: float, player_a_score: float, k_factor: float = ELO_K_FACTOR) -> float:
+    """
+    :param player_a_rating: player A elo rating
+    :param player_b_rating: player B elo rating
+    :param player_a_score: 1 if a win, 0.5 if a draw, 0 if a loss
+    :param k_factor: controls how significant the updates are
+    :return: a proposed update to player A's elo rating based on the game score
+    """
+    return player_a_rating + k_factor * (player_a_score - expected_elo_score(player_a_rating, player_b_rating))

@@ -321,3 +321,19 @@ class StockSplits(db.Model):
     numerator = db.Column(db.Integer)
     denominator = db.Column(db.Integer)
     exec_date = db.Column(db.Float(precision=32))
+
+
+class UpdateType(Enum):
+    join = "join"
+    game = "game"
+
+
+class StockBetsScore(db.Model):
+    __tablename__ = "stockbets_score"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    index_symbol = db.Column(db.Text, nullable=True)
+    score = db.Column(db.Float(precision=32))
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+    timestamp = db.Column(db.Float(precision=32))
