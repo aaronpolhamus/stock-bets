@@ -317,12 +317,12 @@ const PlayGame = () => {
                         'Buy/Sell',
                         'Order type',
                         'Time in force',
-                        'Cleared on',
                         'Order price'
                       ]}
                       showColumns={{
                         md: [
                           'Symbol',
+                          'Cleared on',
                           'Quantity',
                           'Clear price',
                           'Market price'

@@ -156,6 +156,7 @@ const Sneak = props => {
                         showColumns={{
                           md: [
                             'Symbol',
+                            'Cleared on',
                             'Quantity',
                             'Cleared on',
                             'Clear price',
