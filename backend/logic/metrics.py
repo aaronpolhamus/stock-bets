@@ -251,11 +251,6 @@ def log_winners(game_id: int, current_time: float):
                                   payout=payout, type=win_type, timestamp=current_time)
         update_performed = True
 
-        # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
-        # completed and payout the overall winner
-        user_ids = get_active_game_user_ids(game_id)
-        add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
-
         if stakes == "real":
             payment_profile = get_payment_profile_uuids([winner_id])[0]
             send_paypal_payment(
@@ -291,7 +286,7 @@ def elo_update(old: float, expected: float, score: float, k: float = ELO_K_FACTO
     :param old: The previous Elo rating
     :param expected: The expected score for this match
     :param score: The actual score for this match
-    :param k: The k-factor for Elo (default: 32)
+    :param k: The k-factor for Elo
     """
     return old + k * (score - expected)
 
