@@ -11,9 +11,7 @@ import {
   PageSection,
   Sidebar
 } from 'components/layout/Layout'
-import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
-import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
@@ -30,6 +28,17 @@ import { breakpoints } from 'design-tokens'
 const handleLogout = async () => {
   await api.post('/api/logout')
   window.location.assign('/')
+}
+
+const filterEntries = (array, filters) => {
+  const filtered = array.filter((entry, index) => {
+    return Object.keys(filters).every((key, value) => {
+      const filtersArray = filters[key]
+      const entryValue = entry[key]
+      return filtersArray.includes(entryValue)
+    })
+  })
+  return filtered
 }
 
 const StyledMiniCard = styled(UserMiniCard)`
@@ -155,35 +164,27 @@ const Home = () => {
       window && window.alert(`Looks like '${username}' is taken, try another one`)
     }
   }
-  const activeAndJustFinished = () => {
-    const activeGames = filterEntries(data.game_info, {
-      game_status: 'active',
-      game_mode: 'multi_player'
-    })
-    const justFinishedGames = filterEntries(data.game_info, {
-      game_status: 'finished',
-      game_mode: 'multi_player'
-    })
-    return activeGames.concat(justFinishedGames)
-  }
 
-  const gamesActive = activeAndJustFinished()
+  const gamesActive = filterEntries(data.game_info, {
+    game_status: ['active', 'finished'],
+    game_mode: ['multi_player']
+  })
 
   const gamesPending = filterEntries(data.game_info, {
-    game_status: 'pending',
-    invite_status: 'joined',
-    game_mode: 'multi_player'
+    game_status: ['pending'],
+    invite_status: ['joined'],
+    game_mode: ['multi_player']
   })
 
   const gamesInvited = filterEntries(data.game_info, {
-    game_status: 'pending',
-    invite_status: 'invited',
-    game_mode: 'multi_player'
+    game_status: ['pending'],
+    invite_status: ['invited'],
+    game_mode: ['multi_player']
   })
 
   const gamesSinglePlayer = filterEntries(data.game_info, {
-    game_status: 'active',
-    game_mode: 'single_player'
+    game_status: ['active', 'finished'],
+    game_mode: ['single_player']
   })
   return (
     <Layout

@@ -92,8 +92,6 @@ def close_finished_game_with_context(**context):
     _, game_end = get_game_start_and_end(game_id)
     current_time = time.time()
     if current_time >= game_end:
-        # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
-        # completed and payout the overall winner
         user_ids = get_active_game_user_ids(game_id)
         add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
 
