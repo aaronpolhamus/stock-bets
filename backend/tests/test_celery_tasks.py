@@ -31,7 +31,7 @@ from backend.logic.games import (
     get_current_stock_holding,
     get_current_game_cash_balance,
     DEFAULT_INVITE_OPEN_WINDOW,
-    DEFAULT_VIRTUAL_CASH
+    STARTING_VIRTUAL_CASH
 )
 from backend.tasks.definitions import (
     async_update_symbols_table,
@@ -264,7 +264,7 @@ class TestGameIntegration(BaseTestCase):
                     game_id).fetchall()
                 balances = [x[0] for x in res]
                 self.assertIs(len(balances), 3)
-                self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in balances]))
+                self.assertTrue(all([x == STARTING_VIRTUAL_CASH for x in balances]))
 
         # For now I've tried to keep things simple and divorce the ordering part of the integration test from game
         # startup. May need to close the loop on this later when expanding the test to cover payouts
@@ -301,7 +301,7 @@ class TestGameIntegration(BaseTestCase):
             expected_quantity = order_quantity // amzn_price
             expected_cost = expected_quantity * amzn_price
             self.assertEqual(original_amzn_holding, expected_quantity)
-            test_user_original_cash = DEFAULT_VIRTUAL_CASH - expected_cost
+            test_user_original_cash = STARTING_VIRTUAL_CASH - expected_cost
             self.assertAlmostEqual(updated_cash, test_user_original_cash, 2)
 
             stock_pick = "MELI"
@@ -328,7 +328,7 @@ class TestGameIntegration(BaseTestCase):
             original_meli_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             original_miguel_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(original_meli_holding, order_quantity)
-            miguel_cash = DEFAULT_VIRTUAL_CASH - order_quantity * meli_price
+            miguel_cash = STARTING_VIRTUAL_CASH - order_quantity * meli_price
             self.assertAlmostEqual(original_miguel_cash, miguel_cash, 2)
 
             stock_pick = "NVDA"
@@ -358,7 +358,7 @@ class TestGameIntegration(BaseTestCase):
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, 0)
-            self.assertEqual(updated_cash, DEFAULT_VIRTUAL_CASH)
+            self.assertEqual(updated_cash, STARTING_VIRTUAL_CASH)
 
         with patch("backend.logic.games.fetch_price") as mock_price_fetch, patch(
                 "backend.logic.base.time") as mock_base_time, patch("backend.logic.games.time") as mock_game_time:
@@ -411,7 +411,7 @@ class TestGameIntegration(BaseTestCase):
             updated_holding = get_current_stock_holding(user_id, game_id, stock_pick)
             updated_cash = get_current_game_cash_balance(user_id, game_id)
             self.assertEqual(updated_holding, order_quantity)
-            self.assertAlmostEqual(updated_cash, DEFAULT_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
+            self.assertAlmostEqual(updated_cash, STARTING_VIRTUAL_CASH - order_clear_price * order_quantity, 3)
 
             # Now let's go ahead and place stop-loss and stop-limit orders against existing positions
             stock_pick = "AMZN"

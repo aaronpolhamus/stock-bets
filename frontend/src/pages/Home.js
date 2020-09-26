@@ -31,14 +31,11 @@ const handleLogout = async () => {
 }
 
 const filterEntries = (array, filters) => {
-  const filtered = array.filter((entry, index) => {
+  return array.filter((entry, index) => {
     return Object.keys(filters).every((key, value) => {
-      const filtersArray = filters[key]
-      const entryValue = entry[key]
-      return filtersArray.includes(entryValue)
+      return filters[key].includes(entry[key])
     })
   })
-  return filtered
 }
 
 const StyledMiniCard = styled(UserMiniCard)`

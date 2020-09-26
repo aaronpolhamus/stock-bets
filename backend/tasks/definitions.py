@@ -6,7 +6,7 @@ from backend.logic.base import (
     during_trading_day,
     get_all_active_symbols
 )
-from logic.stock_data import (
+from backend.logic.stock_data import (
     get_symbols_table,
     update_index_value,
     get_cache_price,

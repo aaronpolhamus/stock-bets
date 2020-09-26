@@ -16,7 +16,7 @@ from backend.database.fixtures.make_historical_price_data import make_stock_data
 from backend.database.helpers import add_row
 from backend.logic.auth import upload_image_from_url_to_s3
 from backend.logic.base import (
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
     get_schedule_start_and_end,
     get_trading_calendar,
@@ -459,43 +459,43 @@ MOCK_DATA = {
 
         # Game 4, setup
         {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": 13, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 1, "symbol": "BABA"},
         {"user_id": 3, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 4, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 5, "game_id": 4, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
 
         # Game 6, setup
         {"user_id": 1, "game_id": 6, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 4, "game_id": 6, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
 
         # Game 7, setup
         {"user_id": 1, "game_id": 7, "order_status_id": None,
          "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY, "balance_type": "virtual_cash",
-         "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 4, "game_id": 7, "order_status_id": None,
          "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY, "balance_type": "virtual_cash",
-         "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance": STARTING_VIRTUAL_CASH, "symbol": None},
 
         # Game 8, setup and orders
         {"user_id": 1, "game_id": 8, "order_status_id": None, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH, "symbol": None},
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH, "symbol": None},
         {"user_id": 1, "game_id": 8, "order_status_id": 26, "timestamp": simulation_start_time,
-         "balance_type": "virtual_cash", "balance": DEFAULT_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713,
+         "balance_type": "virtual_cash", "balance": STARTING_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713,
          "symbol": None},
         {"user_id": 1, "game_id": 8, "order_status_id": 26, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 713, "symbol": "NVDA"},
         {"user_id": 1, "game_id": 8, "order_status_id": 28, "timestamp": simulation_start_time,
          "balance_type": "virtual_cash",
-         "balance": DEFAULT_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713 - get_stock_start_price("NKE") * 3136,
+         "balance": STARTING_VIRTUAL_CASH - get_stock_start_price("NVDA") * 713 - get_stock_start_price("NKE") * 3136,
          "symbol": None},
         {"user_id": 1, "game_id": 8, "order_status_id": 28, "timestamp": simulation_start_time,
          "balance_type": "virtual_stock", "balance": 3136, "symbol": "NKE"},

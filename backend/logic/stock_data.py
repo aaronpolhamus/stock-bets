@@ -261,21 +261,25 @@ def get_game_ids_by_status(status="active"):
     return [x[0] for x in result]
 
 
-def get_most_recent_prices(symbols: List):
+def get_most_recent_prices(symbols: List, cutoff_time: float = None):
     if len(symbols) == 0:
         return None
+
+    if cutoff_time is None:
+        cutoff_time = time.time()
+
     sql = f"""
         SELECT p.symbol, p.price, p.timestamp
         FROM prices p
         INNER JOIN (
         SELECT symbol, max(id) as max_id
           FROM prices
+          WHERE timestamp <= %s
           GROUP BY symbol) max_price
         ON p.id = max_price.max_id
-        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
-    """
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})"""
     with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
+        return pd.read_sql(sql, conn, params=[cutoff_time] + list(symbols))
 
 
 def get_splits(start_time: float, end_time: float) -> pd.DataFrame:

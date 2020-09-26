@@ -23,7 +23,7 @@ from backend.logic.base import (
     get_game_start_and_end,
     get_usernames,
     posix_to_datetime,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     get_active_game_user_ids,
     check_single_player_mode,
     get_index_portfolio_value_data,
@@ -217,13 +217,13 @@ def _days_left(game_id: int):
     return seconds_left // (24 * 60 * 60)
 
 
-def get_portfolio_value(game_id: int, user_id: int) -> float:
+def get_portfolio_value(game_id: int, user_id: int, cutoff_time: float = None) -> float:
     cash_balance = get_current_game_cash_balance(user_id, game_id)
     balances = get_active_balances(game_id, user_id)
     symbols = balances["symbol"].unique()
     if len(symbols) == 0:
         return cash_balance
-    prices = get_most_recent_prices(symbols)
+    prices = get_most_recent_prices(symbols, cutoff_time)
     df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
     df["value"] = df["balance"] * df["price"]
     return df["value"].sum() + cash_balance
@@ -253,7 +253,7 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
 def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
     df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
     if df.empty:
-        return DEFAULT_VIRTUAL_CASH
+        return STARTING_VIRTUAL_CASH
     return df.iloc[-1]["value"]
 
 
@@ -449,7 +449,7 @@ def make_null_chart(null_label: str):
     schedule = get_next_trading_day_schedule(dt.utcnow())
     start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
     labels = [datetime_to_posix(t) for t in pd.date_range(start, end, N_PLOT_POINTS)]
-    data = [DEFAULT_VIRTUAL_CASH for _ in labels]
+    data = [STARTING_VIRTUAL_CASH for _ in labels]
     return dict(labels=labels,
                 datasets=[
                     dict(label=null_label, data=data, borderColor=NULL_RGBA, backgroundColor=NULL_RGBA, fill=False)])

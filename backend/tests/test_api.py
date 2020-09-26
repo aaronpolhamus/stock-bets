@@ -1,3 +1,4 @@
+from freezegun import freeze_time
 import json
 import time
 
@@ -24,7 +25,10 @@ from backend.database.models import GameModes, Benchmarks, SideBetPeriods
 from backend.logic.auth import create_jwt
 from backend.logic.base import (
     SECONDS_IN_A_DAY,
-    during_trading_day)
+    during_trading_day,
+    get_game_start_and_end,
+    posix_to_datetime
+)
 from backend.logic.stock_data import fetch_price
 from backend.logic.games import (
     DEFAULT_GAME_DURATION,
@@ -33,10 +37,13 @@ from backend.logic.games import (
     DEFAULT_SIDEBET_PERCENT,
     DEFAULT_SIDEBET_PERIOD,
     DEFAULT_INVITE_OPEN_WINDOW,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     InsufficientHoldings,
     InsufficientFunds,
-    LimitError
+    LimitError,
+    place_order,
+    get_current_game_cash_balance,
+    get_current_stock_holding
 )
 from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
@@ -51,7 +58,9 @@ from backend.logic.visuals import (
     FULFILLED_ORDER_PREFIX,
     PAYOUTS_PREFIX,
     BALANCES_CHART_PREFIX,
-    no_fulfilled_orders_table
+    no_fulfilled_orders_table,
+    serialize_and_pack_portfolio_details,
+    add_fulfilled_order_entry
 )
 from backend.tasks.airflow import start_dag
 from backend.tasks.redis import rds
@@ -346,11 +355,11 @@ class TestCreateGame(BaseTestCase):
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
         self.assertEqual(player_cash_balances.shape, (3, 10))
-        self.assertTrue(all([x == DEFAULT_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
+        self.assertTrue(all([x == STARTING_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
-        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
+        self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in side_bar_stats["records"]]))
         self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
@@ -467,21 +476,28 @@ class TestPlayGame(BaseTestCase):
         stock_pick = "JETS"
         order_quantity = 25
         market_price, _ = fetch_price(stock_pick)
-        order_ticket = {
-            "user_id": user_id,
-            "game_id": game_id,
-            "symbol": stock_pick,
-            "order_type": "limit",
-            "stop_limit_price": 0,  # we want to be 100% sure that that this order doesn't automatically clear
-            "quantity_type": "Shares",
-            "market_price": market_price,
-            "amount": order_quantity,
-            "buy_or_sell": "buy",
-            "time_in_force": "until_cancelled"
-        }
-        res = self.requests_session.post(f"{HOST_URL}/place_order", cookies={"session_token": session_token},
-                                         verify=False, json=order_ticket)
-        self.assertEqual(res.status_code, 200)
+
+        # work directly with /api/place_order internals to be able to mock time
+        cash_balance = get_current_game_cash_balance(user_id, game_id)
+        current_holding = get_current_stock_holding(user_id, game_id, stock_pick)
+        _, game_end = get_game_start_and_end(game_id)
+        with freeze_time(posix_to_datetime(game_end - SECONDS_IN_A_DAY)):
+            order_id = place_order(
+                user_id,
+                game_id,
+                stock_pick,
+                "buy",
+                cash_balance,
+                current_holding,
+                "limit",
+                "Shares",
+                market_price,
+                order_quantity,
+                "until_cancelled",
+                0)
+            serialize_and_pack_pending_orders(game_id, user_id)
+            add_fulfilled_order_entry(game_id, user_id, order_id)
+            serialize_and_pack_portfolio_details(game_id, user_id)
 
         # these assets update in real time
         self.assertIsNotNone(s3_cache.get(f"{game_id}/{user_id}/{PENDING_ORDERS_PREFIX}"))
@@ -857,8 +873,8 @@ class TestHomePage(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/get_cash_balances", cookies={"session_token": session_token},
                                          verify=False, json={"game_id": 1})
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.json()["cash_balance"], DEFAULT_VIRTUAL_CASH)
-        self.assertEqual(res.json()["buying_power"], DEFAULT_VIRTUAL_CASH)
+        self.assertEqual(res.json()["cash_balance"], STARTING_VIRTUAL_CASH)
+        self.assertEqual(res.json()["buying_power"], STARTING_VIRTUAL_CASH)
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {
@@ -877,8 +893,8 @@ class TestHomePage(BaseTestCase):
         self.assertEqual(res.status_code, 200)
 
         with self.engine.connect() as conn:
-            orders = pd.read_sql("SELECT * FROM main.orders", conn)
-            order_status = pd.read_sql("SELECT * FROM main.order_status", conn)
+            orders = pd.read_sql("SELECT * FROM orders", conn)
+            order_status = pd.read_sql("SELECT * FROM order_status", conn)
 
         self.assertEqual(orders.shape, (1, 9))
         self.assertGreaterEqual(order_status.shape[0], 1)

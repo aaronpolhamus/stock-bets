@@ -28,7 +28,7 @@ from backend.logic.base import (
     get_user_information,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -315,7 +315,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=DEFAULT_VIRTUAL_CASH, transaction_type="kickoff")
+                balance=STARTING_VIRTUAL_CASH, transaction_type="kickoff")
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)

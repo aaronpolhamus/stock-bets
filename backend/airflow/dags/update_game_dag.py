@@ -82,13 +82,13 @@ def log_multiplayer_winners_with_context(**context):
 
 
 def make_winners_table_with_context(**context):
-    game_id, = context_parser(context, "game_id")
+    game_id = context_parser(context, "game_id")
     if not check_single_player_mode(game_id):
         serialize_and_pack_winners_table(game_id)
 
 
 def close_finished_game_with_context(**context):
-    game_id = context_parser(context, "game_id")
+    game_id = context_parser(context, "game_id")[0]
     _, game_end = get_game_start_and_end(game_id)
     current_time = time.time()
     if current_time >= game_end:

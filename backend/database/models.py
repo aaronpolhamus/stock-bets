@@ -332,7 +332,6 @@ class StockBetsScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     index_symbol = db.Column(db.Text, nullable=True, index=True)
-    profile_id = db.Column(db.Integer, db.ForeignKey("payment_profiles.id"))
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
     score = db.Column(db.Float(precision=32))
     update_type = db.Column(db.Enum(EventTypes))

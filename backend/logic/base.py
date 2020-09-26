@@ -27,7 +27,7 @@ from pandas.tseries.offsets import DateOffset
 # Defaults #
 # -------- #
 
-DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+STARTING_VIRTUAL_CASH = 1_000_000  # USD
 SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
 RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
@@ -140,7 +140,8 @@ def get_time_defaults(game_id: int, start_time: float = None, end_time: float = 
         start_time = game_start
 
     if end_time is None:
-        end_time = time.time()  # TODO: constrain this in a way where we can still run TestPlayGame.test_play_game
+        current_time = time.time()
+        end_time = current_time if current_time < game_end else game_end
 
     return start_time, end_time
 
@@ -605,9 +606,9 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
             WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
 
     # normalizes index to the same starting scale as the user
-    df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
+    df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
-    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[STARTING_VIRTUAL_CASH])), df])
 
