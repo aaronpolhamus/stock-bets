@@ -1,7 +1,4 @@
 import celery
-from backend.config import Config
-from backend.logic.base import TIMEZONE
-from logic.stock_data import SeleniumDriverError
 from celery.schedules import crontab
 from pymysql.err import OperationalError as PyMySQLOpError
 from sqlalchemy.exc import (
@@ -17,6 +14,10 @@ from selenium.common.exceptions import (
     TimeoutException,
     NoSuchElementException
 )
+
+from backend.config import Config
+from backend.logic.base import TIMEZONE
+from backend.logic.stock_data import SeleniumDriverError
 
 # task execution defaults
 PRICE_CACHING_INTERVAL = 1  # The n-minute interval for caching prices to DB

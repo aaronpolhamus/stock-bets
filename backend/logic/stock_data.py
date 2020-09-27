@@ -4,7 +4,6 @@ from datetime import datetime as dt
 from re import sub
 from typing import List
 
-
 import pandas as pd
 import requests
 from backend.database.db import engine
@@ -429,7 +428,7 @@ def calculate_dividends_for_stock(stock, dividend, dividend_id):
 
 
 def apply_dividends_to_stocks(date: dt = None):
-    dividends = get_dividends_of_date(date)
+    dividends = get_dividends_for_date(date)
     if dividends is None:
         return None
 
@@ -445,12 +444,11 @@ def add_virtual_cash(game_id: int, user_id: int, dividend_id: int, amount: float
             balance=current_cash, dividend_id=dividend_id)
 
 
-def get_dividends_of_date(date: dt = None) -> pd.DataFrame:
+def get_dividends_for_date(date: dt = None) -> pd.DataFrame:
     if date is None:
         date = dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
     posix = datetime_to_posix(date)
-    df = pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}"))
-    return df
+    return pd.DataFrame(query_to_dict("SELECT * FROM dividends WHERE exec_date=%s", posix))
 
 
 def get_table_values(table) -> list:

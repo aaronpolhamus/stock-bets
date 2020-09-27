@@ -104,7 +104,7 @@ class TestStockDataTasks(BaseTestCase):
                 third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
             self.assertEqual(third_count, 2)
 
-    @patch("backend.tasks.definitions.get_symbols_table")
+    @patch("backend.logic.stock_data.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df

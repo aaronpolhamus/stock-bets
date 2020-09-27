@@ -553,7 +553,7 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
         "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
 
     # check for cases where different orders have the same labels. in these cases add an [n]
-    mask = order_df["order_label"].duplicated(keep=False)
+    mask = order_df[["order_label", "buy_or_sell"]].duplicated(keep=False)
     if mask.any():
 
         def _index_duplicate_labels(dup_subset):
