@@ -16,7 +16,7 @@ from backend.logic.base import (
     posix_to_datetime,
     get_trading_calendar,
     get_schedule_start_and_end,
-    get_current_game_cash_balance
+    get_current_game_cash_balance,
 )
 from backend.tasks.redis import rds
 from config import Config
@@ -24,7 +24,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException
+)
 
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
@@ -86,6 +89,16 @@ def get_symbols_table(n_rows=None, timeout=60):
             break
 
     return pd.DataFrame(row_list)
+
+
+def update_symbols(n_rows=None):
+    symbols_table = get_symbols_table(n_rows=n_rows)
+    if symbols_table.empty:
+        raise SeleniumDriverError
+
+    with engine.connect() as conn:
+        conn.execute("TRUNCATE TABLE symbols;")
+        symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
 def get_index_value(symbol, timeout=120):
@@ -235,7 +248,7 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     return df[["symbol", "exec_date"] + num_cols]
 
 
-def get_stock_splits():
+def scrape_stock_splits():
     driver = get_web_driver()
     _included_symbols = query_to_dict("SELECT symbol FROM symbols")
     included_symbols = [x["symbol"] for x in _included_symbols]
@@ -302,31 +315,38 @@ def get_splits(start_time: float, end_time: float) -> pd.DataFrame:
             start_time, end_time])
 
 
+def get_active_holdings_for_games(symbol: str) -> pd.DataFrame:
+    """This function helps to apply splits and dividends updates across all active stockbets games. It is meant to be
+    used with a for-loop that iterates over the stocks of interest
+    """
+    active_ids = get_game_ids_by_status()
+    with engine.connect() as conn:
+        return pd.read_sql(f"""
+          SELECT user_id, game_id, balance_type, balance, symbol FROM game_balances g
+          INNER JOIN (
+            SELECT MAX(id) as max_id
+            FROM game_balances
+            WHERE 
+              symbol = %s AND
+              game_id IN ({', '.join(['%s'] * len(active_ids))}) AND
+              balance > 0
+            GROUP BY game_id, user_id
+          ) grouped_db
+          ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
+
+
 def apply_stock_splits(start_time: float = None, end_time: float = None):
     splits = get_splits(start_time, end_time)
     if splits.empty:
         return
 
-    active_ids = get_game_ids_by_status()
     last_prices = get_most_recent_prices(splits["symbol"].to_list())
     for i, row in splits.iterrows():
         symbol = row["symbol"]
         numerator = row["numerator"]
         denominator = row["denominator"]
         exec_date = row["exec_date"]
-        with engine.connect() as conn:
-            df = pd.read_sql(f"""
-              SELECT user_id, game_id, balance_type, balance, symbol FROM game_balances g
-              INNER JOIN (
-                SELECT MAX(id) as max_id
-                FROM game_balances
-                WHERE 
-                  symbol = %s AND
-                  game_id IN ({', '.join(['%s'] * len(active_ids))}) AND
-                  balance > 0
-                GROUP BY game_id, user_id
-              ) grouped_db
-              ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
+        df = get_active_holdings_for_games(symbol)
         if df.empty:
             continue
 
@@ -359,3 +379,128 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
         del df["fractional_balance"]
         with engine.connect() as conn:
             df.to_sql("game_balances", conn, index=False, if_exists="append")
+
+
+def scrape_dividends(date: dt = None, timeout: int = 120) -> pd.DataFrame:
+    if date is None:
+        date = dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if get_trading_calendar(date, date).empty:
+        return pd.DataFrame()
+    day_of_month = str(date.day)
+    month = date.strftime('%B %Y')
+    driver = get_web_driver()
+    driver.get('https://www.thestreet.com/dividends/index.html')
+    table_x_path = '//*[@id="listed_divdates"]/table/tbody[2]'
+    if day_of_month != str(dt.now().day):
+        click_calendar(day_of_month, month, driver, timeout)
+    next_page = True
+    first_page = True
+    dividends_table = []
+    while next_page:
+        table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_x_path)))
+        dividends_table += get_table_values(table)
+        next_page = click_next_page(table, first_page)
+        first_page = False
+    df = pd.DataFrame(dividends_table, columns=['symbol', 'company', 'amount', 'yield', 'exec_date'])
+    del df['yield']
+    df["amount"] = df['amount'].replace('[\$,]', '', regex=True).astype(float)
+    dividend_exdate = pd.to_datetime(df['exec_date'].iloc[0])
+    posix_dividend_exdate = datetime_to_posix(dividend_exdate)
+    df['exec_date'] = posix_dividend_exdate
+    df.drop_duplicates(inplace=True)
+    with engine.connect() as conn:
+        df.to_sql("dividends", conn, if_exists="append", index=False)
+
+
+def insert_dividends_to_db(dividends: pd.DataFrame):
+    with engine.connect() as conn:
+        dividends.to_sql('dividends', conn, if_exists='append', index=False)
+
+
+def calculate_dividends_for_stock(stock, dividend, dividend_id):
+    df = get_active_holdings_for_games(stock)
+    if df.empty:
+        return df
+    df['amount'] = df['balance'] * dividend
+    df['dividend_id'] = dividend_id
+    return df
+
+
+def apply_dividends_to_stocks(date: dt = None):
+    dividends = get_dividends_for_date(date)
+    if dividends is None:
+        return None
+
+    for _, row in dividends.iterrows():
+        df = calculate_dividends_for_stock(row["symbol"], row["amount"], row["id"])
+        df.apply(lambda _r: add_virtual_cash(_r['game_id'], _r['user_id'], _r['dividend_id'], _r['amount']), axis=1)
+
+
+def add_virtual_cash(game_id: int, user_id: int, dividend_id: int, amount: float):
+    current_cash = get_current_game_cash_balance(user_id, game_id) + amount
+    now = datetime_to_posix(dt.now())
+    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash',
+            balance=current_cash, dividend_id=dividend_id)
+
+
+def get_dividends_for_date(date: dt = None) -> pd.DataFrame:
+    if date is None:
+        date = dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    posix = datetime_to_posix(date)
+    return pd.DataFrame(query_to_dict("SELECT * FROM dividends WHERE exec_date=%s", posix))
+
+
+def get_table_values(table) -> list:
+    rows = table.find_elements_by_tag_name('tr')
+    current_rows = []
+    for row in rows:
+        current_rows.append(row.text.split('\n'))
+    return current_rows
+
+
+def select_day_in_calendar(month, day_of_month) -> int:
+    calendar_days = month.text.split('\n')
+    day_index = 0
+    for day in calendar_days:
+        if day == day_of_month:
+            return day_index
+        if len(day) > 2:
+            day_index += len(day.split())
+        else:
+            day_index += 1
+
+
+def click_calendar(day_of_month, target_month, driver, timeout) -> None:
+    choose_month(driver, target_month)
+    calendar_x_path = '//*[@id="cal1_0"]/tbody'
+    month = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, calendar_x_path)))
+    day_index = select_day_in_calendar(month, day_of_month)
+    day_x_path = f'//*[@id="cal1_0_cell{day_index}"]/a'
+    day_cell = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, day_x_path)))
+    day_cell.click()
+
+
+def click_next_page(driver, first) -> bool:
+    page = 3
+    if first:
+        page = 1
+    button_x_path = f'/html/body/div[8]/div[2]/div[1]/table/tbody/tr/td/div[2]/div[2]/div[3]/a[{page}]'
+    try:
+        next_button = driver.find_element_by_xpath(button_x_path)
+    except NoSuchElementException:
+        return False
+    if next_button is not None:
+        next_button.click()
+        return True
+    return False
+
+
+def choose_month(driver, month):
+    back_row_xpath = '//*[@id="cal1_0"]/thead/tr[1]/th/div/a'
+    current_month_xpath = '//*[@id="cal1_0"]/thead/tr[1]/th/div'
+    current_month = driver.find_element_by_xpath(current_month_xpath).text.split('\n')[-1]
+    while current_month != month:
+        back_arrow = driver.find_element_by_xpath(back_row_xpath)
+        back_arrow.click()
+        current_month = driver.find_element_by_xpath(current_month_xpath).text.split('\n')[-1]

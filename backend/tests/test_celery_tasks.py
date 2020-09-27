@@ -13,7 +13,10 @@ from backend.logic.base import (
     during_trading_day,
     get_trading_calendar,
 )
-from backend.logic.stock_data import fetch_price
+from backend.logic.stock_data import (
+    fetch_price,
+    update_symbols
+)
 from backend.logic.friends import (
     suggest_friends,
     get_friend_invites_list,
@@ -34,7 +37,6 @@ from backend.logic.games import (
     DEFAULT_VIRTUAL_CASH
 )
 from backend.tasks.definitions import (
-    async_update_symbols_table,
     async_cache_price,
     async_update_all_index_values,
     async_test_task_lock,
@@ -102,11 +104,11 @@ class TestStockDataTasks(BaseTestCase):
                 third_count = conn.execute("SELECT COUNT(*) FROM prices WHERE symbol = %s", symbol).fetchone()[0]
             self.assertEqual(third_count, 2)
 
-    @patch("backend.tasks.definitions.get_symbols_table")
+    @patch("backend.logic.stock_data.get_symbols_table")
     def test_stock_data_tasks(self, mocked_symbols_table):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
-        async_update_symbols_table.apply()  # (use apply for local execution in order to pass in the mock)
+        update_symbols()
         with self.engine.connect() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
 
@@ -660,9 +662,7 @@ class TestDataAccess(BaseTestCase):
         operations need to remain intact.
         """
         n_rows = 3
-        res = async_update_symbols_table.delay(n_rows)
-        while not res.ready():
-            continue
+        update_symbols(n_rows)
         with self.engine.connect() as conn:
             symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))
