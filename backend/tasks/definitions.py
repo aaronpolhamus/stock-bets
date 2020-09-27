@@ -7,16 +7,14 @@ from backend.logic.base import (
     get_all_active_symbols
 )
 from logic.stock_data import (
-    get_symbols_table,
     update_index_value,
     get_cache_price,
     fetch_price,
     set_cache_price,
-    get_stock_splits,
+    scrape_stock_splits,
     apply_stock_splits,
     TRACKED_INDEXES,
     get_game_ids_by_status,
-    SeleniumDriverError
 )
 from backend.logic.games import (
     get_all_open_orders,
@@ -100,23 +98,12 @@ def async_service_one_open_game(self, game_id):
 
 @celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
 def async_apply_stock_splits(self):
-    get_stock_splits()
+    scrape_stock_splits()
     apply_stock_splits()
 
 # ---------------- #
 # Order management #
 # ---------------- #
-
-
-@celery.task(name="async_update_symbols_table", bind=True, base=BaseTask)
-def async_update_symbols_table(self, n_rows=None):
-    symbols_table = get_symbols_table(n_rows)
-    if symbols_table.empty:
-        raise SeleniumDriverError
-
-    with engine.connect() as conn:
-        conn.execute("TRUNCATE TABLE symbols;")
-        symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
 @celery.task(name="async_process_all_orders_in_game", bind=True, base=BaseTask)

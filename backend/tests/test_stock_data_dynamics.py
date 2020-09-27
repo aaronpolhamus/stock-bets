@@ -17,13 +17,15 @@ from backend.logic.base import (
     TIMEZONE,
     get_current_game_cash_balance
 )
+from backend.logic.games import get_current_stock_holding
 from backend.logic.stock_data import (
     fetch_price,
-    get_stock_splits,
+    scrape_stock_splits,
     apply_stock_splits,
-    get_most_recent_prices, parse_dividends,
+    get_most_recent_prices, scrape_dividends,
     insert_dividends_to_db,
-    calculate_dividends_for_all_stocks
+    apply_dividends_to_stocks,
+    get_dividends_of_date
 )
 from backend.tests import BaseTestCase
 
@@ -106,7 +108,7 @@ class TestStockDataLogic(unittest.TestCase):
         tricky, since the "right" answer depends completely on the day. We prefer to maintain the integration with the
         external resource, rather than to artificially mock it. This test will behave differently on days when there
         are no stock splits for one or more of the targeted resources"""
-        get_stock_splits()
+        scrape_stock_splits()
 
 
 class TestStockSplitsInternal(BaseTestCase):
@@ -152,35 +154,42 @@ class TestStockSplitsInternal(BaseTestCase):
 
 
 class TestDividendScrapper(BaseTestCase):
-    july_7_dividends = pd.DataFrame({'symbol': {0: 'BDN', 1: 'CEA', 2: 'IDCC', 3: 'ROP', 4: 'SCS', 5: 'TGLS'},
-                                     'company': {0: 'Brandywine Realty Trust',
-                                                 1: 'China Eastern Airlines Corp. Ltd.',
-                                                 2: 'InterDigital Inc.',
-                                                 3: 'Roper Technologies Inc.',
-                                                 4: 'Steelcase Inc.',
-                                                 5: 'Tecnoglass Inc.'},
-                                     'amount': {0: 0.19, 1: 0.32, 2: 0.35, 3: 0.51, 4: 0.1, 5: 0.03},
-                                     'exec_date': {0: 1594080000,
-                                                   1: 1594080000,
-                                                   2: 1594080000,
-                                                   3: 1594080000,
-                                                   4: 1594080000,
-                                                   5: 1594080000}})
-    scrapped_july_7 = parse_dividends(dt(2020, 7, 7))
-    date = datetime_to_posix(dt.now().replace(hour=0, minute=0, second=0, microsecond=0))
-    fake_dividends = ([['AMZN', 'Amazon INC', 10, date],
-                       ['TSLA', 'Tesla Motors', 20, date],
-                       ['NVDA', 'Envidia SA', 15, date]])
-    fake_dividends = pd.DataFrame(fake_dividends, columns=['symbol', 'company', 'amount', 'exec_date'])
 
-    def test_parse_dividends_data(self):
-        self.assertTrue(parse_dividends(dt(2020, 9, 6)).empty)
-        pd.testing.assert_frame_equal(self.scrapped_july_7, self.july_7_dividends)
+    def test_scrape_dividends_data(self):
+        empty_date = dt(2020, 9, 6)
+        self.assertTrue(scrape_dividends(empty_date).empty)
+        scrape_dividends()
 
     def test_apply_dividends_to_games(self):
-        insert_dividends_to_db(self.fake_dividends)
-        user_1_game_8_balance = get_current_game_cash_balance(1, 8)
-        calculate_dividends_for_all_stocks()
-        user_1_game_3_balance = get_current_game_cash_balance(1, 3)
-        should_remain_1_000_000 = get_current_game_cash_balance(1, 6)
-        self.assertEqual(get_current_game_cash_balance(1, 8) - user_1_game_8_balance, 10695)
+        user_id = 1
+        date = datetime_to_posix(dt.now().replace(hour=0, minute=0, second=0, microsecond=0))
+        amzn_dividend = 10
+        tsla_dividend = 20
+        envidia_dividend = 15
+        fake_dividends = ([['AMZN', 'Amazon INC', amzn_dividend, date],
+                           ['TSLA', 'Tesla Motors', tsla_dividend, date],
+                           ['NVDA', 'Envidia SA', envidia_dividend, date]])
+        fake_dividends = pd.DataFrame(fake_dividends, columns=['symbol', 'company', 'amount', 'exec_date'])
+
+        insert_dividends_to_db(fake_dividends)
+        user_1_game_8_balance = get_current_game_cash_balance(user_id, 8)
+        user_1_game_3_balance = get_current_game_cash_balance(user_id, 3)
+        should_remain_1_000_000 = get_current_game_cash_balance(user_id, 6)
+        apply_dividends_to_stocks()
+
+        # user 1, game 8 is holding NVDA. we should see their holding * the dividend in their updated cash balance
+        envidia_holding = get_current_stock_holding(user_id, 8, "NVDA")
+        self.assertEqual(get_current_game_cash_balance(user_id, 8) - user_1_game_8_balance,
+                         envidia_holding * envidia_dividend)
+
+        # user 1, game 3 is holding AMZN, TSLA, and NVDA. Their change in cash balance should be equal to the sum of
+        # each position * its corresponding dividend
+        active_balances = get_active_balances(3, user_id)
+        merged_table = fake_dividends.merge(active_balances, how="left", on="symbol")
+        merged_table["payout"] = merged_table["amount"] * merged_table["balance"]
+        total_dividend = merged_table["payout"].sum()
+        self.assertEqual(get_current_game_cash_balance(user_id, 3) - user_1_game_3_balance, total_dividend)
+
+        # user 1 isn't holding any dividend-paying shares in game 6. they should have no cash balance change
+        self.assertEqual(get_current_game_cash_balance(user_id, 6), should_remain_1_000_000)
+

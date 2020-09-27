@@ -4,12 +4,6 @@ from datetime import datetime as dt
 from re import sub
 from typing import List
 
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
-from backend.tasks.redis import rds
 
 import pandas as pd
 import requests
@@ -24,7 +18,6 @@ from backend.logic.base import (
     get_trading_calendar,
     get_schedule_start_and_end,
     get_current_game_cash_balance,
-    get_active_balances,
 )
 from backend.tasks.redis import rds
 from config import Config
@@ -32,7 +25,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException
+)
 
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
@@ -243,7 +239,7 @@ def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
     return df[["symbol", "exec_date"] + num_cols]
 
 
-def get_stock_splits():
+def scrape_stock_splits():
     driver = get_web_driver()
     _included_symbols = query_to_dict("SELECT symbol FROM symbols")
     included_symbols = [x["symbol"] for x in _included_symbols]
@@ -310,31 +306,38 @@ def get_splits(start_time: float, end_time: float) -> pd.DataFrame:
             start_time, end_time])
 
 
+def get_active_holdings_for_games(symbol: str) -> pd.DataFrame:
+    """This function helps to apply splits and dividends updates across all active stockbets games. It is meant to be
+    used with a for-loop that iterates over the stocks of interest
+    """
+    active_ids = get_game_ids_by_status()
+    with engine.connect() as conn:
+        return pd.read_sql(f"""
+          SELECT user_id, game_id, balance_type, balance, symbol FROM game_balances g
+          INNER JOIN (
+            SELECT MAX(id) as max_id
+            FROM game_balances
+            WHERE 
+              symbol = %s AND
+              game_id IN ({', '.join(['%s'] * len(active_ids))}) AND
+              balance > 0
+            GROUP BY game_id, user_id
+          ) grouped_db
+          ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
+
+
 def apply_stock_splits(start_time: float = None, end_time: float = None):
     splits = get_splits(start_time, end_time)
     if splits.empty:
         return
 
-    active_ids = get_game_ids_by_status()
     last_prices = get_most_recent_prices(splits["symbol"].to_list())
     for i, row in splits.iterrows():
         symbol = row["symbol"]
         numerator = row["numerator"]
         denominator = row["denominator"]
         exec_date = row["exec_date"]
-        with engine.connect() as conn:
-            df = pd.read_sql(f"""
-              SELECT user_id, game_id, balance_type, balance, symbol FROM game_balances g
-              INNER JOIN (
-                SELECT MAX(id) as max_id
-                FROM game_balances
-                WHERE 
-                  symbol = %s AND
-                  game_id IN ({', '.join(['%s'] * len(active_ids))}) AND
-                  balance > 0
-                GROUP BY game_id, user_id
-              ) grouped_db
-              ON grouped_db.max_id = g.id""", conn, params=[symbol] + active_ids)
+        df = get_active_holdings_for_games(symbol)
         if df.empty:
             continue
 
@@ -369,51 +372,11 @@ def apply_stock_splits(start_time: float = None, end_time: float = None):
             df.to_sql("game_balances", conn, index=False, if_exists="append")
 
 
-def calculate_dividends_to_certain_stock(stock, dividend, dividend_id):
-    df = pd.DataFrame(query_to_dict(f"select * from game_balances where symbol='{stock}'"))
-    if df.empty:
-        return pd.DataFrame()
-    df = df.groupby(['user_id', 'game_id'])['balance'].sum().to_frame().reset_index()
-    df['amount'] = df['balance'] * dividend
-    df['user_id'] = df['user_id'].astype(str)
-    df['game_id'] = df['game_id'].astype(str)
-    df['dividend_id'] = dividend_id
-    return df
+def scrape_dividends(date: dt = None, timeout: int = 120) -> pd.DataFrame:
+    if date is None:
+        date = dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-
-def calculate_dividends_for_all_stocks():
-    dividends = get_dividends_of_date()
-    if dividends is None:
-        return None
-    for stock, amount, index in zip(dividends['symbol'], dividends['amount'], dividends.index):
-        dividends_for_stock = calculate_dividends_to_certain_stock(stock, amount, index)
-        apply_dividends(dividends_for_stock)
-
-
-def apply_dividends(df):
-    df.apply(lambda row: add_virtual_cash(row['game_id'], row['user_id'], row['dividend_id'], row['amount']), axis=1)
-
-
-def add_virtual_cash(game_id, user_id, dividend_id, amount):
-    current_cash = get_current_game_cash_balance(user_id, game_id) + amount
-    now = datetime_to_posix(dt.now())
-    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash',
-            balance=current_cash, dividend_id=dividend_id)
-
-
-def get_dividends_of_date(date=dt.now().replace(hour=0, minute=0, second=0, microsecond=0)):
-    posix = datetime_to_posix(date)
-    df = pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}"))
-    return df
-
-
-def insert_dividends_to_db(dividends: pd.DataFrame):
-    with engine.connect() as conn:
-        dividends.to_sql('dividends', conn, if_exists='append', index=False)
-
-
-def parse_dividends(date, timeout=120) -> pd.DataFrame:
-    if len(get_trading_calendar(date, date)) == 0:
+    if get_trading_calendar(date, date).empty:
         return pd.DataFrame()
     day_of_month = str(date.day)
     month = date.strftime('%B %Y')
@@ -432,12 +395,52 @@ def parse_dividends(date, timeout=120) -> pd.DataFrame:
         first_page = False
     df = pd.DataFrame(dividends_table, columns=['symbol', 'company', 'amount', 'yield', 'exec_date'])
     del df['yield']
-    df['amount'] = df['amount'].replace('[\$,]', '', regex=True).astype(float)
+    df["amount"] = df['amount'].replace('[\$,]', '', regex=True).astype(float)
     dividend_exdate = pd.to_datetime(df['exec_date'].iloc[0])
     posix_dividend_exdate = datetime_to_posix(dividend_exdate)
     df['exec_date'] = posix_dividend_exdate
     df.drop_duplicates(inplace=True)
-    return df.reset_index(drop=True)
+    with engine.connect() as conn:
+        df.to_sql("dividends", conn, if_exists="append", index=False)
+
+
+def insert_dividends_to_db(dividends: pd.DataFrame):
+    with engine.connect() as conn:
+        dividends.to_sql('dividends', conn, if_exists='append', index=False)
+
+
+def calculate_dividends_for_stock(stock, dividend, dividend_id):
+    df = get_active_holdings_for_games(stock)
+    if df.empty:
+        return df
+    df['amount'] = df['balance'] * dividend
+    df['dividend_id'] = dividend_id
+    return df
+
+
+def apply_dividends_to_stocks(date: dt = None):
+    dividends = get_dividends_of_date(date)
+    if dividends is None:
+        return None
+
+    for _, row in dividends.iterrows():
+        df = calculate_dividends_for_stock(row["symbol"], row["amount"], row["id"])
+        df.apply(lambda _r: add_virtual_cash(_r['game_id'], _r['user_id'], _r['dividend_id'], _r['amount']), axis=1)
+
+
+def add_virtual_cash(game_id: int, user_id: int, dividend_id: int, amount: float):
+    current_cash = get_current_game_cash_balance(user_id, game_id) + amount
+    now = datetime_to_posix(dt.now())
+    add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash',
+            balance=current_cash, dividend_id=dividend_id)
+
+
+def get_dividends_of_date(date: dt = None) -> pd.DataFrame:
+    if date is None:
+        date = dt.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    posix = datetime_to_posix(date)
+    df = pd.DataFrame(query_to_dict(f"select * from dividends where exec_date={posix}"))
+    return df
 
 
 def get_table_values(table) -> list:
