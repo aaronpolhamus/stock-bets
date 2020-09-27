@@ -10,7 +10,8 @@ from backend.logic.stock_data import (
     scrape_dividends,
     apply_dividends_to_stocks,
     scrape_stock_splits,
-    apply_stock_splits
+    apply_stock_splits,
+    update_symbols
 )
 
 
@@ -19,16 +20,6 @@ dag = DAG(
     start_date=datetime(2000, 1, 1),
     schedule_interval=None
 )
-
-
-def update_symbols():
-    symbols_table = get_symbols_table()
-    if symbols_table.empty:
-        raise SeleniumDriverError
-
-    with engine.connect() as conn:
-        conn.execute("TRUNCATE TABLE symbols;")
-        symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
 
 
 start_task = DummyOperator(

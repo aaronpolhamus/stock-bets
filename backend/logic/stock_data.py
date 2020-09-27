@@ -92,6 +92,16 @@ def get_symbols_table(n_rows=None, timeout=60):
     return pd.DataFrame(row_list)
 
 
+def update_symbols():
+    symbols_table = get_symbols_table()
+    if symbols_table.empty:
+        raise SeleniumDriverError
+
+    with engine.connect() as conn:
+        conn.execute("TRUNCATE TABLE symbols;")
+        symbols_table.to_sql("symbols", conn, if_exists="append", index=False)
+
+
 def get_index_value(symbol, timeout=120):
     quote_url = f"{Config.YAHOO_FINANCE_URL}/quote/{symbol}"
     driver = get_web_driver()

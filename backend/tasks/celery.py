@@ -56,9 +56,9 @@ class BaseTask(celery.Task):
 # Setup regularly scheduled events
 celery.conf.timezone = TIMEZONE
 celery.conf.beat_schedule = {
-    "update_symbols": {
-        "task": "async_update_symbols_table",
-        "schedule": crontab(minute=0, hour=8)
+    "scrape_stock_data": {
+        "task": "async_scrape_stock_data",
+        "schedule": crontab(minute=30, hour=7)
     },
     "process_all_open_orders": {
         "task": "async_process_all_open_orders",

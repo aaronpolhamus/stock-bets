@@ -79,6 +79,12 @@ def async_update_all_index_values(self):
     for index in TRACKED_INDEXES:
         async_update_index_value.delay(index)
 
+
+@celery.task(name="async_scrape_stock_data", bind=True, base=BaseTask)
+def async_scrape_stock_data(self):
+    start_dag("stock_data_dag")
+
+
 # --------------- #
 # Game management #
 # --------------- #
