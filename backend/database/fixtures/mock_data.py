@@ -21,21 +21,12 @@ from backend.logic.base import (
     get_schedule_start_and_end,
     get_trading_calendar,
     posix_to_datetime,
-    check_single_player_mode
 )
 from backend.logic.games import (
     init_game_assets,
-    get_active_game_user_ids,
     DEFAULT_INVITE_OPEN_WINDOW
 )
-from backend.logic.visuals import (
-    calculate_and_pack_game_metrics,
-    compile_and_pack_player_leaderboard,
-    make_the_field_charts,
-    serialize_and_pack_portfolio_details,
-    make_chart_json,
-    serialize_and_pack_winners_table,
-)
+from backend.logic.visuals import make_chart_json
 from backend.tasks import s3_cache
 from sqlalchemy import MetaData
 

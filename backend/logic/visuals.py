@@ -551,6 +551,25 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     order_df['order_label'] = order_df['order_label'].dt.strftime(DATE_LABEL_FORMAT)
     order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
         "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
+
+    # check for cases where different orders have the same labels. in these cases add an [n]
+    mask = order_df["order_label"].duplicated(keep=False)
+    if mask.any():
+
+        def _index_duplicate_labels(dup_subset):
+            new_labels = []
+            dup_subset = dup_subset.reset_index(drop=True)
+            for i, row in dup_subset.iterrows():
+                label_elements = row["order_label"].split("/")
+                label_elements[1] += f" [{i + 1}]"
+                new_labels.append("/".join(label_elements))
+            dup_subset["order_label"] = new_labels
+            return dup_subset
+
+        dup_order_df = order_df[mask]
+        dup_order_df = dup_order_df.groupby("order_label").apply(_index_duplicate_labels).reset_index(drop=True)
+        order_df = pd.concat([dup_order_df, order_df[~mask]])
+
     return order_df
 
 
@@ -685,7 +704,7 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         chart_json = make_null_chart("Waiting for orders...")
     else:
         apply_validation(df, order_performance_schema, True)
-        plot_df = add_bookends(df, condition_var="fifo_balance")
+        plot_df = add_bookends(df, group_var="order_label", condition_var="fifo_balance")
         plot_df["cum_pl"] = plot_df.groupby("order_label")["realized_pl"].cumsum()
         plot_df["timestamp"] = plot_df["timestamp"].apply(lambda x: posix_to_datetime(x))
         plot_df.set_index("timestamp", inplace=True)

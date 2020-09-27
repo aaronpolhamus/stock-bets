@@ -96,8 +96,8 @@ const AddFriends = ({variant}) => {
         <Modal.Body>
           <RadioButtons
             options={{
-              invite: 'Invite friends by email',
-              add: 'Add a friend by username'
+              add: 'Add a friend by username',
+              invite: 'Invite friends by email'
             }}
             name='invite_type'
             defaultChecked={inviteType}

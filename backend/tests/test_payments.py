@@ -177,7 +177,7 @@ class TestPayments(BaseTestCase):
             self.assertEqual(last_payment_entry["direction"], "outflow")
 
         # after week 2
-        with freeze_time(posix_to_datetime(simulation_start_time + SECONDS_IN_A_DAY * 14 + 1)):
+        with freeze_time(posix_to_datetime(simulation_start_time + SECONDS_IN_A_DAY * 20 + 1)):
             log_winners(game_id, time.time())
             win_entries = query_to_dict("SELECT * FROM winners ORDER BY ID DESC;")
             self.assertEqual(len(win_entries), 3)

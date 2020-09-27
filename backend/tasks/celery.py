@@ -89,18 +89,14 @@ celery.conf.beat_schedule = {
         "task": "async_update_all_index_values",
         "schedule": crontab(minute="5", hour="16", day_of_week="1-5")
     },
-    "update_all_game_first_30_mins": {
+    "update_all_games": {  # the early start "wakes up" the system, bringing enough workers online to power the app
         "task": "async_update_all_games",
-        "schedule": crontab(minute=f"30-59/{Config.GAME_STATUS_UPDATE_RATE}", hour="9", day_of_week="1-5")
-    },
-    "update_all_games": {
-        "task": "async_update_all_games",
-        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="10-15", day_of_week="1-5")
+        "schedule": crontab(minute=f"*/{Config.GAME_STATUS_UPDATE_RATE}", hour="9-15", day_of_week="1-5")
     },
     # final EOD check 10 mins after close just to make sure that all statuses are fully updated
     "update_all_games_eod": {
         "task": "async_update_all_games",
-        "schedule": crontab(minute="10", hour="16", day_of_week="1-5")
+        "schedule": crontab(minute="1", hour="16", day_of_week="1-5")
     },
     # we need to keep updating games on the weekend, but only four times a day for now
     "update_all_games_weekend": {

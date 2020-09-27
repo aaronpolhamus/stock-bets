@@ -289,7 +289,6 @@ class TestCreateGame(BaseTestCase):
             self.assertIsNotNone(field)
 
         self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
-        self.assertEqual(game_settings["duration"], games_entry["duration"])
         self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
         self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
         self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
@@ -335,7 +334,6 @@ class TestCreateGame(BaseTestCase):
         # look good.
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        self.assertEqual(res.json()["days_left"], game_duration - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
@@ -351,7 +349,6 @@ class TestCreateGame(BaseTestCase):
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
 
         current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)
@@ -603,10 +600,10 @@ class TestPlayGame(BaseTestCase):
                                          json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        # this just test that last close is at least producing something -- the backgroun test data isn't setup to
+        # this just test that last close is at least producing something -- the background test data isn't setup to
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
-        self.assertEqual(nvda_entry, 0.0)
+        self.assertIsNotNone(nvda_entry)
 
         # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
         res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Row, Col } from 'react-bootstrap'
+import { floor } from 'mathjs'
 import { SectionTitle, Label, Flex } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import styled from 'styled-components'
@@ -42,7 +43,7 @@ const GameSettings = ({ gameInfo }) => {
               <dt>
                 <Label>Game Duration</Label>
               </dt>
-              <StyledDd>{gameInfo.duration} days</StyledDd>
+              <StyledDd>{gameInfo.duration && floor(gameInfo.duration)} days</StyledDd>
             </div>
             <div>
               <dt>

@@ -32,6 +32,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from selenium.common.exceptions import TimeoutException
 
 TRACKED_INDEXES = ["^IXIC", "^GSPC", "^DJI"]
 
@@ -199,12 +200,20 @@ def parse_nasdaq_splits(df: pd.DataFrame):
     return df
 
 
-def retrieve_yahoo_splits(driver, included_symbols, timeout=45):
+def retrieve_yahoo_splits(driver, included_symbols, timeout=15):
     url = "https://finance.yahoo.com/calendar/splits"
     table_x_path = '//*[@id="cal-res-table"]/div[1]/table/tbody'
     label_names = ["Symbol", "Ratio"]
     driver.get(url)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_x_path)))
+    try:
+        table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_x_path)))
+    except TimeoutException:
+        try:
+            couldnt_find_path = '//*[@id="fin-cal-table"]/div/div/span'
+            WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, couldnt_find_path)))
+            return pd.DataFrame()
+        except Exception as e:
+            raise e
     rows = table.find_elements_by_tag_name("tr")
     table_data_array = []
     for row in rows:
@@ -218,6 +227,8 @@ def retrieve_yahoo_splits(driver, included_symbols, timeout=45):
 
 
 def parse_yahoo_splits(df: pd.DataFrame, excluded_symbols=None):
+    if df.empty:
+        return df
     current_datetime = posix_to_datetime(time.time(), timezone="UTC")  # because selenium defaults to UTC
     num_cols = ["denominator", "numerator"]
     if excluded_symbols is None:

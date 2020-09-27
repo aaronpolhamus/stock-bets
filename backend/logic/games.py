@@ -150,6 +150,7 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
     invite_window_posix = None
     if invite_window is not None:
         invite_window_posix = opened_at + int(invite_window) * SECONDS_IN_A_DAY
+
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,

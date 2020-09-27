@@ -11,7 +11,6 @@ import {
   PageSection,
   Sidebar
 } from 'components/layout/Layout'
-import { TitlePage } from 'components/textComponents/Text'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { filterEntries } from 'components/functions/Transformations'
 import { FriendsList } from 'components/lists/FriendsList'
@@ -23,7 +22,6 @@ import {
   Users as IconUsers
 } from 'react-feather'
 import LogRocket from 'logrocket'
-import { AddFriends } from 'components/forms/AddFriends'
 import { breakpoints } from 'design-tokens'
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -45,26 +43,6 @@ const StyledMiniCard = styled(UserMiniCard)`
     height: 1px;
     width: 100%;
     background-color: rgba(255, 255, 255, 0.1);
-  }
-`
-const HomeFooter = styled.div`
-  width: 100%;
-  position: fixed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  left: 0;
-  bottom: 0;
-  height: 13vh;
-  background: linear-gradient(0deg, #FFFFFF 52.22%, rgba(255, 255, 255, 0) 100%);
-  @media screen and (min-width: ${breakpoints.md}){
-    width: 70%;
-    bottom: var(--space-400);
-    justify-content: flex-end;
-    left: auto;
-    right: auto;
-    height: auto;
-    background: none;
   }
 `
 
@@ -339,10 +317,6 @@ const Home = () => {
             </Col>
           </Row>
         </PageSection>
-        <HomeFooter>
-          <AddFriends />
-        </HomeFooter>
-
       </Column>
     </Layout>
   )
