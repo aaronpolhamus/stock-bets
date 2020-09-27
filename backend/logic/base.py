@@ -506,7 +506,6 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     apply_validation(df, balances_and_prices_table_schema, strict=True)
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
-
 # ------------------------------------- #
 # Price and stock data harvesting tools #
 # ------------------------------------- #
@@ -562,9 +561,9 @@ def check_single_player_mode(game_id: int) -> bool:
         return False
     return game_mode[0] == "single_player"
 
-
-# Methods for handling indexes in single-player mode
-# --------------------------------------------------
+# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode #
+# -------------------------------------------------- #
 
 
 def get_index_reference(game_id: int, symbol: str) -> float:
@@ -602,7 +601,7 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     with engine.connect() as conn:
         df = pd.read_sql("""
-            SELECT symbol as username, timestamp, value FROM indexes 
+            SELECT symbol as username, timestamp, `value` FROM indexes 
             WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
 
     # normalizes index to the same starting scale as the user

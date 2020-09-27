@@ -52,7 +52,27 @@ class CanonicalSplitsCase(unittest.TestCase):
         self.requests_session = requests.Session()
         s3_cache.flushall()
         drop_all_tables()
-        os.system("mysql -h db -uroot main < database/fixtures/canonical_games/splits_game.sql")
+        os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
+
+    def tearDown(self):
+        self.requests_session.close()
+        t = time.time() - self.start_time
+        print('%s: ran in %.3f seconds' % (self.id(), t))
+        with open("test_times.csv", "a") as outfile:
+            outfile.write(f"{self.id()},{t}\n")
+
+
+class StockbetsRatingCase(unittest.TestCase):
+
+    def setUp(self):
+        self.game_id = 7
+        self.user_id = 1
+        self.start_time = time.time()
+        self.engine = engine
+        self.requests_session = requests.Session()
+        s3_cache.flushall()
+        drop_all_tables()
+        os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
 
     def tearDown(self):
         self.requests_session.close()

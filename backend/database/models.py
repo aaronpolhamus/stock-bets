@@ -328,10 +328,13 @@ class EventTypes(Enum):
     game_end = "Game End"
 
 
-class StockBetsScore(db.Model):
+class StockBetsRating(db.Model):
+    __tablename__ = "stockbets_rating"
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
-    index_symbol = db.Column(db.Text, nullable=True, index=True)
+    index_symbol = db.Column(db.VARCHAR(255), nullable=True, index=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
-    score = db.Column(db.Float(precision=32))
+    rating = db.Column(db.Float(precision=32))
     update_type = db.Column(db.Enum(EventTypes))
+    timestamp = db.Column(db.Float(precision=32))
