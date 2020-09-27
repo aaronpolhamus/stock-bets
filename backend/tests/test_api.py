@@ -298,7 +298,6 @@ class TestCreateGame(BaseTestCase):
             self.assertIsNotNone(field)
 
         self.assertEqual(game_settings["buy_in"], games_entry["buy_in"])
-        self.assertEqual(game_settings["duration"], games_entry["duration"])
         self.assertEqual(game_settings["game_mode"], games_entry["game_mode"])
         self.assertEqual(game_settings["benchmark"], games_entry["benchmark"])
         self.assertEqual(game_settings["side_bets_perc"], games_entry["side_bets_perc"])
@@ -344,7 +343,6 @@ class TestCreateGame(BaseTestCase):
         # look good.
         res = self.requests_session.post(f"{HOST_URL}/get_leaderboard", json={"game_id": game_id},
                                          cookies={"session_token": session_token})
-        self.assertEqual(res.json()["days_left"], game_duration - 1)
         self.assertEqual(set([x["username"] for x in res.json()["records"]]), {"murcitdev", "toofast", "cheetos"})
         sql = """
             SELECT *
@@ -547,7 +545,6 @@ class TestPlayGame(BaseTestCase):
 
         # can't buy a billion dollars of Amazon
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "limit",
@@ -565,7 +562,6 @@ class TestPlayGame(BaseTestCase):
 
         # also can't sell a million shares that we don't own
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "market",
@@ -583,7 +579,6 @@ class TestPlayGame(BaseTestCase):
 
         # Trigger the exception for a limit order that's effectively a market order
         order_ticket = {
-            "user_id": user_id,
             "game_id": game_id,
             "symbol": stock_pick,
             "order_type": "limit",
@@ -623,10 +618,10 @@ class TestPlayGame(BaseTestCase):
                                          json={"game_id": game_id})
         self.assertEqual(res.status_code, 200)
 
-        # this just test that last close is at least producing something -- the backgroun test data isn't setup to
+        # this just test that last close is at least producing something -- the background test data isn't setup to
         # produce meaningful results, yet.
         nvda_entry = [x["Change since last close"] for x in res.json()["data"] if x["Symbol"] == "NVDA"][0]
-        self.assertEqual(nvda_entry, 0.0)
+        self.assertIsNotNone(nvda_entry)
 
         # check fulfilled orders. these should just match the order that we have for the test user in the mock DB
         res = self.requests_session.post(f"{HOST_URL}/get_fulfilled_orders_table",
@@ -878,7 +873,6 @@ class TestHomePage(BaseTestCase):
 
         # confirm that a blank-slate buy order makes it in without any hiccups
         order_ticket = {
-            "user_id": 1,
             "game_id": 1,
             "symbol": "TSLA",
             "order_type": "market",

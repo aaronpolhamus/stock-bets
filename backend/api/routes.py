@@ -121,7 +121,7 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
-NOT_INVITED_EMAIL = "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone at the end of August, but email contact@stockbets.io for access before that :)"
+NOT_INVITED_EMAIL = "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone very soon, but email contact@stockbets.io for access before that :)"
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
@@ -424,13 +424,7 @@ def api_game_info():
 @routes.route("/api/order_form_defaults", methods=["POST"])
 @authenticate
 def order_form_defaults():
-    game_id = request.json["game_id"]
-    with db.engine.connect() as conn:
-        title = conn.execute("SELECT title FROM games WHERE id = %s", game_id).fetchone()[0]
-
     resp = dict(
-        title=title,
-        game_id=game_id,
         order_type_options=ORDER_TYPES,
         order_type=DEFAULT_ORDER_TYPE,
         buy_sell_options=BUY_SELL_TYPES,
@@ -621,7 +615,11 @@ def field_chart():
 @authenticate
 def get_current_balances_table():
     game_id = request.json.get("game_id")
-    user_id = decode_token(request)
+    username = request.json.get("username")
+    if username:
+        user_id = get_user_ids([username])[0]
+    else:
+        user_id = decode_token(request)
     return jsonify(s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{CURRENT_BALANCES_PREFIX}"))
 
 

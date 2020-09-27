@@ -2,7 +2,7 @@ import React, { useEffect, useState, useContext, forwardRef } from 'react'
 import { Line } from 'react-chartjs-2'
 import { Form, Col, Row } from 'react-bootstrap'
 import { apiPost, fetchGameData } from 'components/functions/api'
-import { simplifyCurrency, toCurrency, toFormattedDate } from 'components/functions/formattingHelpers'
+import { simplifyCurrency, toFormattedDate } from 'components/functions/formattingHelpers'
 import { SectionTitle } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
 import { UserContext } from 'Contexts'
@@ -72,7 +72,7 @@ const BaseChart = forwardRef(
                 autoSkip: true,
                 autoSkipPadding: 5,
                 callback: function (value, index, values) {
-                  return moment(value).format('MMM D')
+                  return moment(value).format('MMM D HH:MM')
                 }
               }
             }]

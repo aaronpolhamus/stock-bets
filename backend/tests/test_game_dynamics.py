@@ -17,11 +17,13 @@ from backend.logic.auth import (
     add_external_game_invites
 )
 from backend.logic.base import (
+    get_end_of_next_trading_day,
     posix_to_datetime,
     get_user_ids_from_passed_emails,
     get_user_ids,
     get_pending_buy_order_value,
-    get_all_active_symbols
+    get_all_active_symbols,
+    SECONDS_IN_A_DAY
 )
 from backend.logic.games import (
     get_invite_list_by_status,
@@ -51,8 +53,11 @@ from backend.logic.games import (
     add_user_via_email,
     add_user_via_platform,
     respond_to_game_invite,
-    init_game_assets
+    init_game_assets,
+    kick_off_game,
+    get_game_info_for_user
 )
+from logic.base import duration_for_end_of_trade_day
 from logic.stock_data import get_game_ids_by_status
 from backend.logic.schemas import (
     balances_chart_schema,
@@ -831,7 +836,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
         minion_1_email = "MinIon1@despicable.me"
         external_email_1 = "externaluser@example.com"
         game_1_email_invites = [minion_1_email, external_email_1]
-        add_game(
+        game_1_id = add_game(
             creator_id=creator_id,
             title=game_1_title,
             game_mode="multi_player",
@@ -844,9 +849,6 @@ class TestExternalInviteFunctionality(BaseTestCase):
             invite_window=DEFAULT_INVITE_OPEN_WINDOW,
             email_invitees=game_1_email_invites
         )
-        with self.engine.connect() as conn:
-            game_1_id = conn.execute("SELECT id FROM games WHERE title = %s;", game_1_title).fetchone()[0]
-
         # platform invites follow regular invite flow
         game_1_invites = query_to_dict("SELECT * FROM game_invites WHERE game_id = %s", game_1_id)
         self.assertEqual(len(game_1_invites),
@@ -899,7 +901,7 @@ class TestExternalInviteFunctionality(BaseTestCase):
         game_2_title = "external test game 2"
         game_2_platform_invites = ["jack", "jadis"]
         game_2_email_invites = [minion_1_email, external_email_1]
-        add_game(
+        game_2_id = add_game(
             creator_id=creator_id,
             title=game_2_title,
             game_mode="multi_player",
@@ -912,8 +914,6 @@ class TestExternalInviteFunctionality(BaseTestCase):
             invite_window=DEFAULT_INVITE_OPEN_WINDOW,
             email_invitees=game_2_email_invites
         )
-        with self.engine.connect() as conn:
-            game_2_id = conn.execute("SELECT id FROM games WHERE title = %s;", game_2_title).fetchone()[0]
 
         external_invite_entries_2 = query_to_dict("SELECT * FROM external_invites WHERE invited_email = %s;",
                                                   external_email_1)
@@ -1032,9 +1032,37 @@ class TestExternalInviteFunctionality(BaseTestCase):
         players = [x["label"] for x in field_chart["datasets"]]
         self.assertEqual(set(players), {'cheetos', 'jack', 'jadis', 'minion1', 'minion2', 'frederick', 'frederick2'})
 
-        # in a separate API test write logic for catching bad emails
-        # with self.assertRaises(Exception):
-        #     send_invite_email(creator_id, "BADEMAILTHATSHOULDFAIL", email_type="platform")
+        # finally, test that if an externally invited user joins the platform after the game has kicked off that it
+        # doesn't show up in their invite list
+        game_3_title = "game 3"
+        game_3_platform_invites = ["jack"]
+        external_email_2 = "externaluser2@example.com"
+        game_3_email_invites = [external_email_2]
+        game_3_id = add_game(
+            creator_id=creator_id,
+            title=game_3_title,
+            game_mode="multi_player",
+            duration=90,
+            benchmark="return_ratio",
+            buy_in=100,
+            side_bets_perc=0,
+            side_bets_period="weekly",
+            invitees=game_3_platform_invites,
+            invite_window=DEFAULT_INVITE_OPEN_WINDOW,
+            email_invitees=game_3_email_invites
+        )
+
+        # jack joins and the game kicks off, simulating what would happen beyond the invite window
+        respond_to_game_invite(game_3_id, jack_id, "joined", time.time())
+        kick_off_game(game_3_id, [creator_id, jack_id], time.time())
+
+        # since the game is kicked off, this new user should have their game_invite entry marked as 'expired' for this
+        # game, and it shouldn't show up in their landing
+        user_id = setup_new_user("birch", external_email_2, "not_relevant", time.time(), "google", "unique1", None)
+        add_external_game_invites(external_email_2, user_id)
+
+        new_user_game_info = get_game_info_for_user(user_id)
+        self.assertEqual(new_user_game_info, [])
 
 
 class TestPayoutTime(TestCase):
@@ -1051,3 +1079,37 @@ class TestPayoutTime(TestCase):
         self.assertFalse(check_if_payout_time(friday_after_close, next_monday_payout_time))
         base_time_mock.time.return_value = friday_after_close
         self.assertTrue(check_if_payout_time(friday_after_close, weekend_payout_time))
+
+
+class TestFractionalGameDuration(TestCase):
+
+    def test_fractional_game_duration(self):
+        duration = 7
+
+        # game starts after hours and ends on a trading day
+        opened_at = 1599782916.2238436
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600459200)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration, end_time)
+
+        # game starts after hours and ends on a non-trading day
+        opened_at = 1599959752.6720343
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600718400)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration, end_time)
+
+        # game starts before hours and ends on a trading day
+        opened_at = 1599815843.2893355
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600459200)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration, end_time)
+
+        # game starts before hours and ends on a non-trading day
+        opened_at = 1599988707.8969195
+        end_time = get_end_of_next_trading_day(opened_at + duration * SECONDS_IN_A_DAY)
+        self.assertEqual(end_time, 1600718400)
+        game_duration = duration_for_end_of_trade_day(opened_at, duration)
+        self.assertEqual(opened_at + game_duration, end_time)

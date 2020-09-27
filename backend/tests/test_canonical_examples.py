@@ -58,11 +58,12 @@ class TestSplits(CanonicalSplitsCase):
         perf_table = s3_cache.unpack_s3_json(f"{self.game_id}/{self.user_id}/{FULFILLED_ORDER_PREFIX}")
         perf_chart = s3_cache.unpack_s3_json(f"{self.game_id}/{self.user_id}/{ORDER_PERF_CHART_PREFIX}")
         perf_table_df = pd.DataFrame(perf_table["data"])
-        self.assertEqual(perf_table_df.shape, (11, 12))
-        order_labels_table = set([x["order_label"] for x in perf_table["data"]])
+        self.assertEqual(perf_table_df.shape, (22, 13))
+        buy_perf_entries = [x for x in perf_table["data"] if x["event_type"] == "buy"]
+        order_labels_table = set([x["order_label"] for x in buy_perf_entries])
         order_labels_chart = set([x["label"] for x in perf_chart["datasets"]])
         self.assertEqual(order_labels_chart, order_labels_table)
         for label in order_labels_table:
-            table_entry = [x for x in perf_table["data"] if x["order_label"] == label][0]
+            table_entry = [x for x in buy_perf_entries if x["order_label"] == label][0]
             chart_entry = [x for x in perf_chart["datasets"] if x["label"] == label][0]
             self.assertEqual(table_entry["color"], chart_entry["backgroundColor"])

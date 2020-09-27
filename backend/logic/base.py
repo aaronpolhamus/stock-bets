@@ -30,6 +30,7 @@ from pandas.tseries.offsets import DateOffset
 STARTING_VIRTUAL_CASH = 1_000_000  # USD
 SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
+END_OF_TRADE_HOUR = 16
 RESAMPLING_INTERVAL = 5  # resampling interval in minutes when building series of balances and prices
 
 # --------------------------------- #
@@ -93,6 +94,28 @@ def get_end_of_last_trading_day(ref_time: float = None) -> float:
     schedule = get_trading_calendar(ref_date, ref_date)
     while schedule.empty:
         ref_date -= timedelta(days=1)
+        schedule = get_trading_calendar(ref_date, ref_date)
+    _, end_day = get_schedule_start_and_end(schedule)
+    return end_day
+
+
+def get_end_of_next_trading_day(ref_time: float = None) -> float:
+    """Note: if the ref_time is before the end of the current trading day this function will return the end of
+    trading hours on that day"""
+    if ref_time is None:
+        ref_time = time.time()
+
+    ref_datetime = posix_to_datetime(ref_time)
+    ref_date = ref_datetime.date()  # a bit redundant, but makes efficient use of cached schedule lookups
+    schedule = get_trading_calendar(ref_date, ref_date)
+    if not schedule.empty and ref_datetime.hour <= END_OF_TRADE_HOUR:
+        _, end_time = get_schedule_start_and_end(schedule)
+        return end_time
+
+    ref_date += timedelta(days=1)
+    schedule = get_trading_calendar(ref_date, ref_date)
+    while schedule.empty:
+        ref_date += timedelta(days=1)
         schedule = get_trading_calendar(ref_date, ref_date)
     _, end_day = get_schedule_start_and_end(schedule)
     return end_day
@@ -301,6 +324,12 @@ def get_pending_buy_order_value(user_id, game_id):
     return open_value
 
 
+def duration_for_end_of_trade_day(opened_at: float, day_duration: int) -> float:
+    naive_end = opened_at + day_duration * SECONDS_IN_A_DAY
+    end_of_trade_time = get_end_of_next_trading_day(naive_end)
+    return end_of_trade_time - opened_at
+
+
 def get_game_start_and_end(game_id: int):
     with engine.connect() as conn:
         start_time, duration = conn.execute("""
@@ -314,7 +343,7 @@ def get_game_start_and_end(game_id: int):
             ON gs.game_id = g.id
             WHERE gs.game_id = %s;
         """, game_id).fetchone()
-    return start_time, start_time + duration * 24 * 60 * 60
+    return start_time, start_time + duration_for_end_of_trade_day(start_time, duration)
 
 
 def get_all_game_usernames(game_id: int):
@@ -610,4 +639,3 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
     trade_start = make_index_start_time(start_time)
     return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[STARTING_VIRTUAL_CASH])), df])
-

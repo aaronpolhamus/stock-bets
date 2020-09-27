@@ -94,6 +94,7 @@ SHARPE_RATIO_PREFIX = "sharpe_ratio"
 CHART_INTERPOLATION_SETTING = True  # see https://www.chartjs.org/docs/latest/charts/line.html#cubicinterpolationmode
 BORDER_WIDTH_SETTING = 2  # see https://www.chartjs.org/docs/latest/charts/line.html#line-styling
 NA_TEXT_SYMBOL = "--"
+NA_NUMERIC_VAL = -99
 N_PLOT_POINTS = 150
 DATE_LABEL_FORMAT = "%b %-d, %-H:%M"
 
@@ -550,6 +551,25 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     order_df['order_label'] = order_df['order_label'].dt.strftime(DATE_LABEL_FORMAT)
     order_df["order_label"] = order_df["symbol"] + "/" + order_df["quantity"].astype(str) + " @ " + order_df[
         "clear_price_fulfilled"].map(USD_FORMAT.format) + "/" + order_df["order_label"]
+
+    # check for cases where different orders have the same labels. in these cases add an [n]
+    mask = order_df["order_label"].duplicated(keep=False)
+    if mask.any():
+
+        def _index_duplicate_labels(dup_subset):
+            new_labels = []
+            dup_subset = dup_subset.reset_index(drop=True)
+            for i, row in dup_subset.iterrows():
+                label_elements = row["order_label"].split("/")
+                label_elements[1] += f" [{i + 1}]"
+                new_labels.append("/".join(label_elements))
+            dup_subset["order_label"] = new_labels
+            return dup_subset
+
+        dup_order_df = order_df[mask]
+        dup_order_df = dup_order_df.groupby("order_label").apply(_index_duplicate_labels).reset_index(drop=True)
+        order_df = pd.concat([dup_order_df, order_df[~mask]])
+
     return order_df
 
 
@@ -651,11 +671,11 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
                 if event["transaction_type"] == "stock_sale":
                     sale_price = event["clear_price_fulfilled"]
                     quantity_sold = order_amount = event["quantity"]
-                    balance_minus_sold = fifo_balance - quantity_sold
-                    if balance_minus_sold < 0:
-                        quantity_sold = -balance_minus_sold
+                    if fifo_balance - quantity_sold < 0:
+                        quantity_sold = fifo_balance
 
                     event["quantity"] -= quantity_sold
+                    assert not event["quantity"] < 0
                     if event["quantity"] == 0:
                         sales_queue.pop(0)
                     events_queue.pop(0)
@@ -684,8 +704,7 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         chart_json = make_null_chart("Waiting for orders...")
     else:
         apply_validation(df, order_performance_schema, True)
-        # order performance chart
-        plot_df = add_bookends(df, condition_var="fifo_balance")
+        plot_df = add_bookends(df, group_var="order_label", condition_var="fifo_balance")
         plot_df["cum_pl"] = plot_df.groupby("order_label")["realized_pl"].cumsum()
         plot_df["timestamp"] = plot_df["timestamp"].apply(lambda x: posix_to_datetime(x))
         plot_df.set_index("timestamp", inplace=True)
@@ -697,9 +716,10 @@ def serialize_and_pack_order_performance_chart(df: pd.DataFrame, game_id: int, u
         plot_df = add_time_labels(plot_df)
         plot_df = plot_df.groupby(["order_label", "t_index"], as_index=False).agg("last")
         plot_df["label"] = plot_df["timestamp"].apply(lambda x: datetime_to_posix(x)).astype(float)
+        plot_df.sort_values("timestamp", inplace=True)
         plot_df["total_pl"] = plot_df["cum_pl"] + plot_df["fifo_balance"] * plot_df["price"] - (
                 1 - plot_df["total_pct_sold"]) * plot_df["basis"]
-        plot_df["return"] = plot_df["total_pl"] / plot_df["basis"]
+        plot_df["return"] = 100 * plot_df["total_pl"] / plot_df["basis"]
         label_colors = assign_colors(plot_df["order_label"].unique())
         plot_df["color"] = plot_df["order_label"].apply(lambda x: label_colors.get(x))
         chart_json = make_chart_json(plot_df, "order_label", "return", "label", colors=plot_df["color"].unique())
@@ -722,19 +742,21 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
         clear_price = order_status_entry["clear_price"]
         quantity = order_entry["quantity"]
         order_label = f"{symbol}/{int(quantity)} @ {USD_FORMAT.format(clear_price)}/{format_posix_time(timestamp)}"
+        buy_or_sell = order_entry["buy_or_sell"]
         new_entry = {
             "order_label": order_label,
+            "event_type": buy_or_sell,
             "Symbol": symbol,
             "Cleared on": timestamp,
             "Quantity": quantity,
             "Clear price": clear_price,
-            "Basis": quantity * clear_price,
-            "Balance (FIFO)": quantity,
-            "Realized P&L": 0,
-            "Unrealized P&L": 0,
-            "Market price": clear_price,
-            "as of": timestamp,
-            "color": NULL_RGBA
+            "Basis": quantity * clear_price if buy_or_sell == "buy" else NA_TEXT_SYMBOL,
+            "Balance (FIFO)": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Realized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Market price": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "as of": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "color": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL
         }
         assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
@@ -749,7 +771,7 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     apply_validation(df, order_performance_schema, True)
     agg_rules = {"symbol": "first", "quantity": "first", "clear_price": "first", "timestamp": "first",
                  "fifo_balance": "last", "basis": "first", "realized_pl": "sum", "unrealized_pl": "last",
-                 "total_pct_sold": "last"}
+                 "total_pct_sold": "last", "event_type": "first"}
     tab = df.groupby("order_label", as_index=False).agg(agg_rules)
     recent_prices = get_most_recent_prices(tab["symbol"].unique())
     recent_prices.rename(columns={"price": "Market price", "timestamp": "as of"}, inplace=True)
@@ -758,8 +780,15 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     label_colors = assign_colors(tab["order_label"].to_list())
     tab["unrealized_pl"] = tab["fifo_balance"] * tab["Market price"] - (1 - tab["total_pct_sold"]) * tab["basis"]
     del tab["total_pct_sold"]
-    tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab["color"] = tab["order_label"].apply(lambda x: label_colors.get(x))
+    # tack on sold orders
+    sold_columns = ["symbol", "timestamp", "quantity", "clear_price", "basis", "event_type"]
+    sold_df = df.loc[df["event_type"] == "sell", sold_columns]
+    sold_df["basis"] = -1 * sold_df["basis"]
+    tab = pd.concat([tab, sold_df], axis=0)
+    tab.sort_values("timestamp", inplace=True)
+    tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
+    tab.fillna(NA_NUMERIC_VAL, inplace=True)
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
     s3_cache.set(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}", json.dumps(fulfilled_order_table))
 

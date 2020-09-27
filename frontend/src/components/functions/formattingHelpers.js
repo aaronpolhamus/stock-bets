@@ -1,4 +1,4 @@
-import moment from 'moment'
+import moment from 'moment-timezone'
 
 const simplifyCurrency = (value, decimals, dollarSign) => {
   let affix = ''
@@ -32,7 +32,7 @@ const toCurrency = (value) => {
 
 const toFormattedDate = (value, format) => {
   format = format || 'MMM D, HH:mm'
-  return moment(value * 1000).format(format)
+  return `${moment(value * 1000).tz('America/New_York').format(format)} EST`
 }
 
 const numberToOrdinal = number => {
@@ -48,8 +48,8 @@ const msToDays = milliseconds => {
   return Math.floor(milliseconds / 86400000)
 }
 
-const daysLeft = seconds => {
-  const endMilliseconds = seconds * 1000
+const daysLeft = endTimePosix => {
+  const endMilliseconds = endTimePosix * 1000
   const today = new Date().getTime()
 
   const timeleft = endMilliseconds - today
@@ -60,9 +60,9 @@ const daysLeft = seconds => {
 
   switch (days) {
     case 0:
-      return 'Ends today'
+      return `Ends today at ${toFormattedDate(endTimePosix)}`
     case 1:
-      return 'Ends tomorrow'
+      return `Ends tomorrow at ${toFormattedDate(endTimePosix)}`
     default:
       return `${days} days left`
   }

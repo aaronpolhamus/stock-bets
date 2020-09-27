@@ -66,7 +66,7 @@ const Playground = () => {
                 }
               }}
               excludeRows={(row) => {
-                return row['Buy/Sell'] === 'sell'
+                return row.event_type === 'sell'
               }}
               simpleFormatCells={{
                 'Last order price': ['currency', 'bold'],

@@ -52,7 +52,6 @@ const PlayGame = () => {
   const csvLink = useRef()
 
   const handlePlacedOrder = (order) => {
-    console.log(order)
     setLastOrder(order)
     setShowToast(true)
     handleUpdateInfo()
@@ -174,7 +173,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']} />
+                              <IconBuySell type={row.event_type} />
                               <strong>
                                 {value}
                               </strong>
@@ -202,7 +201,6 @@ const PlayGame = () => {
                         'Market price',
                         'Order type'
                       ]}
-                      sortBy=''
                       showColumns={{
                       }}
                       formatHeaders={{
@@ -228,7 +226,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row['Buy/Sell']} />
+                              <IconBuySell type={row.event_type} />
                               <strong>
                                 {value}
                               </strong>
@@ -249,7 +247,6 @@ const PlayGame = () => {
                         'Realized P&L',
                         'Unrealized P&L'
                       ]}
-                      sortBy='Placed on'
                       order='DESC'
                       showColumns={{
                       }}
@@ -298,6 +295,9 @@ const PlayGame = () => {
                         'Cleared on': ['date'],
                         'Clear price': ['currency'],
                         'Market price': ['currency'],
+                        'Balance (FIFO)': ['currency'],
+                        'Realized P&L': ['currency'],
+                        'Unrealized P&L': ['currency'],
                         Basis: ['currency', 'bold']
                       }}
                       formatCells={{
@@ -310,19 +310,19 @@ const PlayGame = () => {
                         }
                       }}
                       excludeRows={(row) => {
-                        return row['Buy/Sell'] === 'sell'
+                        return row.event_type === 'sell'
                       }}
                       exclude={[
                         'as of',
                         'Buy/Sell',
                         'Order type',
                         'Time in force',
-                        'Placed on',
                         'Order price'
                       ]}
                       showColumns={{
                         md: [
                           'Symbol',
+                          'Cleared on',
                           'Quantity',
                           'Clear price',
                           'Market price'
@@ -383,7 +383,6 @@ const PlayGame = () => {
                           )
                         }
                       }}
-                      sortBy='Balance'
                       showColumns={{
                         md: [
                           'Symbol',
@@ -450,9 +449,13 @@ const PlayGame = () => {
             {`${lastOrder.buy_or_sell} order placed`}
           </strong>
         </Toast.Header>
-        <Toast.Body>
-          {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === '1' ? 'share' : 'shares'}`}
-        </Toast.Body>
+        {lastOrder.quantity_type === 'Shares'
+          ? <Toast.Body>
+            {`${lastOrder.amount} ${lastOrder.symbol} ${lastOrder.amount === 1 ? 'share' : 'shares'}`}
+          </Toast.Body>
+          : <Toast.Body>
+            {`${toCurrency(lastOrder.amount)} of ${lastOrder.symbol}`}
+          </Toast.Body>}
       </Toast>
       <Modal show={showLeaveBox}>
         <Modal.Body>

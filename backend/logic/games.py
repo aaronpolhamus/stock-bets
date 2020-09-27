@@ -71,8 +71,8 @@ DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 DEFAULT_STAKES = "real"
 
-QUANTITY_DEFAULT = "Shares"
-QUANTITY_OPTIONS = ["Shares", "USD"]
+QUANTITY_DEFAULT = "USD"
+QUANTITY_OPTIONS = ["USD", "Shares"]
 
 """Quick note about implementation here: The function unpack_enumerated_field_mappings extracts the natural language
 label of each integer entry for the DB and send that value: label mapping to the frontend as a dictionary (or Object) 
@@ -150,6 +150,7 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
     invite_window_posix = None
     if invite_window is not None:
         invite_window_posix = opened_at + int(invite_window) * SECONDS_IN_A_DAY
+
     game_id = add_row("games",
                       creator_id=creator_id,
                       title=title,

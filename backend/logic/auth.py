@@ -83,10 +83,14 @@ def get_pending_external_game_invites(invited_email: str):
 
 
 def add_external_game_invites(email: str, user_id: int):
-    # is this user already invited to a games?
+    # is this user already invited to any games?
     external_game_invites = get_pending_external_game_invites(email)
-    for entry in external_game_invites:
-        add_row("game_invites", game_id=entry["game_id"], user_id=user_id, status="invited", timestamp=time.time())
+    current_time = time.time()
+    for invite_entry in external_game_invites:
+        game_id = invite_entry["game_id"]
+        gs_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1", game_id)[0]
+        if gs_entry["status"] == "pending":
+            add_row("game_invites", game_id=game_id, user_id=user_id, status="invited", timestamp=current_time)
 
 
 def make_session_token_from_uuid(resource_uuid):

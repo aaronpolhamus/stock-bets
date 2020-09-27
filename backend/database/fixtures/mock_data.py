@@ -573,8 +573,7 @@ MOCK_DATA = {
          "timestamp": simulation_start_time},
         {"user_id": 4, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "mike@example.test",
          "timestamp": simulation_start_time}
-    ],
-
+    ]
 }
 
 

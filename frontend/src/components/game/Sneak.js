@@ -128,6 +128,9 @@ const Sneak = props => {
                           'Cleared on': ['date'],
                           'Clear price': ['currency'],
                           'Market price': ['currency'],
+                          'Balance (FIFO)': ['currency'],
+                          'Realized P&L': ['currency'],
+                          'Unrealized P&L': ['currency'],
                           Basis: ['currency', 'bold']
                         }}
                         formatCells={{
@@ -140,7 +143,7 @@ const Sneak = props => {
                           }
                         }}
                         excludeRows={(row) => {
-                          return row['Buy/Sell'] === 'sell'
+                          return row.event_type === 'sell'
                         }}
                         exclude={[
                           'as of',
@@ -153,6 +156,7 @@ const Sneak = props => {
                         showColumns={{
                           md: [
                             'Symbol',
+                            'Cleared on',
                             'Quantity',
                             'Cleared on',
                             'Clear price',
