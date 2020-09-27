@@ -108,7 +108,7 @@ class TestStockDataTasks(BaseTestCase):
     def test_stock_data_tasks(self, mocked_symbols_table):
         df = pd.DataFrame([{'symbol': "ACME", "name": "ACME CORP"}, {"symbol": "PSCS", "name": "PISCES VENTURES"}])
         mocked_symbols_table.return_value = df
-        update_symbols()  # (use apply for local execution in order to pass in the mock)
+        update_symbols()
         with self.engine.connect() as conn:
             stored_df = pd.read_sql("SELECT * FROM symbols;", conn)
 
@@ -662,7 +662,7 @@ class TestDataAccess(BaseTestCase):
         operations need to remain intact.
         """
         n_rows = 3
-        update_symbols()
+        update_symbols(n_rows)
         with self.engine.connect() as conn:
             symbols_table = pd.read_sql("SELECT * FROM symbols", conn)
         self.assertEqual(symbols_table.shape, (n_rows, 3))

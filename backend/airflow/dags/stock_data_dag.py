@@ -3,10 +3,7 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow import DAG
 from datetime import datetime
 
-from backend.database.db import engine
 from backend.logic.stock_data import (
-    get_symbols_table,
-    SeleniumDriverError,
     scrape_dividends,
     apply_dividends_to_stocks,
     scrape_stock_splits,

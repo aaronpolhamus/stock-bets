@@ -92,8 +92,8 @@ def get_symbols_table(n_rows=None, timeout=60):
     return pd.DataFrame(row_list)
 
 
-def update_symbols():
-    symbols_table = get_symbols_table()
+def update_symbols(n_rows=None):
+    symbols_table = get_symbols_table(n_rows=n_rows)
     if symbols_table.empty:
         raise SeleniumDriverError
 
