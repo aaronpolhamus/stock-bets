@@ -441,7 +441,7 @@ def add_virtual_cash(game_id: int, user_id: int, dividend_id: int, amount: float
     current_cash = get_current_game_cash_balance(user_id, game_id) + amount
     now = datetime_to_posix(dt.now())
     add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=now, balance_type='virtual_cash',
-            balance=current_cash, dividend_id=dividend_id)
+            balance=current_cash, dividend_id=dividend_id, transaction_type="stock_dividend")
 
 
 def get_dividends_for_date(date: dt = None) -> pd.DataFrame:
