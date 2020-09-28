@@ -97,7 +97,6 @@ from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
     async_calculate_key_metrics,
-    async_apply_stock_splits
 )
 from backend.tasks import s3_cache
 from flask import Blueprint, request, make_response, jsonify
@@ -736,15 +735,6 @@ def refresh_visuals():
 @admin
 def refresh_metrics():
     async_calculate_key_metrics.delay()
-    return make_response("refreshing metrics...", 200)
-
-
-@routes.route("/api/get_splits", methods=["POST"])
-@authenticate
-@admin
-def get_splits():
-    # TODO: remove once splits are debugged
-    async_apply_stock_splits.delay()
     return make_response("refreshing metrics...", 200)
 
 
