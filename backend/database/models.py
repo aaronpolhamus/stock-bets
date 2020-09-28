@@ -52,7 +52,7 @@ class Games(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.Text)
     game_mode = db.Column(db.Enum(GameModes))
-    duration = db.Column(db.Integer)
+    duration = db.Column(db.Float(precision=32))
     buy_in = db.Column(db.Float(precision=32))
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float(precision=32))
@@ -164,6 +164,7 @@ class GameBalances(db.Model):
     game_id = db.Column(db.Integer, db.ForeignKey("games.id"))
     order_status_id = db.Column(db.Integer, db.ForeignKey("order_status.id"))
     stock_split_id = db.Column(db.Integer, db.ForeignKey("stock_splits.id"))
+    dividend_id = db.Column(db.Integer, db.ForeignKey("dividends.id"))
     timestamp = db.Column(db.Float(precision=32))
     balance_type = db.Column(db.Enum(GameBalanceTypes))
     balance = db.Column(db.Float(precision=32))
@@ -323,6 +324,16 @@ class StockSplits(db.Model):
     exec_date = db.Column(db.Float(precision=32))
 
 
+class Dividends(db.Model):
+    __tablename__ = "dividends"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.Text)
+    company = db.Column(db.Text)
+    amount = db.Column(db.Float(precision=32))
+    exec_date = db.Column(db.Integer)
+
+
 class EventTypes(Enum):
     sign_up = "Sign Up"
     game_end = "Game End"
@@ -330,7 +341,7 @@ class EventTypes(Enum):
 
 class StockBetsRating(db.Model):
     __tablename__ = "stockbets_rating"
-    
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     index_symbol = db.Column(db.VARCHAR(255), nullable=True, index=True)
