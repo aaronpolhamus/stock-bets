@@ -197,6 +197,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
     }
+    console.log(order)
     await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)
@@ -204,7 +205,9 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
+        console.log(formRef.current)
         formRef.current.reset()
+
         clearInterval(intervalId)
         if (onPlaceOrder !== undefined) onPlaceOrder(order)
       })
@@ -371,14 +374,17 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <AmountInput>
               <InputGroup>
-                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={amount} />
+                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} />
                 <InputGroup.Append>
                   {quantityType &&
                     <TabbedRadioButtons
                       mode='tabbed'
                       name='quantity_type'
                       $defaultChecked={quantityType}
-                      onChange={(e) => setQuantityType(e.target.value)}
+                      onChange={(e) => {
+                        console.log(e.target.value)
+                        setQuantityType(e.target.value)
+                      }}
                       options={quantityOptions}
                       colorTab='var(--color-lightest)'
                       color='var(--color-text-gray)'

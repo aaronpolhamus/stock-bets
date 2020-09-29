@@ -87,7 +87,7 @@ const buildRadios = (props, mode) => {
       value: key,
       key: index,
       id: `${props.name}-${index}`,
-      defaultChecked: props.$defaultChecked === key,
+      checked: props.$defaultChecked === key,
       ...props
     }
 
