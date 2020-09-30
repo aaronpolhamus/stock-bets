@@ -81,13 +81,14 @@ const buildRadios = (props, mode) => {
   const optionsIsArray = Array.isArray(props.options)
   const mappable = optionsIsArray ? props.options : Object.keys(props.options)
   return mappable.map((key, index) => {
+
     const commonProps = {
       type: 'radio',
       label: optionsIsArray ? key : props.options[key],
       value: key,
       key: index,
       id: `${props.name}-${index}`,
-      checked: props.$defaultChecked === key,
+      defaultChecked: props.$defaultChecked === key,
       ...props
     }
 

@@ -129,7 +129,7 @@ const MakeGame = ({ gameMode }) => {
                       options={defaults.stakes_options}
                       name='stakes'
                       onChange={(e) => setStakes(e.target.value)}
-                      defaultChecked={stakes}
+                      $defaultChecked={stakes}
                     />
                   </Form.Group>
                   {stakes === 'real' &&
@@ -211,7 +211,7 @@ const MakeGame = ({ gameMode }) => {
                 options={defaults.benchmarks}
                 name='benchmark'
                 onChange={(e) => setBenchmark(e.target.value)}
-                defaultChecked={benchmark}
+                $defaultChecked={benchmark}
               />
             </Form.Group>
           </Col>
