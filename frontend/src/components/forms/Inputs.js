@@ -12,7 +12,7 @@ const StyledRadio = styled(Form.Check)`
   margin-bottom: var(--space-100);
 
   label {
-    color: ${(props) => props.color || 'var(--color-text-gray)'};
+    color: ${(props) => props.$color || 'var(--color-text-gray)'};
     cursor: pointer;
     &::before {
       border: 1px solid var(--color-text-gray);
@@ -56,11 +56,11 @@ const TabbedRadio = styled(Form.Check)`
 
   label {
     cursor: pointer;
-    color: ${(props) => props.color || 'var(--color-text-gray)'};
+    color: ${(props) => props.$color || 'var(--color-text-gray)'};
     border-bottom-width: 2px;
     border-bottom-style: solid;
     border-bottom-color: ${(props) =>
-      props.colorTab || 'var(--color-secondary-muted)'};
+      props.$colorTab || 'var(--color-secondary-muted)'};
     padding: var(--space-100) var(--space-300);
     min-width: var(--space-lg-100);
     text-align: center;
@@ -72,24 +72,29 @@ const TabbedRadio = styled(Form.Check)`
 
   input:checked + label {
     color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
-    border-bottom-color: ${(props) => props.colorTabChecked || 'var(--color-primary)'};
+    border-bottom-color: ${(props) => props.$colorTabChecked || 'var(--color-primary)'};
   }
 `
 
 const buildRadios = (props, mode) => {
-  if (props.options === undefined) return null
-  const optionsIsArray = Array.isArray(props.options)
-  const mappable = optionsIsArray ? props.options : Object.keys(props.options)
+  if (props.optionsList === undefined) return null
+  const optionsIsArray = Array.isArray(props.optionsList)
+  const mappable = optionsIsArray ? props.optionsList : Object.keys(props.optionsList)
   return mappable.map((key, index) => {
 
     const commonProps = {
       type: 'radio',
-      label: optionsIsArray ? key : props.options[key],
+      label: optionsIsArray ? key : props.optionsList[key],
       value: key,
       key: index,
       id: `${props.name}-${index}`,
-      defaultChecked: props.$defaultChecked === key,
-      ...props
+      checked: props.defaultChecked === key,
+      onChange: props.onChange,
+      onClick: props.onClick,
+      $color: props.color,
+      $colorChecked: props.colorChecked,
+      $colorTab: props.colorTab,
+      $colorTabChecked: props.colorTabChecked
     }
 
     switch (mode) {
@@ -103,7 +108,7 @@ const buildRadios = (props, mode) => {
 }
 
 const RadioButtons = (props) => (
-  <div>{props.options && buildRadios(props)}</div>
+  <div>{props.optionsList && buildRadios(props)}</div>
 )
 
 // -- Props
@@ -113,7 +118,7 @@ const RadioButtons = (props) => (
 // colorTabChecked: selected tab underline color
 const TabbedRadioButtons = (props) => (
   <>
-    {props.options && buildRadios(props, 'tabbed')}
+    {props.optionsList && buildRadios(props, 'tabbed')}
   </>
 )
 

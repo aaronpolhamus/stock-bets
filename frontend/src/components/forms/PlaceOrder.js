@@ -310,14 +310,13 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         </CollapsibleClose>
         {buyOrSell &&
           <TabbedRadioButtons
-            mode='tabbed'
             name='buy_or_sell'
-            $defaultChecked={buyOrSell}
+            defaultChecked={buyOrSell}
             onChange={(e) => setBuyOrSell(e.target.value)}
             onClick={handleBuySellClicked}
-            options={buySellOptions}
+            optionsList={buySellOptions}
             color='var(--color-text-light-gray)'
-            $colorChecked='var(--color-lightest)'
+            colorChecked='var(--color-lightest)'
           />}
       </OrderFormHeader>
       <CashInfo cashData={cashData} balance={false} />
@@ -378,17 +377,16 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
                 <InputGroup.Append>
                   {quantityType &&
                     <TabbedRadioButtons
-                      mode='tabbed'
                       name='quantity_type'
-                      $defaultChecked={quantityType}
+                      defaultChecked={quantityType}
                       onChange={(e) => {
                         console.log(e.target.value)
                         setQuantityType(e.target.value)
                       }}
-                      options={quantityOptions}
-                      colorTab='var(--color-lightest)'
+                      optionsList={quantityOptions}
                       color='var(--color-text-gray)'
-                      $colorChecked='var(--color-secondary)'
+                      colorChecked='var(--color-secondary)'
+                      colorTab='var(--color-lightest)'
                     />}
                 </InputGroup.Append>
               </InputGroup>
@@ -423,11 +421,11 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             {orderType &&
               <RadioButtons
                 name='order_type'
-                $defaultChecked={orderType}
+                defaultChecked={orderType}
                 onChange={(e) => setOrderType(e.target.value)}
-                options={orderTypeOptions}
+                optionsList={orderTypeOptions}
                 color='var(--color-text-light-gray)'
-                $colorChecked='var(--color-lightest)'
+                colorChecked='var(--color-lightest)'
               />}
           </Form.Group>
         </Col>

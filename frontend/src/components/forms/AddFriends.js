@@ -95,7 +95,7 @@ const AddFriends = ({variant}) => {
         </Modal.Header>
         <Modal.Body>
           <RadioButtons
-            options={{
+            optionsList={{
               add: 'Add a friend by username',
               invite: 'Invite friends by email'
             }}

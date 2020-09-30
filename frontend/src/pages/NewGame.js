@@ -38,12 +38,12 @@ const NewGame = () => {
             </Form.Label>
 
             <RadioButtons
-              options={{
+              optionsList={{
                 multi_player: 'Play with your friends',
                 single_player: 'You vs. The Market'
               }}
               name='invite_type'
-              $defaultChecked={gameMode}
+              defaultChecked={gameMode}
               onClick={(e) => {
                 setGameMode(e.target.value)
               }}

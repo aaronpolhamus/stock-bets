@@ -126,10 +126,10 @@ const MakeGame = ({ gameMode }) => {
                   <Form.Group>
                     <Form.Label>Choose the game stakes</Form.Label>
                     <RadioButtons
-                      options={defaults.stakes_options}
+                      optionsList={defaults.stakes_options}
                       name='stakes'
                       onChange={(e) => setStakes(e.target.value)}
-                      $defaultChecked={stakes}
+                      defaultChecked={stakes}
                     />
                   </Form.Group>
                   {stakes === 'real' &&
@@ -208,10 +208,10 @@ const MakeGame = ({ gameMode }) => {
                 />
               </Form.Label>
               <RadioButtons
-                options={defaults.benchmarks}
+                optionsList={defaults.benchmarks}
                 name='benchmark'
                 onChange={(e) => setBenchmark(e.target.value)}
-                $defaultChecked={benchmark}
+                defaultChecked={benchmark}
               />
             </Form.Group>
           </Col>
