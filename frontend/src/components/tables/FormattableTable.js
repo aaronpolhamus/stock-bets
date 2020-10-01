@@ -294,7 +294,7 @@ const FormattableTable = (props) => {
     })
   }
 
-  if (tableData && tableData.data) {
+  if (tableData && tableData.data.length > 0) {
     // Sorts the table data by the key provided if sortBy prop is present
     if (props.sortBy) {
       tableData.data = sorter(tableData.data, props.sortBy, props.sortOrder)

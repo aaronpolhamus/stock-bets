@@ -352,13 +352,13 @@ class TestCreateGame(BaseTestCase):
         """
         with self.engine.connect() as conn:
             player_cash_balances = pd.read_sql(sql, conn, params=[game_id])
-        self.assertEqual(player_cash_balances.shape, (3, 10))
+        self.assertEqual(player_cash_balances.shape, (3, 11))
         self.assertTrue(all([x == STARTING_VIRTUAL_CASH for x in player_cash_balances["balance"].to_list()]))
 
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duration - 1)
+        self.assertEqual(side_bar_stats["days_left"], game_duration)
 
         current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)

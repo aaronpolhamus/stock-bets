@@ -173,7 +173,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row.event_type} />
+                              <IconBuySell type={row['Buy/Sell']} />
                               <strong>
                                 {value}
                               </strong>

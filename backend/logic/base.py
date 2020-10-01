@@ -296,10 +296,10 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
           ON os_relevant.order_id = os_full.order_id
         ) relevant_orders
         ON relevant_orders.order_id = o.id
-        WHERE game_id = %s AND user_id = %s AND relevant_orders.timestamp >= %s AND relevant_orders.timestamp <= %s;
-    """
+        WHERE game_id = %s AND user_id = %s AND relevant_orders.timestamp >= %s AND relevant_orders.timestamp <= %s;"""
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params=[game_id, user_id, start_time, end_time])
+
     df = pivot_order_details(df)
     df["status"] = "fulfilled"
     df.loc[df["timestamp_fulfilled"].isna(), "status"] = "pending"

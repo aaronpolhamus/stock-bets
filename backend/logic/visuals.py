@@ -874,11 +874,6 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     df = df.merge(close_prices, how="left")
     df["Change since last close"] = ((df["price"] - df["close_price"]) / df["close_price"])
     del df["close_price"]
-
-    # add closed balances as separate concern -- we need this for interaction with the charts
-    # update dataframe (the complement of all traded symbols and active balances)
-    # update symbols
-
     symbols_colors = assign_colors(symbols)
     df["color"] = df["symbol"].apply(lambda x: symbols_colors[x])
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
