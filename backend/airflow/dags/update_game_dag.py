@@ -21,7 +21,10 @@ from backend.logic.visuals import (
 )
 from backend.logic.metrics import log_winners
 from backend.tasks.airflow import context_parser
-from backend.database.helpers import add_row
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
 
 
 dag = DAG(
@@ -82,7 +85,7 @@ def log_multiplayer_winners_with_context(**context):
 
 
 def make_winners_table_with_context(**context):
-    game_id = context_parser(context, "game_id")
+    game_id = context_parser(context, "game_id")[0]
     if not check_single_player_mode(game_id):
         serialize_and_pack_winners_table(game_id)
 
@@ -93,7 +96,13 @@ def close_finished_game_with_context(**context):
     current_time = time.time()
     if current_time >= game_end:
         user_ids = get_active_game_user_ids(game_id)
-        add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
+        last_status_entry = query_to_dict("""SELECT * FROM game_status 
+                                             WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1""", game_id)
+        if last_status_entry["status"] == "active":
+            # close game
+            add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
+
+            # update scores
 
 
 start_task = DummyOperator(

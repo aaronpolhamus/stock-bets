@@ -35,6 +35,7 @@ TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
+SERVICE_OPEN_GAME_TIMEOUT = 60 * 15
 
 
 # -------------------------- #
@@ -95,6 +96,7 @@ def async_service_open_games(self):
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
+@task_lock(main_key="async_service_one_open_game", timeout=SERVICE_OPEN_GAME_TIMEOUT)
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
 

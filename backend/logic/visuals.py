@@ -10,6 +10,7 @@ import pandas as pd
 from backend.database.db import engine
 from backend.database.helpers import query_to_dict
 from backend.logic.base import (
+    get_time_defaults,
     get_active_balances,
     get_trading_calendar,
     get_all_game_usernames,
@@ -573,12 +574,13 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     return order_df
 
 
-def get_game_balances(game_id: int, user_id: int):
+def get_game_balances(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     with engine.connect() as conn:
         return pd.read_sql("""
           SELECT timestamp, symbol, balance, transaction_type, order_status_id, stock_split_id FROM game_balances
-          WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock'
-          ORDER BY symbol, id;""", conn, params=[game_id, user_id])
+          WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock' AND timestamp >= %s AND timestamp <= %s
+          ORDER BY symbol, id;""", conn, params=[game_id, user_id, start_time, end_time])
 
 
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
@@ -601,7 +603,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     order_details_columns = ["symbol", "order_id", "order_status_id", "order_label", "buy_or_sell", "quantity",
                              "clear_price_fulfilled", "timestamp_fulfilled"]
     orders = order_df[order_details_columns]
-    balances = get_game_balances(game_id, user_id)
+    balances = get_game_balances(game_id, user_id, start_time, end_time)
     df = balances.merge(orders, on=["symbol", "order_status_id"], how="left")
 
     buys_df = df[df["buy_or_sell"] == "buy"]
