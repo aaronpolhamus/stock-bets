@@ -1,10 +1,12 @@
 """Logic for calculating and dispering payouts between invitees
 """
 from datetime import timedelta, datetime as dt
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from pandas import DateOffset
+
 from backend.database.db import engine
 from backend.database.helpers import (
     add_row,
@@ -21,13 +23,22 @@ from backend.logic.base import (
     get_game_info,
     get_active_game_user_ids,
     posix_to_datetime,
-    make_date_offset
+    make_date_offset,
+    get_current_game_cash_balance,
+    get_active_balances,
+    get_index_portfolio_value_data,
+    STARTING_VIRTUAL_CASH
 )
 from backend.logic.payments import (
     send_paypal_payment,
     get_payment_profile_uuids,
     PERCENT_TO_USER
 )
+from backend.logic.stock_data import (
+    TRACKED_INDEXES,
+    get_most_recent_prices
+)
+
 
 # -------- #
 # Defaults #
@@ -39,6 +50,7 @@ RISK_FREE_RATE_DEFAULT = 0
 USD_FORMAT = "${:,.2f}"
 ELO_K_FACTOR = 32
 STARTING_ELO_SCORE = 1_000
+
 
 # ------------------------------------ #
 # Base methods for calculating metrics #
@@ -291,5 +303,82 @@ def elo_update(old: float, expected: float, score: float, k: float = ELO_K_FACTO
     return old + k * (score - expected)
 
 
-def update_stockbets_scores(game_id: int):
-    pass
+def get_rating(player_id: Union[int, str]):
+    """if player_id is passed as an int get_rating will interpret it as a user_id. if passed as a string it will interpret
+    it as a n index"""
+    assert type(player_id) in [int, str]
+    rating_column = "index_symbol" if type(player_id) == str else "user_id"
+    with engine.connect() as conn:
+        return conn.execute(f"""SELECT rating FROM stockbets_rating 
+                                WHERE {rating_column} = %s ORDER BY id DESC LIMIT 0, 1;""", player_id).fetchone()[0]
+
+
+def get_user_portfolio_value(game_id: int, user_id: int, cutoff_time: float = None) -> float:
+    """This works slightly differently than the method currently used to generates the leaderboard and charts, which
+    depends on the dataframe that make_historical_balances_and_prices_table produces, using pandas.merge_asof. this
+    minor discrepancy could result in leaderboard orders in the game panel not precisely matching how they are
+    calculated internally here."""
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
+    balances = get_active_balances(game_id, user_id)
+    symbols = balances["symbol"].unique()
+    if len(symbols) == 0:
+        return cash_balance
+    prices = get_most_recent_prices(symbols, cutoff_time)
+    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
+    df["value"] = df["balance"] * df["price"]
+    return df["value"].sum() + cash_balance
+
+
+def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
+    df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
+    if df.empty:
+        return STARTING_VIRTUAL_CASH
+    return df.iloc[-1]["value"]
+
+
+def update_scores(game_id: int):
+    start, end = get_game_start_and_end(game_id)
+    user_ids = get_active_game_user_ids(game_id)
+
+    # construct the leaderboard, including indexes. use simple return for now
+    scoreboard = {}
+    for user_id in user_ids:
+        ending_value = get_user_portfolio_value(game_id, user_id, end)
+        scoreboard[user_id] = ending_value / STARTING_VIRTUAL_CASH
+
+    for index in TRACKED_INDEXES:
+        scoreboard[index] = get_index_portfolio_value(game_id, index, start, end) / STARTING_VIRTUAL_CASH
+
+    # now that we have the scoreboard, iterate over its entries to construct and update DF
+    update_array = []
+    for player, player_return in scoreboard.items():
+        other_players = {k: v for k, v in scoreboard.items() if k != player}
+        for other_player, other_player_return in other_players.items():
+            player_rating = get_rating(player)
+            other_player_rating = get_rating(other_player)
+
+            score = 1 if player_return > other_player_return else 0
+            if player_return == other_player_return:
+                score = 0.5
+
+            update_array.append(dict(
+                player_id=player,
+                player_rating=player_rating,
+                expected=expected_elo(player_rating, other_player_rating),
+                score=score
+            ))
+
+    update_df = pd.DataFrame(update_array)
+    summary_df = update_df.groupby("player_id", as_index=False).agg(
+        {"player_rating": "first", "expected": "sum", "score": "sum"})
+    for _, row in summary_df.iterrows():
+        player_id = row["player_id"]
+        new_rating = elo_update(row["player_rating"], row["expected"], row["score"])
+        add_row("stockbets_rating",
+                user_id=int(player_id) if player_id in user_ids else None,
+                index_symbol=player_id if player_id in TRACKED_INDEXES else None,
+                game_id=game_id,
+                rating=float(new_rating),
+                update_type="game_end",
+                timestamp=end
+                )

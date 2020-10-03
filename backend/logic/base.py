@@ -601,24 +601,9 @@ def get_index_reference(game_id: int, symbol: str) -> float:
     with engine.connect() as conn:
         ref_val = conn.execute("""
             SELECT value FROM indexes 
-            WHERE symbol = %s AND timestamp <= %s
-            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()
-    if not ref_val:
-        return 1
+            WHERE symbol = %s AND timestamp >= %s
+            ORDER BY id LIMIT 0, 1;""", symbol, ref_time).fetchone()
     return ref_val[0]
-
-
-def make_index_start_time(game_start: float) -> float:
-    if during_trading_day(game_start):
-        return game_start
-
-    schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
-    trade_start, _ = get_schedule_start_and_end(schedule)
-    if game_start > trade_start:
-        schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
-        trade_start, _ = get_schedule_start_and_end(schedule)
-        return trade_start
-    return trade_start
 
 
 def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float = None,
@@ -636,7 +621,4 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     # normalizes index to the same starting scale as the user
     df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
-
-    # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
-    trade_start = make_index_start_time(start_time)
-    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[STARTING_VIRTUAL_CASH])), df])
+    return df

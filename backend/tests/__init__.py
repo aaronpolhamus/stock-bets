@@ -1,17 +1,19 @@
 import os
-import unittest
 import time
+import unittest
 
 import requests
-
+from backend.database.db import engine
+from backend.database.helpers import add_row
 from backend.database.helpers import (
     reset_db,
     query_to_dict,
     drop_all_tables
 )
-from backend.database.db import engine
 from backend.logic.auth import create_jwt
-from tasks import s3_cache
+from backend.logic.metrics import STARTING_ELO_SCORE
+from backend.logic.stock_data import TRACKED_INDEXES
+from backend.tasks import s3_cache
 
 
 class BaseTestCase(unittest.TestCase):
@@ -65,14 +67,21 @@ class CanonicalSplitsCase(unittest.TestCase):
 class StockbetsRatingCase(unittest.TestCase):
 
     def setUp(self):
-        self.game_id = 7
-        self.user_id = 1
+        self.game_id = 47
         self.start_time = time.time()
         self.engine = engine
         self.requests_session = requests.Session()
         s3_cache.flushall()
         drop_all_tables()
         os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
+        last_row = query_to_dict("SELECT * FROM stockbets_rating ORDER BY id DESC LIMIT 0, 1")[0]
+        _id = last_row["id"]
+
+        # manually add the indexes that we want to track to the scores table
+        for index in TRACKED_INDEXES:
+            add_row("stockbets_rating", id=_id, index_symbol=index, rating=STARTING_ELO_SCORE, update_type="sign_up",
+                    timestamp=-99)
+            _id += 1
 
     def tearDown(self):
         self.requests_session.close()

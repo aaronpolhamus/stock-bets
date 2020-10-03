@@ -49,7 +49,10 @@ from backend.logic.metrics import (
     get_overall_payout,
     get_winners_meta_data,
     get_sidebet_payout,
-    get_expected_sidebets_payout_dates
+    get_expected_sidebets_payout_dates,
+    USD_FORMAT,
+    get_user_portfolio_value,
+    get_index_portfolio_value
 )
 from backend.logic.schemas import (
     order_performance_schema,
@@ -62,7 +65,6 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-from logic.metrics import USD_FORMAT
 
 
 # Exceptions
@@ -219,18 +221,6 @@ def _days_left(game_id: int):
     return seconds_left // (24 * 60 * 60)
 
 
-def get_portfolio_value(game_id: int, user_id: int, cutoff_time: float = None) -> float:
-    cash_balance = get_current_game_cash_balance(user_id, game_id)
-    balances = get_active_balances(game_id, user_id)
-    symbols = balances["symbol"].unique()
-    if len(symbols) == 0:
-        return cash_balance
-    prices = get_most_recent_prices(symbols, cutoff_time)
-    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
-    df["value"] = df["balance"] * df["price"]
-    return df["value"].sum() + cash_balance
-
-
 def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_value: float, stocks_held: List[str],
                     return_ratio: float = None, sharpe_ratio: float = None):
     if return_ratio is None:
@@ -252,13 +242,6 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
     )
 
 
-def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
-    df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
-    if df.empty:
-        return STARTING_VIRTUAL_CASH
-    return df.iloc[-1]["value"]
-
-
 def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, end_time: float = None):
     user_ids = get_active_game_user_ids(game_id)
     usernames = get_game_users(game_id)
@@ -269,7 +252,7 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
         stocks_held = list(balances["symbol"].unique())
-        portfolio_value = get_portfolio_value(game_id, user_id)
+        portfolio_value = get_user_portfolio_value(game_id, user_id)
         stat_info = make_stat_entry(color=user_colors[user_info["username"]],
                                     cash_balance=cash_balance,
                                     portfolio_value=portfolio_value,
