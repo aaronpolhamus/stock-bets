@@ -4,7 +4,6 @@ from numpy import nan
 import pandas as pd
 
 from backend.tasks import s3_cache
-from backend.logic.base import get_active_game_user_ids
 from backend.logic.visuals import (
     make_order_performance_table,
     serialize_and_pack_order_performance_assets,
@@ -15,10 +14,7 @@ from backend.tests import (
     CanonicalSplitsCase,
     StockbetsRatingCase
 )
-from backend.logic.metrics import (
-    TRACKED_INDEXES,
-    update_scores
-)
+from backend.logic.metrics import update_scores
 
 
 class TestSplits(CanonicalSplitsCase):

@@ -133,8 +133,8 @@ def during_trading_day(posix_time: float = None) -> bool:
 
 
 def get_next_trading_day_schedule(reference_day: dt):
-    """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
-    if we are inside of trading hours this will return the schedule for the current day
+    """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that if
+    off-hours on a trading day, this will return the current trading day schedule anyhow.
     """
     reference_day = reference_day.date()
     schedule = get_trading_calendar(reference_day, reference_day)
@@ -601,9 +601,26 @@ def get_index_reference(game_id: int, symbol: str) -> float:
     with engine.connect() as conn:
         ref_val = conn.execute("""
             SELECT value FROM indexes 
-            WHERE symbol = %s AND timestamp >= %s
-            ORDER BY id LIMIT 0, 1;""", symbol, ref_time).fetchone()
+            WHERE symbol = %s AND timestamp <= %s
+            ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()
     return ref_val[0]
+
+
+def make_index_start_time(game_start: float) -> float:
+    if during_trading_day(game_start):
+        return game_start
+
+    game_start_dt = posix_to_datetime(game_start)
+    if game_start_dt.hour >= END_OF_TRADE_HOUR:
+        game_start_dt += DateOffset(days=1)
+
+    schedule = get_next_trading_day_schedule(game_start_dt)
+    trade_start, _ = get_schedule_start_and_end(schedule)
+    if game_start > trade_start:
+        schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
+        trade_start, _ = get_schedule_start_and_end(schedule)
+        return trade_start
+    return trade_start
 
 
 def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float = None,
@@ -621,4 +638,9 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     # normalizes index to the same starting scale as the user
     df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
+
+    # When a game kicks off, it will generally be that case that there won't be an index data point at exactly that
+    # time. We solve this here, create a synthetic "anchor" data point that starts at the same time at the game
+    trade_start = make_index_start_time(start_time)
+    df = pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[STARTING_VIRTUAL_CASH])), df])
     return df

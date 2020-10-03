@@ -358,7 +358,10 @@ class TestCreateGame(BaseTestCase):
         side_bar_stats = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(side_bar_stats["records"]), 3)
         self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in side_bar_stats["records"]]))
-        self.assertEqual(side_bar_stats["days_left"], game_duration)
+        start, end = get_game_start_and_end(game_id)
+        seconds_left = end - start
+        days_left = seconds_left // SECONDS_IN_A_DAY
+        self.assertEqual(side_bar_stats["days_left"], days_left)
 
         current_balances_keys = [x for x in s3_cache.keys() if CURRENT_BALANCES_PREFIX in x]
         self.assertEqual(len(current_balances_keys), 3)

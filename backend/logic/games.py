@@ -36,7 +36,8 @@ from backend.logic.base import (
     during_trading_day,
     get_active_balances,
     get_user_ids_from_passed_emails,
-    get_user_ids
+    get_user_ids,
+    END_OF_TRADE_HOUR
 )
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
@@ -782,7 +783,7 @@ def get_order_expiration_status(order_id):
         next_day_schedule = get_next_trading_day_schedule(time_placed_nyc)
         _, cutoff_time = get_schedule_start_and_end(next_day_schedule)
     else:
-        if time_placed_nyc.hour >= 16:
+        if time_placed_nyc.hour >= END_OF_TRADE_HOUR:
             next_day_schedule = get_next_trading_day_schedule(time_placed_nyc + timedelta(days=1))
             _, cutoff_time = get_schedule_start_and_end(next_day_schedule)
         else:

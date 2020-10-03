@@ -189,7 +189,6 @@ def palette_generator(n):
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
-
 # --------------- #
 # Dynamic display #
 # --------------- #
@@ -209,7 +208,6 @@ def assign_colors(inventory: List):
     colors = palette_generator(len(inventory))
     return {item: color for item, color in zip(inventory, colors)}
 
-
 # ----- #
 # Lists #
 # ----- #
@@ -218,7 +216,7 @@ def assign_colors(inventory: List):
 def _days_left(game_id: int):
     _, end = get_game_start_and_end(game_id)
     seconds_left = end - time.time()
-    return seconds_left // (24 * 60 * 60)
+    return seconds_left // SECONDS_IN_A_DAY
 
 
 def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_value: float, stocks_held: List[str],
