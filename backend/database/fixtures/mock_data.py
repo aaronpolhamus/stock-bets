@@ -593,7 +593,7 @@ MOCK_DATA = {
     "index_metadata": [
         {"symbol": "^IXIC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "NASDAQ"},
         {"symbol": "^DJI", "start_date": simulation_start_time, "avatar": f"{pics_ep}/dji.png", "name": "Dow Jones"},
-        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "S&P 500"}
+        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/s_and_p.png", "name": "S&P 500"}
     ],
     "indexes": index_records,
     "stockbets_rating": _ratings_builder(USER_DATA)

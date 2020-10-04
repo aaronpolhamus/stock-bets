@@ -7,7 +7,6 @@ import time
 from backend.logic.base import (
     get_time_defaults,
     get_active_game_user_ids,
-    check_single_player_mode,
     get_game_start_and_end
 )
 from backend.logic.visuals import (
@@ -17,7 +16,8 @@ from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_order_performance_assets,
-    serialize_and_pack_winners_table
+    serialize_and_pack_winners_table,
+    check_single_player_mode
 )
 from backend.logic.metrics import (
     log_winners,

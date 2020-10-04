@@ -28,6 +28,7 @@ from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
     serialize_and_pack_orders_per_active_user
 )
+from backend.logic.visuals import serialize_and_pack_rankings
 from backend.tasks.redis import task_lock
 from backend.tasks.airflow import start_dag
 
@@ -36,7 +37,7 @@ CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
 SERVICE_OPEN_GAME_TIMEOUT = 60 * 15
-
+UPDATE_RANKINGS_TIMEOUT = 60 * 15
 
 # -------------------------- #
 # Price fetching and caching #
@@ -136,6 +137,12 @@ def async_update_all_games(self):
 @celery.task(name="async_update_game_data", bind=True, base=BaseTask)
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     start_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
+
+
+@celery.task(name="async_update_public_rankings", bind=True, base=BaseTask)
+@task_lock(main_key="async_update_public_rankings", timeout=UPDATE_RANKINGS_TIMEOUT)
+def async_update_public_rankings(self):
+    serialize_and_pack_rankings()
 
 # ----------- #
 # Key metrics #

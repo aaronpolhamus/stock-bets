@@ -578,14 +578,6 @@ def get_active_balances(game_id: int, user_id: int):
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 
-
-def check_single_player_mode(game_id: int) -> bool:
-    with engine.connect() as conn:
-        game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
-    if not game_mode:
-        return False
-    return game_mode[0] == "single_player"
-
 # -------------------------------------------------- #
 # Methods for handling indexes in single-player mode #
 # -------------------------------------------------- #
@@ -628,8 +620,12 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     with engine.connect() as conn:
         df = pd.read_sql("""
-            SELECT symbol as username, timestamp, `value` FROM indexes 
-            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
+            SELECT imd.username, timestamp, `value` FROM indexes
+            INNER JOIN (
+              SELECT symbol, `name` AS username FROM index_metadata
+            ) imd ON imd.symbol = indexes.symbol
+            WHERE indexes.symbol = %s AND timestamp >= %s AND timestamp <= %s;""",
+                         conn, params=[symbol, start_time, end_time])
 
     # normalizes index to the same starting scale as the user
     df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
@@ -637,5 +633,5 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # When a game kicks off, it will generally be that case that there won't be an index data point at exactly that
     # time. We solve this here, create a synthetic "anchor" data point that starts at the same time at the game
     trade_start = make_index_start_time(start_time)
-    df = pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[STARTING_VIRTUAL_CASH])), df])
-    return df
+    return pd.concat([pd.DataFrame(dict(username=[df.iloc[0]["username"]], timestamp=[trade_start],
+                                        value=[STARTING_VIRTUAL_CASH])), df])
