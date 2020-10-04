@@ -976,12 +976,12 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
 # ------------------ #
 
 
-def update_player_rank(user_id: int):
+def update_player_rank(df: pd.DataFrame):
     # PLAYER_RANK_PREFIX
     pass
 
 
-def serialize_and_pack_public_leaderboard():
+def serialize_and_pack_rankings():
     with engine.connect() as conn:
         user_df = pd.read_sql("""
             SELECT * FROM stockbets_rating sr
@@ -1005,6 +1005,10 @@ def serialize_and_pack_public_leaderboard():
               WHERE index_symbol IS NOT NULL
               GROUP BY index_symbol
             ) sr_grouped ON sr_grouped.max_id = sr.id
+            INNER JOIN (
+              SELECT symbol, `name` AS username, avatar AS profile_pic
+              FROM index_metadata
+            ) imd ON sr.index_symbol = imd.symbol
         """, conn)
 
         df = pd.concat([user_df, indexes_df])

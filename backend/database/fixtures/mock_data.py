@@ -566,30 +566,28 @@ def make_db_mocks():
 
 
 def make_s3_mocks():
-    table = 'users'
-    for user_entry in MOCK_DATA[table]:
+
+    def _local_pic_to_bucket(filepath: str, key: str):
         s3 = aws_client()
-        pic_name = user_entry['profile_pic'].split('/')[-1]
-        key = f"profile_pics/{pic_name}"
-        with open(f"database/fixtures/assets/{pic_name}", "rb") as image:
+        with open(filepath, "rb") as image:
             f = image.read()
             pic = bytearray(f)
             out_img = BytesIO(pic)
             out_img.seek(0)
             s3.put_object(Body=out_img, Bucket=Config.AWS_PUBLIC_BUCKET_NAME, Key=key, ACL="public-read")
+
+    table = 'users'
+    for user_entry in MOCK_DATA[table]:
+        pic_name = user_entry['profile_pic'].split('/')[-1]
+        key = f"profile_pics/{pic_name}"
+        _local_pic_to_bucket(f"database/fixtures/assets/{pic_name}", key)
         if user_entry["name"] == "minion":
             break  # we only need to run this once for minion -- they all share the same profile pic
 
     table = "index_metadata"
     for index_entry in MOCK_DATA[table]:
-        s3 = aws_client()
         key = f"profile_pics/{index_entry['avatar'].split('/')[-1]}"
-        with open(f"database/fixtures/assets/{index_entry['symbol']}.png", "rb") as image:
-            f = image.read()
-            pic = bytearray(f)
-            out_img = BytesIO(pic)
-            out_img.seek(0)
-            s3.put_object(Body=out_img, Bucket=Config.AWS_PUBLIC_BUCKET_NAME, Key=key, ACL="public-read")
+        _local_pic_to_bucket(f"database/fixtures/assets/{index_entry['symbol']}.png", key)
 
 
 def make_redis_mocks():

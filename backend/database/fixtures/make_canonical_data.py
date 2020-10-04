@@ -48,6 +48,7 @@ if __name__ == '__main__':
                                  params=symbols + [min_time, max_time])
             indexes = pd.read_sql(f"SELECT * FROM indexes WHERE timestamp >= %s AND timestamp <= %s", conn,
                                   params=[min_time - 4 * SECONDS_IN_A_DAY, max_time])
+            index_metadata = pd.read_sql("SELECT * FROM index_metadata;", conn)
             users = pd.read_sql(f"""
                 SELECT id, name, email, profile_pic, username, created_at, provider FROM users 
                 WHERE id IN ({", ".join(["%s"] * len(user_ids))});""", conn, params=user_ids)
@@ -68,6 +69,7 @@ if __name__ == '__main__':
         splits.to_pickle("splits.pkl")
         prices.to_pickle("prices.pkl")
         indexes.to_pickle("indexes.pkl")
+        index_metadata.to_pickle("index_metadata.pkl")
         users.to_pickle("users.pkl")
         stockbets_rating.to_pickle("stockbets_rating.pkl")
 
@@ -81,6 +83,7 @@ if __name__ == '__main__':
         splits = pd.read_pickle("splits.pkl")
         prices = pd.read_pickle("prices.pkl")
         indexes = pd.read_pickle("indexes.pkl")
+        indexe_metadata = pd.read_pickle("index_metadata.pkl")
         users = pd.read_pickle("users.pkl")
         stockbets_rating = pd.read_pickle("stockbets_rating.pkl")
         with engine.connect() as conn:
@@ -92,6 +95,7 @@ if __name__ == '__main__':
             splits.to_sql("stock_splits", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             prices.to_sql("prices", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             indexes.to_sql("indexes", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
+            indexe_metadata.to_sql("index_metadata", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             users.to_sql("users", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             stockbets_rating.to_sql("stockbets_rating", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
         os.system(f"rm -rf database/fixtures/canonical_games/game_id_{args.game_id}.sql")

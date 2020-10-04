@@ -27,7 +27,7 @@ s3-buckets:
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
-s3-mock-data:
+s3-mock-data: s3-buckets
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
 
 db-logs:
@@ -108,7 +108,7 @@ backend-up:
 backend-build: airflow-clear-logs s3-reset
 	docker-compose build backend
 
-backend-test: api-up db-mock-data worker-restart airflow-restart
+backend-test: api-up s3-buckets db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v
@@ -118,7 +118,6 @@ backend-test: api-up db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
-	make s3-buckets
 
 api-logs:
 	docker-compose logs -f api
@@ -161,7 +160,7 @@ remove-dangling:
 
 # e2e testing
 # -----------
-mock-data: db-mock-data redis-mock-data s3-buckets s3-mock-data
+mock-data: db-mock-data redis-mock-data s3-mock-data
 
 e2e-test:
 	docker-compose exec api python -m tests.e2e_scenario_test
