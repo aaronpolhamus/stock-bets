@@ -61,12 +61,11 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 
 # Exceptions
 # ----------
-from database.db import engine
-from database.helpers import query_to_dict
 
 
 class BadOrderMerge(Exception):

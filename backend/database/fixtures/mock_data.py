@@ -5,6 +5,7 @@ import json
 from datetime import timedelta
 from io import BytesIO
 from sqlalchemy import MetaData
+from unittest.mock import patch
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -648,13 +649,20 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-    game_ids = [3, 6, 7, 8]
+
+    @patch("backend.logic.base.STARTING_VIRTUAL_CASH", 100_000)
+    def _game_3_mock():
+        init_game_assets(3)
+
+    _game_3_mock()
+
+    game_ids = [6, 7, 8]
     for game_id in game_ids:
         init_game_assets(game_id)
 
     serialize_and_pack_rankings()
-
     serialize_and_pack_games_per_user_chart()
+
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
