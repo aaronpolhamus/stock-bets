@@ -14,7 +14,7 @@ from backend.tests import (
     CanonicalSplitsCase,
     StockbetsRatingCase
 )
-from backend.logic.metrics import update_scores
+from backend.logic.metrics import update_ratings
 
 
 class TestSplits(CanonicalSplitsCase):
@@ -81,12 +81,12 @@ class TestStockbetsRanking(StockbetsRatingCase):
         {'id': 10.0, 'user_id': 10.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1592102702.01045},
         {'id': 28.0, 'user_id': 28.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1592515077.34491},
         {'id': 29.0, 'user_id': 29.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1592516128.51439},
-        {'id': 90.0, 'user_id': 44.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595394720.4184},
-        {'id': 97.0, 'user_id': 45.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595423428.28603},
-        {'id': 107.0, 'user_id': 55.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595958906.4312},
-        {'id': 107.0, 'user_id': nan, 'index_symbol': '^IXIC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
-        {'id': 108.0, 'user_id': nan, 'index_symbol': '^GSPC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
-        {'id': 109.0, 'user_id': nan, 'index_symbol': '^DJI', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
+        {'id': 86.0, 'user_id': 44.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595394720.4184},
+        {'id': 87.0, 'user_id': 45.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595423428.28603},
+        {'id': 110.0, 'user_id': 55.0, 'index_symbol': None, 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': 1595958906.4312},
+        {'id': 110.0, 'user_id': nan, 'index_symbol': '^IXIC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
+        {'id': 111.0, 'user_id': nan, 'index_symbol': '^GSPC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
+        {'id': 112.0, 'user_id': nan, 'index_symbol': '^DJI', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0},
         {'id': nan, 'user_id': 1.0, 'index_symbol': None, 'game_id': '47', 'rating': 1144.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
         {'id': nan, 'user_id': 10.0, 'index_symbol': None, 'game_id': '47', 'rating': 920.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
         {'id': nan, 'user_id': 28.0, 'index_symbol': None, 'game_id': '47', 'rating': 952.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
@@ -96,11 +96,13 @@ class TestStockbetsRanking(StockbetsRatingCase):
         {'id': nan, 'user_id': 55.0, 'index_symbol': None, 'game_id': '47', 'rating': 984.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
         {'id': nan, 'user_id': nan, 'index_symbol': '^DJI', 'game_id': '47', 'rating': 1112.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
         {'id': nan, 'user_id': nan, 'index_symbol': '^GSPC', 'game_id': '47', 'rating': 1080.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
-        {'id': nan, 'user_id': nan, 'index_symbol': '^IXIC', 'game_id': '47', 'rating': 1048.0, 'update_type': 'game_end', 'timestamp': 1599854400.0},
+        {'id': nan, 'user_id': nan, 'index_symbol': '^IXIC', 'game_id': '47', 'rating': 1048.0, 'update_type': 'game_end', 'timestamp': 1599854400.0}
     ]
 
     def test_stockbets_ranking(self):
-        update_scores(self.game_id)
+        update_ratings(self.game_id)
         with self.engine.connect() as conn:
             df = pd.read_sql("SELECT * FROM stockbets_rating", conn)
         pd.testing.assert_frame_equal(df, pd.DataFrame(self.RECORDS))
+
+        # api and rankings test here

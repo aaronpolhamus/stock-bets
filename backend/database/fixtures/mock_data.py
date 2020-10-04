@@ -1,9 +1,9 @@
 """mock_data.py is our test data factory. running it for ever test is expensive, so we use it at the very beginning of
 test runner to construct a .sql data dump that we can quickly scan into the DB.
 """
-import hashlib
 import json
 from datetime import timedelta
+from io import BytesIO
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -13,8 +13,10 @@ from backend.bi.report_logic import (
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.fixtures.make_historical_price_data import make_stock_data_records
-from backend.database.helpers import add_row
-from backend.logic.auth import upload_image_from_url_to_s3
+from backend.database.helpers import (
+    add_row,
+    aws_client
+)
 from backend.logic.base import (
     STARTING_VIRTUAL_CASH,
     SECONDS_IN_A_DAY,
@@ -56,130 +58,89 @@ def get_stock_finish_price(symbol, records=price_records, order_time=simulation_
 
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
+pics_ep = f"{Config.AWS_PUBLIC_ENDPOINT}/{Config.AWS_PUBLIC_BUCKET_NAME}/profile_pics"
 MOCK_DATA = {
     "users": [
-        {"name": Config.TEST_CASE_NAME, "email": Config.TEST_CASE_EMAIL,
-         "profile_pic": "https://i.imgur.com/P5LO9v4.png",
+        {"name": Config.TEST_CASE_NAME, "email": Config.TEST_CASE_EMAIL, "profile_pic": f"{pics_ep}/test_user.png",
          "username": "cheetos", "created_at": 1588307605.0, "provider": "google",
          "resource_uuid": Config.TEST_CASE_UUID},
-        {"name": "dummy", "email": "dummy@example.test",
-         "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
-         "username": None, "created_at": 1588702321.0, "provider": "google", "resource_uuid": "efg456"},
-        {"name": "Eddie", "email": "eddie@example.test",
-         "profile_pic": "https://animalark.org/wp-content/uploads/2016/03/181Cheetahs12.jpg", "username": "toofast",
+        {"name": "dummy", "email": "dummy@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": None,
+         "created_at": 1588702321.0, "provider": "google", "resource_uuid": "efg456"},
+        {"name": "Eddie", "email": "eddie@example.test", "profile_pic": f"{pics_ep}/toofast.jpg", "username": "toofast",
          "created_at": 1588307928.0, "provider": "twitter", "resource_uuid": "hij789"},
-        {"name": "Mike", "email": "mike@example.test",
-         "profile_pic": "https://gitedumoulinavent.com/wp-content/uploads/pexels-photo-1230302.jpeg",
-         "username": "miguel", "created_at": 1588308080.0, "provider": "facebook",
-         "resource_uuid": "klm101"},
-        {"name": "Eli", "email": "eli@example.test",
-         "profile_pic": "https://nationalpostcom.files.wordpress.com/2018/11/gettyimages-1067958662.jpg",
-         "username": "murcitdev", "created_at": 1588308406.0, "provider": "google",
-         "resource_uuid": "nop112"},
-        {"name": "dummy2", "email": "dummy2@example.test",
-         "profile_pic": "https://cadena100-cdnmed.agilecontent.com/resources/jpg/8/2/1546649423628.jpg",
-         "username": "dummy2", "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
-        {"name": "jack sparrow", "email": "jack@black.pearl",
-         "profile_pic": "https://i2.wp.com/www.californiaherald.com/wp-content/uploads/2020/03/jack-sparrow.jpg",
-         "username": "jack", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "johnnie walker", "email": "johnnie@walker.com",
-         "profile_pic": "https://www.brandemia.org/sites/default/files/sites/default/files/johnnie_walker_nuevo_logo.png",
+        {"name": "Mike", "email": "mike@example.test", "profile_pic": f"{pics_ep}/miguel.jpg", "username": "miguel",
+         "created_at": 1588308080.0, "provider": "facebook", "resource_uuid": "klm101"},
+        {"name": "Eli", "email": "eli@example.test", "profile_pic": f"{pics_ep}/murcitdev.jpg", "username": "murcitdev",
+         "created_at": 1588308406.0, "provider": "google", "resource_uuid": "nop112"},
+        {"name": "dummy2", "email": "dummy2@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": "dummy2",
+         "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
+        {"name": "jack sparrow", "email": "jack@black.pearl", "profile_pic": f"{pics_ep}/jack.jpg", "username": "jack",
+         "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+        {"name": "johnnie walker", "email": "johnnie@walker.com", "profile_pic": f"{pics_ep}/johnnie.png",
          "username": "johnnie", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "jadis", "email": "jadis@rick.lives",
-         "profile_pic": "https://vignette.wikia.nocookie.net/villains/images/7/78/Season_eight_jadis.png",
-         "username": "jadis", "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
-        {"name": "minion", "email": "minion1@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "jadis", "email": "jadis@rick.lives", "profile_pic": f"{pics_ep}/jadis.png", "username": "jadis",
+         "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
+        {"name": "minion", "email": "minion1@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion1", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion2@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion2@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion2", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion3@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion3@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion3", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion4@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion4@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion4", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion5@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion5@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion5", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion6@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion6@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion6", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion7@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion7@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion7", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion8@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion8@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion8", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion9@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion9@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion9", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion10@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion10@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion10", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion11@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion11@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion11", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion12@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion12@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion12", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion13@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion13@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion13", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion14@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion14@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion14", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion15@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion15@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion15", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion16@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion16@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion16", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion17@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion17@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion17", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion18@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion18@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion18", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion19@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion19@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion19", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion20@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion20@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion20", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion21@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion21@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion21", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion22@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion22@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion22", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion23@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion23@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion23", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion24@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion24@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion24", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion25@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion25@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion25", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion26@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion26@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion26", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion27@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion27@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion27", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion28@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion28@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion28", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion29@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion29@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion29", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion30@despicable.me",
-         "profile_pic": "https://www.marketingdirecto.com/wp-content/uploads/2016/01/minion-300.jpg",
+        {"name": "minion", "email": "minion30@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
          "username": "minion30", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
     ],
-
     "games": [
         {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
@@ -290,7 +251,6 @@ MOCK_DATA = {
         {"symbol": "NKE", "name": "NIKE"},
     ],
     "prices": price_records,
-    "indexes": index_records,
     "orders": [
         # game 3, user id #1
         {"user_id": 1, "game_id": 3, "symbol": "AMZN", "buy_or_sell": "buy", "quantity": 10,
@@ -573,7 +533,13 @@ MOCK_DATA = {
          "timestamp": simulation_start_time},
         {"user_id": 4, "processor": "paypal", "uuid": Config.PAYPAL_TEST_USER_ID, "payer_email": "mike@example.test",
          "timestamp": simulation_start_time}
-    ]
+    ],
+    "index_metadata": [
+        {"symbol": "^IXIC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "NASDAQ"},
+        {"symbol": "^DJI", "start_date": simulation_start_time, "avatar": f"{pics_ep}/dji.png", "name": "Dow Jones"},
+        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "S&P 500"}
+    ],
+    "indexes": index_records
 }
 
 
@@ -601,10 +567,29 @@ def make_db_mocks():
 
 def make_s3_mocks():
     table = 'users'
-    for user in MOCK_DATA[table]:
-        profile_pic_hash = hashlib.sha224(bytes(user['resource_uuid'], encoding='utf-8')).hexdigest()
-        profile_picture = user['profile_pic']
-        upload_image_from_url_to_s3(profile_picture, f"profile_pics/{profile_pic_hash}")
+    for user_entry in MOCK_DATA[table]:
+        s3 = aws_client()
+        pic_name = user_entry['profile_pic'].split('/')[-1]
+        key = f"profile_pics/{pic_name}"
+        with open(f"database/fixtures/assets/{pic_name}", "rb") as image:
+            f = image.read()
+            pic = bytearray(f)
+            out_img = BytesIO(pic)
+            out_img.seek(0)
+            s3.put_object(Body=out_img, Bucket=Config.AWS_PUBLIC_BUCKET_NAME, Key=key, ACL="public-read")
+        if user_entry["name"] == "minion":
+            break  # we only need to run this once for minion -- they all share the same profile pic
+
+    table = "index_metadata"
+    for index_entry in MOCK_DATA[table]:
+        s3 = aws_client()
+        key = f"profile_pics/{index_entry['avatar'].split('/')[-1]}"
+        with open(f"database/fixtures/assets/{index_entry['symbol']}.png", "rb") as image:
+            f = image.read()
+            pic = bytearray(f)
+            out_img = BytesIO(pic)
+            out_img.seek(0)
+            s3.put_object(Body=out_img, Bucket=Config.AWS_PUBLIC_BUCKET_NAME, Key=key, ACL="public-read")
 
 
 def make_redis_mocks():

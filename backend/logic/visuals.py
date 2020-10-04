@@ -89,6 +89,8 @@ ORDER_PERF_CHART_PREFIX = "order_performance_chart"
 PAYOUTS_PREFIX = "payouts"
 RETURN_RATIO_PREFIX = "return_ratio"
 SHARPE_RATIO_PREFIX = "sharpe_ratio"
+PLAYER_RANK_PREFIX = "player_rank"
+PUBLIC_LEADERBOARD_PREFIX = "public_leaderboard"
 
 # -------------- #
 # Chart settings #
@@ -782,7 +784,6 @@ def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, star
     serialize_and_pack_order_performance_chart(df, game_id, user_id)
     serialize_and_pack_order_performance_table(df, game_id, user_id)
 
-
 # ------ #
 # Tables #
 # ------ #
@@ -969,3 +970,42 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
             rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio)
             rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio)
+
+# ------------------ #
+# Public leaderboard #
+# ------------------ #
+
+
+def update_player_rank(user_id: int):
+    # PLAYER_RANK_PREFIX
+    pass
+
+
+def serialize_and_pack_public_leaderboard():
+    with engine.connect() as conn:
+        user_df = pd.read_sql("""
+            SELECT * FROM stockbets_rating sr
+            INNER JOIN (
+              SELECT MAX(id) AS max_id
+              FROM stockbets_rating
+              WHERE user_id IS NOT NULL
+              GROUP BY user_id
+            ) sr_grouped ON sr_grouped.max_id = sr.id
+            INNER JOIN (
+              SELECT id, username, profile_pic
+              FROM users
+            ) u ON u.id = sr.user_id
+        """, conn)
+
+        indexes_df = pd.read_sql("""
+            SELECT * FROM stockbets_rating sr
+            INNER JOIN (
+              SELECT MAX(id) AS max_id
+              FROM stockbets_rating
+              WHERE index_symbol IS NOT NULL
+              GROUP BY index_symbol
+            ) sr_grouped ON sr_grouped.max_id = sr.id
+        """, conn)
+
+        df = pd.concat([user_df, indexes_df])
+    # PUBLIC_LEADERBOARD_PREFIX

@@ -19,7 +19,10 @@ from backend.logic.visuals import (
     serialize_and_pack_order_performance_assets,
     serialize_and_pack_winners_table
 )
-from backend.logic.metrics import log_winners
+from backend.logic.metrics import (
+    log_winners,
+    update_ratings
+)
 from backend.tasks.airflow import context_parser
 from backend.database.helpers import (
     add_row,
@@ -99,10 +102,9 @@ def close_finished_game_with_context(**context):
         last_status_entry = query_to_dict("""SELECT * FROM game_status 
                                              WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1""", game_id)
         if last_status_entry["status"] == "active":
-            # close game
+            # close game and update scores
             add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
-
-            # update scores
+            update_ratings(game_id)
 
 
 start_task = DummyOperator(

@@ -336,7 +336,7 @@ def get_index_portfolio_value(game_id: int, index: str, start_time: float = None
     return df.iloc[-1]["value"]
 
 
-def update_scores(game_id: int):
+def update_ratings(game_id: int):
     start, end = get_game_start_and_end(game_id)
     user_ids = get_active_game_user_ids(game_id)
 
@@ -365,8 +365,7 @@ def update_scores(game_id: int):
                 player_id=player,
                 player_rating=player_rating,
                 expected=expected_elo(player_rating, other_player_rating),
-                score=score
-            ))
+                score=score))
 
     update_df = pd.DataFrame(update_array)
     summary_df = update_df.groupby("player_id", as_index=False).agg(
@@ -380,5 +379,4 @@ def update_scores(game_id: int):
                 game_id=game_id,
                 rating=float(new_rating),
                 update_type="game_end",
-                timestamp=end
-                )
+                timestamp=end)

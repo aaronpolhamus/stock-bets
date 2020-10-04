@@ -7,7 +7,11 @@ from backend.database.db import (
     engine
 )
 from backend.database.helpers import drop_all_tables
-from backend.logic.base import get_active_game_user_ids, get_game_start_and_end
+from backend.logic.base import (
+    get_active_game_user_ids,
+    get_game_start_and_end,
+    SECONDS_IN_A_DAY
+)
 
 parser = ArgumentParser()
 parser.add_argument("--game_id", type=int)
@@ -43,7 +47,7 @@ if __name__ == '__main__':
               WHERE symbol IN ({",".join(["%s"] * len(symbols))}) AND timestamp >= %s AND timestamp <= %s;""", conn,
                                  params=symbols + [min_time, max_time])
             indexes = pd.read_sql(f"SELECT * FROM indexes WHERE timestamp >= %s AND timestamp <= %s", conn,
-                                  params=[min_time, max_time])
+                                  params=[min_time - 4 * SECONDS_IN_A_DAY, max_time])
             users = pd.read_sql(f"""
                 SELECT id, name, email, profile_pic, username, created_at, provider FROM users 
                 WHERE id IN ({", ".join(["%s"] * len(user_ids))});""", conn, params=user_ids)

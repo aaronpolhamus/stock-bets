@@ -197,11 +197,21 @@ class Prices(db.Model):
 Index("prices_symbol_timestamp_ix", Prices.symbol, Prices.timestamp)
 
 
+class IndexMetaData(db.Model):
+    __tablename__ = "index_metadata"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.VARCHAR(255))
+    start_date = db.Column(db.Float(precision=32))
+    avatar = db.Column(db.Text)
+    name = db.Column(db.Text)
+
+
 class Indexes(db.Model):
     __tablename__ = "indexes"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
+    symbol = db.Column(db.VARCHAR(255), db.ForeignKey("index_metadata.symbol"))
     value = db.Column(db.Float(precision=32))
     timestamp = db.Column(db.Float(precision=32))
 

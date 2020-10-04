@@ -48,12 +48,6 @@ def verify_facebook_oauth(access_token):
     return requests.post(Config.FACEBOOK_VALIDATION_URL, data={"access_token": access_token})
 
 
-def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
-    if new_profile_pic != old_profile_pic:
-        with engine.connect() as conn:
-            conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", new_profile_pic, user_id)
-
-
 def setup_new_user(name: str, email: str, profile_pic: str, created_at: float, provider: str,
                    resource_uuid: str, password: str = None) -> int:
     user_id = add_row("users", name=name, email=email, username=None, profile_pic=profile_pic, created_at=created_at,
