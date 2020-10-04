@@ -9,6 +9,9 @@ db-stop:
 db-mysql:
 	docker-compose exec db mysql -uroot
 
+db-await:
+	./backend/docker/await-db.sh
+
 db-reset: s3-reset
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
@@ -21,8 +24,7 @@ db-mock-data: db-reset
 s3-reset:
 	rm -rf .localstack/data/*.json
 
-s3-buckets:
-	./backend/docker/await-db.sh
+s3-buckets: db-await
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
 	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
@@ -133,7 +135,7 @@ api-stop:
 
 # all containers
 # --------------
-up: api-up mock-data
+up: api-up db-await mock-data
 	npm install --prefix frontend
 	npm start --prefix frontend
 
@@ -160,7 +162,7 @@ remove-dangling:
 
 # e2e testing
 # -----------
-mock-data: db-mock-data redis-mock-data s3-mock-data
+mock-data: db-mock-data s3-mock-data redis-mock-data
 
 e2e-test:
 	docker-compose exec api python -m tests.e2e_scenario_test
