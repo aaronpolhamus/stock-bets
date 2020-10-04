@@ -649,14 +649,7 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-
-    @patch("backend.logic.base.STARTING_VIRTUAL_CASH", 100_000)
-    def _game_3_mock():
-        init_game_assets(3)
-
-    _game_3_mock()
-
-    game_ids = [6, 7, 8]
+    game_ids = [3, 6, 7, 8]
     for game_id in game_ids:
         init_game_assets(game_id)
 

@@ -52,7 +52,7 @@ class Games(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey("users.id"))
     title = db.Column(db.Text)
     game_mode = db.Column(db.Enum(GameModes))
-    duration = db.Column(db.Float(precision=32))
+    duration = db.Column(db.Integer)
     buy_in = db.Column(db.Float(precision=32))
     benchmark = db.Column(db.Enum(Benchmarks))
     side_bets_perc = db.Column(db.Float(precision=32))

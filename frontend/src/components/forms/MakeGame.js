@@ -146,74 +146,9 @@ const MakeGame = ({ gameMode }) => {
                           onChange={(e) => setBuyIn(e.target.value)}
                         />
                       </Form.Group>
-                      <Form.Group>
-                        <Form.Label>
-                    Sidebet % of pot
-                          <Tooltip
-                            message='In addition to an end-of-game payout, if you choose to have sidebets your game will have either weekly or monthly winners based on the game metric. Key point: sidebets are always winner-takes-all, regardless of the game mode you picked.'
-                          />
-                        </Form.Label>
-                        <Form.Control
-                          name='side_bets_perc'
-                          type='input'
-                          defaultValue={defaults.side_bets_perc}
-                          value={sideBetsPerc}
-                          onChange={(e) => setSideBetsPerc(e.target.value)}
-                        />
-                      </Form.Group>
-                      {sideBetsPerc > 0 && (
-                        <Form.Group>
-                          <Form.Label>
-                    Sidebet period
-                            <Tooltip
-                              message='The sidebet % that you just picked will be paid out evenly over either weekly or monthly intervals. '
-                            />
-                          </Form.Label>
-                          <Form.Control
-                            name='side_bets_period'
-                            as='select'
-                            defaultValue={defaults.side_bets_period}
-                            onChange={(e) => setSideBetsPeriod(e.target.value)}
-                          >
-                            {defaults.sidebet_periods &&
-                    optionBuilder(defaults.sidebet_periods)}
-                          </Form.Control>
-                        </Form.Group>
-                      )}
                     </>}
                 </Col>
               </Row>}
-            <Form.Group>
-              <Form.Label>
-                Benchmark
-                <Tooltip
-                  message={
-                    <>
-                      <p>
-                        The Benchmark is how the player's portfolios are going to be compared, thus, it defines who is winning.
-                      </p>
-                      <p>
-                        <strong>Simple Return</strong> is your total portfolio value divided by what you started with.
-                      </p>
-                      <p>
-                        <strong>Sharpe Ratio</strong> is a risk-adjusted measure of return. If you're not sure, choose Simple Return.
-                      </p>
-                      <p>
-                        Check out <a href='https://www.youtube.com/watch?v=s0bxoD_0fAU' target='_blank' rel='noreferrer noopener'>
-                          this video
-                        </a> to learn how we calculate the Sharpe ratio
-                      </p>
-                    </>
-                  }
-                />
-              </Form.Label>
-              <RadioButtons
-                optionsList={defaults.benchmarks}
-                name='benchmark'
-                onChange={(e) => setBenchmark(e.target.value)}
-                defaultChecked={benchmark}
-              />
-            </Form.Group>
           </Col>
           {gameMode === 'multi_player' &&
             <Col lg={4}>

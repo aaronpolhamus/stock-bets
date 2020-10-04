@@ -626,6 +626,7 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     # normalizes index to the same starting scale as the user
     df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
+    df["username"] = index_info["name"]
 
     # When a game kicks off, it will generally be that case that there won't be an index data point at exactly that
     # time. We solve this here, create a synthetic "anchor" data point that starts at the same time at the game
