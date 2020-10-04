@@ -7,8 +7,6 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from backend.database.db import engine
-from backend.database.helpers import query_to_dict
 from backend.logic.base import (
     get_time_defaults,
     get_active_balances,
@@ -25,7 +23,6 @@ from backend.logic.base import (
     posix_to_datetime,
     STARTING_VIRTUAL_CASH,
     get_active_game_user_ids,
-    check_single_player_mode,
     get_index_portfolio_value_data,
     TIMEZONE,
     get_end_of_last_trading_day,
@@ -68,6 +65,7 @@ from backend.tasks.redis import rds
 
 # Exceptions
 # ----------
+from database.db import engine
 from database.helpers import query_to_dict
 
 
@@ -200,9 +198,9 @@ def palette_generator(n):
 
 def get_game_users(game_id: int):
     usernames = get_all_game_usernames(game_id)
-    if check_single_player_mode(game_id):
-        usernames += TRACKED_INDEXES
-    return usernames
+    index_names = query_to_dict("SELECT `name` FROM index_metadata")
+    index_names = [x["name"] for x in index_names]
+    return usernames + index_names
 
 
 def assign_colors(inventory: List):
@@ -270,17 +268,18 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
                                     sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}"))
         records.append({**user_info, **stat_info})
 
-    if check_single_player_mode(game_id):
-        for index in TRACKED_INDEXES:
-            portfolio_value = get_index_portfolio_value(game_id, index, start_time, end_time)
-            stat_info = make_stat_entry(color=user_colors[index],
-                                        cash_balance=None,
-                                        portfolio_value=portfolio_value,
-                                        stocks_held=[],
-                                        return_ratio=rds.get(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}"),
-                                        sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}"))
-            index_info = dict(username=index, profile_pic=None)
-            records.append({**index_info, **stat_info})
+    for index in TRACKED_INDEXES:
+        index_info = query_to_dict("""
+            SELECT name as username, avatar AS profile_pic 
+            FROM index_metadata WHERE symbol = %s""", index)[0]
+        portfolio_value = get_index_portfolio_value(game_id, index, start_time, end_time)
+        stat_info = make_stat_entry(color=user_colors[index_info["username"]],
+                                    cash_balance=None,
+                                    portfolio_value=portfolio_value,
+                                    stocks_held=[],
+                                    return_ratio=rds.get(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}"),
+                                    sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}"))
+        records.append({**index_info, **stat_info})
 
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
     records = sorted(records, key=lambda x: -x[benchmark])
@@ -517,15 +516,16 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
         apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio[portfolio_table_keys])
 
-    if check_single_player_mode(game_id):
-        for index in TRACKED_INDEXES:
-            df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
-            df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
-            df = add_time_labels(df)
-            df = df.groupby("t_index", as_index=False).agg(
-                {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
-            apply_validation(df, portfolio_comps_schema)
-            portfolios.append(df[portfolio_table_keys])
+    # add index data
+    for index in TRACKED_INDEXES:
+        df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
+        df["timestamp"] = df["timestamp"].apply(lambda x: posix_to_datetime(x))
+        df = add_time_labels(df)
+        df = df.groupby("t_index", as_index=False).agg(
+            {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
+        apply_validation(df, portfolio_comps_schema)
+        portfolios.append(df[portfolio_table_keys])
+
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
     relabelled_df.sort_values("timestamp", inplace=True)
@@ -942,6 +942,14 @@ def serialize_and_pack_winners_table(game_id: int):
     s3_cache.set(f"{game_id}/{PAYOUTS_PREFIX}", json.dumps(out_dict))
 
 
+def check_single_player_mode(game_id: int) -> bool:
+    with engine.connect() as conn:
+        game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
+    if not game_mode:
+        return False
+    return game_mode[0] == "single_player"
+
+
 def init_game_assets(game_id: int):
     calculate_and_pack_game_metrics(game_id)
 
@@ -972,13 +980,12 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
         rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{user_id}", return_ratio)
         rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{user_id}", sharpe_ratio)
 
-    if check_single_player_mode(game_id):
-        for index in TRACKED_INDEXES:
-            df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
-            index_return_ratio = portfolio_return_ratio(df)
-            index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
-            rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio)
-            rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio)
+    for index in TRACKED_INDEXES:
+        df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
+        index_return_ratio = portfolio_return_ratio(df)
+        index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
+        rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio)
+        rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio)
 
 # ------------------ #
 # Public leaderboard #

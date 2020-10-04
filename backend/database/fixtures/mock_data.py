@@ -5,6 +5,7 @@ import json
 from datetime import timedelta
 from io import BytesIO
 from sqlalchemy import MetaData
+from unittest.mock import patch
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -593,7 +594,7 @@ MOCK_DATA = {
     "index_metadata": [
         {"symbol": "^IXIC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "NASDAQ"},
         {"symbol": "^DJI", "start_date": simulation_start_time, "avatar": f"{pics_ep}/dji.png", "name": "Dow Jones"},
-        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "S&P 500"}
+        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/s_and_p.png", "name": "S&P 500"}
     ],
     "indexes": index_records,
     "stockbets_rating": _ratings_builder(USER_DATA)
@@ -648,13 +649,20 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
-    game_ids = [3, 6, 7, 8]
+
+    @patch("backend.logic.base.STARTING_VIRTUAL_CASH", 100_000)
+    def _game_3_mock():
+        init_game_assets(3)
+
+    _game_3_mock()
+
+    game_ids = [6, 7, 8]
     for game_id in game_ids:
         init_game_assets(game_id)
 
     serialize_and_pack_rankings()
-
     serialize_and_pack_games_per_user_chart()
+
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
