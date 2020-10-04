@@ -620,12 +620,9 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     with engine.connect() as conn:
         df = pd.read_sql("""
-            SELECT imd.username, timestamp, `value` FROM indexes
-            INNER JOIN (
-              SELECT symbol, `name` AS username FROM index_metadata
-            ) imd ON imd.symbol = indexes.symbol
-            WHERE indexes.symbol = %s AND timestamp >= %s AND timestamp <= %s;""",
-                         conn, params=[symbol, start_time, end_time])
+            SELECT timestamp, `value` FROM indexes
+            WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
+        index_info = query_to_dict("SELECT * FROM index_metadata WHERE symbol = %s", symbol)[0]
 
     # normalizes index to the same starting scale as the user
     df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
@@ -633,5 +630,5 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
     # When a game kicks off, it will generally be that case that there won't be an index data point at exactly that
     # time. We solve this here, create a synthetic "anchor" data point that starts at the same time at the game
     trade_start = make_index_start_time(start_time)
-    return pd.concat([pd.DataFrame(dict(username=[df.iloc[0]["username"]], timestamp=[trade_start],
+    return pd.concat([pd.DataFrame(dict(username=index_info["name"], timestamp=[trade_start],
                                         value=[STARTING_VIRTUAL_CASH])), df])

@@ -52,11 +52,6 @@ def make_stock_data_records():
                 index_records.append(dict(symbol="^GSPC", value=gspc_value, timestamp=posix_time))
                 index_records.append(dict(symbol="^DJI", value=dji_value, timestamp=posix_time))
 
-                if sample_day == min(sample_days):  # necessary hack for get_index_reference to work properly
-                    index_records.append(dict(symbol="^IXIC", value=ixic_value, timestamp=posix_time - 14 * SECONDS_IN_A_DAY))
-                    index_records.append(dict(symbol="^GSPC", value=gspc_value, timestamp=posix_time - 14 * SECONDS_IN_A_DAY))
-                    index_records.append(dict(symbol="^DJI", value=dji_value, timestamp=posix_time - 14 * SECONDS_IN_A_DAY))
-
     # our simulation requires a full two weeks worth of data. append new entries for indexes and prices adding 7 days
     # worth of time to each.
     extended_price_records = deepcopy(price_records)
