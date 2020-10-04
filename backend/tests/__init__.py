@@ -14,6 +14,9 @@ from backend.logic.auth import create_jwt
 from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.logic.stock_data import TRACKED_INDEXES
 from backend.tasks import s3_cache
+from backend.tasks.redis import rds
+
+HOST_URL = 'https://localhost:5000/api'
 
 
 class BaseTestCase(unittest.TestCase):
@@ -72,16 +75,18 @@ class StockbetsRatingCase(unittest.TestCase):
         self.engine = engine
         self.requests_session = requests.Session()
         s3_cache.flushall()
+        rds.flushall()
         drop_all_tables()
         os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
-        last_row = query_to_dict("SELECT * FROM stockbets_rating ORDER BY id DESC LIMIT 0, 1")[0]
-        _id = last_row["id"]
+
+        # convert stockbets_rating table ID to autoincrement
+        with self.engine.connect() as conn:
+            conn.execute("ALTER TABLE stockbets_rating CHANGE id id INT(11) AUTO_INCREMENT PRIMARY KEY;")
 
         # manually add the indexes that we want to track to the scores table
         for index in TRACKED_INDEXES:
-            add_row("stockbets_rating", id=_id, index_symbol=index, rating=STARTING_ELO_SCORE, update_type="sign_up",
+            add_row("stockbets_rating", index_symbol=index, rating=STARTING_ELO_SCORE, update_type="sign_up",
                     timestamp=-99)
-            _id += 1
 
     def tearDown(self):
         self.requests_session.close()

@@ -5,11 +5,12 @@ import pandas as pd
 from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import add_row
+from backend.logic.visuals import get_user_information
 from backend.logic.base import (
-    get_user_ids,
-    get_user_information
+    standardize_email,
+    get_user_ids_from_passed_emails,
+    get_user_ids
 )
-from backend.logic.base import standardize_email, get_user_ids_from_passed_emails
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 

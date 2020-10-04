@@ -25,7 +25,6 @@ from backend.database.models import (
 from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
-    get_user_information,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
     STARTING_VIRTUAL_CASH,
@@ -49,6 +48,7 @@ from backend.logic.payments import (
 )
 from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
+    get_user_information,
     add_fulfilled_order_entry,
     removing_pending_order,
     serialize_and_pack_portfolio_details,

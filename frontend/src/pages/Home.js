@@ -261,7 +261,7 @@ const Home = () => {
             email={data.email}
             nameColor='var(--cotlor-lighter)'
             dataColor='var(--color-text-light-gray)'
-            info={['Return: 50%', 'Sharpe: 0.324']}
+            info={[`Rating: ${data.rating}`]}
           />
           <FriendsList
             onLoadFriends={(invites) => {

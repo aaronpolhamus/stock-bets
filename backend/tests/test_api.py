@@ -64,10 +64,11 @@ from backend.logic.visuals import (
 )
 from backend.tasks.airflow import start_dag
 from backend.tasks.redis import rds
-from backend.tests import BaseTestCase
+from backend.tests import (
+    BaseTestCase,
+    HOST_URL
+)
 from backend.tasks import s3_cache
-
-HOST_URL = 'https://localhost:5000/api'
 
 
 class TestUserManagement(BaseTestCase):

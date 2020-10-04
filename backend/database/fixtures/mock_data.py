@@ -4,6 +4,7 @@ test runner to construct a .sql data dump that we can quickly scan into the DB.
 import json
 from datetime import timedelta
 from io import BytesIO
+from sqlalchemy import MetaData
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -28,9 +29,13 @@ from backend.logic.games import (
     init_game_assets,
     DEFAULT_INVITE_OPEN_WINDOW
 )
-from backend.logic.visuals import make_chart_json
+from backend.logic.visuals import (
+    make_chart_json,
+    serialize_and_pack_rankings,
+    TRACKED_INDEXES
+)
 from backend.tasks import s3_cache
-from sqlalchemy import MetaData
+from backend.logic.metrics import STARTING_ELO_SCORE
 
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
@@ -59,88 +64,139 @@ def get_stock_finish_price(symbol, records=price_records, order_time=simulation_
 
 # Mocked data: These are listed in order so that we can tear down and build up while respecting foreign key constraints
 pics_ep = f"{Config.AWS_PUBLIC_ENDPOINT}/{Config.AWS_PUBLIC_BUCKET_NAME}/profile_pics"
+USER_DATA = [
+    {"name": Config.TEST_CASE_NAME, "email": Config.TEST_CASE_EMAIL, "profile_pic": f"{pics_ep}/test_user.png",
+     "username": "cheetos", "created_at": 1588307605.0, "provider": "google",
+     "resource_uuid": Config.TEST_CASE_UUID},
+    {"name": "dummy", "email": "dummy@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": None,
+     "created_at": 1588702321.0, "provider": "google", "resource_uuid": "efg456"},
+    {"name": "Eddie", "email": "eddie@example.test", "profile_pic": f"{pics_ep}/toofast.jpg", "username": "toofast",
+     "created_at": 1588307928.0, "provider": "twitter", "resource_uuid": "hij789"},
+    {"name": "Mike", "email": "mike@example.test", "profile_pic": f"{pics_ep}/miguel.jpg", "username": "miguel",
+     "created_at": 1588308080.0, "provider": "facebook", "resource_uuid": "klm101"},
+    {"name": "Eli", "email": "eli@example.test", "profile_pic": f"{pics_ep}/murcitdev.jpg", "username": "murcitdev",
+     "created_at": 1588308406.0, "provider": "google", "resource_uuid": "nop112"},
+    {"name": "dummy2", "email": "dummy2@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": "dummy2",
+     "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
+    {"name": "jack sparrow", "email": "jack@black.pearl", "profile_pic": f"{pics_ep}/jack.jpg", "username": "jack",
+     "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+    {"name": "johnnie walker", "email": "johnnie@walker.com", "profile_pic": f"{pics_ep}/johnnie.png",
+     "username": "johnnie", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
+    {"name": "jadis", "email": "jadis@rick.lives", "profile_pic": f"{pics_ep}/jadis.png", "username": "jadis",
+     "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
+    {"name": "minion", "email": "minion1@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion1", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion2@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion2", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion3@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion3", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion4@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion4", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion5@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion5", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion6@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion6", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion7@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion7", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion8@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion8", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion9@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion9", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion10@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion10", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion11@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion11", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion12@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion12", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion13@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion13", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion14@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion14", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion15@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion15", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion16@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion16", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion17@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion17", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion18@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion18", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion19@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion19", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion20@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion20", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion21@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion21", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion22@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion22", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion23@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion23", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion24@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion24", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion25@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion25", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion26@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion26", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion27@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion27", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion28@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion28", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion29@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion29", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+    {"name": "minion", "email": "minion30@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
+     "username": "minion30", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
+]
+
+
+def _ratings_builder(user_data):
+    rating = 1500
+    adjustment = 30
+    ratings_array = []
+    for i, entry in enumerate(user_data):
+        ratings_array.append(dict(
+            user_id=i+1,
+            index_symbol=None,
+            game_id=None,
+            rating=STARTING_ELO_SCORE,
+            update_type="sign_up",
+            timestamp=simulation_start_time
+        ))
+        ratings_array.append(dict(
+            user_id=i+1,
+            index_symbol=None,
+            game_id=3,
+            rating=rating,
+            update_type="game_end",
+            timestamp=simulation_end_time
+        ))
+        rating -= adjustment
+
+    rating = 1230
+    adjustment = 14
+    for index in TRACKED_INDEXES:
+        ratings_array.append(dict(
+            user_id=None,
+            index_symbol=index,
+            game_id=None,
+            rating=STARTING_ELO_SCORE,
+            update_type="sign_up",
+            timestamp=simulation_start_time
+        ))
+        ratings_array.append(dict(
+            user_id=None,
+            index_symbol=index,
+            game_id=3,
+            rating=rating,
+            update_type="game_end",
+            timestamp=simulation_end_time
+        ))
+        rating -= adjustment
+
+    ratings_array.sort(key=lambda x: x["timestamp"])
+    return ratings_array
+
+
 MOCK_DATA = {
-    "users": [
-        {"name": Config.TEST_CASE_NAME, "email": Config.TEST_CASE_EMAIL, "profile_pic": f"{pics_ep}/test_user.png",
-         "username": "cheetos", "created_at": 1588307605.0, "provider": "google",
-         "resource_uuid": Config.TEST_CASE_UUID},
-        {"name": "dummy", "email": "dummy@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": None,
-         "created_at": 1588702321.0, "provider": "google", "resource_uuid": "efg456"},
-        {"name": "Eddie", "email": "eddie@example.test", "profile_pic": f"{pics_ep}/toofast.jpg", "username": "toofast",
-         "created_at": 1588307928.0, "provider": "twitter", "resource_uuid": "hij789"},
-        {"name": "Mike", "email": "mike@example.test", "profile_pic": f"{pics_ep}/miguel.jpg", "username": "miguel",
-         "created_at": 1588308080.0, "provider": "facebook", "resource_uuid": "klm101"},
-        {"name": "Eli", "email": "eli@example.test", "profile_pic": f"{pics_ep}/murcitdev.jpg", "username": "murcitdev",
-         "created_at": 1588308406.0, "provider": "google", "resource_uuid": "nop112"},
-        {"name": "dummy2", "email": "dummy2@example.test", "profile_pic": f"{pics_ep}/dummy.jpg", "username": "dummy2",
-         "created_at": 1588308407.0, "provider": "google", "resource_uuid": "qrs131"},
-        {"name": "jack sparrow", "email": "jack@black.pearl", "profile_pic": f"{pics_ep}/jack.jpg", "username": "jack",
-         "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "johnnie walker", "email": "johnnie@walker.com", "profile_pic": f"{pics_ep}/johnnie.png",
-         "username": "johnnie", "created_at": 1591562299, "provider": "google", "resource_uuid": "tuv415"},
-        {"name": "jadis", "email": "jadis@rick.lives", "profile_pic": f"{pics_ep}/jadis.png", "username": "jadis",
-         "created_at": 1591562299, "provider": "google", "resource_uuid": "wxy617"},
-        {"name": "minion", "email": "minion1@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion1", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion2@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion2", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion3@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion3", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion4@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion4", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion5@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion5", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion6@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion6", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion7@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion7", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion8@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion8", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion9@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion9", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion10@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion10", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion11@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion11", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion12@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion12", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion13@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion13", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion14@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion14", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion15@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion15", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion16@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion16", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion17@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion17", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion18@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion18", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion19@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion19", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion20@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion20", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion21@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion21", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion22@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion22", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion23@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion23", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion24@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion24", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion25@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion25", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion26@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion26", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion27@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion27", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion28@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion28", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion29@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion29", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-        {"name": "minion", "email": "minion30@despicable.me", "profile_pic": f"{pics_ep}/minion.jpg",
-         "username": "minion30", "created_at": simulation_start_time, "provider": "google", "resource_uuid": "-99"},
-    ],
+    "users": USER_DATA,
     "games": [
         {"title": "fervent swartz", "game_mode": "multi_player", "duration": 365, "buy_in": 100,
          "benchmark": "sharpe_ratio", "side_bets_perc": 50, "side_bets_period": "monthly", "creator_id": 4,
@@ -539,7 +595,8 @@ MOCK_DATA = {
         {"symbol": "^DJI", "start_date": simulation_start_time, "avatar": f"{pics_ep}/dji.png", "name": "Dow Jones"},
         {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "S&P 500"}
     ],
-    "indexes": index_records
+    "indexes": index_records,
+    "stockbets_rating": _ratings_builder(USER_DATA)
 }
 
 
@@ -594,6 +651,8 @@ def make_redis_mocks():
     game_ids = [3, 6, 7, 8]
     for game_id in game_ids:
         init_game_assets(game_id)
+
+    serialize_and_pack_rankings()
 
     serialize_and_pack_games_per_user_chart()
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point

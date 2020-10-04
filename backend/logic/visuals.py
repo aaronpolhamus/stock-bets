@@ -20,7 +20,6 @@ from backend.logic.base import (
     get_next_trading_day_schedule,
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
-    get_user_information,
     get_game_start_and_end,
     get_usernames,
     posix_to_datetime,
@@ -69,6 +68,9 @@ from backend.tasks.redis import rds
 
 # Exceptions
 # ----------
+from database.helpers import query_to_dict
+
+
 class BadOrderMerge(Exception):
 
     def __str__(self):
@@ -240,6 +242,13 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
         portfolio_value=portfolio_value,
         color=color
     )
+
+
+def get_user_information(user_id: int):
+    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
+    info = query_to_dict(sql, user_id)[0]
+    info["rating"] = rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}")
+    return info
 
 
 def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, end_time: float = None):
@@ -977,14 +986,15 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
 
 
 def update_player_rank(df: pd.DataFrame):
-    # PLAYER_RANK_PREFIX
-    pass
+    for i, row in df.iterrows():
+        if row["user_id"] is not None:
+            rds.set(f"{PLAYER_RANK_PREFIX}_{row['user_id']}", row["rating"])
 
 
 def serialize_and_pack_rankings():
     with engine.connect() as conn:
         user_df = pd.read_sql("""
-            SELECT * FROM stockbets_rating sr
+            SELECT user_id, rating, username, profile_pic FROM stockbets_rating sr
             INNER JOIN (
               SELECT MAX(id) AS max_id
               FROM stockbets_rating
@@ -998,7 +1008,7 @@ def serialize_and_pack_rankings():
         """, conn)
 
         indexes_df = pd.read_sql("""
-            SELECT * FROM stockbets_rating sr
+            SELECT user_id, rating, imd.username, imd.profile_pic FROM stockbets_rating sr
             INNER JOIN (
               SELECT MAX(id) AS max_id
               FROM stockbets_rating
@@ -1011,5 +1021,6 @@ def serialize_and_pack_rankings():
             ) imd ON sr.index_symbol = imd.symbol
         """, conn)
 
-        df = pd.concat([user_df, indexes_df])
-    # PUBLIC_LEADERBOARD_PREFIX
+    df = pd.concat([user_df, indexes_df]).sort_values("rating", ascending=False)
+    update_player_rank(df)
+    rds.set(PUBLIC_LEADERBOARD_PREFIX, json.dumps(df.to_dict(orient="records")))

@@ -8,7 +8,6 @@ from backend.bi.report_logic import (
     ORDERS_PER_ACTIVE_USER_PREFIX
 )
 from backend.config import Config
-from backend.database.db import db
 from backend.database.helpers import (
     add_row,
     query_to_dict
@@ -30,7 +29,6 @@ from backend.logic.base import (
     get_user_ids,
     get_game_info,
     get_pending_buy_order_value,
-    get_user_information,
     standardize_email
 )
 from logic.stock_data import fetch_price
@@ -84,6 +82,7 @@ from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     add_fulfilled_order_entry,
+    get_user_information,
     PENDING_ORDERS_PREFIX,
     FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -91,7 +90,8 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
-    ORDER_PERF_CHART_PREFIX
+    ORDER_PERF_CHART_PREFIX,
+    PUBLIC_LEADERBOARD_PREFIX,
 )
 from backend.tasks.definitions import (
     async_update_all_games,
@@ -99,6 +99,7 @@ from backend.tasks.definitions import (
     async_calculate_key_metrics,
 )
 from backend.tasks import s3_cache
+from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -682,7 +683,6 @@ def get_transactions_table():
     user_id = decode_token(request)
     return jsonify(get_downloadable_transactions_table(game_id, user_id))
 
-
 # -------- #
 # Payments #
 # -------- #
@@ -709,6 +709,16 @@ def process_payment():
             type=payment_type, amount=amount, currency=currency, direction='inflow', timestamp=time.time())
 
     return make_response("Payment processed", 200)
+
+# -------------- #
+# Platform-level #
+# -------------- #
+
+
+@routes.route("/api/public_leaderboard", methods=["POST"])
+@authenticate
+def public_leaderboard():
+    return jsonify(unpack_redis_json(PUBLIC_LEADERBOARD_PREFIX))
 
 # ----- #
 # Admin #
@@ -762,7 +772,6 @@ def change_user():
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
     return resp
-
 
 # ------ #
 # DevOps #

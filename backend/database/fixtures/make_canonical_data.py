@@ -29,7 +29,10 @@ if __name__ == '__main__':
                 SELECT * FROM game_balances 
                 WHERE game_id = %s AND user_id IN ({", ".join(["%s"] * len(user_ids))});
                 """, conn, params=[args.game_id] + list(user_ids))
-
+            game_invites = pd.read_sql(f"""
+                SELECT * FROM game_invites
+                WHERE user_id IN ({", ".join(["%s"] * len(user_ids))}); 
+            """, conn, params=user_ids)
             symbols = game_balances["symbol"].unique().tolist()
             orders = pd.read_sql(f"""
                 SELECT * FROM orders 
@@ -64,6 +67,7 @@ if __name__ == '__main__':
         games.to_pickle("games.pkl")
         game_status.to_pickle("game_status.pkl")
         game_balances.to_pickle("game_balances.pkl")
+        game_invites.to_pickle("game_invites.pkl")
         orders.to_pickle("orders.pkl")
         order_status.to_pickle("order_status.pkl")
         splits.to_pickle("splits.pkl")
@@ -78,6 +82,7 @@ if __name__ == '__main__':
         games = pd.read_pickle("games.pkl")
         game_status = pd.read_pickle("game_status.pkl")
         game_balances = pd.read_pickle("game_balances.pkl")
+        game_invites = pd.read_pickle("game_invites.pkl")
         orders = pd.read_pickle("orders.pkl")
         order_status = pd.read_pickle("order_status.pkl")
         splits = pd.read_pickle("splits.pkl")
@@ -90,6 +95,7 @@ if __name__ == '__main__':
             games.to_sql("games", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             game_status.to_sql("game_status", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             game_balances.to_sql("game_balances", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
+            game_invites.to_sql("game_invites", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             orders.to_sql("orders", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             order_status.to_sql("order_status", conn, if_exists="replace", index=False, dtype={"id": db.Integer})
             splits.to_sql("stock_splits", conn, if_exists="replace", index=False, dtype={"id": db.Integer})

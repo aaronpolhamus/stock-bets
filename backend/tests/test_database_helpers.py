@@ -1,5 +1,4 @@
 import json
-from freezegun import freeze_time
 import time
 
 import pandas as pd
@@ -13,8 +12,8 @@ from backend.database.helpers import (
 )
 from backend.logic.base import (
     get_game_info,
-    get_user_information,
 )
+from backend.logic.visuals import get_user_information
 from backend.tests import BaseTestCase
 
 
