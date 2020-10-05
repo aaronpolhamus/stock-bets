@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Container, Col, Row } from 'react-bootstrap'
 import { breakpoints } from 'design-tokens'
+import { ReactComponent as Logo } from 'assets/logo-bright.svg'
 // Global Layout Component
 const Breadcrumb = styled.div`
   display: flex;
@@ -73,7 +74,7 @@ const Header = styled.header`
   }
 `
 
-const Logo = styled.a`
+const LogoWrapper = styled.a`
   text-transform: uppercase;
   font-weight: bold;
   color: var(--color-lightest);
@@ -122,7 +123,6 @@ const SidebarWrapper = styled(Col)`
     box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
     background-color: var(--color-secondary);
-    border-radius: 0 var(--space-200) 0 0;
     min-height: 100vh;
     position: sticky;
     top: 0;
@@ -141,12 +141,14 @@ const SidebarContent = styled.div`
   @media screen and (min-width: ${breakpoints.md}){
     display: block;
     width: 100%;
-    padding: var(--space-400);
+    padding: var(--space-400) var(--space-400) 0;
   }
 `
 
 const SidebarSection = styled.div`
-  margin-bottom: var(--space-500);
+  background-color: ${props => props.$backgroundColor || 'transparent'};
+  margin: 0 calc(var(--space-400) * -1);
+  padding: 0 var(--space-400) var(--space-300);
 `
 
 const SmallColumnWrapper = styled(Col)`
@@ -183,7 +185,9 @@ const Column = ({ children, className, ...props }) => (
 const Sidebar = ({ children, className, ...props }) => (
   <SidebarWrapper className={className} {...props}>
     <SidebarContent>
-      <Logo href='/'>Stockbets</Logo>
+      <LogoWrapper href='/' title='Stockbets'>
+        <Logo/>
+      </LogoWrapper>
 
       {children}
     </SidebarContent>
@@ -192,14 +196,28 @@ const Sidebar = ({ children, className, ...props }) => (
 
 const GameContent = styled(Column)`
   @media screen and (min-width: ${breakpoints.md}){
-    max-width: calc(100% - 330px);
+    width: 100%;
+    flex-basis: 100%;
+    max-width: calc(100% - 340px);
   }
 `
 
 const GameSidebar = styled(Sidebar)`
   @media screen and (min-width: ${breakpoints.md}){
-    flex-basis: 330px;
+    flex-basis: 340px;
     max-width: none;
+  }
+`
+const HomeSidebar = styled(Sidebar)`
+  @media screen and (min-width: ${breakpoints.md}){
+    position: sticky;
+    padding-bottom: var(--space-700);
+    top: 0;
+    max-height: 100vh;
+    overflow: auto;
+    flex-basis: 340px;
+    max-width: none;
+
   }
 `
 
@@ -223,6 +241,7 @@ export {
   Content,
   GameContent,
   GameSidebar,
+  HomeSidebar,
   Header,
   Layout,
   ModalOverflowControls,

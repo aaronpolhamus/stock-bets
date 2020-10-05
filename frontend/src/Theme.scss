@@ -1,7 +1,8 @@
 $color-primary: #ffaf74;
 $color-primary-darken: #f46f10;
 $color-primary-darkest: #8e4818;
-$color-secondary: #2d263b;
+$color-secondary: #2d253c;
+$color-secondary-dark: #211B2d;
 $color-secondary-muted: #473231;
 $color-terciary: #ff4a4b;
 $color-lightest: #ffffff;
@@ -21,6 +22,7 @@ $table-cell-height: 3rem;
   --color-primary-darken: #{$color-primary-darken};
   --color-primary-darkest: #{$color-primary-darkest};
   --color-secondary: #{$color-secondary};
+  --color-secondary-dark: #{$color-secondary-dark};
   --color-secondary-muted: #{$color-secondary-muted};
   --color-terciary: #{$color-terciary};
   --color-lightest: #{$color-lightest};

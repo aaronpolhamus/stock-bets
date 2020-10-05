@@ -1,25 +1,42 @@
 import React, { useState, useEffect, useContext } from 'react'
-import { Button, Col, Form, Modal, Row } from 'react-bootstrap'
+import {
+  Button,
+  Col,
+  Form,
+  Modal,
+  Row,
+  Tabs,
+  Tab
+} from 'react-bootstrap'
 import api from 'services/api'
 import styled from 'styled-components'
 import { UserContext } from 'Contexts'
 import {
   Breadcrumb,
-  Column,
   Header,
   Layout,
   PageSection,
-  Sidebar
+  HomeSidebar,
+  GameContent,
+  SidebarSection
 } from 'components/layout/Layout'
-import { UserMiniCard } from 'components/users/UserMiniCard'
+import { UserAvatar } from 'components/users/UserAvatar'
+import { SmallCaps } from 'components/textComponents/Text'
+import { AddFriends } from 'components/forms/AddFriends'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
+import { ListGlobalRanking } from 'components/lists/ListGlobalRanking'
+import { breakpoints } from 'design-tokens'
 import {
+  Globe,
+  Users,
   LogOut,
   X as IconClose,
   Users as IconUsers
 } from 'react-feather'
+import { IconTabs } from 'components/ui/icons/IconTabs'
+
 import LogRocket from 'logrocket'
 
 // Left in un-used for now: we'll almost certainly get to this later
@@ -36,25 +53,64 @@ const filterEntries = (array, filters) => {
   })
 }
 
-const StyledMiniCard = styled(UserMiniCard)`
-  padding-bottom: var(--space-400);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
-  position: relative;
-  &::after {
-    position: absolute;
-    bottom: 0px;
-    left: 0;
-    content: "";
-    display: block;
-    height: 1px;
-    width: 100%;
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-`
-
 const FormCheckStack = styled.div`
   .form-check + .form-check{
      margin-top: var(--space-100);
+  }
+`
+
+const UserCard = styled.div`
+  display: flex;
+  align-items: center;
+  padding: var(--space-200) 0 var(--space-400);
+`
+
+const UserInfo = styled.div`
+  margin-left: var(--space-100);
+  p {
+    margin-bottom: 0;
+  }
+`
+
+const UserStats = styled.div`
+  color: var(--color-text-light-gray);
+  strong {
+    color: var(--color-primary);
+  }
+`
+const SidebarTabs = styled.div`
+  .nav-tabs{
+    position: sticky;
+    top: 0;
+    border-bottom: none;
+    background-color: var(--color-secondary-dark);
+  }
+  .nav-link{
+    width: 50%;
+    justify-content: center;
+    font-size: var(--font-size-min);
+    color: var(--color-text-light-gray);
+    padding: calc(var(--space-200) + 4px) 0;
+    border-bottom-color: var(--color-secondary-muted);
+  }
+  .nav-link.active{
+    background-color: transparent;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+  }
+`
+
+const AddFriendsWrapper = styled.div`
+  @media screen and (min-width: ${breakpoints.md}){
+    text-align: center;
+    position: fixed;
+    width: 100%;
+    left: 0;
+    width: 340px;
+    padding: var(--space-700) 0 var(--space-200);
+    z-index: 2;
+    bottom: 0;
+    background: linear-gradient(rgba(33, 27, 44, 0.15), var(--color-secondary-dark) 46.64%);
   }
 `
 
@@ -231,7 +287,7 @@ const Home = () => {
           </Button>
         </Modal.Body>
       </Modal>
-      <Sidebar md={3}>
+      <HomeSidebar md={3}>
         <SlideinBlock
           icon={
             <IconUsers
@@ -255,22 +311,66 @@ const Home = () => {
           context='md'
           backgroundColor='var(--color-secondary)'
         >
-          <StyledMiniCard
-            avatarSrc={data.profile_pic}
-            username={data.username}
-            email={data.email}
-            nameColor='var(--cotlor-lighter)'
-            dataColor='var(--color-text-light-gray)'
-            info={[`Rating: ${data.rating}`]}
-          />
-          <FriendsList
-            onLoadFriends={(invites) => {
-              setFriendInvites(invites.length)
-            }}
-          />
+          <UserCard>
+            <UserAvatar
+              src={data.profile_pic}
+              size='big'
+            />
+            <UserInfo>
+              <p>
+                <strong>
+                  {data.username}
+                </strong>
+              </p>
+              <UserStats>
+                <p>
+                  <SmallCaps>
+                    Score: <strong>{data.rating}</strong>
+                  </SmallCaps>
+                </p>
+              </UserStats>
+            </UserInfo>
+          </UserCard>
+          <SidebarSection $backgroundColor='var(--color-secondary-dark)'>
+            <SidebarTabs>
+              <Tabs>
+                <Tab
+                  eventKey='leaderboard'
+                  title={(
+                    <>
+                      <IconTabs><Globe /></IconTabs>
+                      Leaderboard
+                    </>
+                  )}
+                >
+                  <ListGlobalRanking/>
+                </Tab>
+                <Tab
+                  eventKey='friends'
+                  title={(
+                    <>
+                      <IconTabs><Users /></IconTabs>
+                      Friends
+                    </>
+                  )}
+                >
+                  <FriendsList
+                    onLoadFriends={(invites) => {
+                      setFriendInvites(invites.length)
+                    }}
+                  />
+                </Tab>
+              </Tabs>
+            </SidebarTabs>
+          </SidebarSection>
+          <AddFriendsWrapper>
+            <AddFriends
+              variant='alt'
+            />
+          </AddFriendsWrapper>
         </SlideinBlock>
-      </Sidebar>
-      <Column md={9}>
+      </HomeSidebar>
+      <GameContent md={9}>
         <PageSection>
           <Breadcrumb justifyContent='flex-end'>
             <Button variant='link' onClick={handleLogout}>
@@ -315,7 +415,7 @@ const Home = () => {
             </Col>
           </Row>
         </PageSection>
-      </Column>
+      </GameContent>
     </Layout>
   )
 }

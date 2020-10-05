@@ -74,7 +74,6 @@ const Subtext = styled.small`
 `
 
 const SmallCaps = styled.small`
-  color: ${(props) => props.color || 'var(--color-text-primary)'};
   font-size: var(--font-size-min);
   font-weight: 400;
   letter-spacing: var(--letter-spacing-smallcaps);

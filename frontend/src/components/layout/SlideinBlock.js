@@ -7,6 +7,7 @@ const Icon = styled.div`
   position: relative;
   @media screen and (min-width: ${props => props.$breakpoint}){
     display: none;
+    position: static;
   }
   span{
     display: block;

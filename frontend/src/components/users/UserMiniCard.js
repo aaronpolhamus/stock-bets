@@ -12,6 +12,7 @@ const infoBuilder = (info) => {
 const MiniCard = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
   p {
     margin-bottom: 0;
     line-height: 1;
@@ -20,8 +21,10 @@ const MiniCard = styled.div`
 const UserData = styled.p`
   text-transform: uppercase;
   font-size: ${(props) => props.fontSize || 'var(--font-size-min)'};
-  color: ${(props) => props.color || 'var(--color-text-gray)'};
+  color: ${(props) => props.color || 'var(--color-text-light-gray)'};
   margin-top: var(--space-50);
+  font-weight: 500;
+  text-align: right;
   span {
     &::before {
       content: "|";
@@ -39,10 +42,11 @@ const UserData = styled.p`
 const UserName = styled.p`
   color: ${(props) => props.color || 'var(--color-text-gray)'};
   font-size: ${(props) => props.fontSize || 'var(--font-size-normal)'};
+  margin-left: var(--space-100);
 `
 
 const UserInfo = styled.div`
-  margin-left: var(--space-100);
+  display: flex;
 `
 
 const UserMiniCard = ({
@@ -60,15 +64,15 @@ const UserMiniCard = ({
 }) => {
   return (
     <MiniCard title={email} className={className}>
-      <UserAvatar src={avatarSrc} size={avatarSize} />
       <UserInfo>
+        <UserAvatar src={avatarSrc} size={avatarSize} />
         <UserName color={nameColor} fontSize={nameFontSize}>
           {username}
         </UserName>
-        <UserData color={dataColor} fontSize={dataFontSize}>
-          {info && infoBuilder(info)}
-        </UserData>
       </UserInfo>
+      <UserData color={dataColor} fontSize={dataFontSize}>
+        {info && infoBuilder(info)}
+      </UserData>
     </MiniCard>
   )
 }

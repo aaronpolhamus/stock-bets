@@ -2,22 +2,15 @@ import React, { useEffect, useState } from 'react'
 import { apiPost } from 'components/functions/api'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { Button, Modal } from 'react-bootstrap'
-import { Header, SidebarSection } from 'components/layout/Layout'
-import { SectionTitle, AlignText } from 'components/textComponents/Text'
-import { AddFriends } from 'components/forms/AddFriends'
 import styled from 'styled-components'
 import { UserCheck } from 'react-feather'
 
 const FriendsListWrapper = styled.div`
-  margin-top: var(--space-400);
 `
 
 const FriendsListList = styled.ul`
   list-style-type: none;
   padding: 0;
-  max-height: 22rem;
-  overflow: auto;
-  scroll-behavior: smooth;
 `
 
 const FriendsListItem = styled.li`
@@ -116,61 +109,51 @@ const FriendsList = ({ onLoadFriends }) => {
 
   return (
     <FriendsListWrapper>
-      <SidebarSection>
-        <Header>
-          <SectionTitle color='var(--color-primary)'>Friends</SectionTitle>
-        </Header>
-        {friendRequestsData.length > 0 &&
-          friendRequestsBuilder(friendRequestsData)}
-        <FriendsListList>
-          {friendsData.length > 0 && friendsListBuilder(friendsData)}
-        </FriendsListList>
+      {friendRequestsData.length > 0 &&
+        friendRequestsBuilder(friendRequestsData)}
+      <FriendsListList>
+        {friendsData.length > 0 && friendsListBuilder(friendsData)}
+      </FriendsListList>
 
-        <Modal show={show} onHide={handleClose} centered>
-          <Modal.Header>
-            <Modal.Title>
-              New friend invite from
-              <strong> {requester}</strong>!
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            {requestRespondMessage === ''
-              ? `${requester} wants to be your friend`
-              : requestRespondMessage}
-          </Modal.Body>
-          <Modal.Footer>
-            {requestRespondMessage === '' ? (
-              <>
-                <Button
-                  variant='outline-secondary'
-                  onClick={() => {
-                    handleRespondFriend(requester, 'declined')
-                  }}
-                >
-                  Decline
-                </Button>
-                <Button
-                  variant='success'
-                  onClick={() => {
-                    handleRespondFriend(requester, 'accepted')
-                  }}
-                >
-                  Accept invite
-                </Button>
-              </>
-            ) : (
-              <Button variant='primary' onClick={handleClose}>
-                Awesome!
+      <Modal show={show} onHide={handleClose} centered>
+        <Modal.Header>
+          <Modal.Title>
+            New friend invite from
+            <strong> {requester}</strong>!
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {requestRespondMessage === ''
+            ? `${requester} wants to be your friend`
+            : requestRespondMessage}
+        </Modal.Body>
+        <Modal.Footer>
+          {requestRespondMessage === '' ? (
+            <>
+              <Button
+                variant='outline-secondary'
+                onClick={() => {
+                  handleRespondFriend(requester, 'declined')
+                }}
+              >
+                Decline
               </Button>
-            )}
-          </Modal.Footer>
-        </Modal>
-      </SidebarSection>
-      <AlignText align='center'>
-        <AddFriends
-          variant='alt'
-        />
-      </AlignText>
+              <Button
+                variant='success'
+                onClick={() => {
+                  handleRespondFriend(requester, 'accepted')
+                }}
+              >
+                Accept invite
+              </Button>
+            </>
+          ) : (
+            <Button variant='primary' onClick={handleClose}>
+              Awesome!
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
     </FriendsListWrapper>
   )
 }
