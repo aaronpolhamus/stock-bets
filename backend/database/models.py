@@ -354,8 +354,11 @@ class StockBetsRating(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
-    index_symbol = db.Column(db.VARCHAR(255), nullable=True, index=True)
+    index_symbol = db.Column(db.VARCHAR(255), db.ForeignKey("index_metadata.symbol"), nullable=True)
     game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
     rating = db.Column(db.Float(precision=32))
+    basis = db.Column(db.Float(precision=32))
+    total_return = db.Column(db.Float(precision=32))
+    n_games = db.Column(db.Integer)
     update_type = db.Column(db.Enum(EventTypes))
     timestamp = db.Column(db.Float(precision=32))

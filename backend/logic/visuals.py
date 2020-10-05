@@ -1004,7 +1004,7 @@ def update_player_rank(df: pd.DataFrame):
 def serialize_and_pack_rankings():
     with engine.connect() as conn:
         user_df = pd.read_sql("""
-            SELECT user_id, rating, username, profile_pic FROM stockbets_rating sr
+            SELECT user_id, rating, username, profile_pic, n_games, total_return FROM stockbets_rating sr
             INNER JOIN (
               SELECT MAX(id) AS max_id
               FROM stockbets_rating
@@ -1018,7 +1018,7 @@ def serialize_and_pack_rankings():
         """, conn)
 
         indexes_df = pd.read_sql("""
-            SELECT user_id, rating, imd.username, imd.profile_pic FROM stockbets_rating sr
+            SELECT user_id, rating, imd.username, imd.profile_pic, n_games, total_return FROM stockbets_rating sr
             INNER JOIN (
               SELECT MAX(id) AS max_id
               FROM stockbets_rating

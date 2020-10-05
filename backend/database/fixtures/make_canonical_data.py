@@ -56,7 +56,9 @@ if __name__ == '__main__':
                 SELECT id, name, email, profile_pic, username, created_at, provider FROM users 
                 WHERE id IN ({", ".join(["%s"] * len(user_ids))});""", conn, params=user_ids)
             stockbets_rating = pd.read_sql(f"""
-                SELECT id, sr.user_id, index_symbol, game_id, rating, update_type, timestamp FROM stockbets_rating sr
+                SELECT id, sr.user_id, index_symbol, game_id, rating, update_type, timestamp, basis, 
+                    n_games, total_return 
+                FROM stockbets_rating sr
                 INNER JOIN (
                     SELECT user_id, MIN(id) AS min_id
                     FROM stockbets_rating 
