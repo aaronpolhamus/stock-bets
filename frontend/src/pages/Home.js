@@ -101,16 +101,17 @@ const SidebarTabs = styled.div`
 `
 
 const AddFriendsWrapper = styled.div`
+  text-align: center;
+  position: fixed;
+  width: 90vw;
+  bottom: 0;
+  right: 0;
+  padding: var(--space-700) 0 var(--space-200);
+  background: linear-gradient(rgba(33, 27, 44, 0.15), var(--color-secondary-dark) 46.64%);
+
   @media screen and (min-width: ${breakpoints.md}){
-    text-align: center;
-    position: fixed;
-    width: 100%;
-    left: 0;
     width: 340px;
-    padding: var(--space-700) 0 var(--space-200);
     z-index: 2;
-    bottom: 0;
-    background: linear-gradient(rgba(33, 27, 44, 0.15), var(--color-secondary-dark) 46.64%);
   }
 `
 
