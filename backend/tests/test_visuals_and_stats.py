@@ -469,4 +469,6 @@ class TestSinglePlayerLogic(BaseTestCase):
         compile_and_pack_player_leaderboard(game_id)
         make_the_field_charts(game_id)
         field_chart = s3_cache.unpack_s3_json(f"{game_id}/{FIELD_CHART_PREFIX}")
-        self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + TRACKED_INDEXES))
+        _index_names = query_to_dict("SELECT * FROM index_metadata")
+        _index_names = [x["name"] for x in _index_names]
+        self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + _index_names))

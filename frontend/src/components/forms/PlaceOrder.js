@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react'
 import api from 'services/api'
 import { Row, Col, Button, Form, InputGroup } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
-import { optionBuilder } from 'components/functions/forms'
 import { AuxiliarText, FormFooter } from 'components/textComponents/Text'
 import { apiPost } from 'components/functions/api'
 import { RadioButtons, TabbedRadioButtons } from 'components/forms/Inputs'
@@ -14,6 +13,16 @@ import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 import CurrencyInput from 'components/ui/inputs/CurrencyInput'
 import { toFormattedDate } from 'components/functions/formattingHelpers'
+
+const optionBuilder = (optionsObject) =>
+  // Takes an object of key-value pairs and turns it into an array of options for a form dropdown where the target value
+  // is assigned to both the option key and value, while what's actually displayed is the value element from the
+  // passed-in object
+  Object.keys(optionsObject).map((key, index) => (
+    <option key={key} value={key}>
+      {optionsObject[key]}
+    </option>
+  ))
 
 const StyledOrderForm = styled(Form)`
   position: relative;

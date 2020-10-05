@@ -5,6 +5,7 @@ import json
 from datetime import timedelta
 from io import BytesIO
 from sqlalchemy import MetaData
+from unittest.mock import patch
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -593,7 +594,7 @@ MOCK_DATA = {
     "index_metadata": [
         {"symbol": "^IXIC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "NASDAQ"},
         {"symbol": "^DJI", "start_date": simulation_start_time, "avatar": f"{pics_ep}/dji.png", "name": "Dow Jones"},
-        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/nasdaq.png", "name": "S&P 500"}
+        {"symbol": "^GSPC", "start_date": simulation_start_time, "avatar": f"{pics_ep}/s_and_p.png", "name": "S&P 500"}
     ],
     "indexes": index_records,
     "stockbets_rating": _ratings_builder(USER_DATA)
@@ -653,8 +654,8 @@ def make_redis_mocks():
         init_game_assets(game_id)
 
     serialize_and_pack_rankings()
-
     serialize_and_pack_games_per_user_chart()
+
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
     df = make_games_per_user_data()
     chart_json = make_chart_json(df, "cohort", "percentage", "game_count")
