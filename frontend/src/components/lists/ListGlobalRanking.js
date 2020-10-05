@@ -3,6 +3,7 @@ import { apiPost } from 'components/functions/api'
 import { UserMiniCard } from 'components/users/UserMiniCard'
 import { SmallCaps } from 'components/textComponents/Text'
 import styled from 'styled-components'
+import { formatPercentage } from 'components/functions/formattingHelpers'
 
 const ListRankingWrapper = styled.ol`
   font-size: var(--font-size-small);
@@ -52,7 +53,7 @@ const ListGlobalRanking = () => {
             username={friend.username}
             nameFontSize='var(--font-size-small)'
             nameColor='var(--color-light-gray)'
-            info={[friend.rating]}
+            info={[friend.rating, formatPercentage(friend.total_return)]}
           />
         </ListRankingItem>
       )
@@ -63,7 +64,7 @@ const ListGlobalRanking = () => {
     <>
       <ListHeader>
         <SmallCaps><span>N. </span>Player</SmallCaps>
-        <SmallCaps>Score</SmallCaps>
+        <SmallCaps>Score | Avg. Return</SmallCaps>
       </ListHeader>
       <ListRankingWrapper>
         {listRanking.length > 0 && friendsListBuilder(listRanking)}

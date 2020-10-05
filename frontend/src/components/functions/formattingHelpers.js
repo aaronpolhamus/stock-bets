@@ -25,6 +25,11 @@ const simplifyCurrency = (value, decimals, dollarSign) => {
   return amount
 }
 
+const formatPercentage = (value, fixedPoints) => {
+  const normalizedValue = parseFloat(value).toFixed(fixedPoints || 3)
+  return `${normalizedValue}%`
+}
+
 const toCurrency = (value) => {
   return `$${value.toLocaleString(undefined,
  { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -68,4 +73,4 @@ const daysLeft = endTimePosix => {
   }
 }
 
-export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft, toCurrency, toFormattedDate }
+export { simplifyCurrency, numberToOrdinal, msToDays, daysLeft, toCurrency, toFormattedDate, formatPercentage }
