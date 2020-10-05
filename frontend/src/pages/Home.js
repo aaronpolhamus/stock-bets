@@ -111,6 +111,8 @@ const AddFriendsWrapper = styled.div`
 
   @media screen and (min-width: ${breakpoints.md}){
     width: 340px;
+    right: auto;
+    left: 0;
     z-index: 2;
   }
 `
