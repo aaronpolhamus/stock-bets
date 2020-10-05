@@ -36,6 +36,7 @@ const Content = styled.div`
     transition: right .2s ease-out;
     width: 90vw;
     z-index: 1;
+    overflow: auto;
     padding: var(--space-500) var(--space-300);
   }
 `
