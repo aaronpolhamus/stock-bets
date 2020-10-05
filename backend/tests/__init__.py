@@ -86,7 +86,7 @@ class StockbetsRatingCase(unittest.TestCase):
         # manually add the indexes that we want to track to the scores table
         for index in TRACKED_INDEXES:
             add_row("stockbets_rating", index_symbol=index, rating=STARTING_ELO_SCORE, update_type="sign_up",
-                    timestamp=-99)
+                    timestamp=-99, basis=0, n_games=0, total_return=0)
 
     def tearDown(self):
         self.requests_session.close()

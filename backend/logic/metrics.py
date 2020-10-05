@@ -303,14 +303,13 @@ def elo_update(old: float, expected: float, score: float, k: float = ELO_K_FACTO
     return old + k * (score - expected)
 
 
-def get_rating(player_id: Union[int, str]):
+def get_rating_info(player_id: Union[int, str]):
     """if player_id is passed as an int get_rating will interpret it as a user_id. if passed as a string it will interpret
     it as a n index"""
     assert type(player_id) in [int, str]
     rating_column = "index_symbol" if type(player_id) == str else "user_id"
-    with engine.connect() as conn:
-        return conn.execute(f"""SELECT rating FROM stockbets_rating 
-                                WHERE {rating_column} = %s ORDER BY id DESC LIMIT 0, 1;""", player_id).fetchone()[0]
+    return query_to_dict(f"""SELECT n_games, basis, total_return, rating FROM stockbets_rating 
+                                WHERE {rating_column} = %s ORDER BY id DESC LIMIT 0, 1;""", player_id)[0]
 
 
 def get_user_portfolio_value(game_id: int, user_id: int, cutoff_time: float = None) -> float:
@@ -344,18 +343,25 @@ def update_ratings(game_id: int):
     scoreboard = {}
     for user_id in user_ids:
         ending_value = get_user_portfolio_value(game_id, user_id, end)
-        scoreboard[user_id] = ending_value / STARTING_VIRTUAL_CASH
+        scoreboard[user_id] = ending_value / STARTING_VIRTUAL_CASH - 1
 
     for index in TRACKED_INDEXES:
-        scoreboard[index] = get_index_portfolio_value(game_id, index, start, end) / STARTING_VIRTUAL_CASH
+        scoreboard[index] = get_index_portfolio_value(game_id, index, start, end) / STARTING_VIRTUAL_CASH - 1
 
     # now that we have the scoreboard, iterate over its entries to construct and update DF
     update_array = []
     for player, player_return in scoreboard.items():
         other_players = {k: v for k, v in scoreboard.items() if k != player}
         for other_player, other_player_return in other_players.items():
-            player_rating = get_rating(player)
-            other_player_rating = get_rating(other_player)
+            player_entry = get_rating_info(player)
+            other_player_entry = get_rating_info(other_player)
+            player_rating = player_entry["rating"]
+            other_player_rating = other_player_entry["rating"]
+
+            # fields for return
+            old_basis = player_entry["basis"]
+            total_return = player_entry["total_return"]
+            n_games = player_entry["n_games"]
 
             score = 1 if player_return > other_player_return else 0
             if player_return == other_player_return:
@@ -365,18 +371,39 @@ def update_ratings(game_id: int):
                 player_id=player,
                 player_rating=player_rating,
                 expected=expected_elo(player_rating, other_player_rating),
-                score=score))
+                score=score,
+                old_basis=old_basis,
+                total_return=total_return,
+                n_games=n_games
+            ))
 
     update_df = pd.DataFrame(update_array)
-    summary_df = update_df.groupby("player_id", as_index=False).agg(
-        {"player_rating": "first", "expected": "sum", "score": "sum"})
+    summary_df = update_df.groupby("player_id", as_index=False).agg({
+        "player_rating": "first",
+        "expected": "sum",
+        "score": "sum",
+        "old_basis": "first",
+        "total_return": "first",
+        "n_games": "first"
+    })
     for _, row in summary_df.iterrows():
         player_id = row["player_id"]
         new_rating = elo_update(row["player_rating"], row["expected"], row["score"])
+
+        # update basis and return stats
+        game_basis = STARTING_VIRTUAL_CASH
+        game_return = scoreboard[player_id]
+        new_basis = row["old_basis"] + game_basis
+        new_return = (row["old_basis"] * row["total_return"] + game_basis * game_return) / (
+                    row["old_basis"] + game_basis)
+
         add_row("stockbets_rating",
                 user_id=int(player_id) if player_id in user_ids else None,
                 index_symbol=player_id if player_id in TRACKED_INDEXES else None,
                 game_id=game_id,
+                basis=float(new_basis),
+                total_return=float(new_return),
+                n_games=int(row["n_games"] + 1),
                 rating=float(new_rating),
                 update_type="game_end",
                 timestamp=end)
