@@ -21,7 +21,6 @@ def upgrade():
     op.alter_column('external_invites', 'status',
                existing_type=mysql.ENUM('invited', 'accepted', 'error', 'declined'),
                nullable=True)
-    op.drop_index('indexes_ibfk_1', table_name='index_metadata')
     op.add_column('stockbets_rating', sa.Column('basis', sa.Float(precision=32), nullable=True))
     op.add_column('stockbets_rating', sa.Column('n_games', sa.Integer(), nullable=True))
     op.add_column('stockbets_rating', sa.Column('total_return', sa.Float(precision=32), nullable=True))
@@ -37,7 +36,6 @@ def downgrade():
     op.drop_column('stockbets_rating', 'total_return')
     op.drop_column('stockbets_rating', 'n_games')
     op.drop_column('stockbets_rating', 'basis')
-    op.create_index('indexes_ibfk_1', 'index_metadata', ['symbol'], unique=False)
     op.alter_column('external_invites', 'status',
                existing_type=mysql.ENUM('invited', 'accepted', 'error', 'declined'),
                nullable=False)

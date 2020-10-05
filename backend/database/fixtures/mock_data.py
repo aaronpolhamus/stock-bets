@@ -151,6 +151,8 @@ USER_DATA = [
 def _ratings_builder(user_data):
     rating = 1500
     adjustment = 30
+    total_return = -0.1
+    return_adjust = 0.005
     ratings_array = []
     for i, entry in enumerate(user_data):
         ratings_array.append(dict(
@@ -159,7 +161,9 @@ def _ratings_builder(user_data):
             game_id=None,
             rating=STARTING_ELO_SCORE,
             update_type="sign_up",
-            timestamp=simulation_start_time
+            timestamp=simulation_start_time,
+            n_games=0,
+            total_return=0
         ))
         ratings_array.append(dict(
             user_id=i+1,
@@ -167,12 +171,17 @@ def _ratings_builder(user_data):
             game_id=3,
             rating=rating,
             update_type="game_end",
-            timestamp=simulation_end_time
+            timestamp=simulation_end_time,
+            n_games=1,
+            total_return=total_return
         ))
         rating -= adjustment
+        total_return += return_adjust
 
     rating = 1230
     adjustment = 14
+    total_return = -0.1
+    return_adjust = 0.05
     for index in TRACKED_INDEXES:
         ratings_array.append(dict(
             user_id=None,
@@ -180,7 +189,9 @@ def _ratings_builder(user_data):
             game_id=None,
             rating=STARTING_ELO_SCORE,
             update_type="sign_up",
-            timestamp=simulation_start_time
+            timestamp=simulation_start_time,
+            n_games=0,
+            total_return=0
         ))
         ratings_array.append(dict(
             user_id=None,
@@ -188,9 +199,13 @@ def _ratings_builder(user_data):
             game_id=3,
             rating=rating,
             update_type="game_end",
-            timestamp=simulation_end_time
+            timestamp=simulation_end_time,
+            n_games=1,
+            total_return=total_return
+
         ))
         rating -= adjustment
+        total_return += return_adjust
 
     ratings_array.sort(key=lambda x: x["timestamp"])
     return ratings_array
