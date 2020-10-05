@@ -186,7 +186,7 @@ const Sidebar = ({ children, className, ...props }) => (
   <SidebarWrapper className={className} {...props}>
     <SidebarContent>
       <LogoWrapper href='/' title='Stockbets'>
-        <Logo/>
+        <Logo />
       </LogoWrapper>
 
       {children}

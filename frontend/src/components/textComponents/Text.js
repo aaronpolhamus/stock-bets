@@ -78,6 +78,7 @@ const SmallCaps = styled.small`
   font-weight: 400;
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
+  color: ${props => props.color || 'inherit'};
   @media screen and (max-width: ${props => breakpoints[props.$hideOnBreakpoint]}){
     display: none;
   }

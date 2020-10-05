@@ -94,14 +94,7 @@ const GameCard = ({ gameId }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameData.benchmark_formatted}
-              {gameData.end_time &&
-                (
-                  <>
-                    <TextDivider> | </TextDivider>
-                    {daysLeft(gameData.end_time)}
-                  </>
-                )}
+              {daysLeft(gameData.end_time)}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
