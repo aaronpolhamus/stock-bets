@@ -27,14 +27,6 @@ AVATAR_TEXT_COLOR = "FFFEF2"
 DEFAULT_AVATAR = 'https://www.pngfind.com/pngs/m/676-6764065_default-profile-picture-transparent-hd-png-download.png'
 
 
-def check_against_invited_users(email):
-    with engine.connect() as conn:
-        count, = conn.execute("SELECT count(*) FROM external_invites WHERE invited_email = %s", email).fetchone()
-    if count > 0:
-        return True
-    return False
-
-
 def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
     payload = {"email": email, "user_id": user_id, "username": username,
                "exp": dt.utcnow() + timedelta(minutes=mins_per_session)}
