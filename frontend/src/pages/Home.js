@@ -331,6 +331,7 @@ const Home = () => {
                 <p>
                   <SmallCaps>
                     Rating: <strong>{data.rating}</strong>
+                    3-month return: <strong>{data.three_month_return}</strong>
                   </SmallCaps>
                 </p>
               </UserStats>

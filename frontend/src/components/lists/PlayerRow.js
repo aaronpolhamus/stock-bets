@@ -100,11 +100,10 @@ const PlayerRow = ({
           {isFriend
             ? (
               <i>
-                <Check size={11} color='#fff' strokeWidth='4px'/>
+                <Check size={11} color='#fff' strokeWidth='4px' />
               </i>
             )
-            : null
-          }
+            : null}
         </AvatarWrapper>
         <PlayerName color={nameColor} fontSize={nameFontSize}>
           {isMarketIndex ? (<SmallCaps>{username}</SmallCaps>) : username}

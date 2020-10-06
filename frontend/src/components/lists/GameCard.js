@@ -35,7 +35,7 @@ const GameCardWrapper = styled(Link)`
   }
   
   &:hover{
-    transition: all .5s .2s;
+    transition: all .2s .1s;
     color: inherit;
     text-decoration: none;
     transform: translateY(-5px) translate3d(0, 0, 0);

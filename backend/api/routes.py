@@ -22,7 +22,6 @@ from backend.logic.auth import (
     register_username_with_token,
     add_external_game_invites,
     ADMIN_USERS,
-    check_against_invited_users,
     upload_image_from_url_to_s3
 )
 from backend.logic.base import (
@@ -121,7 +120,6 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
-NOT_INVITED_EMAIL = "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone very soon, but email contact@stockbets.io for access before that :)"
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
@@ -213,10 +211,6 @@ def login():
 
     if status_code is not 200:
         return make_response(OAUTH_ERROR_MSG, status_code)
-
-    if Config.CHECK_WHITE_LIST:
-        if not check_against_invited_users(email):
-            return make_response(NOT_INVITED_EMAIL, 403)
 
     if is_sign_up:
         db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
