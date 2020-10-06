@@ -247,8 +247,8 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
 def get_user_information(user_id: int):
     sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
     info = query_to_dict(sql, user_id)[0]
-    info["rating"] = rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}")
-    info["three_month_return"] = rds.get(f"{THREE_MONTH_RETURN}_{user_id}")
+    info["rating"] = float(rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}"))
+    info["three_month_return"] = float(rds.get(f"{THREE_MONTH_RETURN}_{user_id}"))
     return info
 
 
@@ -1001,8 +1001,8 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
 def update_player_rank(df: pd.DataFrame):
     for i, row in df.iterrows():
         if row["user_id"] is not None:
-            rds.set(f"{PLAYER_RANK_PREFIX}_{row['user_id']}", row["rating"])
-            rds.set(f"{THREE_MONTH_RETURN}_{row['user_id']}", row["three_month_return"])
+            rds.set(f"{PLAYER_RANK_PREFIX}_{int(row['user_id'])}", row["rating"])
+            rds.set(f"{THREE_MONTH_RETURN}_{int(row['user_id'])}", row["three_month_return"])
 
 
 def serialize_and_pack_rankings():
