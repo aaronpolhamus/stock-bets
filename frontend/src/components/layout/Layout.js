@@ -210,14 +210,11 @@ const GameSidebar = styled(Sidebar)`
 `
 const HomeSidebar = styled(Sidebar)`
   @media screen and (min-width: ${breakpoints.md}){
-    position: sticky;
     padding-bottom: var(--space-700);
-    top: 0;
     max-height: 100vh;
-    overflow: auto;
+    overflow-y: auto;
     flex-basis: 340px;
     max-width: none;
-
   }
 `
 

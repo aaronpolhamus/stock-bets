@@ -206,7 +206,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
     }
-    console.log(order)
+    
     await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)
@@ -214,7 +214,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
-        console.log(formRef.current)
         formRef.current.reset()
 
         clearInterval(intervalId)

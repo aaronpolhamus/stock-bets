@@ -23,8 +23,8 @@ const GameCardWrapper = styled(Link)`
   margin-bottom: var(--space-400);
   overflow: hidden;
   position: relative;
-  top: 0;
-  transition: all .2s;
+  transition: all .3s;
+  transform: translateY(0) translate3d(0, 0, 0);
 
   h3 {
     margin: 0
@@ -35,9 +35,10 @@ const GameCardWrapper = styled(Link)`
   }
   
   &:hover{
+    transition: all .5s .2s;
     color: inherit;
     text-decoration: none;
-    top: -5px;
+    transform: translateY(-5px) translate3d(0, 0, 0);
   }
 `
 

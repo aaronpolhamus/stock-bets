@@ -4,6 +4,7 @@ import { PlayerRow } from 'components/lists/PlayerRow'
 import { SmallCaps } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { formatPercentage } from 'components/functions/formattingHelpers'
+import { Tooltip } from 'components/forms/Tooltips'
 
 const ListRankingWrapper = styled.ol`
   font-size: var(--font-size-small);
@@ -15,6 +16,7 @@ const ListRankingItem = styled.li`
   color: var(--color-text-light-gray);
   margin-bottom: var(--space-50);
   cursor: pointer;
+  position: relative;
 `
 
 const ListHeader = styled.div`
@@ -56,27 +58,25 @@ const GlobalLeaderboard = () => {
     getListFriends()
   }, [])
 
-  console.log(listRanking, listFriends)
   const listBuilder = (data) => {
-    return data.map((friend, index) => {
+    return data.map((player, index) => {
       const isFriend = listFriends.length > 0 && listFriends.findIndex((row) => {
-        return row.id === friend.user_id
+        return row.id === player.user_id
       })
-      const isMarketIndex = friend.user_id === null
-      console.log(isFriend, isMarketIndex)
+      const isMarketIndex = player.user_id === null
 
       return (
         <ListRankingItem key={index}>
           <PlayerRow
-            avatarSrc={friend.profile_pic}
+            avatarSrc={player.profile_pic}
             avatarSize='24px'
-            username={friend.username}
+            username={player.username}
             isMarketIndex={isMarketIndex}
             isFriend={isFriend !== -1}
             isCurrentPlayer={''}
             nameFontSize='var(--font-size-small)'
             nameColor='var(--color-light-gray)'
-            info={[friend.rating, formatPercentage(friend.total_return, 2)]}
+            info={[player.rating, formatPercentage(player.total_return, 2)]}
           />
         </ListRankingItem>
       )
