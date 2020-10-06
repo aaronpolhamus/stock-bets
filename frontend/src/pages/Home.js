@@ -76,12 +76,14 @@ const UserInfo = styled.div`
 `
 const UserInfoName = styled.p`
   font-weight: bold;
+  font-size: var(--font-size-large);
+  line-height: 1;
 `
 
 const UserStats = styled.div`
   color: var(--color-text-gray);
   small{
-    margin-right: var(--space-100);
+    margin-right: var(--space-200);
   }
   strong {
     color: var(--color-text-primary);
@@ -120,9 +122,8 @@ const AddFriendsWrapper = styled.div`
   background: linear-gradient(rgba(33, 27, 44, 0.15), var(--color-secondary-dark) 46.64%);
 
   @media screen and (min-width: ${breakpoints.md}){
-    width: 340px;
-    right: auto;
-    left: 0;
+    width: 400px;
+    right: 0;
     z-index: 2;
   }
 `
@@ -261,7 +262,7 @@ const Home = () => {
             context='md'
             backgroundColor='var(--color-secondary)'
           >
-            <SidebarSection $backgroundColor='var(--color-secondary-dark)'>
+            <SidebarSection>
               <SidebarTabs>
                 <Tabs>
                   <Tab
@@ -322,7 +323,7 @@ const Home = () => {
                   <UserStats>
                     <p>
                       <SmallCaps>
-                        Rating: <strong>{homeData.rating}</strong>
+                        Global Rating: <strong>{homeData.rating}</strong>
                       </SmallCaps>
                       <SmallCaps>
                         Avg. Return: <strong>{formatPercentage(homeData.three_month_return)}</strong>

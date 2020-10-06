@@ -91,16 +91,6 @@ const PageFooter = styled.div`
 const SidebarWrapper = styled(Col)`
   color: var(--color-lightest);
   box-sizing: border-box;
-  &::before {
-    content: '';
-    display: block;
-    position: absolute;
-    width: 50%;
-    height: 100%;
-    border-radius: 0 0 100%;
-    background-color: var(--color-secondary);
-    z-index: -1;
-  }
 
   & + [class*="col-"] {
     padding-bottom: var(--space-lg-200)
@@ -109,7 +99,7 @@ const SidebarWrapper = styled(Col)`
   @media screen and (min-width: ${breakpoints.md}){
     box-shadow: 4px 0px 10px rgba(17, 7, 60, 0.3),
     2px 2px 3px rgba(61, 50, 106, 0.3);
-    background-color: var(--color-secondary);
+    background-color: var(--color-secondary-dark);
     min-height: 100vh;
     position: sticky;
     top: 0;
