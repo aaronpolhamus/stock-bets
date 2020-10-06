@@ -2,7 +2,6 @@ import React from 'react'
 import styled from 'styled-components'
 import { Container, Col, Row } from 'react-bootstrap'
 import { breakpoints } from 'design-tokens'
-import { ReactComponent as Logo } from 'assets/logo-bright.svg'
 // Global Layout Component
 const Breadcrumb = styled.div`
   display: flex;
@@ -43,7 +42,7 @@ const ColContent = styled.div`
   padding: var(--space-300);
   position: relative;
   @media screen and (min-width: ${breakpoints.md}){
-    padding: var(--space-400);
+    padding: 0 var(--space-400) var(--space-400);
   }
 `
 
@@ -74,24 +73,12 @@ const Header = styled.header`
   }
 `
 
-const LogoWrapper = styled.a`
-  text-transform: uppercase;
-  font-weight: bold;
-  color: var(--color-lightest);
-  display: block;
-  margin-bottom: 1.2rem;
-  &:hover {
-    color: inherit;
-    text-decoration: none;
-  }
-`
 const PageSection = styled.section`
-  margin-bottom: ${props => props.$marginBottom || 'var(--space-600)'};
-  &:last-of-type{
-    margin-bottom: 0;
-  }
+  padding-top: ${props => props.$marginBottomMd || 'var(--space-200)'};
+  padding-bottom: ${props => props.$paddingBottom || 'var(--space-400)'};
   @media screen and (min-width: ${breakpoints.md}){
-    margin-bottom: ${props => props.$marginBottomMd || 'var(--space-800)'};
+    padding-top: ${props => props.$marginBottomMd || 'var(--space-200)'};
+    padding-bottom: ${props => props.$paddingBottomMd || 'var(--space-400)'};
   }
 `
 
@@ -134,14 +121,14 @@ const SidebarWrapper = styled(Col)`
 `
 
 const SidebarContent = styled.div`
-  padding: var(--space-300);
+  padding: 0 var(--space-300);
   display: flex;
   width: 87vw;
   justify-content: space-between;
   @media screen and (min-width: ${breakpoints.md}){
     display: block;
     width: 100%;
-    padding: var(--space-400) var(--space-400) 0;
+    padding: 0 var(--space-400) 0;
   }
 `
 
@@ -174,6 +161,13 @@ const ModalOverflowControls = styled.div`
   transform: translateY(100%);
 `
 
+const Navbar = styled.nav`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--space-800);
+`
+
 const Column = ({ children, className, ...props }) => (
   <Col className={className} {...props}>
     <ColContent>
@@ -185,20 +179,17 @@ const Column = ({ children, className, ...props }) => (
 const Sidebar = ({ children, className, ...props }) => (
   <SidebarWrapper className={className} {...props}>
     <SidebarContent>
-      <LogoWrapper href='/' title='Stockbets'>
-        <Logo />
-      </LogoWrapper>
-
       {children}
     </SidebarContent>
   </SidebarWrapper>
 )
 
 const GameContent = styled(Column)`
+  padding-top: 0;
   @media screen and (min-width: ${breakpoints.md}){
     width: 100%;
     flex-basis: 100%;
-    max-width: calc(100% - 340px);
+    max-width: calc(100% - 400px);
   }
 `
 
@@ -213,8 +204,9 @@ const HomeSidebar = styled(Sidebar)`
     padding-bottom: var(--space-700);
     max-height: 100vh;
     overflow-y: auto;
-    flex-basis: 340px;
+    flex-basis: 400px;
     max-width: none;
+    order: 2;
   }
 `
 
@@ -242,6 +234,7 @@ export {
   Header,
   Layout,
   ModalOverflowControls,
+  Navbar,
   PageSection,
   PageFooter,
   Sidebar,

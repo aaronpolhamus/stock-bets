@@ -10,7 +10,7 @@ const handleSize = (size) => {
     case 'smaller':
       return '1.125rem'
     case 'big':
-      return '3.5rem'
+      return '4rem'
     default:
       if (size === undefined) return '3rem'
       return size

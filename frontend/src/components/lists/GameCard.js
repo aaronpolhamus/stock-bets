@@ -27,7 +27,8 @@ const GameCardWrapper = styled(Link)`
   transform: translateY(0) translate3d(0, 0, 0);
 
   h3 {
-    margin: 0
+    margin: 0;
+    font-weight: normal;
   }
 
   p {

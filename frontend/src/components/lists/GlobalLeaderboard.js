@@ -57,7 +57,6 @@ const GlobalLeaderboard = () => {
     getListRanking()
     getListFriends()
   }, [])
-
   const listBuilder = (data) => {
     return data.map((player, index) => {
       const isFriend = listFriends.length > 0 && listFriends.findIndex((row) => {
