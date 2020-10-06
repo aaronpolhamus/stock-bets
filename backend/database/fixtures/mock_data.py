@@ -5,7 +5,6 @@ import json
 from datetime import timedelta
 from io import BytesIO
 from sqlalchemy import MetaData
-from unittest.mock import patch
 
 from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
@@ -163,7 +162,8 @@ def _ratings_builder(user_data):
             update_type="sign_up",
             timestamp=simulation_start_time,
             n_games=0,
-            total_return=0
+            total_return=0,
+            basis=0
         ))
         ratings_array.append(dict(
             user_id=i+1,
@@ -173,7 +173,8 @@ def _ratings_builder(user_data):
             update_type="game_end",
             timestamp=simulation_end_time,
             n_games=1,
-            total_return=total_return
+            total_return=total_return,
+            basis=STARTING_VIRTUAL_CASH
         ))
         rating -= adjustment
         total_return += return_adjust
@@ -191,7 +192,8 @@ def _ratings_builder(user_data):
             update_type="sign_up",
             timestamp=simulation_start_time,
             n_games=0,
-            total_return=0
+            total_return=0,
+            basis=0
         ))
         ratings_array.append(dict(
             user_id=None,
@@ -201,8 +203,8 @@ def _ratings_builder(user_data):
             update_type="game_end",
             timestamp=simulation_end_time,
             n_games=1,
-            total_return=total_return
-
+            total_return=total_return,
+            basis=STARTING_VIRTUAL_CASH
         ))
         rating -= adjustment
         total_return += return_adjust

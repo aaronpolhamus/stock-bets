@@ -73,10 +73,10 @@ const GlobalLeaderboard = () => {
             username={friend.username}
             isMarketIndex={isMarketIndex}
             isFriend={isFriend !== -1}
-            isCurrentPlayer={''}
+            isCurrentPlayer=''
             nameFontSize='var(--font-size-small)'
             nameColor='var(--color-light-gray)'
-            info={[friend.rating, formatPercentage(friend.total_return, 2)]}
+            info={[friend.rating, formatPercentage(friend.three_month_return, 2)]}
           />
         </ListRankingItem>
       )
