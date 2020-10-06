@@ -2,7 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Table, Badge } from 'react-bootstrap'
 import { SectionTitle } from 'components/textComponents/Text'
-import { UserMiniCard } from 'components/users/UserMiniCard'
+import { PlayerRow } from 'components/lists/PlayerRow'
 import PropTypes from 'prop-types'
 import { Send } from 'react-feather'
 
@@ -30,7 +30,7 @@ const PendingGameParticipants = ({ participants, invitees }) => {
       return (
         <tr key={index}>
           <td>
-            <UserMiniCard
+            <PlayerRow
               avatarSrc={participant.profile_pic}
               avatarSize='small'
               username={participant.username}

@@ -12,6 +12,7 @@ $color-text-primary: #2D263B;
 $color-text-gray: #7f7192;
 $color-text-light-gray: #abaac6;
 $color-success: #3fa46d;
+$color-success-darken: #32ab4e;
 $color-danger: $color-terciary;
 $color-gray: #efeff5;
 
@@ -33,6 +34,7 @@ $table-cell-height: 3rem;
   --color-text-gray: #{$color-text-gray};
   --color-text-light-gray: #{$color-text-light-gray};
   --color-success: #{$color-success};
+  --color-success-darken: #{$color-success-darken};
   --color-danger: #{$color-danger};
 
   --font-size-min: 0.75rem;

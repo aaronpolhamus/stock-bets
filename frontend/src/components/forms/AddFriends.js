@@ -4,7 +4,7 @@ import {AuxiliarText, FlexRow} from 'components/textComponents/Text'
 import {AsyncTypeahead, Typeahead} from 'react-bootstrap-typeahead'
 import {UserPlus} from 'react-feather'
 import {apiPost} from 'components/functions/api'
-import {UserMiniCard} from 'components/users/UserMiniCard'
+import {PlayerRow} from 'components/lists/PlayerRow'
 import {RadioButtons} from 'components/forms/Inputs'
 import {isEmail, ReactMultiEmail} from 'react-multi-email';
 import 'react-multi-email/style.css';
@@ -157,7 +157,7 @@ const AddFriends = ({variant}) => {
                     onChange={handleChange}
                     renderMenuItemChildren={(option, props) => (
                       <FlexRow justify='space-between'>
-                        <UserMiniCard
+                        <PlayerRow
                           avatarSrc={option.profile_pic}
                           avatarSize='small'
                           username={option.username}

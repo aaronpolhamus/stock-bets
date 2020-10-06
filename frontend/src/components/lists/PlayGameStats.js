@@ -5,7 +5,7 @@ import {
   AuxiliarText
 } from 'components/textComponents/Text'
 import styled from 'styled-components'
-import { UserMiniCard } from 'components/users/UserMiniCard'
+import { PlayerRow } from 'components/lists/PlayerRow'
 
 const SectionTitle = styled.h2`
   text-transform: uppercase;
@@ -43,7 +43,7 @@ const entryBuilder = (data) => {
   return data.map((row, index) => {
     return (
       <UserRow key={index}>
-        <UserMiniCard
+        <PlayerRow
           avatarSrc={row.profile_pic}
           avatarSize='small'
           username={row.username}

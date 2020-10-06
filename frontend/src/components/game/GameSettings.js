@@ -2,7 +2,7 @@ import React from 'react'
 import { Row, Col } from 'react-bootstrap'
 import { floor } from 'mathjs'
 import { SectionTitle, Label, Flex } from 'components/textComponents/Text'
-import { UserMiniCard } from 'components/users/UserMiniCard'
+import { PlayerRow } from 'components/lists/PlayerRow'
 import styled from 'styled-components'
 import { breakpoints } from 'design-tokens'
 import PropTypes from 'prop-types'
@@ -24,7 +24,7 @@ const GameSettings = ({ gameInfo }) => {
       <Row>
         <Col md={3}>
           <SectionTitle>Game Host</SectionTitle>
-          <UserMiniCard
+          <PlayerRow
             username={gameInfo.creator_username}
             avatarSrc={gameInfo.creator_profile_pic}
             nameColor='var(--color-lighter)'
