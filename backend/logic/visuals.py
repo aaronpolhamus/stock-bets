@@ -1000,7 +1000,7 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
 
 def update_player_rank(df: pd.DataFrame):
     for i, row in df.iterrows():
-        if row["user_id"] is not None:
+        if row["user_id"]:
             rds.set(f"{PLAYER_RANK_PREFIX}_{int(row['user_id'])}", row["rating"])
             rds.set(f"{THREE_MONTH_RETURN}_{int(row['user_id'])}", row["three_month_return"])
 

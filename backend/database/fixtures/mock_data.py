@@ -666,11 +666,11 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
+    serialize_and_pack_rankings()
     game_ids = [3, 6, 7, 8]
     for game_id in game_ids:
         init_game_assets(game_id)
 
-    serialize_and_pack_rankings()
     serialize_and_pack_games_per_user_chart()
 
     # TODO: This is a quick hack to get the admin panel working in dev. Fix at some point
