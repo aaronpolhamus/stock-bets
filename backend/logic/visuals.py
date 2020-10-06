@@ -1049,5 +1049,6 @@ def serialize_and_pack_rankings():
     del stats_df["basis_times_return"]
     del stats_df["total_basis"]
     stats_df.sort_values("rating", ascending=False, inplace=True)
+    stats_df = stats_df.where(pd.notnull(stats_df), None)
     update_player_rank(stats_df)
     rds.set(PUBLIC_LEADERBOARD_PREFIX, json.dumps(stats_df.to_dict(orient="records")))
