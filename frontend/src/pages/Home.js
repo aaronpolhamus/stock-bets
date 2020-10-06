@@ -26,7 +26,7 @@ import { AddFriends } from 'components/forms/AddFriends'
 import { FriendsList } from 'components/lists/FriendsList'
 import { SlideinBlock } from 'components/layout/SlideinBlock'
 import { GameList } from 'components/lists/GameList'
-import { ListGlobalRanking } from 'components/lists/ListGlobalRanking'
+import { GlobalLeaderboard } from 'components/lists/GlobalLeaderboard'
 import { breakpoints } from 'design-tokens'
 import {
   Globe,
@@ -82,6 +82,7 @@ const SidebarTabs = styled.div`
   .nav-tabs{
     position: sticky;
     top: 0;
+    z-index: 1; 
     border-bottom: none;
     background-color: var(--color-secondary-dark);
   }
@@ -220,6 +221,7 @@ const Home = () => {
     game_status: ['active', 'finished'],
     game_mode: ['single_player']
   })
+
   return (
     <Layout
       className='home-layout'
@@ -328,7 +330,7 @@ const Home = () => {
               <UserStats>
                 <p>
                   <SmallCaps>
-                    Score: <strong>{data.rating}</strong>
+                    Rating: <strong>{data.rating}</strong>
                   </SmallCaps>
                 </p>
               </UserStats>
@@ -346,7 +348,7 @@ const Home = () => {
                     </>
                   )}
                 >
-                  <ListGlobalRanking />
+                  <GlobalLeaderboard />
                 </Tab>
                 <Tab
                   eventKey='friends'

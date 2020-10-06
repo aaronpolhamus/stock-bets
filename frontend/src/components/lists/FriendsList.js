@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { apiPost } from 'components/functions/api'
-import { UserMiniCard } from 'components/users/UserMiniCard'
+import { PlayerRow } from 'components/lists/PlayerRow'
 import { Button, Modal } from 'react-bootstrap'
 import styled from 'styled-components'
 import { UserCheck } from 'react-feather'
@@ -72,7 +72,7 @@ const FriendsList = ({ onLoadFriends }) => {
     return data.map((friend, index) => {
       return (
         <FriendsListItem key={index}>
-          <UserMiniCard
+          <PlayerRow
             avatarSrc={friend.profile_pic}
             avatarSize='small'
             username={friend.username}
