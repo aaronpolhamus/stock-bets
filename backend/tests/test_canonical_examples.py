@@ -1,17 +1,20 @@
 """Canonical test cases based on real production data. As appropriate, migrate cases in from production.
 """
+from freezegun import freeze_time
 from numpy import nan
 import pandas as pd
 
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
+from backend.logic.base import posix_to_datetime
 from backend.logic.visuals import (
     make_order_performance_table,
     serialize_and_pack_order_performance_assets,
     ORDER_PERF_CHART_PREFIX,
     FULFILLED_ORDER_PREFIX,
     serialize_and_pack_rankings,
-    PLAYER_RANK_PREFIX
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN
 )
 from backend.tests import (
     CanonicalSplitsCase,
@@ -94,7 +97,7 @@ class TestStockbetsRanking(StockbetsRatingCase):
         {'id': 111, 'user_id': nan, 'index_symbol': '^IXIC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0, 'basis': 0.0, 'n_games': 0, 'total_return': 0.0},
         {'id': 112, 'user_id': nan, 'index_symbol': '^GSPC', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0, 'basis': 0.0, 'n_games': 0, 'total_return': 0.0},
         {'id': 113, 'user_id': nan, 'index_symbol': '^DJI', 'game_id': None, 'rating': 1000.0, 'update_type': 'sign_up', 'timestamp': -99.0, 'basis': 0.0, 'n_games': 0, 'total_return': 0.0},
-        {'id': 114, 'user_id': 1.0, 'index_symbol': None, 'game_id': '47', 'rating': 1144.0, 'update_type': 'game_end', 'timestamp': 1599854400.0, 'basis': 1000000.0, 'n_games': 1, 'total_return': 0.076243635},
+        {'id': 114, 'user_id': 1.0, 'index_symbol': None, 'game_id': '47', 'rating': 1144.0, 'update_type': 'game_end', 'timestamp': 1599854400.0, 'basis': 1000000.0, 'n_games': 1, 'total_return': 0.0762641150000003},
         {'id': 115, 'user_id': 10.0, 'index_symbol': None, 'game_id': '47', 'rating': 920.0, 'update_type': 'game_end', 'timestamp': 1599854400.0, 'basis': 1000000.0, 'n_games': 1, 'total_return': -0.0165752899999999},
         {'id': 116, 'user_id': 28.0, 'index_symbol': None, 'game_id': '47', 'rating': 952.0, 'update_type': 'game_end', 'timestamp': 1599854400.0, 'basis': 1000000.0, 'n_games': 1, 'total_return': 0.0},
         {'id': 117, 'user_id': 29.0, 'index_symbol': None, 'game_id': '47', 'rating': 856.0, 'update_type': 'game_end', 'timestamp': 1599854400.0, 'basis': 1000000.0, 'n_games': 1, 'total_return': -0.095518835},
@@ -107,18 +110,19 @@ class TestStockbetsRanking(StockbetsRatingCase):
     ]
 
     LEADERBOARD = [
-        {'user_id': 1, 'rating': 1144.0, 'username': 'aaron', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/c0f0bc6489851026b29b0e1e0e60ece21daf93632347a44f600dc5ce', 'n_games': 1, 'total_return': 0.076243635},
-        {'user_id': None, 'rating': 1112.0, 'username': 'Dow Jones', 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/8bd8ec5f6126dbceabe5aae0b255b50dcdf09b3128cea8f53e8eb091', 'n_games': 1, 'total_return': 0.0403694553583551},
-        {'user_id': None, 'rating': 1080.0, 'username': 'S&P 500', 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/fe2862aca264a58ef2f8fb2d22fa8d4dd112fd06bb3e8bf2bb8bddb6', 'n_games': 1, 'total_return': 0.0313045035144639},
-        {'user_id': None, 'rating': 1048.0, 'username': 'NASDAQ', 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/044c7859dc114c52135ad159fcb7b817ad04b5a3c44c788672796b9d', 'n_games': 1, 'total_return': 0.030142483456657},
-        {'user_id': 45, 'rating': 1016.0, 'username': 'arjd2', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/aefac8aa916dccabbf7b444e5a38436d517437f37c3a981f51f68c47', 'n_games': 1, 'total_return': 0.01191425},
-        {'user_id': 55, 'rating': 984.0, 'username': 'Ando', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/8b7546390be79ba37a3f31d07caac05fcb0f6deb98f7ff34bb75cd74', 'n_games': 1, 'total_return': 9.66199999998807e-05},
-        {'user_id': 28, 'rating': 952.0, 'username': 'Memo', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/1251754a5111216d995e8c9408fd5699a8f73a2117cd2c52143ffd38', 'n_games': 1, 'total_return': 0.0},
-        {'user_id': 10, 'rating': 920.0, 'username': 'Erik the Stock Fish', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/50ff504bc91aecd2c942758b8adc6c9616ab0ce0951f019ab44571f0', 'n_games': 1, 'total_return': -0.0165752899999999},
-        {'user_id': 44, 'rating': 888.0, 'username': 'Matobarato', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/2321842dbba174eeaf8f75cd2b5798dda2d2be9f321ce5b98533cd48', 'n_games': 1, 'total_return': -0.0240974450000001},
-        {'user_id': 29, 'rating': 856.0, 'username': 'Jeanvaljean56', 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/4f6199cd963305ef8cb6154956ff875dec86bff210d963b1dccc3263', 'n_games': 1, 'total_return': -0.095518835}
+        {'username': 'aaron', 'user_id': 1.0, 'rating': 1144.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/c0f0bc6489851026b29b0e1e0e60ece21daf93632347a44f600dc5ce', 'n_games': 1, 'three_month_return': 0.0762641150000003},
+        {'username': 'Dow Jones', 'user_id': nan, 'rating': 1112.0, 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/8bd8ec5f6126dbceabe5aae0b255b50dcdf09b3128cea8f53e8eb091', 'n_games': 1, 'three_month_return': 0.0403694553583551},
+        {'username': 'S&P 500', 'user_id': nan, 'rating': 1080.0, 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/fe2862aca264a58ef2f8fb2d22fa8d4dd112fd06bb3e8bf2bb8bddb6', 'n_games': 1, 'three_month_return': 0.0313045035144639},
+        {'username': 'NASDAQ', 'user_id': nan, 'rating': 1048.0, 'profile_pic': 'https://stockbets-public.s3.amazonaws.com/profile_pics/044c7859dc114c52135ad159fcb7b817ad04b5a3c44c788672796b9d', 'n_games': 1, 'three_month_return': 0.030142483456657},
+        {'username': 'arjd2', 'user_id': 45.0, 'rating': 1016.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/aefac8aa916dccabbf7b444e5a38436d517437f37c3a981f51f68c47', 'n_games': 1, 'three_month_return': 0.01191425},
+        {'username': 'Ando', 'user_id': 55.0, 'rating': 984.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/8b7546390be79ba37a3f31d07caac05fcb0f6deb98f7ff34bb75cd74', 'n_games': 1, 'three_month_return': 9.66199999998807e-05},
+        {'username': 'Memo', 'user_id': 28.0, 'rating': 952.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/1251754a5111216d995e8c9408fd5699a8f73a2117cd2c52143ffd38', 'n_games': 1, 'three_month_return': 0.0},
+        {'username': 'Erik the Stock Fish', 'user_id': 10.0, 'rating': 920.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/50ff504bc91aecd2c942758b8adc6c9616ab0ce0951f019ab44571f0', 'n_games': 1, 'three_month_return': -0.0165752899999999},
+        {'username': 'Matobarato', 'user_id': 44.0, 'rating': 888.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/2321842dbba174eeaf8f75cd2b5798dda2d2be9f321ce5b98533cd48', 'n_games': 1, 'three_month_return': -0.0240974450000001},
+        {'username': 'Jeanvaljean56', 'user_id': 29.0, 'rating': 856.0, 'profile_pic': 'https://s3.amazonaws.com/stockbets-public/profile_pics/4f6199cd963305ef8cb6154956ff875dec86bff210d963b1dccc3263', 'n_games': 1, 'three_month_return': -0.095518835}
     ]
 
+    @freeze_time(posix_to_datetime(1601950823.7715478))
     def test_stockbets_ranking(self):
         update_ratings(self.game_id)
         with self.engine.connect() as conn:
@@ -131,7 +135,7 @@ class TestStockbetsRanking(StockbetsRatingCase):
         session_token = create_jwt("me@example.com", 1, "aaron")
         res = self.requests_session.post(f"{HOST_URL}/public_leaderboard", cookies={"session_token": session_token},
                                          verify=False)
-        self.assertEqual(res.json(), self.LEADERBOARD)
-
+        pd.testing.assert_frame_equal(pd.DataFrame(res.json()), pd.DataFrame(self.LEADERBOARD))
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.json()["rating"], rds.get(f"{PLAYER_RANK_PREFIX}_1"))
+        self.assertEqual(res.json()["three_month_return"], rds.get(f"{THREE_MONTH_RETURN}_1"))

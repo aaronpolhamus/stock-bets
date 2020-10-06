@@ -7,6 +7,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+from pandas import DateOffset
 from backend.logic.base import (
     get_time_defaults,
     get_active_balances,
@@ -89,6 +90,7 @@ PAYOUTS_PREFIX = "payouts"
 RETURN_RATIO_PREFIX = "return_ratio"
 SHARPE_RATIO_PREFIX = "sharpe_ratio"
 PLAYER_RANK_PREFIX = "player_rank"
+THREE_MONTH_RETURN = "three_month_return"
 PUBLIC_LEADERBOARD_PREFIX = "public_leaderboard"
 
 # -------------- #
@@ -246,6 +248,7 @@ def get_user_information(user_id: int):
     sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
     info = query_to_dict(sql, user_id)[0]
     info["rating"] = rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}")
+    info["three_month_return"] = rds.get(f"{THREE_MONTH_RETURN}_{user_id}")
     return info
 
 
@@ -999,38 +1002,52 @@ def update_player_rank(df: pd.DataFrame):
     for i, row in df.iterrows():
         if row["user_id"] is not None:
             rds.set(f"{PLAYER_RANK_PREFIX}_{row['user_id']}", row["rating"])
+            rds.set(f"{THREE_MONTH_RETURN}_{row['user_id']}", row["three_month_return"])
 
 
 def serialize_and_pack_rankings():
+    cutoff_time = datetime_to_posix(dt.utcnow() - DateOffset(months=3))
     with engine.connect() as conn:
         user_df = pd.read_sql("""
-            SELECT user_id, rating, username, profile_pic, n_games, total_return FROM stockbets_rating sr
+            SELECT user_id, rating, username, profile_pic, n_games, total_return, basis, sr.timestamp 
+            FROM stockbets_rating sr
             INNER JOIN (
-              SELECT MAX(id) AS max_id
-              FROM stockbets_rating
-              WHERE user_id IS NOT NULL
-              GROUP BY user_id
-            ) sr_grouped ON sr_grouped.max_id = sr.id
+              SELECT game_id, MIN(id) AS min_id
+              FROM game_status
+              WHERE status = 'active' AND timestamp >= %s
+              GROUP BY game_id
+            ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
               SELECT id, username, profile_pic
               FROM users
             ) u ON u.id = sr.user_id
-        """, conn)
+        """, conn, params=[cutoff_time])
 
         indexes_df = pd.read_sql("""
-            SELECT user_id, rating, imd.username, imd.profile_pic, n_games, total_return FROM stockbets_rating sr
+            SELECT user_id, rating, imd.username, imd.profile_pic, n_games, total_return, basis, sr.timestamp 
+            FROM stockbets_rating sr
             INNER JOIN (
-              SELECT MAX(id) AS max_id
-              FROM stockbets_rating
-              WHERE index_symbol IS NOT NULL
-              GROUP BY index_symbol
-            ) sr_grouped ON sr_grouped.max_id = sr.id
+              SELECT game_id, MIN(id) AS min_id
+              FROM game_status
+              WHERE status = 'active' AND timestamp >= %s
+              GROUP BY game_id
+            ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
               SELECT symbol, `name` AS username, avatar AS profile_pic
               FROM index_metadata
             ) imd ON sr.index_symbol = imd.symbol
-        """, conn)
+        """, conn, params=[cutoff_time])
 
-    df = pd.concat([user_df, indexes_df]).sort_values("rating", ascending=False)
-    update_player_rank(df)
-    rds.set(PUBLIC_LEADERBOARD_PREFIX, json.dumps(df.to_dict(orient="records")))
+    df = pd.concat([user_df, indexes_df])
+    df["basis_times_return"] = df["total_return"] * df["basis"]
+    total_basis_df = df.groupby("username", as_index=False)["basis"].sum().rename(columns={"basis": "total_basis"})
+    df = df.merge(total_basis_df, on="username").sort_values(["username", "timestamp"])
+    stats_df = df.groupby("username",as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
+                                                          "n_games": "last", "basis_times_return": "sum",
+                                                          "total_basis": "first"})
+    stats_df["three_month_return"] = stats_df["basis_times_return"] / stats_df["total_basis"]
+    del stats_df["basis_times_return"]
+    del stats_df["total_basis"]
+    stats_df.sort_values("rating", ascending=False, inplace=True)
+    update_player_rank(stats_df)
+    rds.set(PUBLIC_LEADERBOARD_PREFIX, json.dumps(stats_df.to_dict(orient="records")))

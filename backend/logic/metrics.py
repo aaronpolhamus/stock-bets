@@ -359,7 +359,6 @@ def update_ratings(game_id: int):
             other_player_rating = other_player_entry["rating"]
 
             # fields for return
-            old_basis = player_entry["basis"]
             total_return = player_entry["total_return"]
             n_games = player_entry["n_games"]
 
@@ -372,7 +371,6 @@ def update_ratings(game_id: int):
                 player_rating=player_rating,
                 expected=expected_elo(player_rating, other_player_rating),
                 score=score,
-                old_basis=old_basis,
                 total_return=total_return,
                 n_games=n_games
             ))
@@ -382,7 +380,6 @@ def update_ratings(game_id: int):
         "player_rating": "first",
         "expected": "sum",
         "score": "sum",
-        "old_basis": "first",
         "total_return": "first",
         "n_games": "first"
     })
@@ -393,16 +390,12 @@ def update_ratings(game_id: int):
         # update basis and return stats
         game_basis = STARTING_VIRTUAL_CASH
         game_return = scoreboard[player_id]
-        new_basis = row["old_basis"] + game_basis
-        new_return = (row["old_basis"] * row["total_return"] + game_basis * game_return) / (
-                    row["old_basis"] + game_basis)
-
         add_row("stockbets_rating",
                 user_id=int(player_id) if player_id in user_ids else None,
                 index_symbol=player_id if player_id in TRACKED_INDEXES else None,
                 game_id=game_id,
-                basis=float(new_basis),
-                total_return=float(new_return),
+                basis=float(game_basis),
+                total_return=float(game_return),
                 n_games=int(row["n_games"] + 1),
                 rating=float(new_rating),
                 update_type="game_end",
