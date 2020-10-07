@@ -5,7 +5,7 @@ const AuxiliarButton = styled(Button)`
   font-size: var(--font-size-min);
   font-weight: normal;
   text-transform: uppercase;
-  letter-spacing: .03rem;
+  letter-spacing: var(--letter-spacing-smallcaps);
   svg{
     width: 16px;
     height: 16px;

@@ -12,7 +12,6 @@ import api from 'services/api'
 import styled from 'styled-components'
 import { UserContext } from 'Contexts'
 import {
-  Breadcrumb,
   Header,
   Layout,
   PageSection,
@@ -122,7 +121,7 @@ const AddFriendsWrapper = styled.div`
   background: linear-gradient(rgba(33, 27, 44, 0.15), var(--color-secondary-dark) 46.64%);
 
   @media screen and (min-width: ${breakpoints.md}){
-    width: 400px;
+    width: var(--sidebar-size);
     right: 0;
     z-index: 2;
   }
@@ -260,7 +259,7 @@ const Home = () => {
               />
             }
             context='md'
-            backgroundColor='var(--color-secondary)'
+            backgroundColor='var(--color-secondary-dark)'
           >
             <SidebarSection>
               <SidebarTabs>
@@ -368,7 +367,7 @@ const Home = () => {
       </Layout>
       <Modal show={homeData.username === null && showWelcome} onHide={() => {}} centered>
         <Modal.Header>
-        Welcome! Let&quot;s get started.
+        Welcome! Let&apos;s get started.
         </Modal.Header>
         <Form>
           <Modal.Body>
@@ -413,7 +412,7 @@ const Home = () => {
           </Modal.Body>
           <Modal.Footer className='centered'>
             <Button onClick={() => window.history.go(-2)} variant='light'>
-            I'll come back later
+            I&apos;ll come back later
             </Button>
             <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
             Submit
@@ -423,8 +422,8 @@ const Home = () => {
       </Modal>
       <Modal show={showStartGame} centered>
         <Modal.Body>
-        To get you introduced to the feature set we've setup a single player "pilot game" for you -- it lasts a week,
-        and you'll be playing against the major market indexes. To play against other stockbets users go ahead and add
+        To get you introduced to the feature set we&apos;ve setup a single player &quot;pilot game&quot; for you -- it lasts a week,
+        and you&apos;ll be playing against the major market indexes. To play against other stockbets users go ahead and add
         a couple friends, or accept any outstanding invitations that you have. You can join or start multiplayer games
         with people once they are in your network.
           <Button onClick={() => setShowStartGame(false)} variant='primary'>

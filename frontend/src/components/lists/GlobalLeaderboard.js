@@ -3,8 +3,9 @@ import { apiPost } from 'components/functions/api'
 import { PlayerRow } from 'components/lists/PlayerRow'
 import { SmallCaps } from 'components/textComponents/Text'
 import styled from 'styled-components'
-import { formatPercentage } from 'components/functions/formattingHelpers'
-import { Tooltip } from 'components/forms/Tooltips'
+import { formatPercentage, numberToOrdinal } from 'components/functions/formattingHelpers'
+import { ElementTooltip } from 'components/ui/ElementTooltip'
+import { PlayerCard } from 'components/ui/cards/PlayerCard'
 
 const ListRankingWrapper = styled.ol`
   font-size: var(--font-size-small);
@@ -12,9 +13,7 @@ const ListRankingWrapper = styled.ol`
 `
 
 const ListRankingItem = styled.li`
-  padding: var(--space-100) 0;
   color: var(--color-text-light-gray);
-  margin-bottom: var(--space-50);
   cursor: pointer;
   position: relative;
 `
@@ -63,25 +62,46 @@ const GlobalLeaderboard = () => {
         return row.id === player.user_id
       })
       const isMarketIndex = player.user_id === null
+      const threeMonthReturn = formatPercentage(player.three_month_return, 2)
+
+      const playerCardInfo = [
+        { type: 'Games Played', value: player.n_games },
+        { type: 'Rating', value: player.rating },
+        { type: 'Avg. return', value: threeMonthReturn }
+      ]
 
       return (
         <ListRankingItem key={index}>
-          <PlayerRow
-            avatarSrc={player.profile_pic}
-            avatarSize='24px'
-            username={player.username}
-            isMarketIndex={isMarketIndex}
-            isFriend={isFriend !== -1}
-            isCurrentPlayer=''
-            nameFontSize='var(--font-size-small)'
-            nameColor='var(--color-light-gray)'
-            info={[player.rating, formatPercentage(player.three_month_return, 2)]}
-          />
+          <ElementTooltip
+            placement='left'
+            message={(
+              <PlayerCard
+                profilePic={player.profile_pic}
+                username={player.username}
+                leaderboardPosition={numberToOrdinal(index + 1)}
+                isFriend={isFriend !== -1}
+                isMarketIndex={isMarketIndex}
+                playerStats={playerCardInfo}
+              />
+            )}
+          >
+            <PlayerRow
+              avatarSrc={player.profile_pic}
+              avatarSize='24px'
+              username={player.username}
+              isMarketIndex={isMarketIndex}
+              isFriend={isFriend !== -1}
+              isCurrentPlayer=''
+              nameFontSize='var(--font-size-small)'
+              nameColor='var(--color-light-gray)'
+              info={[player.rating, threeMonthReturn]}
+            />
+          </ElementTooltip>
         </ListRankingItem>
       )
     })
   }
-
+  console.log(listRanking)
   return (
     <>
       <ListHeader>

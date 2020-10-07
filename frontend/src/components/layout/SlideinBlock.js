@@ -31,9 +31,10 @@ const Content = styled.div`
     box-shadow: ${props => props.$show ? '-50px 0px 50px rgba(17, 7, 60, 0.5)' : '0'};
     background-color: ${props => props.$backgroundColor || '#fff'};
     top: 0;
-    right: ${props => props.$show ? 0 : '-90vw'};
+    right: 0;
+    transform: translateX(${props => props.$show ? '0' : '90vw'}) translate3d(0, 0, 0);
     height: 100vh;
-    transition: right .2s ease-out;
+    transition: all .2s ease-out;
     width: 90vw;
     z-index: 1;
     overflow: auto;

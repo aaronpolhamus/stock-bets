@@ -13,6 +13,7 @@ const infoBuilder = (info) => {
 
 const PlayerRowWrapper = styled.div`
   display: flex;
+  padding: calc(var(--space-100) + var(--space-50)) 0;
   align-items: center;
   justify-content: space-between;
   p {

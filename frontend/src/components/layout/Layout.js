@@ -179,13 +179,13 @@ const GameContent = styled(Column)`
   @media screen and (min-width: ${breakpoints.md}){
     width: 100%;
     flex-basis: 100%;
-    max-width: calc(100% - 400px);
+    max-width: calc(100% - var(--sidebar-size));
   }
 `
 
 const GameSidebar = styled(Sidebar)`
   @media screen and (min-width: ${breakpoints.md}){
-    flex-basis: 340px;
+    flex-basis: var(--sidebar-size);
     max-width: none;
   }
 `
@@ -194,7 +194,7 @@ const HomeSidebar = styled(Sidebar)`
     padding-bottom: var(--space-700);
     max-height: 100vh;
     overflow-y: auto;
-    flex-basis: 400px;
+    flex-basis: var(--sidebar-size);
     max-width: none;
     order: 2;
   }
