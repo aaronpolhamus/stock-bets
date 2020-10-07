@@ -13,8 +13,14 @@ from backend.database.helpers import (
 from backend.logic.base import (
     get_game_info,
 )
-from backend.logic.visuals import get_user_information
+from backend.logic.visuals import (
+    get_user_information,
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
+)
+from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.tests import BaseTestCase
+from backend.tasks.redis import rds
 
 
 class TestDBHelpers(BaseTestCase):
@@ -37,6 +43,8 @@ class TestDBHelpers(BaseTestCase):
                           created_at=time.time(),
                           provider="twitter",
                           resource_uuid="aaa")
+        rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+        rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
         new_entry = get_user_information(user_id)
         self.assertEqual(new_entry["name"], "diane browne")
 

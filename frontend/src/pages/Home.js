@@ -302,7 +302,7 @@ const Home = () => {
         </HomeSidebar>
         <GameContent md={9} className='game-content'>
           <Navbar>
-            <Logo/>
+            <Logo />
             <AuxiliarButton variant='link' onClick={handleLogout}>
               <LogOut />
               <span> Logout</span>

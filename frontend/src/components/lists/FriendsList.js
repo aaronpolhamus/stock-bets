@@ -35,9 +35,8 @@ const FriendsList = ({ onLoadFriends }) => {
 
   useEffect(() => {
     const getFriendsLists = async () => {
-      const friends = await apiPost('get_list_of_friends')
-      setFriendsData(friends)
-
+      const friendList = await apiPost('get_list_of_friends')
+      setFriendsData(friendList.friends)
       setFriendRequestsData(getFriendInvites)
     }
 
