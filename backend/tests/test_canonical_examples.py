@@ -132,7 +132,7 @@ class TestStockbetsRanking(StockbetsRatingCase):
         # make the public rankings JSON
         serialize_and_pack_rankings()
 
-        session_token = create_jwt("me@example.com", 1, "aaron")
+        session_token = create_jwt("me@example.com", 1, "aaron", mins_per_session=1_000_000)
         res = self.requests_session.post(f"{HOST_URL}/public_leaderboard", cookies={"session_token": session_token},
                                          verify=False)
         self.assertEqual(res.json(), self.LEADERBOARD)

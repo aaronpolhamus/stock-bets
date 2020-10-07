@@ -629,7 +629,7 @@ class TestFriendManagement(BaseTestCase):
     def test_friend_management(self):
         user_id = 1
         # check out who the tests user's friends are currently:
-        friend_details = get_friend_details(user_id)
+        friend_details = get_friend_details(user_id)["friends"]
         expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
         self.assertEqual(set([x["username"] for x in friend_details]), expected_friends)
 
