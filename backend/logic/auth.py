@@ -16,7 +16,10 @@ from backend.logic.friends import (
     invite_friend,
     get_requester_ids_from_email
 )
-from backend.logic.visuals import PLAYER_RANK_PREFIX
+from backend.logic.visuals import (
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
+)
 from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.config import Config
 from backend.database.helpers import aws_client
@@ -58,8 +61,9 @@ def setup_new_user(name: str, email: str, profile_pic: str, created_at: float, p
                 timestamp=time.time(), type="platform")
         invite_friend(requester_id, user_id)
 
-    # seed public rank
+    # seed public rank and 3-month return
     rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+    rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
     return user_id
 
 

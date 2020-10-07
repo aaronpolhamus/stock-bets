@@ -14,7 +14,7 @@ from backend.logic.visuals import (
     FULFILLED_ORDER_PREFIX,
     serialize_and_pack_rankings,
     PLAYER_RANK_PREFIX,
-    THREE_MONTH_RETURN
+    THREE_MONTH_RETURN_PREFIX
 )
 from backend.tests import (
     CanonicalSplitsCase,
@@ -138,7 +138,7 @@ class TestStockbetsRanking(StockbetsRatingCase):
         self.assertEqual(res.json(), self.LEADERBOARD)
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         test_user_rank = float(rds.get(f"{PLAYER_RANK_PREFIX}_1"))
-        test_user_return = float(rds.get(f"{THREE_MONTH_RETURN}_1"))
+        test_user_return = float(rds.get(f"{THREE_MONTH_RETURN_PREFIX}_1"))
         self.assertEqual(res.json()["rating"], test_user_rank)
         self.assertEqual(test_user_rank, 1144.0)
         self.assertEqual(res.json()["three_month_return"], test_user_return)
