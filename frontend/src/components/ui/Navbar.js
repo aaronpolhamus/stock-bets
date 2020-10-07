@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { Logo } from 'components/ui/Logo'
 import PropTypes from 'prop-types'
+import { HomeButton } from 'components/ui/buttons/HomeButton'
 // Global Layout Component
 
 const NavbarWrapper = styled.nav`
@@ -22,11 +23,14 @@ const NavbarRight = styled.div`
   align-items: center;
 `
 
-const Navbar = ({ itemsRight, itemsLeft }) => {
+const Navbar = ({ itemsRight, itemsLeft, homeButton = true }) => {
   return (
     <NavbarWrapper>
       <NavbarLeft>
         <Logo/>
+        {homeButton &&
+          <HomeButton/>
+        }
         {itemsLeft}
       </NavbarLeft>
       {itemsRight !== undefined &&
@@ -39,6 +43,7 @@ const Navbar = ({ itemsRight, itemsLeft }) => {
 }
 
 Navbar.propTypes = {
+  homeButton: PropTypes.bool,
   itemsRight: PropTypes.oneOfType([
     PropTypes.func,
     PropTypes.arrayOf(PropTypes.node),

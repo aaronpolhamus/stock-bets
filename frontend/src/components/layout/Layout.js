@@ -39,7 +39,7 @@ const Breadcrumb = styled.div`
 `
 
 const ColContent = styled.div`
-  padding: var(--space-300);
+  padding: 0 var(--space-300) var(--space-300);
   position: relative;
   @media screen and (min-width: ${breakpoints.md}){
     padding: 0 var(--space-400) var(--space-400);
@@ -67,9 +67,18 @@ const Header = styled.header`
   align-items: ${(props) => props.alignItems || 'center'};
   flex-wrap: wrap;
   margin-bottom: ${(props) => props.marginBottom || 0};
+  & > * {
+    margin-bottom: var(--space-200);
+  }
   h2{
     flex-shrink: 0;
     margin-right: var(--space-200)
+  }
+
+  @media screen and (min-width: ${breakpoints.md}){
+    & > * {
+      margin-bottom: 0;
+    }
   }
 `
 
@@ -138,6 +147,7 @@ const StyledContainer = styled(Container)`
   @media screen and (max-width: ${breakpoints.md}){
     overflow: hidden;
     padding-bottom: 10vh;
+    padding-top: 0;
   }
 `
 

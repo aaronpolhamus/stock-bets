@@ -126,11 +126,13 @@ const AmountInput = styled.div`
   .form-check{
     margin-bottom: 0;
     margin-left: var(--space-100);
+
     &:first-child{
       margin-left: 0;
     }
   }
   .form-check-label{
+    height: auto;
     font-size: var(--font-size-min);
     min-width: 0;
     padding: 9px var(--space-50) 0;

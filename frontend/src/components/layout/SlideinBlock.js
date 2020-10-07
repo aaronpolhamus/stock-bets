@@ -4,7 +4,10 @@ import { breakpoints } from 'design-tokens'
 import styled from 'styled-components'
 
 const Icon = styled.div`
-  position: relative;
+  position: absolute;
+  left: 75%;
+  top: 20px;
+  z-index: 1;
   @media screen and (min-width: ${props => props.$breakpoint}){
     display: none;
     position: static;
@@ -66,7 +69,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
 
   const breakpoint = breakpoints[context] || 0
   return (
-    <div>
+    <>
       {icon &&
         <Icon
           $breakpoint={breakpoint}
@@ -92,7 +95,7 @@ const SlideinBlock = ({ children, icon, context, className, backgroundColor, ico
         {children}
 
       </Content>
-    </div>
+    </>
   )
 }
 

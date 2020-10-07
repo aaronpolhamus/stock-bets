@@ -294,6 +294,7 @@ const Home = () => {
         </HomeSidebar>
         <GameContent md={9} className='game-content'>
           <Navbar
+            homeButton={false}
             itemsRight={
               <LogoutButton/>
             }

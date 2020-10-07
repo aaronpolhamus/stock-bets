@@ -34,10 +34,10 @@ const NumberHeading = styled.span`
 `
 
 const GlobalLeaderboard = () => {
-  const [listRanking, setListRanking] = useState([])
-  const [listFriends, setListFriends] = useState([])
-  const [listInvitedFriends, setListInvitedFriends] = useState([])
-  const [listFriendInvites, setListFriendInvites] = useState([])
+  const [listRanking, setListRanking] = useState(null)
+  const [listFriends, setListFriends] = useState(null)
+  const [listYouInvited, setListYouInvited] = useState(null)
+  const [listTheyInvited, setListTheyInvited] = useState(null)
 
   const getListRanking = async () => {
     await apiPost('public_leaderboard')
@@ -51,8 +51,8 @@ const GlobalLeaderboard = () => {
     await apiPost('get_list_of_friends')
       .then((response) => {
         setListFriends(response.friends)
-        setListInvitedFriends(response.invited_friends)
-        setListFriendInvites(response.friend_invites)
+        setListYouInvited(response.you_invited)
+        setListTheyInvited(response.they_invited)
       })
   }
 
@@ -64,12 +64,11 @@ const GlobalLeaderboard = () => {
     return data.map((player, index) => {
       const friendStatus = null
 
-      if (listFriends.length > 0) {
-
+      if (listFriends) {
+        const listsCompound = listFriends.concat(listYouInvited).concat(listTheyInvited)
+        console.log(listsCompound)
       }
-      const isFriend = listFriends.length > 0 && listFriends.some((row) => {
-        return row.id === player.user_id
-      })
+
       const isMarketIndex = player.user_id === null
       const threeMonthReturn = formatPercentage(player.three_month_return, 2)
 
@@ -88,7 +87,7 @@ const GlobalLeaderboard = () => {
                 profilePic={player.profile_pic}
                 username={player.username}
                 leaderboardPosition={numberToOrdinal(index + 1)}
-                isFriend={isFriend}
+                isFriend={false}
                 isMarketIndex={isMarketIndex}
                 playerStats={playerCardInfo}
               />
@@ -99,7 +98,7 @@ const GlobalLeaderboard = () => {
               avatarSize='24px'
               username={player.username}
               isMarketIndex={isMarketIndex}
-              isFriend={isFriend}
+              isFriend={false}
               isCurrentPlayer=''
               nameFontSize='var(--font-size-small)'
               nameColor='var(--color-light-gray)'
@@ -110,7 +109,6 @@ const GlobalLeaderboard = () => {
       )
     })
   }
-  console.log(listInvitedFriends)
   return (
     <>
       <ListHeader>
@@ -118,7 +116,7 @@ const GlobalLeaderboard = () => {
         <SmallCaps>Rating <span style={{ color: 'var(--color-primary-darken)', fontWeight: 'bold' }}>|</span> Avg. Return</SmallCaps>
       </ListHeader>
       <ListRankingWrapper>
-        {listRanking.length > 0 && listBuilder(listRanking)}
+        {listRanking && listBuilder(listRanking)}
       </ListRankingWrapper>
     </>
   )

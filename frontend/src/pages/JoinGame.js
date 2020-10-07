@@ -17,6 +17,7 @@ import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
 import { InviteMoreFriends } from 'components/forms/InviteMoreFriends'
 import { Loader } from 'components/Loader'
+import { Navbar } from 'components/ui/Navbar'
 
 const JoinGame = () => {
   const { gameId } = useParams()
@@ -101,15 +102,11 @@ const JoinGame = () => {
     <>
       <Loader show={loading} />
       <Layout>
-        <Sidebar md={2} size='sm' />
-        <Column md={10}>
+        <Column md={12}>
+          <Navbar/>
+        </Column>
+        <Column md={{span: 8, offset: 2}}>
           <PageSection>
-            <Breadcrumb>
-              <a href='/'>
-                <Icon.ChevronLeft size={14} style={{ marginTop: '-3px' }} />
-              Dashboard
-              </a>
-            </Breadcrumb>
             <Header>
               <h1>{gameInfo.title}</h1>
               <div>

@@ -49,12 +49,16 @@ const TabbedRadio = styled(Form.Check)`
   padding-left: 0;
   display: inline-block;
   margin-bottom: var(--space-100);
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-min);
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: var(--letter-spacing-smallcaps);
+  width: 50%;
 
   label {
+    height: var(--space-800);
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     color: ${(props) => props.$color || 'var(--color-text-gray)'};
     border-bottom-width: 2px;

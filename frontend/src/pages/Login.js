@@ -176,11 +176,9 @@ const LoginDialogContent = styled.div`
 `
 const LoginDialogHeader = styled.div`
   .form-check{
-    width: 50%;
+    text-align: left;
     label{
       height: var(--space-900);
-      align-items: center;
-      justify-content: center;
     }
   }
 `

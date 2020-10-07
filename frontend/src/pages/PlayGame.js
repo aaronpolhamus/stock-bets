@@ -33,7 +33,6 @@ import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
 import { toCurrency } from 'components/functions/formattingHelpers'
 import { Navbar } from 'components/ui/Navbar'
-import { HomeButton } from 'components/ui/buttons/HomeButton'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -122,11 +121,7 @@ const PlayGame = () => {
         />
       </GameSidebar>
       <GameContent md={9}>
-        <Navbar
-          itemsLeft={
-            <HomeButton/>
-          }
-        />
+        <Navbar/>
         <PageSection
           $marginBottom='var(--space-400)'
           $marginBottomMd='var(--space-400)'

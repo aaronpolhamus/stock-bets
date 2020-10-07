@@ -75,7 +75,7 @@ const MakeGame = ({ gameMode }) => {
       <Form>
         <Loader show={loading} />
         <Row>
-          <Col lg={4}>
+          <Col lg={6}>
             <Form.Group>
               <Form.Label>
                 Title
@@ -150,7 +150,7 @@ const MakeGame = ({ gameMode }) => {
               </Row>}
           </Col>
           {gameMode === 'multi_player' &&
-            <Col lg={4}>
+            <Col lg={6}>
               <MultiInvite availableInvitees={defaults.available_invitees} handleInviteesChange={(input) => setInvitees(input)} handleEmailsChange={(emails) => setEmailInvitees(emails)} />
             </Col>}
         </Row>
