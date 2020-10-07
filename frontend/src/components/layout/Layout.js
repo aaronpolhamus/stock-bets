@@ -151,13 +151,6 @@ const ModalOverflowControls = styled.div`
   transform: translateY(100%);
 `
 
-const Navbar = styled.nav`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: var(--space-800);
-`
-
 const Column = ({ children, className, ...props }) => (
   <Col className={className} {...props}>
     <ColContent>
@@ -187,6 +180,7 @@ const GameSidebar = styled(Sidebar)`
   @media screen and (min-width: ${breakpoints.md}){
     flex-basis: var(--sidebar-size);
     max-width: none;
+    order: 2;
   }
 `
 const HomeSidebar = styled(Sidebar)`
@@ -224,7 +218,6 @@ export {
   Header,
   Layout,
   ModalOverflowControls,
-  Navbar,
   PageSection,
   PageFooter,
   Sidebar,

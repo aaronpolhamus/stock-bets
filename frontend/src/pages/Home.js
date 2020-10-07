@@ -15,7 +15,6 @@ import {
   Header,
   Layout,
   PageSection,
-  Navbar,
   HomeSidebar,
   GameContent,
   SidebarSection
@@ -31,21 +30,14 @@ import { breakpoints } from 'design-tokens'
 import {
   Globe,
   Users,
-  LogOut,
   X as IconClose,
   Users as IconUsers
 } from 'react-feather'
 import { IconTabs } from 'components/ui/icons/IconTabs'
-import { Logo } from 'components/ui/Logo'
-import { AuxiliarButton } from 'components/ui/buttons/AuxiliarButton'
+import { Navbar } from 'components/ui/Navbar'
+import { LogoutButton } from 'components/ui/buttons/LogoutButton'
 import { formatPercentage } from 'components/functions/formattingHelpers'
 import LogRocket from 'logrocket'
-
-// Left in un-used for now: we'll almost certainly get to this later
-const handleLogout = async () => {
-  await api.post('/api/logout')
-  window.location.assign('/')
-}
 
 const filterEntries = (array, filters) => {
   return array.filter((entry, index) => {
@@ -301,13 +293,11 @@ const Home = () => {
           </SlideinBlock>
         </HomeSidebar>
         <GameContent md={9} className='game-content'>
-          <Navbar>
-            <Logo />
-            <AuxiliarButton variant='link' onClick={handleLogout}>
-              <LogOut />
-              <span> Logout</span>
-            </AuxiliarButton>
-          </Navbar>
+          <Navbar
+            itemsRight={
+              <LogoutButton/>
+            }
+          />
           <PageSection className='page-section'>
             <Header>
               <UserCard>

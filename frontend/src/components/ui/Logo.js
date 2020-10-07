@@ -16,7 +16,7 @@ const LogoWrapper = styled.a`
 
 const Logo = () => {
   return (
-    <LogoWrapper href='/' title='Stockbets'>
+    <LogoWrapper href='/' title='Stockbets' className='logo'>
       <SvgLogo />
     </LogoWrapper>
   )

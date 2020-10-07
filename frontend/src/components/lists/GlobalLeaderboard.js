@@ -34,8 +34,10 @@ const NumberHeading = styled.span`
 `
 
 const GlobalLeaderboard = () => {
-  const [listRanking, setListRanking] = useState({})
-  const [listFriends, setListFriends] = useState({})
+  const [listRanking, setListRanking] = useState([])
+  const [listFriends, setListFriends] = useState([])
+  const [listInvitedFriends, setListInvitedFriends] = useState([])
+  const [listFriendInvites, setListFriendInvites] = useState([])
 
   const getListRanking = async () => {
     await apiPost('public_leaderboard')
@@ -49,6 +51,8 @@ const GlobalLeaderboard = () => {
     await apiPost('get_list_of_friends')
       .then((response) => {
         setListFriends(response.friends)
+        setListInvitedFriends(response.invited_friends)
+        setListFriendInvites(response.friend_invites)
       })
   }
 
@@ -58,7 +62,12 @@ const GlobalLeaderboard = () => {
   }, [])
   const listBuilder = (data) => {
     return data.map((player, index) => {
-      const isFriend = listFriends.length > 0 && listFriends.findIndex((row) => {
+      const friendStatus = null
+
+      if (listFriends.length > 0) {
+
+      }
+      const isFriend = listFriends.length > 0 && listFriends.some((row) => {
         return row.id === player.user_id
       })
       const isMarketIndex = player.user_id === null
@@ -79,7 +88,7 @@ const GlobalLeaderboard = () => {
                 profilePic={player.profile_pic}
                 username={player.username}
                 leaderboardPosition={numberToOrdinal(index + 1)}
-                isFriend={isFriend !== -1}
+                isFriend={isFriend}
                 isMarketIndex={isMarketIndex}
                 playerStats={playerCardInfo}
               />
@@ -90,7 +99,7 @@ const GlobalLeaderboard = () => {
               avatarSize='24px'
               username={player.username}
               isMarketIndex={isMarketIndex}
-              isFriend={isFriend !== -1}
+              isFriend={isFriend}
               isCurrentPlayer=''
               nameFontSize='var(--font-size-small)'
               nameColor='var(--color-light-gray)'
@@ -101,7 +110,7 @@ const GlobalLeaderboard = () => {
       )
     })
   }
-  console.log(listRanking)
+  console.log(listInvitedFriends)
   return (
     <>
       <ListHeader>
