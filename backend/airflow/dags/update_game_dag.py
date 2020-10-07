@@ -100,7 +100,7 @@ def close_finished_game_with_context(**context):
     if current_time >= game_end:
         user_ids = get_active_game_user_ids(game_id)
         last_status_entry = query_to_dict("""SELECT * FROM game_status 
-                                             WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1""", game_id)
+                                             WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1""", game_id)[0]
         if last_status_entry["status"] == "active":
             # close game and update ratings
             add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)

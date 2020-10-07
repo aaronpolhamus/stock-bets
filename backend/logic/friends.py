@@ -166,16 +166,17 @@ def get_requester_ids_from_email(email):
 def get_friend_details(user_id: int) -> dict:
     friend_ids = get_friend_ids(user_id)
     invited_friend_ids = get_invited_friend_ids(user_id)
+    friend_invite_ids = get_friend_invite_ids(user_id)
     return dict(
         friends=get_user_details_from_ids(friend_ids),
-        invited_friends=get_user_details_from_ids(invited_friend_ids)
+        invited_friends=get_user_details_from_ids(invited_friend_ids),
+        friend_invites=get_user_details_from_ids(friend_invite_ids)
     )
 
 
 def respond_to_friend_invite(requester_username, invited_id, decision):
     requester_id = get_user_ids([requester_username])[0]
     add_row("friends", requester_id=requester_id, invited_id=invited_id, status=decision, timestamp=time.time())
-
 
 # ------- #
 # Friends #
