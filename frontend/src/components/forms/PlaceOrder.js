@@ -206,7 +206,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
     }
-    
+
     await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)

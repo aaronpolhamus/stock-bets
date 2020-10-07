@@ -82,8 +82,8 @@ def get_friend_invite_ids(user_id):
     return [x[0] for x in invited_friends]
 
 
-def get_invited_friend_ids(user_id):
-    """Given a user's id, get the list of people to whom he's sent friend invites"""
+def get_invited_friend_ids(user_id: int):
+    """Given a user's id, get the list of people to whom she's sent friend invites"""
     with engine.connect() as conn:
         invited_friends = conn.execute("""
             SELECT f.invited_id, status
@@ -128,9 +128,8 @@ def get_friend_rejections(user_id):
     return [x[0] for x in result]
 
 
-def suggest_friends(user_id, text):
+def suggest_friends(user_id: int, text: str):
     """The suggest friends dropdown lists includes information about who you've invited and who's invited you. This
-    should go elswhere at some point
     """
     friend_invite_ids = get_friend_invite_ids(user_id)
     invited_you_details = get_user_details_from_ids(friend_invite_ids, "invited_you")
@@ -164,9 +163,13 @@ def get_requester_ids_from_email(email):
     return []
 
 
-def get_friend_details(user_id: int):
+def get_friend_details(user_id: int) -> dict:
     friend_ids = get_friend_ids(user_id)
-    return get_user_details_from_ids(friend_ids)
+    invited_friend_ids = get_invited_friend_ids(user_id)
+    return dict(
+        friends=get_user_details_from_ids(friend_ids),
+        invited_friends=get_user_details_from_ids(invited_friend_ids)
+    )
 
 
 def respond_to_friend_invite(requester_username, invited_id, decision):

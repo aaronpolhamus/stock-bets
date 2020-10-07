@@ -13,6 +13,11 @@ from backend.database.helpers import (
 from backend.logic.auth import create_jwt
 from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.logic.stock_data import TRACKED_INDEXES
+from backend.logic.visuals import (
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
+)
+from backend.database.fixtures.mock_data import USER_DATA
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
 
@@ -31,8 +36,13 @@ class BaseTestCase(unittest.TestCase):
         self.engine = engine
         self.requests_session = requests.Session()
         s3_cache.flushall()
+        rds.flushall()
         reset_db()
         os.system("mysql -h db -uroot main < mockdata.sql")
+        for i in range(len(USER_DATA)):
+            user_id = i + 1
+            rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+            rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
 
     def tearDown(self):
         self.requests_session.close()

@@ -49,7 +49,7 @@ const GlobalLeaderboard = () => {
   const getListFriends = async () => {
     await apiPost('get_list_of_friends')
       .then((response) => {
-        setListFriends(response)
+        setListFriends(response.friends)
       })
   }
 
