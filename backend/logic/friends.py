@@ -168,9 +168,9 @@ def get_friend_details(user_id: int) -> dict:
     invited_friend_ids = get_invited_friend_ids(user_id)
     friend_invite_ids = get_friend_invite_ids(user_id)
     return dict(
-        friends=get_user_details_from_ids(friend_ids),
-        invited_friends=get_user_details_from_ids(invited_friend_ids),
-        friend_invites=get_user_details_from_ids(friend_invite_ids)
+        friends=get_user_details_from_ids(friend_ids, "friend"),
+        you_invited=get_user_details_from_ids(invited_friend_ids, "you_invited"),
+        they_invited=get_user_details_from_ids(friend_invite_ids, "they_invited")
     )
 
 
