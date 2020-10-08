@@ -299,7 +299,7 @@ const Home = () => {
           <Navbar
             homeButton={false}
             itemsRight={
-              <LogoutButton/>
+              <LogoutButton />
             }
           />
           <PageSection className='page-section'>
