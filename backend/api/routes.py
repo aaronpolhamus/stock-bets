@@ -8,7 +8,6 @@ from backend.bi.report_logic import (
     ORDERS_PER_ACTIVE_USER_PREFIX
 )
 from backend.config import Config
-from backend.database.db import db
 from backend.database.helpers import (
     add_row,
     query_to_dict
@@ -23,14 +22,12 @@ from backend.logic.auth import (
     register_username_with_token,
     add_external_game_invites,
     ADMIN_USERS,
-    check_against_invited_users,
     upload_image_from_url_to_s3
 )
 from backend.logic.base import (
     get_user_ids,
     get_game_info,
     get_pending_buy_order_value,
-    get_user_information,
     standardize_email
 )
 from logic.stock_data import fetch_price
@@ -84,6 +81,7 @@ from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     add_fulfilled_order_entry,
+    get_user_information,
     PENDING_ORDERS_PREFIX,
     FULFILLED_ORDER_PREFIX,
     BALANCES_CHART_PREFIX,
@@ -91,15 +89,16 @@ from backend.logic.visuals import (
     FIELD_CHART_PREFIX,
     LEADERBOARD_PREFIX,
     PAYOUTS_PREFIX,
-    ORDER_PERF_CHART_PREFIX
+    ORDER_PERF_CHART_PREFIX,
+    PUBLIC_LEADERBOARD_PREFIX,
 )
 from backend.tasks.definitions import (
     async_update_all_games,
     async_cache_price,
     async_calculate_key_metrics,
-    async_apply_stock_splits
 )
 from backend.tasks import s3_cache
+from backend.tasks.redis import unpack_redis_json
 from flask import Blueprint, request, make_response, jsonify
 
 routes = Blueprint("routes", __name__)
@@ -121,7 +120,6 @@ GAME_RESPONSE_MSG = "Got it, we'll the game creator know."
 FRIEND_INVITE_SENT_MSG = "Friend invite sent :)"
 FRIEND_INVITE_RESPONSE_MSG = "Great, we'll let them know"
 ADMIN_BLOCK_MSG = "This is a protected admin view. Check in with your team if you need permission to access"
-NOT_INVITED_EMAIL = "stockbets is in super-early beta, and we're whitelisting it for now. We'll open to everyone very soon, but email contact@stockbets.io for access before that :)"
 LEAVE_GAME_MESSAGE = "You've left the game"
 EMAIL_SENT_MESSAGE = "Emails sent to your friends"
 INVITED_MORE_USERS_MESSAGE = "Great, we'll let your friends know about the game"
@@ -214,10 +212,6 @@ def login():
     if status_code is not 200:
         return make_response(OAUTH_ERROR_MSG, status_code)
 
-    if Config.CHECK_WHITE_LIST:
-        if not check_against_invited_users(email):
-            return make_response(NOT_INVITED_EMAIL, 403)
-
     if is_sign_up:
         db_entry = query_to_dict("SELECT * FROM users WHERE LOWER(REPLACE(email, '.', '')) = %s",
                                  standardize_email(email))
@@ -306,7 +300,7 @@ def game_defaults():
     user_id = decode_token(request)
     game_mode = request.json.get("game_mode")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    friend_details = get_friend_details(user_id)
+    friend_details = get_friend_details(user_id)["friends"]
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,
@@ -683,7 +677,6 @@ def get_transactions_table():
     user_id = decode_token(request)
     return jsonify(get_downloadable_transactions_table(game_id, user_id))
 
-
 # -------- #
 # Payments #
 # -------- #
@@ -710,6 +703,16 @@ def process_payment():
             type=payment_type, amount=amount, currency=currency, direction='inflow', timestamp=time.time())
 
     return make_response("Payment processed", 200)
+
+# -------------- #
+# Platform-level #
+# -------------- #
+
+
+@routes.route("/api/public_leaderboard", methods=["POST"])
+@authenticate
+def public_leaderboard():
+    return jsonify(unpack_redis_json(PUBLIC_LEADERBOARD_PREFIX))
 
 # ----- #
 # Admin #
@@ -739,15 +742,6 @@ def refresh_metrics():
     return make_response("refreshing metrics...", 200)
 
 
-@routes.route("/api/get_splits", methods=["POST"])
-@authenticate
-@admin
-def get_splits():
-    # TODO: remove once splits are debugged
-    async_apply_stock_splits.delay()
-    return make_response("refreshing metrics...", 200)
-
-
 @routes.route("/api/games_per_users", methods=["POST"])
 @authenticate
 @admin
@@ -772,7 +766,6 @@ def change_user():
     resp = make_response()
     resp.set_cookie("session_token", session_token, httponly=True, samesite=None, secure=True)
     return resp
-
 
 # ------ #
 # DevOps #

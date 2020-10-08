@@ -26,7 +26,7 @@ from backend.logic.games import (
     get_current_stock_holding,
     get_user_invite_statuses_for_pending_game,
     place_order,
-    DEFAULT_VIRTUAL_CASH
+    STARTING_VIRTUAL_CASH
 )
 from backend.logic.metrics import (
     get_winner,
@@ -124,7 +124,7 @@ class TestGameKickoff(BaseTestCase):
 
         leaderboard = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
         self.assertEqual(len(leaderboard["records"]), len(all_ids))
-        self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
+        self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in leaderboard["records"]]))
 
         a_current_balance_table = s3_cache.unpack_s3_json(f"{game_id}/{self.user_id}/{CURRENT_BALANCES_PREFIX}")
         self.assertEqual(a_current_balance_table["data"], [])
@@ -194,7 +194,7 @@ class TestGameKickoff(BaseTestCase):
 
             compile_and_pack_player_leaderboard(game_id)
             leaderboard = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"]]))
+            self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in leaderboard["records"]]))
 
     def test_visuals_during_trading(self):
         # TODO: Add a canonical test with fully populated data
@@ -234,8 +234,8 @@ class TestGameKickoff(BaseTestCase):
             compile_and_pack_player_leaderboard(game_id)
             leaderboard = s3_cache.unpack_s3_json(f"{game_id}/{LEADERBOARD_PREFIX}")
             user_stat_entry = [x for x in leaderboard["records"] if x["id"] == self.user_id][0]
-            self.assertEqual(user_stat_entry["cash_balance"], DEFAULT_VIRTUAL_CASH - self.market_price)
-            self.assertTrue(all([x["cash_balance"] == DEFAULT_VIRTUAL_CASH for x in leaderboard["records"] if
+            self.assertEqual(user_stat_entry["cash_balance"], STARTING_VIRTUAL_CASH - self.market_price)
+            self.assertTrue(all([x["cash_balance"] == STARTING_VIRTUAL_CASH for x in leaderboard["records"] if
                                  x["id"] != self.user_id]))
 
         fulfilled_orders_table = s3_cache.unpack_s3_json(f'{game_id}/{self.user_id}/{FULFILLED_ORDER_PREFIX}')
@@ -469,4 +469,6 @@ class TestSinglePlayerLogic(BaseTestCase):
         compile_and_pack_player_leaderboard(game_id)
         make_the_field_charts(game_id)
         field_chart = s3_cache.unpack_s3_json(f"{game_id}/{FIELD_CHART_PREFIX}")
-        self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + TRACKED_INDEXES))
+        _index_names = query_to_dict("SELECT * FROM index_metadata")
+        _index_names = [x["name"] for x in _index_names]
+        self.assertEqual(set([x["label"] for x in field_chart["datasets"]]), set(["cheetos"] + _index_names))

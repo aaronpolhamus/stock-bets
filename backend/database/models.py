@@ -197,11 +197,21 @@ class Prices(db.Model):
 Index("prices_symbol_timestamp_ix", Prices.symbol, Prices.timestamp)
 
 
+class IndexMetaData(db.Model):
+    __tablename__ = "index_metadata"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.VARCHAR(255))
+    start_date = db.Column(db.Float(precision=32))
+    avatar = db.Column(db.Text)
+    name = db.Column(db.Text)
+
+
 class Indexes(db.Model):
     __tablename__ = "indexes"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.Text)
+    symbol = db.Column(db.VARCHAR(255), db.ForeignKey("index_metadata.symbol"))
     value = db.Column(db.Float(precision=32))
     timestamp = db.Column(db.Float(precision=32))
 
@@ -332,3 +342,23 @@ class Dividends(db.Model):
     company = db.Column(db.Text)
     amount = db.Column(db.Float(precision=32))
     exec_date = db.Column(db.Integer)
+
+
+class EventTypes(Enum):
+    sign_up = "Sign Up"
+    game_end = "Game End"
+
+
+class StockBetsRating(db.Model):
+    __tablename__ = "stockbets_rating"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    index_symbol = db.Column(db.VARCHAR(255), db.ForeignKey("index_metadata.symbol"), nullable=True)
+    game_id = db.Column(db.Integer, db.ForeignKey('games.id'), nullable=True)
+    rating = db.Column(db.Float(precision=32))
+    basis = db.Column(db.Float(precision=32))
+    total_return = db.Column(db.Float(precision=32))
+    n_games = db.Column(db.Integer)
+    update_type = db.Column(db.Enum(EventTypes))
+    timestamp = db.Column(db.Float(precision=32))

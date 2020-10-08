@@ -25,10 +25,9 @@ from backend.database.models import (
 from backend.logic.base import (
     get_active_game_user_ids,
     standardize_email,
-    get_user_information,
     SECONDS_IN_A_DAY,
     get_trading_calendar,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     get_current_game_cash_balance,
     posix_to_datetime,
     get_next_trading_day_schedule,
@@ -36,7 +35,8 @@ from backend.logic.base import (
     during_trading_day,
     get_active_balances,
     get_user_ids_from_passed_emails,
-    get_user_ids
+    get_user_ids,
+    END_OF_TRADE_HOUR
 )
 from backend.logic.friends import (
     add_to_game_invites_if_registered,
@@ -48,6 +48,7 @@ from backend.logic.payments import (
 )
 from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
+    get_user_information,
     add_fulfilled_order_entry,
     removing_pending_order,
     serialize_and_pack_portfolio_details,
@@ -316,7 +317,7 @@ def kick_off_game(game_id: int, user_id_list: List[int], update_time):
             timestamp=update_time)
     for user_id in user_id_list:
         add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=DEFAULT_VIRTUAL_CASH, transaction_type="kickoff")
+                balance=STARTING_VIRTUAL_CASH, transaction_type="kickoff")
 
     # Mark any outstanding invitations as "expired" now that the game is active
     mark_invites_expired(game_id, ["invited"], update_time)
@@ -636,13 +637,20 @@ def get_order_quantity(order_price, amount, quantity_type):
     raise Exception("Invalid quantity type for this ticket")
 
 
+def filter_market_orders_made_during_trading(df: pd.DataFrame) -> pd.DataFrame:
+    """filter our market orders placed during trading hours. while it's extremely unlikely, we did have one case where
+    a market order placed during trading was double-fulfilled"""
+    mask = df["timestamp"].apply(during_trading_day) & df["order_type"] == "market"
+    return df[~mask]
+
+
 def get_all_open_orders(game_id: int):
     """Get all open orders in a game, and the timestamp that they were placed at for when we cross-check against the
     time-in-force field. This query is written implicitly assumes that any given order will only ever have one "pending"
     entry.
     """
     sql_query = """
-        SELECT os.order_id, os.timestamp
+        SELECT os.order_id, os.timestamp, o.order_type
         FROM order_status os
         INNER JOIN
           (SELECT order_id, max(id) as max_id FROM order_status GROUP BY order_id) grouped_os
@@ -655,8 +663,11 @@ def get_all_open_orders(game_id: int):
         ORDER BY os.order_id;
     """
     with engine.connect() as conn:
-        result = conn.execute(sql_query, game_id).fetchall()
-    return {order_id: ts for order_id, ts in result}
+        df = pd.read_sql(sql_query, conn, params=[game_id])
+
+    df = filter_market_orders_made_during_trading(df)
+    records = df.to_dict(orient="records")
+    return {record["order_id"]: record["timestamp"] for record in records}
 
 
 def update_balances(user_id, game_id, order_status_id, timestamp, buy_or_sell, cash_balance, current_holding,
@@ -772,7 +783,7 @@ def get_order_expiration_status(order_id):
         next_day_schedule = get_next_trading_day_schedule(time_placed_nyc)
         _, cutoff_time = get_schedule_start_and_end(next_day_schedule)
     else:
-        if time_placed_nyc.hour >= 16:
+        if time_placed_nyc.hour >= END_OF_TRADE_HOUR:
             next_day_schedule = get_next_trading_day_schedule(time_placed_nyc + timedelta(days=1))
             _, cutoff_time = get_schedule_start_and_end(next_day_schedule)
         else:

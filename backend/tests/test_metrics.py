@@ -5,7 +5,9 @@ import time
 
 from backend.logic.metrics import (
     calculate_metrics,
-    check_if_payout_time
+    check_if_payout_time,
+    elo_update,
+    expected_elo
 )
 from backend.logic.base import (
     posix_to_datetime,
@@ -56,3 +58,35 @@ class TestCheckPayoutTime(TestCase):
             base_time_mock.time.return_value = current_time = 1594403158.059148 + 4 * 60 * 60
             payout_time = 1594403158.059148 + 8 * 60 * 60
             self.assertTrue(check_if_payout_time(current_time, payout_time))
+
+
+class TestEloRating(TestCase):
+
+    def test_elo_rating(self):
+        self.assertEqual(round(expected_elo(1613, 1609), 3), 0.506)
+        self.assertEqual(round(expected_elo(1613, 1477), 3), 0.686)
+        self.assertEqual(round(expected_elo(1613, 1388), 3), 0.785)
+        self.assertEqual(round(expected_elo(1613, 1586), 3), 0.539)
+        self.assertEqual(round(expected_elo(1613, 1720), 3), 0.351)
+
+        pairs = [
+            (0, 0),
+            (1, 1),
+            (10, 20),
+            (123, 456),
+            (2400, 2500),
+        ]
+
+        for a, b in pairs:
+            self.assertEqual(round(expected_elo(a, b) + expected_elo(b, a), 3), 1.0)
+
+        exp = 0
+        exp += expected_elo(1613, 1609)
+        exp += expected_elo(1613, 1477)
+        exp += expected_elo(1613, 1388)
+        exp += expected_elo(1613, 1586)
+        exp += expected_elo(1613, 1720)
+        score = (0 + 0.5 + 1 + 1 + 0)
+
+        self.assertEqual(round(elo_update(1613, exp, score, k=32)), 1601)
+        self.assertEqual(round(elo_update(1613, exp, 3, k=32)), 1617)

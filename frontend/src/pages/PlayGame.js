@@ -8,10 +8,9 @@ import {
   Tabs,
   Toast
 } from 'react-bootstrap'
-import { useParams, Link, Redirect } from 'react-router-dom'
+import { useParams, Redirect } from 'react-router-dom'
 import { PlaceOrder } from 'components/forms/PlaceOrder'
 import {
-  Breadcrumb,
   GameSidebar,
   GameContent,
   Layout,
@@ -21,7 +20,7 @@ import {
 import { SectionTitle, AlignText } from 'components/textComponents/Text'
 import { FieldChart } from 'components/charts/FieldChart'
 import { GameHeader } from 'components/game/GameHeader'
-import { ChevronLeft, Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
+import { Map, TrendingUp, BarChart, DollarSign } from 'react-feather'
 import { UserContext } from 'Contexts'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import { CompoundChart } from 'components/charts/CompoundChart'
@@ -33,6 +32,7 @@ import { IconBuySell } from 'components/ui/icons/IconBuySell'
 import { IconTabs } from 'components/ui/icons/IconTabs'
 import { Sneak } from 'components/game/Sneak'
 import { toCurrency } from 'components/functions/formattingHelpers'
+import { Navbar } from 'components/ui/Navbar'
 
 const PlayGame = () => {
   const { gameId } = useParams()
@@ -121,16 +121,11 @@ const PlayGame = () => {
         />
       </GameSidebar>
       <GameContent md={9}>
+        <Navbar/>
         <PageSection
           $marginBottom='var(--space-400)'
           $marginBottomMd='var(--space-400)'
         >
-          <Breadcrumb>
-            <Link to='/'>
-              <ChevronLeft size={14} style={{ marginTop: '-3px' }} />
-              <span> Dashboard</span>
-            </Link>
-          </Breadcrumb>
           <GameHeader
             gameId={gameId}
             cashData={cashData}
@@ -173,7 +168,7 @@ const PlayGame = () => {
                         Symbol: function formatSymbol (value, row) {
                           return (
                             <>
-                              <IconBuySell type={row.event_type} />
+                              <IconBuySell type={row['Buy/Sell']} />
                               <strong>
                                 {value}
                               </strong>

@@ -176,11 +176,9 @@ const LoginDialogContent = styled.div`
 `
 const LoginDialogHeader = styled.div`
   .form-check{
-    width: 50%;
+    text-align: left;
     label{
       height: var(--space-900);
-      align-items: center;
-      justify-content: center;
     }
   }
 `
@@ -249,12 +247,12 @@ export default function Login () {
             <LoginDialog>
               <LoginDialogHeader>
                 <TabbedRadioButtons
-                  $defaultChecked={loginSelection}
+                  defaultChecked={loginSelection}
                   onClick={(e) => {
                     setLoginSelection(e.target.value)
                   }}
                   colorTab='var(--color-light-gray)'
-                  options={{
+                  optionsList={{
                     logIn: 'Log In',
                     signUp: 'Sign Up'
                   }}

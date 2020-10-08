@@ -48,7 +48,7 @@ from backend.logic.games import (
     InsufficientHoldings,
     LimitError,
     NoNegativeOrders,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     DEFAULT_INVITE_OPEN_WINDOW,
     add_user_via_email,
     add_user_via_platform,
@@ -169,7 +169,7 @@ class TestGameLogic(BaseTestCase):
                 "SELECT * FROM game_balances WHERE game_id = %s and balance_type = 'virtual_cash'", conn,
                 params=str(game_id))
             self.assertEqual(df["user_id"].to_list(), [4, 3])
-            self.assertEqual(df["balance"].to_list(), [DEFAULT_VIRTUAL_CASH, DEFAULT_VIRTUAL_CASH])
+            self.assertEqual(df["balance"].to_list(), [STARTING_VIRTUAL_CASH, STARTING_VIRTUAL_CASH])
 
         game_id = 2
         service_open_game(game_id)

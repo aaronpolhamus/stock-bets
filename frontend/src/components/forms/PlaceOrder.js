@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react'
 import api from 'services/api'
 import { Row, Col, Button, Form, InputGroup } from 'react-bootstrap'
 import Autosuggest from 'react-autosuggest'
-import { optionBuilder } from 'components/functions/forms'
 import { AuxiliarText, FormFooter } from 'components/textComponents/Text'
 import { apiPost } from 'components/functions/api'
 import { RadioButtons, TabbedRadioButtons } from 'components/forms/Inputs'
@@ -14,6 +13,16 @@ import { CashInfo } from 'components/lists/CashInfo'
 import { ChevronsDown } from 'react-feather'
 import CurrencyInput from 'components/ui/inputs/CurrencyInput'
 import { toFormattedDate } from 'components/functions/formattingHelpers'
+
+const optionBuilder = (optionsObject) =>
+  // Takes an object of key-value pairs and turns it into an array of options for a form dropdown where the target value
+  // is assigned to both the option key and value, while what's actually displayed is the value element from the
+  // passed-in object
+  Object.keys(optionsObject).map((key, index) => (
+    <option key={key} value={key}>
+      {optionsObject[key]}
+    </option>
+  ))
 
 const StyledOrderForm = styled(Form)`
   position: relative;
@@ -117,11 +126,13 @@ const AmountInput = styled.div`
   .form-check{
     margin-bottom: 0;
     margin-left: var(--space-100);
+
     &:first-child{
       margin-left: 0;
     }
   }
   .form-check-label{
+    height: auto;
     font-size: var(--font-size-min);
     min-width: 0;
     padding: 9px var(--space-50) 0;
@@ -197,6 +208,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
     }
+
     await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)
@@ -205,6 +217,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         setSymbolLabel('')
         setPriceData({})
         formRef.current.reset()
+
         clearInterval(intervalId)
         if (onPlaceOrder !== undefined) onPlaceOrder(order)
       })
@@ -307,14 +320,13 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         </CollapsibleClose>
         {buyOrSell &&
           <TabbedRadioButtons
-            mode='tabbed'
             name='buy_or_sell'
-            $defaultChecked={buyOrSell}
+            defaultChecked={buyOrSell}
             onChange={(e) => setBuyOrSell(e.target.value)}
             onClick={handleBuySellClicked}
-            options={buySellOptions}
+            optionsList={buySellOptions}
             color='var(--color-text-light-gray)'
-            $colorChecked='var(--color-lightest)'
+            colorChecked='var(--color-lightest)'
           />}
       </OrderFormHeader>
       <CashInfo cashData={cashData} balance={false} />
@@ -371,18 +383,20 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             </Form.Label>
             <AmountInput>
               <InputGroup>
-                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} value={amount} />
+                <Form.Control required as={CurrencyInput} placeholder='0.00' type='text' name='amount' onChange={handleChangeAmount} precision={0} />
                 <InputGroup.Append>
                   {quantityType &&
                     <TabbedRadioButtons
-                      mode='tabbed'
                       name='quantity_type'
-                      $defaultChecked={quantityType}
-                      onChange={(e) => setQuantityType(e.target.value)}
-                      options={quantityOptions}
-                      colorTab='var(--color-lightest)'
+                      defaultChecked={quantityType}
+                      onChange={(e) => {
+                        console.log(e.target.value)
+                        setQuantityType(e.target.value)
+                      }}
+                      optionsList={quantityOptions}
                       color='var(--color-text-gray)'
-                      $colorChecked='var(--color-secondary)'
+                      colorChecked='var(--color-secondary)'
+                      colorTab='var(--color-lightest)'
                     />}
                 </InputGroup.Append>
               </InputGroup>
@@ -417,11 +431,11 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
             {orderType &&
               <RadioButtons
                 name='order_type'
-                $defaultChecked={orderType}
+                defaultChecked={orderType}
                 onChange={(e) => setOrderType(e.target.value)}
-                options={orderTypeOptions}
+                optionsList={orderTypeOptions}
                 color='var(--color-text-light-gray)'
-                $colorChecked='var(--color-lightest)'
+                colorChecked='var(--color-lightest)'
               />}
           </Form.Group>
         </Col>

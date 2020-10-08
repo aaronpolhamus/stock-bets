@@ -3,28 +3,31 @@ import time
 from datetime import datetime as dt, timedelta
 from io import BytesIO
 from random import randint, seed
-from requests import RequestException
-
-import jwt
 import requests
+import jwt
+
 from backend.database.db import engine
-from backend.database.helpers import add_row, query_to_dict
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
 from backend.logic.base import standardize_email
-from backend.logic.friends import invite_friend, get_requester_ids_from_email
+from backend.logic.friends import (
+    invite_friend,
+    get_requester_ids_from_email
+)
+from backend.logic.visuals import (
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
+)
+from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.config import Config
 from backend.database.helpers import aws_client
+from backend.tasks.redis import rds
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com", "charly@captec.io", "jsanchezcastillejos@gmail.com"]
 AVATAR_TEXT_COLOR = "FFFEF2"
 DEFAULT_AVATAR = 'https://www.pngfind.com/pngs/m/676-6764065_default-profile-picture-transparent-hd-png-download.png'
-
-
-def check_against_invited_users(email):
-    with engine.connect() as conn:
-        count, = conn.execute("SELECT count(*) FROM external_invites WHERE invited_email = %s", email).fetchone()
-    if count > 0:
-        return True
-    return False
 
 
 def create_jwt(email, user_id, username, mins_per_session=Config.MINUTES_PER_SESSION, secret_key=Config.SECRET_KEY):
@@ -48,12 +51,6 @@ def verify_facebook_oauth(access_token):
     return requests.post(Config.FACEBOOK_VALIDATION_URL, data={"access_token": access_token})
 
 
-def update_profile_pic(user_id: id, new_profile_pic: str, old_profile_pic: str):
-    if new_profile_pic != old_profile_pic:
-        with engine.connect() as conn:
-            conn.execute("UPDATE users SET profile_pic = %s WHERE id = %s;", new_profile_pic, user_id)
-
-
 def setup_new_user(name: str, email: str, profile_pic: str, created_at: float, provider: str,
                    resource_uuid: str, password: str = None) -> int:
     user_id = add_row("users", name=name, email=email, username=None, profile_pic=profile_pic, created_at=created_at,
@@ -63,6 +60,10 @@ def setup_new_user(name: str, email: str, profile_pic: str, created_at: float, p
         add_row("external_invites", requester_id=requester_id, invited_email=email, status="accepted",
                 timestamp=time.time(), type="platform")
         invite_friend(requester_id, user_id)
+
+    # seed public rank and 3-month return
+    rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+    rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
     return user_id
 
 
@@ -125,7 +126,7 @@ def send_pic_to_s3(pic: bytes, hash_string: str) -> str:
 def upload_image_from_url_to_s3(url: str, resource_uuid: str) -> str:
     try:
         data = requests.get(url, stream=True)
-    except RequestException:
+    except requests.RequestException:
         data = requests.get(DEFAULT_AVATAR, stream=True)
     return send_pic_to_s3(data.content, resource_uuid)
 

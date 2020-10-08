@@ -1,18 +1,23 @@
 $color-primary: #ffaf74;
 $color-primary-darken: #f46f10;
 $color-primary-darkest: #8e4818;
-$color-secondary: #2d263b;
+$color-primary-lighten: #FFCCA8;
+$color-secondary: #2d253c;
+$color-secondary-dark: #211B2d;
 $color-secondary-muted: #473231;
 $color-terciary: #ff4a4b;
 $color-lightest: #ffffff;
 $color-cool-gray: #d7dbdf;
 $color-light-gray: #f0efed;
 $color-text-primary: #2D263B;
-$color-text-gray: #7f7192;
+$color-text-gray: #5e4e72;
 $color-text-light-gray: #abaac6;
 $color-success: #3fa46d;
+$color-success-darken: #32ab4e;
 $color-danger: $color-terciary;
 $color-gray: #efeff5;
+
+$color-auxiliar-purple: #463887;
 
 $table-cell-height: 3rem;
 
@@ -20,18 +25,27 @@ $table-cell-height: 3rem;
   --color-primary: #{$color-primary};
   --color-primary-darken: #{$color-primary-darken};
   --color-primary-darkest: #{$color-primary-darkest};
+  --color-primary-lighten: #{$color-primary-lighten};
   --color-secondary: #{$color-secondary};
+  --color-secondary-dark: #{$color-secondary-dark};
   --color-secondary-muted: #{$color-secondary-muted};
   --color-terciary: #{$color-terciary};
   --color-lightest: #{$color-lightest};
   --color-gray: #{$color-gray};
   --color-cool-gray: #{$color-cool-gray};
   --color-light-gray: #{$color-light-gray};
+
   --color-text-primary: #{$color-text-primary};
   --color-text-gray: #{$color-text-gray};
   --color-text-light-gray: #{$color-text-light-gray};
+
   --color-success: #{$color-success};
+  --color-success-darken: #{$color-success-darken};
   --color-danger: #{$color-danger};
+
+  --color-auxiliar-purple: #{$color-auxiliar-purple};
+
+  --font-family-global: "proxima-nova", sans-serif;
 
   --font-size-min: 0.75rem;
   --font-size-small: 0.875rem;
@@ -60,6 +74,9 @@ $table-cell-height: 3rem;
   --space-lg-400: 8rem;
   --shadow-area: 5px 0px 27px rgba(17, 7, 60, 0.35);
   --shadow-element: 0px 15px 27px rgba(17, 7, 60, 0.15);
+
+
+  --sidebar-size: 350px;
 }
 
 // Bootstrap customization
@@ -72,6 +89,7 @@ $theme-colors: (
   "light": $color-light-gray,
 );
 
+
 $h1-font-size: 3rem;
 $headings-font-weight: 100;
 
@@ -79,6 +97,8 @@ $table-hover-bg: $color-gray;
 $table-border-color: $color-gray;
 $badge-pill-padding-x: 0.75em;
 
+$grey-900: $color-text-primary!default;
+$body-color: $color-text-primary!default;
 $btn-border-radius: 5rem!default;
 $btn-border-radius-lg: 5rem!default;
 $btn-border-radius-sm: 5rem!default;

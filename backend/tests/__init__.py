@@ -1,17 +1,27 @@
 import os
-import unittest
 import time
+import unittest
 
 import requests
-
+from backend.database.db import engine
+from backend.database.helpers import add_row
 from backend.database.helpers import (
     reset_db,
     query_to_dict,
     drop_all_tables
 )
-from backend.database.db import engine
 from backend.logic.auth import create_jwt
-from tasks import s3_cache
+from backend.logic.metrics import STARTING_ELO_SCORE
+from backend.logic.stock_data import TRACKED_INDEXES
+from backend.logic.visuals import (
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
+)
+from backend.database.fixtures.mock_data import USER_DATA
+from backend.tasks import s3_cache
+from backend.tasks.redis import rds
+
+HOST_URL = 'https://localhost:5000/api'
 
 
 class BaseTestCase(unittest.TestCase):
@@ -26,8 +36,13 @@ class BaseTestCase(unittest.TestCase):
         self.engine = engine
         self.requests_session = requests.Session()
         s3_cache.flushall()
+        rds.flushall()
         reset_db()
         os.system("mysql -h db -uroot main < mockdata.sql")
+        for i in range(len(USER_DATA)):
+            user_id = i + 1
+            rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+            rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
 
     def tearDown(self):
         self.requests_session.close()
@@ -52,7 +67,36 @@ class CanonicalSplitsCase(unittest.TestCase):
         self.requests_session = requests.Session()
         s3_cache.flushall()
         drop_all_tables()
-        os.system("mysql -h db -uroot main < database/fixtures/canonical_games/splits_game.sql")
+        os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
+
+    def tearDown(self):
+        self.requests_session.close()
+        t = time.time() - self.start_time
+        print('%s: ran in %.3f seconds' % (self.id(), t))
+        with open("test_times.csv", "a") as outfile:
+            outfile.write(f"{self.id()},{t}\n")
+
+
+class StockbetsRatingCase(unittest.TestCase):
+
+    def setUp(self):
+        self.game_id = 47
+        self.start_time = time.time()
+        self.engine = engine
+        self.requests_session = requests.Session()
+        s3_cache.flushall()
+        rds.flushall()
+        drop_all_tables()
+        os.system(f"mysql -h db -uroot main < database/fixtures/canonical_games/game_id_{self.game_id}.sql")
+
+        # convert stockbets_rating table ID to autoincrement
+        with self.engine.connect() as conn:
+            conn.execute("ALTER TABLE stockbets_rating CHANGE id id INT(11) AUTO_INCREMENT PRIMARY KEY;")
+
+        # manually add the indexes that we want to track to the scores table
+        for index in TRACKED_INDEXES:
+            add_row("stockbets_rating", index_symbol=index, rating=STARTING_ELO_SCORE, update_type="sign_up",
+                    timestamp=-99, basis=0, n_games=0, total_return=0)
 
     def tearDown(self):
         self.requests_session.close()

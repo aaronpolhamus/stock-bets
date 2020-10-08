@@ -173,9 +173,9 @@ def get_day_start(start_time_dt: dt):
     return start_time
 
 
-def retrieve_nasdaq_splits(driver, included_symbols, timeout=45) -> pd.DataFrame:
+def retrieve_nasdaq_splits(driver, included_symbols, timeout=30) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
-    table_xpath = '/html/body/div[4]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]'
+    table_xpath = "/html/body/div[1]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]"
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
     driver.get(url)
     table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_xpath)))
@@ -285,21 +285,25 @@ def get_game_ids_by_status(status="active"):
     return [x[0] for x in result]
 
 
-def get_most_recent_prices(symbols: List):
+def get_most_recent_prices(symbols: List, cutoff_time: float = None):
     if len(symbols) == 0:
         return None
+
+    if cutoff_time is None:
+        cutoff_time = time.time()
+
     sql = f"""
         SELECT p.symbol, p.price, p.timestamp
         FROM prices p
         INNER JOIN (
         SELECT symbol, max(id) as max_id
           FROM prices
+          WHERE timestamp <= %s
           GROUP BY symbol) max_price
         ON p.id = max_price.max_id
-        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})
-    """
+        WHERE p.symbol IN ({','.join(['%s'] * len(symbols))})"""
     with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=symbols)
+        return pd.read_sql(sql, conn, params=[cutoff_time] + list(symbols))
 
 
 def get_splits(start_time: float, end_time: float) -> pd.DataFrame:

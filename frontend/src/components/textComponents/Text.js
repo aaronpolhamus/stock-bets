@@ -74,11 +74,11 @@ const Subtext = styled.small`
 `
 
 const SmallCaps = styled.small`
-  color: ${(props) => props.color || 'var(--color-text-primary)'};
   font-size: var(--font-size-min);
   font-weight: 400;
   letter-spacing: var(--letter-spacing-smallcaps);
   text-transform: uppercase;
+  color: ${props => props.color || 'inherit'};
   @media screen and (max-width: ${props => breakpoints[props.$hideOnBreakpoint]}){
     display: none;
   }

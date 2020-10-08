@@ -1,10 +1,12 @@
 """Logic for calculating and dispering payouts between invitees
 """
 from datetime import timedelta, datetime as dt
+from typing import Union
 
 import numpy as np
 import pandas as pd
 from pandas import DateOffset
+
 from backend.database.db import engine
 from backend.database.helpers import (
     add_row,
@@ -21,13 +23,22 @@ from backend.logic.base import (
     get_game_info,
     get_active_game_user_ids,
     posix_to_datetime,
-    make_date_offset
+    make_date_offset,
+    get_current_game_cash_balance,
+    get_active_balances,
+    get_index_portfolio_value_data,
+    STARTING_VIRTUAL_CASH
 )
 from backend.logic.payments import (
     send_paypal_payment,
     get_payment_profile_uuids,
     PERCENT_TO_USER
 )
+from backend.logic.stock_data import (
+    TRACKED_INDEXES,
+    get_most_recent_prices
+)
+
 
 # -------- #
 # Defaults #
@@ -37,8 +48,8 @@ STARTING_SHARPE_RATIO = 0
 STARTING_RETURN_RATIO = 0
 RISK_FREE_RATE_DEFAULT = 0
 USD_FORMAT = "${:,.2f}"
-ELO_START = 1_000
 ELO_K_FACTOR = 32
+STARTING_ELO_SCORE = 1_000
 
 
 # ------------------------------------ #
@@ -252,11 +263,6 @@ def log_winners(game_id: int, current_time: float):
                                   payout=payout, type=win_type, timestamp=current_time)
         update_performed = True
 
-        # the game's over! we've completed our stockbets journey for this round, and it's time to mark the game as
-        # completed and payout the overall winner
-        user_ids = get_active_game_user_ids(game_id)
-        add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
-
         if stakes == "real":
             payment_profile = get_payment_profile_uuids([winner_id])[0]
             send_paypal_payment(
@@ -273,25 +279,124 @@ def log_winners(game_id: int, current_time: float):
 
     return update_performed
 
-
-# ---------------------------------------- #
-# Scoring logic based on Elo rating system #
-# ---------------------------------------- #
-
-"""Implementation of ELO rating system logic as define in https://en.wikipedia.org/wiki/Elo_rating_system#Mathematical_details
-"""
+# Elo ranking equations. Based on wikipedia and this guy's GitHub: https://github.com/rshk/elo
+# --------------------------------------------------------------------------------------------
 
 
-def expected_elo_score(player_a_rating: float, player_b_rating: float) -> float:
-    return 1 / (1 + 10 ** (player_b_rating - player_a_rating) / 400)
-
-
-def elo_score_update(player_a_rating: float, player_b_rating: float, player_a_score: float, k_factor: float = ELO_K_FACTOR) -> float:
+def expected_elo(player_a: float, player_b: float):
     """
-    :param player_a_rating: player A elo rating
-    :param player_b_rating: player B elo rating
-    :param player_a_score: 1 if a win, 0.5 if a draw, 0 if a loss
-    :param k_factor: controls how significant the updates are
-    :return: a proposed update to player A's elo rating based on the game score
+    Calculate expected score of A in a match against B
+    :param player_a: Elo rating for player A
+    :param player_b: Elo rating for player B
     """
-    return player_a_rating + k_factor * (player_a_score - expected_elo_score(player_a_rating, player_b_rating))
+    return 1 / (1 + 10 ** ((player_b - player_a) / 400))
+
+
+def elo_update(old: float, expected: float, score: float, k: float = ELO_K_FACTOR):
+    """
+    Calculate the new Elo rating for a player
+    :param old: The previous Elo rating
+    :param expected: The expected score for this match
+    :param score: The actual score for this match
+    :param k: The k-factor for Elo
+    """
+    return old + k * (score - expected)
+
+
+def get_rating_info(player_id: Union[int, str]):
+    """if player_id is passed as an int get_rating will interpret it as a user_id. if passed as a string it will interpret
+    it as a n index"""
+    assert type(player_id) in [int, str]
+    rating_column = "index_symbol" if type(player_id) == str else "user_id"
+    return query_to_dict(f"""SELECT n_games, basis, total_return, rating FROM stockbets_rating 
+                                WHERE {rating_column} = %s ORDER BY id DESC LIMIT 0, 1;""", player_id)[0]
+
+
+def get_user_portfolio_value(game_id: int, user_id: int, cutoff_time: float = None) -> float:
+    """This works slightly differently than the method currently used to generates the leaderboard and charts, which
+    depends on the dataframe that make_historical_balances_and_prices_table produces, using pandas.merge_asof. this
+    minor discrepancy could result in leaderboard orders in the game panel not precisely matching how they are
+    calculated internally here."""
+    cash_balance = get_current_game_cash_balance(user_id, game_id)
+    balances = get_active_balances(game_id, user_id)
+    symbols = balances["symbol"].unique()
+    if len(symbols) == 0:
+        return cash_balance
+    prices = get_most_recent_prices(symbols, cutoff_time)
+    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
+    df["value"] = df["balance"] * df["price"]
+    return df["value"].sum() + cash_balance
+
+
+def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
+    df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
+    if df.empty:
+        return STARTING_VIRTUAL_CASH
+    return df.iloc[-1]["value"]
+
+
+def update_ratings(game_id: int):
+    start, end = get_game_start_and_end(game_id)
+    user_ids = get_active_game_user_ids(game_id)
+
+    # construct the leaderboard, including indexes. use simple return for now
+    scoreboard = {}
+    for user_id in user_ids:
+        ending_value = get_user_portfolio_value(game_id, user_id, end)
+        scoreboard[user_id] = ending_value / STARTING_VIRTUAL_CASH - 1
+
+    for index in TRACKED_INDEXES:
+        scoreboard[index] = get_index_portfolio_value(game_id, index, start, end) / STARTING_VIRTUAL_CASH - 1
+
+    # now that we have the scoreboard, iterate over its entries to construct and update DF
+    update_array = []
+    for player, player_return in scoreboard.items():
+        other_players = {k: v for k, v in scoreboard.items() if k != player}
+        for other_player, other_player_return in other_players.items():
+            player_entry = get_rating_info(player)
+            other_player_entry = get_rating_info(other_player)
+            player_rating = player_entry["rating"]
+            other_player_rating = other_player_entry["rating"]
+
+            # fields for return
+            total_return = player_entry["total_return"]
+            n_games = player_entry["n_games"]
+
+            score = 1 if player_return > other_player_return else 0
+            if player_return == other_player_return:
+                score = 0.5
+
+            update_array.append(dict(
+                player_id=player,
+                player_rating=player_rating,
+                expected=expected_elo(player_rating, other_player_rating),
+                score=score,
+                total_return=total_return,
+                n_games=n_games
+            ))
+
+    update_df = pd.DataFrame(update_array)
+    summary_df = update_df.groupby("player_id", as_index=False).agg({
+        "player_rating": "first",
+        "expected": "sum",
+        "score": "sum",
+        "total_return": "first",
+        "n_games": "first"
+    })
+    for _, row in summary_df.iterrows():
+        player_id = row["player_id"]
+        new_rating = elo_update(row["player_rating"], row["expected"], row["score"])
+
+        # update basis and return stats
+        game_basis = STARTING_VIRTUAL_CASH
+        game_return = scoreboard[player_id]
+        add_row("stockbets_rating",
+                user_id=int(player_id) if player_id in user_ids else None,
+                index_symbol=player_id if player_id in TRACKED_INDEXES else None,
+                game_id=game_id,
+                basis=float(game_basis),
+                total_return=float(game_return),
+                n_games=int(row["n_games"] + 1),
+                rating=float(new_rating),
+                update_type="game_end",
+                timestamp=end)

@@ -27,7 +27,7 @@ from pandas.tseries.offsets import DateOffset
 # Defaults #
 # -------- #
 
-DEFAULT_VIRTUAL_CASH = 1_000_000  # USD
+STARTING_VIRTUAL_CASH = 1_000_000  # USD
 SECONDS_IN_A_DAY = 60 * 60 * 24
 TIMEZONE = 'America/New_York'
 END_OF_TRADE_HOUR = 16
@@ -133,8 +133,8 @@ def during_trading_day(posix_time: float = None) -> bool:
 
 
 def get_next_trading_day_schedule(reference_day: dt):
-    """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that
-    if we are inside of trading hours this will return the schedule for the current day
+    """For day orders we need to know when the next trading day happens if the order is placed after hours. Note that if
+    off-hours on a trading day, this will return the current trading day schedule anyhow.
     """
     reference_day = reference_day.date()
     schedule = get_trading_calendar(reference_day, reference_day)
@@ -163,7 +163,8 @@ def get_time_defaults(game_id: int, start_time: float = None, end_time: float = 
         start_time = game_start
 
     if end_time is None:
-        end_time = time.time()  # TODO: constrain this in a way where we can still run TestPlayGame.test_play_game
+        current_time = time.time()
+        end_time = current_time if current_time < game_end else game_end
 
     return start_time, end_time
 
@@ -295,10 +296,11 @@ def get_order_details(game_id: int, user_id: int, start_time: float = None, end_
           ON os_relevant.order_id = os_full.order_id
         ) relevant_orders
         ON relevant_orders.order_id = o.id
-        WHERE game_id = %s AND user_id = %s AND relevant_orders.timestamp >= %s AND relevant_orders.timestamp <= %s;
-    """
+        WHERE game_id = %s AND user_id = %s AND relevant_orders.timestamp >= %s AND relevant_orders.timestamp <= %s;"""
+
     with engine.connect() as conn:
         df = pd.read_sql(query, conn, params=[game_id, user_id, start_time, end_time])
+
     df = pivot_order_details(df)
     df["status"] = "fulfilled"
     df.loc[df["timestamp_fulfilled"].isna(), "status"] = "pending"
@@ -353,11 +355,6 @@ def get_all_game_usernames(game_id: int):
 # --------- #
 # User info #
 # --------- #
-
-
-def get_user_information(user_id: int):
-    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
-    return query_to_dict(sql, user_id)[0]
 
 
 def get_user_ids(usernames: List[str]) -> List[int]:
@@ -534,7 +531,6 @@ def make_historical_balances_and_prices_table(game_id: int, user_id: int, start_
     apply_validation(df, balances_and_prices_table_schema, strict=True)
     return df.reset_index(drop=True).sort_values(["timestamp", "symbol"])
 
-
 # ------------------------------------- #
 # Price and stock data harvesting tools #
 # ------------------------------------- #
@@ -582,17 +578,9 @@ def get_active_balances(game_id: int, user_id: int):
     with engine.connect() as conn:
         return pd.read_sql(sql, conn, params=[game_id, user_id])
 
-
-def check_single_player_mode(game_id: int) -> bool:
-    with engine.connect() as conn:
-        game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
-    if not game_mode:
-        return False
-    return game_mode[0] == "single_player"
-
-
-# Methods for handling indexes in single-player mode
-# --------------------------------------------------
+# -------------------------------------------------- #
+# Methods for handling indexes in single-player mode #
+# -------------------------------------------------- #
 
 
 def get_index_reference(game_id: int, symbol: str) -> float:
@@ -602,8 +590,6 @@ def get_index_reference(game_id: int, symbol: str) -> float:
             SELECT value FROM indexes 
             WHERE symbol = %s AND timestamp <= %s
             ORDER BY id DESC LIMIT 0, 1;""", symbol, ref_time).fetchone()
-    if not ref_val:
-        return 1
     return ref_val[0]
 
 
@@ -611,7 +597,11 @@ def make_index_start_time(game_start: float) -> float:
     if during_trading_day(game_start):
         return game_start
 
-    schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
+    game_start_dt = posix_to_datetime(game_start)
+    if game_start_dt.hour >= END_OF_TRADE_HOUR:
+        game_start_dt += DateOffset(days=1)
+
+    schedule = get_next_trading_day_schedule(game_start_dt)
     trade_start, _ = get_schedule_start_and_end(schedule)
     if game_start > trade_start:
         schedule = get_next_trading_day_schedule(posix_to_datetime(game_start))
@@ -630,12 +620,16 @@ def get_index_portfolio_value_data(game_id: int, symbol: str, start_time: float 
 
     with engine.connect() as conn:
         df = pd.read_sql("""
-            SELECT symbol as username, timestamp, value FROM indexes 
+            SELECT timestamp, `value` FROM indexes
             WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s;""", conn, params=[symbol, start_time, end_time])
+        index_info = query_to_dict("SELECT * FROM index_metadata WHERE symbol = %s", symbol)[0]
 
     # normalizes index to the same starting scale as the user
-    df["value"] = DEFAULT_VIRTUAL_CASH * df["value"] / base_value
+    df["value"] = STARTING_VIRTUAL_CASH * df["value"] / base_value
+    df["username"] = index_info["name"]
 
-    # index data will always lag single-player game starts, esp off-hours. we'll add an initial row here to handle this
+    # When a game kicks off, it will generally be that case that there won't be an index data point at exactly that
+    # time. We solve this here, create a synthetic "anchor" data point that starts at the same time at the game
     trade_start = make_index_start_time(start_time)
-    return pd.concat([pd.DataFrame(dict(username=[symbol], timestamp=[trade_start], value=[DEFAULT_VIRTUAL_CASH])), df])
+    return pd.concat([pd.DataFrame(dict(username=index_info["name"], timestamp=[trade_start],
+                                        value=[STARTING_VIRTUAL_CASH])), df])

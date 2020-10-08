@@ -7,9 +7,9 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-from backend.database.db import engine
-from backend.database.helpers import query_to_dict
+from pandas import DateOffset
 from backend.logic.base import (
+    get_time_defaults,
     get_active_balances,
     get_trading_calendar,
     get_all_game_usernames,
@@ -19,13 +19,11 @@ from backend.logic.base import (
     get_next_trading_day_schedule,
     make_historical_balances_and_prices_table,
     get_current_game_cash_balance,
-    get_user_information,
     get_game_start_and_end,
     get_usernames,
     posix_to_datetime,
-    DEFAULT_VIRTUAL_CASH,
+    STARTING_VIRTUAL_CASH,
     get_active_game_user_ids,
-    check_single_player_mode,
     get_index_portfolio_value_data,
     TIMEZONE,
     get_end_of_last_trading_day,
@@ -48,7 +46,10 @@ from backend.logic.metrics import (
     get_overall_payout,
     get_winners_meta_data,
     get_sidebet_payout,
-    get_expected_sidebets_payout_dates
+    get_expected_sidebets_payout_dates,
+    USD_FORMAT,
+    get_user_portfolio_value,
+    get_index_portfolio_value
 )
 from backend.logic.schemas import (
     order_performance_schema,
@@ -61,11 +62,13 @@ from backend.logic.stock_data import TRACKED_INDEXES
 from backend.logic.stock_data import get_most_recent_prices
 from backend.tasks import s3_cache
 from backend.tasks.redis import rds
-from logic.metrics import USD_FORMAT
-
+from backend.database.db import engine
+from backend.database.helpers import query_to_dict
 
 # Exceptions
 # ----------
+
+
 class BadOrderMerge(Exception):
 
     def __str__(self):
@@ -86,6 +89,9 @@ ORDER_PERF_CHART_PREFIX = "order_performance_chart"
 PAYOUTS_PREFIX = "payouts"
 RETURN_RATIO_PREFIX = "return_ratio"
 SHARPE_RATIO_PREFIX = "sharpe_ratio"
+PLAYER_RANK_PREFIX = "player_rank"
+THREE_MONTH_RETURN_PREFIX = "three_month_return"
+PUBLIC_LEADERBOARD_PREFIX = "public_leaderboard"
 
 # -------------- #
 # Chart settings #
@@ -186,7 +192,6 @@ def palette_generator(n):
     rgb_codes = [hex_to_rgb(x) for x in hex_codes]
     return [f"rgba({r}, {g}, {b}, 1)" for r, g, b in rgb_codes]
 
-
 # --------------- #
 # Dynamic display #
 # --------------- #
@@ -195,7 +200,8 @@ def palette_generator(n):
 def get_game_users(game_id: int):
     usernames = get_all_game_usernames(game_id)
     if check_single_player_mode(game_id):
-        usernames += TRACKED_INDEXES
+        index_names = query_to_dict("SELECT `name` FROM index_metadata")
+        usernames += [x["name"] for x in index_names]
     return usernames
 
 
@@ -206,7 +212,6 @@ def assign_colors(inventory: List):
     colors = palette_generator(len(inventory))
     return {item: color for item, color in zip(inventory, colors)}
 
-
 # ----- #
 # Lists #
 # ----- #
@@ -215,19 +220,7 @@ def assign_colors(inventory: List):
 def _days_left(game_id: int):
     _, end = get_game_start_and_end(game_id)
     seconds_left = end - time.time()
-    return seconds_left // (24 * 60 * 60)
-
-
-def get_portfolio_value(game_id: int, user_id: int) -> float:
-    cash_balance = get_current_game_cash_balance(user_id, game_id)
-    balances = get_active_balances(game_id, user_id)
-    symbols = balances["symbol"].unique()
-    if len(symbols) == 0:
-        return cash_balance
-    prices = get_most_recent_prices(symbols)
-    df = balances[["symbol", "balance"]].merge(prices, how="left", on="symbol")
-    df["value"] = df["balance"] * df["price"]
-    return df["value"].sum() + cash_balance
+    return seconds_left // SECONDS_IN_A_DAY
 
 
 def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_value: float, stocks_held: List[str],
@@ -251,11 +244,12 @@ def make_stat_entry(color: str, cash_balance: Union[float, None], portfolio_valu
     )
 
 
-def get_index_portfolio_value(game_id: int, index: str, start_time: float = None, end_time: float = None):
-    df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
-    if df.empty:
-        return DEFAULT_VIRTUAL_CASH
-    return df.iloc[-1]["value"]
+def get_user_information(user_id: int):
+    sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
+    info = query_to_dict(sql, user_id)[0]
+    info["rating"] = float(rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}"))
+    info["three_month_return"] = float(rds.get(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}"))
+    return info
 
 
 def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, end_time: float = None):
@@ -268,7 +262,7 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
         cash_balance = get_current_game_cash_balance(user_id, game_id)
         balances = get_active_balances(game_id, user_id)
         stocks_held = list(balances["symbol"].unique())
-        portfolio_value = get_portfolio_value(game_id, user_id)
+        portfolio_value = get_user_portfolio_value(game_id, user_id)
         stat_info = make_stat_entry(color=user_colors[user_info["username"]],
                                     cash_balance=cash_balance,
                                     portfolio_value=portfolio_value,
@@ -279,14 +273,16 @@ def compile_and_pack_player_leaderboard(game_id: int, start_time: float = None, 
 
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
+            index_info = query_to_dict("""
+                SELECT name as username, avatar AS profile_pic 
+                FROM index_metadata WHERE symbol = %s""", index)[0]
             portfolio_value = get_index_portfolio_value(game_id, index, start_time, end_time)
-            stat_info = make_stat_entry(color=user_colors[index],
+            stat_info = make_stat_entry(color=user_colors[index_info["username"]],
                                         cash_balance=None,
                                         portfolio_value=portfolio_value,
                                         stocks_held=[],
                                         return_ratio=rds.get(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}"),
                                         sharpe_ratio=rds.get(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}"))
-            index_info = dict(username=index, profile_pic=None)
             records.append({**index_info, **stat_info})
 
     benchmark = get_game_info(game_id)["benchmark"]  # get game benchmark and use it to sort leaderboard
@@ -450,7 +446,7 @@ def make_null_chart(null_label: str):
     schedule = get_next_trading_day_schedule(dt.utcnow())
     start, end = [posix_to_datetime(x) for x in get_schedule_start_and_end(schedule)]
     labels = [datetime_to_posix(t) for t in pd.date_range(start, end, N_PLOT_POINTS)]
-    data = [DEFAULT_VIRTUAL_CASH for _ in labels]
+    data = [STARTING_VIRTUAL_CASH for _ in labels]
     return dict(labels=labels,
                 datasets=[
                     dict(label=null_label, data=data, borderColor=NULL_RGBA, backgroundColor=NULL_RGBA, fill=False)])
@@ -524,6 +520,7 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
         apply_validation(portfolio, portfolio_comps_schema)
         portfolios.append(portfolio[portfolio_table_keys])
 
+    # add index data
     if check_single_player_mode(game_id):
         for index in TRACKED_INDEXES:
             df = get_index_portfolio_value_data(game_id, index, start_time, end_time)
@@ -533,6 +530,7 @@ def make_the_field_charts(game_id: int, start_time: float = None, end_time: floa
                 {"username": "last", "label": "last", "value": "last", "timestamp": "last"})
             apply_validation(df, portfolio_comps_schema)
             portfolios.append(df[portfolio_table_keys])
+
     portfolios_df = pd.concat(portfolios)
     relabelled_df = relabel_aggregated_portfolios(portfolios_df)
     relabelled_df.sort_values("timestamp", inplace=True)
@@ -573,12 +571,13 @@ def make_order_labels(order_df: pd.DataFrame) -> pd.DataFrame:
     return order_df
 
 
-def get_game_balances(game_id: int, user_id: int):
+def get_game_balances(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
+    start_time, end_time = get_time_defaults(game_id, start_time, end_time)
     with engine.connect() as conn:
         return pd.read_sql("""
           SELECT timestamp, symbol, balance, transaction_type, order_status_id, stock_split_id FROM game_balances
-          WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock'
-          ORDER BY symbol, id;""", conn, params=[game_id, user_id])
+          WHERE game_id = %s AND user_id = %s AND balance_type = 'virtual_stock' AND timestamp >= %s AND timestamp <= %s
+          ORDER BY symbol, id;""", conn, params=[game_id, user_id, start_time, end_time])
 
 
 def make_order_performance_table(game_id: int, user_id: int, start_time: float = None, end_time: float = None):
@@ -601,7 +600,7 @@ def make_order_performance_table(game_id: int, user_id: int, start_time: float =
     order_details_columns = ["symbol", "order_id", "order_status_id", "order_label", "buy_or_sell", "quantity",
                              "clear_price_fulfilled", "timestamp_fulfilled"]
     orders = order_df[order_details_columns]
-    balances = get_game_balances(game_id, user_id)
+    balances = get_game_balances(game_id, user_id, start_time, end_time)
     df = balances.merge(orders, on=["symbol", "order_status_id"], how="left")
 
     buys_df = df[df["buy_or_sell"] == "buy"]
@@ -799,7 +798,6 @@ def serialize_and_pack_order_performance_assets(game_id: int, user_id: int, star
     serialize_and_pack_order_performance_chart(df, game_id, user_id)
     serialize_and_pack_order_performance_table(df, game_id, user_id)
 
-
 # ------ #
 # Tables #
 # ------ #
@@ -874,11 +872,6 @@ def serialize_and_pack_portfolio_details(game_id: int, user_id: int):
     df = df.merge(close_prices, how="left")
     df["Change since last close"] = ((df["price"] - df["close_price"]) / df["close_price"])
     del df["close_price"]
-
-    # add closed balances as separate concern -- we need this for interaction with the charts
-    # update dataframe (the complement of all traded symbols and active balances)
-    # update symbols
-
     symbols_colors = assign_colors(symbols)
     df["color"] = df["symbol"].apply(lambda x: symbols_colors[x])
     df.rename(columns=PORTFOLIO_DETAIL_MAPPINGS, inplace=True)
@@ -954,6 +947,14 @@ def serialize_and_pack_winners_table(game_id: int):
     s3_cache.set(f"{game_id}/{PAYOUTS_PREFIX}", json.dumps(out_dict))
 
 
+def check_single_player_mode(game_id: int) -> bool:
+    with engine.connect() as conn:
+        game_mode = conn.execute("SELECT game_mode FROM games WHERE id = %s", game_id).fetchone()
+    if not game_mode:
+        return False
+    return game_mode[0] == "single_player"
+
+
 def init_game_assets(game_id: int):
     calculate_and_pack_game_metrics(game_id)
 
@@ -991,3 +992,63 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
             index_sharpe_ratio = portfolio_sharpe_ratio(df, RISK_FREE_RATE_DEFAULT)
             rds.set(f"{RETURN_RATIO_PREFIX}_{game_id}_{index}", index_return_ratio)
             rds.set(f"{SHARPE_RATIO_PREFIX}_{game_id}_{index}", index_sharpe_ratio)
+
+# ------------------ #
+# Public leaderboard #
+# ------------------ #
+
+
+def update_player_rank(df: pd.DataFrame):
+    for i, row in df.iterrows():
+        if row["user_id"]:
+            rds.set(f"{PLAYER_RANK_PREFIX}_{int(row['user_id'])}", row["rating"])
+            rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{int(row['user_id'])}", row["three_month_return"])
+
+
+def serialize_and_pack_rankings():
+    cutoff_time = datetime_to_posix(dt.utcnow() - DateOffset(months=3))
+    with engine.connect() as conn:
+        user_df = pd.read_sql("""
+            SELECT user_id, rating, username, profile_pic, n_games, total_return, basis, sr.timestamp 
+            FROM stockbets_rating sr
+            INNER JOIN (
+              SELECT game_id, MIN(id) AS min_id
+              FROM game_status
+              WHERE status = 'active' AND timestamp >= %s
+              GROUP BY game_id
+            ) gs ON gs.game_id = sr.game_id
+            INNER JOIN (
+              SELECT id, username, profile_pic
+              FROM users
+            ) u ON u.id = sr.user_id
+        """, conn, params=[cutoff_time])
+
+        indexes_df = pd.read_sql("""
+            SELECT user_id, rating, imd.username, imd.profile_pic, n_games, total_return, basis, sr.timestamp 
+            FROM stockbets_rating sr
+            INNER JOIN (
+              SELECT game_id, MIN(id) AS min_id
+              FROM game_status
+              WHERE status = 'active' AND timestamp >= %s
+              GROUP BY game_id
+            ) gs ON gs.game_id = sr.game_id
+            INNER JOIN (
+              SELECT symbol, `name` AS username, avatar AS profile_pic
+              FROM index_metadata
+            ) imd ON sr.index_symbol = imd.symbol
+        """, conn, params=[cutoff_time])
+
+    df = pd.concat([user_df, indexes_df])
+    df["basis_times_return"] = df["total_return"] * df["basis"]
+    total_basis_df = df.groupby("username", as_index=False)["basis"].sum().rename(columns={"basis": "total_basis"})
+    df = df.merge(total_basis_df, on="username").sort_values(["username", "timestamp"])
+    stats_df = df.groupby("username",as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
+                                                          "n_games": "last", "basis_times_return": "sum",
+                                                          "total_basis": "first"})
+    stats_df["three_month_return"] = stats_df["basis_times_return"] / stats_df["total_basis"]
+    del stats_df["basis_times_return"]
+    del stats_df["total_basis"]
+    stats_df.sort_values("rating", ascending=False, inplace=True)
+    stats_df = stats_df.where(pd.notnull(stats_df), None)
+    update_player_rank(stats_df)
+    rds.set(PUBLIC_LEADERBOARD_PREFIX, json.dumps(stats_df.to_dict(orient="records")))

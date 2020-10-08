@@ -9,6 +9,9 @@ db-stop:
 db-mysql:
 	docker-compose exec db mysql -uroot
 
+db-await:
+	./backend/docker/await-db.sh
+
 db-reset: s3-reset
 	docker-compose exec api python -c "from backend.database.helpers import reset_db;reset_db()"
 
@@ -21,7 +24,12 @@ db-mock-data: db-reset
 s3-reset:
 	rm -rf .localstack/data/*.json
 
-s3-mock-data:
+s3-buckets: db-await
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
+	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
+
+s3-mock-data: s3-buckets
 	docker-compose exec api python -c "from backend.database.fixtures.mock_data import make_s3_mocks;make_s3_mocks()"
 
 db-logs:
@@ -74,19 +82,19 @@ redis-clear:
 
 # airflow
 # -----------------
-make airflow-up:
+airflow-up:
 	docker-compose up -d airflow
 
-make airflow-start:
+airflow-start:
 	docker-compose start airflow
 
-make airflow-stop:
+airflow-stop:
 	docker-compose stop airflow
 
-make airflow-clear-logs:
+airflow-clear-logs:
 	rm -rf ./backend/airflow/logs
 
-make airflow-restart: airflow-stop airflow-start
+airflow-restart: airflow-stop airflow-start
 
 airflow-logs:
 	docker-compose logs -f airflow
@@ -102,7 +110,7 @@ backend-up:
 backend-build: airflow-clear-logs s3-reset
 	docker-compose build backend
 
-backend-test: api-up db-mock-data worker-restart airflow-restart
+backend-test: api-up s3-buckets db-mock-data worker-restart airflow-restart
 	rm -f backend/test_times.csv
 	printf "test,time\n" >> backend/test_times.csv
 	docker-compose exec api coverage run --source . -m unittest discover -v
@@ -112,10 +120,6 @@ backend-test: api-up db-mock-data worker-restart airflow-restart
 # ---
 api-up:
 	docker-compose up -d api
-	./backend/docker/await-db.sh
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-public
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3 mb s3://stockbets-private
-	docker-compose exec api aws --endpoint-url=http://localstack:4572 s3api put-bucket-acl --bucket stockbets-public --acl public-read
 
 api-logs:
 	docker-compose logs -f api
@@ -131,7 +135,7 @@ api-stop:
 
 # all containers
 # --------------
-up: api-up mock-data
+up: api-up db-await mock-data
 	npm install --prefix frontend
 	npm start --prefix frontend
 
@@ -158,9 +162,9 @@ remove-dangling:
 
 # e2e testing
 # -----------
-make mock-data: db-mock-data redis-mock-data
+mock-data: db-mock-data s3-mock-data redis-mock-data
 
-make e2e-test:
+e2e-test:
 	docker-compose exec api python -m tests.e2e_scenario_test
 
 # deployment
@@ -179,5 +183,5 @@ frontend-deploy:
 
 # local debugging helpers
 # ------------------------
-make jupyter:
+jupyter:
 	docker-compose exec api jupyter notebook --ip=0.0.0.0 --allow-root --port 8050

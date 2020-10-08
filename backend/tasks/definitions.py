@@ -11,8 +11,6 @@ from logic.stock_data import (
     get_cache_price,
     fetch_price,
     set_cache_price,
-    scrape_stock_splits,
-    apply_stock_splits,
     TRACKED_INDEXES,
     get_game_ids_by_status,
 )
@@ -30,6 +28,7 @@ from backend.bi.report_logic import (
     serialize_and_pack_games_per_user_chart,
     serialize_and_pack_orders_per_active_user
 )
+from backend.logic.visuals import serialize_and_pack_rankings
 from backend.tasks.redis import task_lock
 from backend.tasks.airflow import start_dag
 
@@ -37,7 +36,8 @@ TASK_LOCK_TEST_SLEEP = 1
 CACHE_PRICE_LOCK_TIMEOUT = 60 * 5
 PROCESS_ORDERS_LOCK_TIMEOUT = 60 * 5
 CACHE_PRICE_TIMEOUT = 60 * 15
-
+SERVICE_OPEN_GAME_TIMEOUT = 60 * 15
+UPDATE_RANKINGS_TIMEOUT = 60 * 15
 
 # -------------------------- #
 # Price fetching and caching #
@@ -84,7 +84,6 @@ def async_update_all_index_values(self):
 def async_scrape_stock_data(self):
     start_dag("stock_data_dag")
 
-
 # --------------- #
 # Game management #
 # --------------- #
@@ -98,14 +97,9 @@ def async_service_open_games(self):
 
 
 @celery.task(name="async_service_one_open_game", bind=True, base=BaseTask)
+@task_lock(main_key="async_service_one_open_game", timeout=SERVICE_OPEN_GAME_TIMEOUT)
 def async_service_one_open_game(self, game_id):
     service_open_game(game_id)
-
-
-@celery.task(name="async_apply_stock_splits", bind=True, base=BaseTask)
-def async_apply_stock_splits(self):
-    scrape_stock_splits()
-    apply_stock_splits()
 
 # ---------------- #
 # Order management #
@@ -144,6 +138,12 @@ def async_update_all_games(self):
 def async_update_game_data(self, game_id, start_time=None, end_time=None):
     start_dag("update_game_dag", game_id=game_id, start_time=start_time, end_time=end_time)
 
+
+@celery.task(name="async_update_public_rankings", bind=True, base=BaseTask)
+@task_lock(main_key="async_update_public_rankings", timeout=UPDATE_RANKINGS_TIMEOUT)
+def async_update_public_rankings(self):
+    serialize_and_pack_rankings()
+
 # ----------- #
 # Key metrics #
 # ----------- #
@@ -154,20 +154,20 @@ def async_calculate_key_metrics(self):
     serialize_and_pack_games_per_user_chart()
     serialize_and_pack_orders_per_active_user()
 
-
 # ----------- #
 # Maintenance #
 # ----------- #
+
 
 @celery.task(name="async_clear_balances_and_prices_cache", bind=True, base=BaseTask)
 def async_clear_balances_and_prices_cache(self):
     with engine.connect() as conn:
         conn.execute("TRUNCATE balances_and_prices_cache;")
 
-
 # ------- #
 # Testing #
 # ------- #
+
 
 @celery.task(name="async_test_task_lock", bind=True, base=BaseTask)
 @task_lock(main_key="async_test_task_lock", timeout=CACHE_PRICE_TIMEOUT)

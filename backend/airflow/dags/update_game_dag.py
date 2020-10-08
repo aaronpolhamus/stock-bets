@@ -2,11 +2,12 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
 from airflow import DAG
 from datetime import datetime
+import time
 
 from backend.logic.base import (
     get_time_defaults,
     get_active_game_user_ids,
-    check_single_player_mode
+    get_game_start_and_end
 )
 from backend.logic.visuals import (
     make_the_field_charts,
@@ -15,10 +16,18 @@ from backend.logic.visuals import (
     serialize_and_pack_pending_orders,
     serialize_and_pack_portfolio_details,
     serialize_and_pack_order_performance_assets,
-    serialize_and_pack_winners_table
+    serialize_and_pack_winners_table,
+    check_single_player_mode
 )
-from backend.logic.metrics import log_winners
+from backend.logic.metrics import (
+    log_winners,
+    update_ratings
+)
 from backend.tasks.airflow import context_parser
+from backend.database.helpers import (
+    add_row,
+    query_to_dict
+)
 
 
 dag = DAG(
@@ -79,9 +88,23 @@ def log_multiplayer_winners_with_context(**context):
 
 
 def make_winners_table_with_context(**context):
-    game_id, = context_parser(context, "game_id")
+    game_id = context_parser(context, "game_id")[0]
     if not check_single_player_mode(game_id):
         serialize_and_pack_winners_table(game_id)
+
+
+def close_finished_game_with_context(**context):
+    game_id = context_parser(context, "game_id")[0]
+    _, game_end = get_game_start_and_end(game_id)
+    current_time = time.time()
+    if current_time >= game_end:
+        user_ids = get_active_game_user_ids(game_id)
+        last_status_entry = query_to_dict("""SELECT * FROM game_status 
+                                             WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1""", game_id)[0]
+        if last_status_entry["status"] == "active":
+            # close game and update ratings
+            add_row("game_status", game_id=game_id, status="finished", users=user_ids, timestamp=current_time)
+            update_ratings(game_id)
 
 
 start_task = DummyOperator(
@@ -154,6 +177,14 @@ make_winners_table = PythonOperator(
 )
 
 
+close_finished_game = PythonOperator(
+    task_id='close_finished_game',
+    provide_context=True,
+    python_callable=close_finished_game_with_context,
+    dag=dag
+)
+
+
 end_task = DummyOperator(
     task_id="end",
     dag=dag
@@ -161,7 +192,7 @@ end_task = DummyOperator(
 
 
 start_task >> make_metrics >> make_leaderboard >> update_field_chart >> end_task
-start_task >> log_multiplayer_winners >> make_winners_table >> end_task
+start_task >> log_multiplayer_winners >> make_winners_table >> close_finished_game >> end_task
 start_task >> make_order_performance_chart >> end_task
 start_task >> refresh_order_details >> end_task
 start_task >> refresh_portfolio_details >> end_task

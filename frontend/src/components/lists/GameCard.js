@@ -23,11 +23,12 @@ const GameCardWrapper = styled(Link)`
   margin-bottom: var(--space-400);
   overflow: hidden;
   position: relative;
-  top: 0;
-  transition: all .2s;
+  transition: all .3s;
+  transform: translateY(0) translate3d(0, 0, 0);
 
   h3 {
-    margin: 0
+    margin: 0;
+    font-weight: normal;
   }
 
   p {
@@ -35,9 +36,10 @@ const GameCardWrapper = styled(Link)`
   }
   
   &:hover{
+    transition: all .2s .1s;
     color: inherit;
     text-decoration: none;
-    top: -5px;
+    transform: translateY(-5px) translate3d(0, 0, 0);
   }
 `
 
@@ -94,14 +96,7 @@ const GameCard = ({ gameId }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {gameData.benchmark_formatted}
-              {gameData.end_time &&
-                (
-                  <>
-                    <TextDivider> | </TextDivider>
-                    {daysLeft(gameData.end_time)}
-                  </>
-                )}
+              {daysLeft(gameData.end_time)}
             </SmallCaps>
           </div>
           <GameCardActiveInfo>
