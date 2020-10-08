@@ -1,6 +1,7 @@
 $color-primary: #ffaf74;
 $color-primary-darken: #f46f10;
 $color-primary-darkest: #8e4818;
+$color-primary-lighten: #FFCCA8;
 $color-secondary: #2d253c;
 $color-secondary-dark: #211B2d;
 $color-secondary-muted: #473231;
@@ -24,6 +25,7 @@ $table-cell-height: 3rem;
   --color-primary: #{$color-primary};
   --color-primary-darken: #{$color-primary-darken};
   --color-primary-darkest: #{$color-primary-darkest};
+  --color-primary-lighten: #{$color-primary-lighten};
   --color-secondary: #{$color-secondary};
   --color-secondary-dark: #{$color-secondary-dark};
   --color-secondary-muted: #{$color-secondary-muted};
@@ -42,6 +44,8 @@ $table-cell-height: 3rem;
   --color-danger: #{$color-danger};
 
   --color-auxiliar-purple: #{$color-auxiliar-purple};
+
+  --font-family-global: "proxima-nova", sans-serif;
 
   --font-size-min: 0.75rem;
   --font-size-small: 0.875rem;

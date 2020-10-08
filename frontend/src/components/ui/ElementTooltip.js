@@ -2,18 +2,15 @@ import React, { useState, useRef } from 'react'
 import { Popover, Overlay } from 'react-bootstrap'
 import PropTypes from 'prop-types'
 
-const ElementTooltip = ({ message, children, placement='auto' }) => {
+const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) => {
   const [show, setShow] = useState(false)
   const target = useRef(null)
   return (
     <>
       <div
         ref={target}
-        onMouseEnter={() => {
-          setShow(true)
-        }}
-        onMouseLeave={() => {
-          setShow(false)
+        onClick={() => {
+          setShow(!show)
         }}
       >
         {children}
@@ -40,12 +37,7 @@ const ElementTooltip = ({ message, children, placement='auto' }) => {
         {({ ...props }) => (
           <Popover
             {...props}
-            onMouseEnter={() => {
-              setShow(true)
-            }}
-            onMouseLeave={() => {
-              setShow(false)
-            }}
+            className='popover-card'
           >
             <Popover.Content>
               {message}
@@ -58,6 +50,7 @@ const ElementTooltip = ({ message, children, placement='auto' }) => {
 }
 
 ElementTooltip.propTypes = {
+  delay: PropTypes.number,
   children: PropTypes.oneOfType([
     PropTypes.func,
     PropTypes.arrayOf(PropTypes.node),

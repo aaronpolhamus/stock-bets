@@ -1,18 +1,17 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext } from 'react'
+import { UserContext } from 'Contexts'
 import { apiPost } from 'components/functions/api'
-import { PlayerRow } from 'components/lists/PlayerRow'
+import { LeaderboardPlayerRow } from 'components/lists/LeaderboardPlayerRow'
 import { SmallCaps } from 'components/textComponents/Text'
 import styled from 'styled-components'
 import { formatPercentage, numberToOrdinal } from 'components/functions/formattingHelpers'
-import { ElementTooltip } from 'components/ui/ElementTooltip'
-import { PlayerCard } from 'components/ui/cards/PlayerCard'
 
 const ListRankingWrapper = styled.ol`
   font-size: var(--font-size-small);
   padding-inline-start: 30px;
 `
 
-const ListRankingItem = styled.li`
+const ListRankingItemWrapper = styled.li`
   color: var(--color-text-light-gray);
   cursor: pointer;
   position: relative;
@@ -35,9 +34,8 @@ const NumberHeading = styled.span`
 
 const GlobalLeaderboard = () => {
   const [listRanking, setListRanking] = useState(null)
-  const [listFriends, setListFriends] = useState(null)
-  const [listYouInvited, setListYouInvited] = useState(null)
-  const [listTheyInvited, setListTheyInvited] = useState(null)
+  const [listsCompound, setListsCompound] = useState(null)
+  const { user } = useContext(UserContext)
 
   const getListRanking = async () => {
     await apiPost('public_leaderboard')
@@ -50,9 +48,7 @@ const GlobalLeaderboard = () => {
   const getListFriends = async () => {
     await apiPost('get_list_of_friends')
       .then((response) => {
-        setListFriends(response.friends)
-        setListYouInvited(response.you_invited)
-        setListTheyInvited(response.they_invited)
+        setListsCompound(response.friends.concat(response.you_invited).concat(response.they_invited))
       })
   }
 
@@ -60,52 +56,44 @@ const GlobalLeaderboard = () => {
     getListRanking()
     getListFriends()
   }, [])
-  const listBuilder = (data) => {
-    return data.map((player, index) => {
-      const friendStatus = null
+  const listBuilder = (listRanking) => {
+    return listRanking.map((player, index) => {
+      let friendStatus = ''
 
-      if (listFriends) {
-        const listsCompound = listFriends.concat(listYouInvited).concat(listTheyInvited)
-        console.log(listsCompound)
+      if (listsCompound) {
+        const friendIndex = listsCompound.findIndex(item => {
+          return player.user_id === item.id
+        })
+        friendStatus = friendIndex !== -1 ? listsCompound[friendIndex].label : ''
       }
+
+      if (player.username === user.username) friendStatus = 'is_you'
 
       const isMarketIndex = player.user_id === null
       const threeMonthReturn = formatPercentage(player.three_month_return, 2)
-
+      const nameColor = friendStatus === 'is_you' ? 'var(--color-primary-lighten)' : 'var(--color-light-gray)'
       const playerCardInfo = [
-        { type: 'Games Played', value: player.n_games },
-        { type: 'Rating', value: player.rating },
-        { type: 'Avg. return', value: threeMonthReturn }
+        { type: 'Games Played:', value: player.n_games },
+        { type: 'Rating:', value: player.rating },
+        { type: 'Avg. return:', value: threeMonthReturn }
       ]
 
       return (
-        <ListRankingItem key={index}>
-          <ElementTooltip
-            placement='left'
-            message={(
-              <PlayerCard
-                profilePic={player.profile_pic}
-                username={player.username}
-                leaderboardPosition={numberToOrdinal(index + 1)}
-                isFriend={false}
-                isMarketIndex={isMarketIndex}
-                playerStats={playerCardInfo}
-              />
-            )}
-          >
-            <PlayerRow
-              avatarSrc={player.profile_pic}
-              avatarSize='24px'
-              username={player.username}
-              isMarketIndex={isMarketIndex}
-              isFriend={false}
-              isCurrentPlayer=''
-              nameFontSize='var(--font-size-small)'
-              nameColor='var(--color-light-gray)'
-              info={[player.rating, threeMonthReturn]}
-            />
-          </ElementTooltip>
-        </ListRankingItem>
+        <ListRankingItemWrapper key={index}>
+          <LeaderboardPlayerRow
+            avatarSrc={player.profile_pic}
+            avatarSize='24px'
+            username={player.username}
+            isMarketIndex={isMarketIndex}
+            friendStatus={friendStatus}
+            isCurrentPlayer=''
+            nameFontSize='var(--font-size-small)'
+            nameColor={nameColor}
+            info={[player.rating, threeMonthReturn]}
+            playerCardInfo={playerCardInfo}
+            leaderboardPosition={numberToOrdinal(index + 1)}
+          />
+        </ListRankingItemWrapper>
       )
     })
   }

@@ -223,7 +223,6 @@ const Home = () => {
     game_mode: ['single_player']
   })
 
-  console.log(homeData)
   return (
     <>
       <Layout

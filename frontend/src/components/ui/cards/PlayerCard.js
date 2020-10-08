@@ -1,12 +1,12 @@
-import React, { useState } from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { UserAvatar } from 'components/users/UserAvatar'
 import {
   Button
 } from 'react-bootstrap'
-import { Check } from 'react-feather'
-import { apiPost } from 'components/functions/api'
+import { AvatarFriendBadge } from 'components/ui/badges/AvatarFriendBadge'
+import { SmallCaps } from 'components/textComponents/Text'
 
 const PlayerCardWrapper = styled.div`
   width: 100%;
@@ -15,25 +15,28 @@ const PlayerCardWrapper = styled.div`
   header {
     display: flex;
     align-items: center;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-light-gray);
+    margin-bottom: var(--space-200);
   }
   h2{
     color: var(--color-text-primary);
     font-weight: bold;
     font-size: var(--font-size-normal);
     margin-bottom: 0;
-    margin-left: var(--space-100);
     small {
       display: block;
       color: var(--color-success);
     }
   }
+  
   header{
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
   
-  width: 14rem;
+  width: 15rem;
   z-index: 2;
 `
 const PlayerInfo = styled.ul`
@@ -53,33 +56,33 @@ const PlayerInfo = styled.ul`
 
 const AvatarWrapper = styled.div`
   position: relative;
-`
-const AvatarIcon = styled.i`
-  width: 16px;
-  height: 16px;
-  background-color: ${props => props.$color || 'var(--color-success-darken)'};
-  display: block;
-  position: absolute;
-  bottom: -1px;
-  right: -4px;
-  border-radius: 50%;
-  svg{
-    position: absolute;
-    top: 4px;
-    left: 3px;
-  }
+  margin-right: var(--space-200);
 `
 
-const PlayerCard = ({ children, username, profilePic, leaderboardPosition, isFriend, playerStats }) => {
-  const [friendStatus, setFriendStatus] = useState(isFriend)
+const CardStatus = styled.p`
+  font-weight: bold;
+  color: ${props => props.$color || 'initial'}
+`
+const CardMessage = styled.p`
+  line-height: 1.2;
+  margin-bottom: var(--space-100);
+`
 
-  const handleFriendAdd = async (invitee) => {
-    await apiPost('send_friend_request', {
-      friend_invitee: invitee
-    }).then((response) => {
-      setFriendStatus('invited')
-    })
-  }
+const PlayerPosition = styled.p`
+  color: var(--color-text-gray);
+`
+
+const PlayerCard = ({
+  children,
+  username,
+  profilePic,
+  leaderboardPosition,
+  friendStatus,
+  playerStats,
+  onFriendAdd,
+  onInvitationAccept,
+  onInvitationDecline
+}) => {
   const playerStatsList = (playerStats) => {
     return playerStats.map((row, index) => {
       return (
@@ -93,41 +96,50 @@ const PlayerCard = ({ children, username, profilePic, leaderboardPosition, isFri
 
   const renderFriendActions = (friendStatus) => {
     switch (friendStatus) {
-      case true:
-        return (<p>You&apos;re friends!</p>)
-      case false:
+      case 'friend':
+        return (
+          <CardStatus $color='var(--color-success-darken)'>
+            You&apos;re friends!
+          </CardStatus>
+        )
+      case 'you_invited':
+        return (
+          <CardStatus $color='var(--color-auxiliar-purple)'>
+            Invitation Sent!
+          </CardStatus>
+        )
+      case 'they_invited':
+        return (
+          <div>
+            <CardMessage>{username} sent you a friend invitation:</CardMessage>
+            <p>
+              <Button
+                size='sm'
+                variant='outline-secondary'
+                onClick={onInvitationDecline}
+              >
+                Decline
+              </Button>
+              <Button
+                size='sm'
+                variant='success'
+                onClick={onInvitationAccept}
+              >
+                Accept
+              </Button>
+            </p>
+          </div>
+        )
+      case 'is_you':
+        return (null)
+      default:
         return (
           <Button
             size='sm'
-            onClick={() => {
-              handleFriendAdd(username)
-            }}
+            onClick={onFriendAdd}
           >
-            Add friend
+            Send friend invitation
           </Button>
-        )
-      default:
-        return (<p>Invitation Sent!</p>)
-    }
-  }
-
-  const renderFriendBadge = (friendStatus) => {
-    switch (friendStatus) {
-      case true:
-        return (
-          <AvatarIcon>
-            <Check size={11} color='#fff' strokeWidth='4px' />
-          </AvatarIcon>
-        )
-      case false:
-        return (
-          null
-        )
-      default:
-        return (
-          <AvatarIcon $color='var(--color-auxiliar-purple)'>
-            <Check size={11} color='#fff' strokeWidth='4px' />
-          </AvatarIcon>
         )
     }
   }
@@ -137,15 +149,23 @@ const PlayerCard = ({ children, username, profilePic, leaderboardPosition, isFri
       <header>
         <AvatarWrapper>
           <UserAvatar src={profilePic} size='big' />
-          {renderFriendBadge(friendStatus)}
+          <AvatarFriendBadge
+            size={24}
+            friendStatus={friendStatus}
+          />
         </AvatarWrapper>
         {renderFriendActions(friendStatus)}
       </header>
       <h2>
         <span>
-          {leaderboardPosition} {username}
+          {username}
         </span>
       </h2>
+      <PlayerPosition>
+        <SmallCaps>
+          {leaderboardPosition} place global
+        </SmallCaps>
+      </PlayerPosition>
       {playerStats !== undefined &&
         (
           <PlayerInfo>
@@ -161,9 +181,10 @@ const PlayerCard = ({ children, username, profilePic, leaderboardPosition, isFri
 PlayerCard.propTypes = {
   username: PropTypes.string,
   profilePic: PropTypes.string,
-  leaderboardPosition: PropTypes.number,
-  isFriend: PropTypes.bool,
+  leaderboardPosition: PropTypes.string,
+  friendStatus: PropTypes.string,
   playerStats: PropTypes.array,
+  onFriendAdd: PropTypes.func,
   children: PropTypes.oneOfType([
     PropTypes.func,
     PropTypes.arrayOf(PropTypes.node),
