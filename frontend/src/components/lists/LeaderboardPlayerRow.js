@@ -101,6 +101,8 @@ const LeaderboardPlayerRow = ({
     })
   }
   const handleRespondFriend = async (requesterUsername, decision) => {
+    // TO DO: find a more elegant solution to waiting for the response and give feedback about it or make the response faster in the backend
+    setLocalFriendStatus(decision === 'accepted' ? 'friend' : '')
     await apiPost('respond_to_friend_request', {
       requester_username: requesterUsername,
       decision: decision
@@ -119,7 +121,6 @@ const LeaderboardPlayerRow = ({
           />
         </AvatarWrapper>
         <ElementTooltip
-          placement='left'
           message={(
             <PlayerCard
               profilePic={avatarSrc}

@@ -101,11 +101,14 @@ const SidebarTabs = styled.div`
     color: var(--color-primary);
     border-bottom-color: var(--color-primary);
   }
+  .nav-link:hover{
+    border-bottom-color: var(--color-primary-lighten);
+  }
 `
 
 const AddFriendsWrapper = styled.div`
   text-align: center;
-  position: fixed;
+  position: sticky;
   width: 90vw;
   bottom: 0;
   right: 0;
@@ -116,6 +119,7 @@ const AddFriendsWrapper = styled.div`
     width: var(--sidebar-size);
     right: 0;
     z-index: 2;
+    position: fixed;
   }
 `
 
@@ -260,7 +264,7 @@ const Home = () => {
                     title={(
                       <>
                         <IconTabs><Globe /></IconTabs>
-                      Leaderboard
+                        Leaderboard
                       </>
                     )}
                   >
@@ -271,7 +275,7 @@ const Home = () => {
                     title={(
                       <>
                         <IconTabs><Users /></IconTabs>
-                      Friends
+                        Friends
                       </>
                     )}
                   >

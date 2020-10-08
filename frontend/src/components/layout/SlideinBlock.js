@@ -48,9 +48,9 @@ const CloseButton = styled.button`
   appearance: none;
   border: none;
   background-color: transparent;
-  position: absolute;
+  position: sticky;
   top: var(--space-300);
-  right: var(--space-100);
+  left: 100%;
   @media screen and (min-width: ${props => props.$breakpoint}){
     display: none;
   }

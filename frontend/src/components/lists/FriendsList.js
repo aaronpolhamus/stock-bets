@@ -14,7 +14,6 @@ const FriendsListList = styled.ul`
 `
 
 const FriendsListItem = styled.li`
-  padding: var(--space-100) 0;
 `
 
 const FriendRequest = styled.p`
@@ -35,8 +34,10 @@ const FriendsList = ({ onLoadFriends }) => {
 
   useEffect(() => {
     const getFriendsLists = async () => {
-      const friendList = await apiPost('get_list_of_friends')
-      setFriendsData(friendList.friends)
+      await apiPost('get_list_of_friends').then((response) => {
+        console.log(response)
+        setFriendsData(response.friends)
+      })
       setFriendRequestsData(getFriendInvites)
     }
 

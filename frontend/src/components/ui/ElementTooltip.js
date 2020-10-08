@@ -12,6 +12,12 @@ const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) =>
         onClick={() => {
           setShow(!show)
         }}
+        onMouseEnter={() => {
+          setShow(true)
+        }}
+        onMouseLeave={() => {
+          setShow(false)
+        }}
       >
         {children}
       </div>
@@ -38,6 +44,12 @@ const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) =>
           <Popover
             {...props}
             className='popover-card'
+            onMouseEnter={() => {
+              setShow(true)
+            }}
+            onMouseLeave={() => {
+              setShow(false)
+            }}
           >
             <Popover.Content>
               {message}

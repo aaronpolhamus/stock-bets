@@ -74,6 +74,10 @@ const TabbedRadio = styled(Form.Check)`
     display: none;
   }
 
+  label:hover{
+    border-bottom-color: ${(props) => props.$colorTabChecked || 'var(--color-primary-lighten)'};
+  }
+
   input:checked + label {
     color: ${(props) => props.$colorChecked || 'var(--color-text-primary)'};
     border-bottom-color: ${(props) => props.$colorTabChecked || 'var(--color-primary)'};
