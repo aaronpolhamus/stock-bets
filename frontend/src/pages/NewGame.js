@@ -16,7 +16,7 @@ const NewGame = () => {
     <>
       <Layout>
         <Column md={12}>
-          <Navbar/>
+          <Navbar />
         </Column>
         <Column md={{ span: 8, offset: 2 }}>
           <PageSection>

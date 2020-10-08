@@ -316,10 +316,10 @@ const Home = () => {
                   <UserStats>
                     <p>
                       <SmallCaps>
-                        Global Rating: <strong>{homeData.rating}</strong>
+                        Global Rating: <strong>{homeData.rating.toFixed(2)}</strong>
                       </SmallCaps>
                       <SmallCaps>
-                        Avg. Return: <strong>{formatPercentage(homeData.three_month_return)}</strong>
+                        3-Month Return: <strong>{formatPercentage(homeData.three_month_return)}</strong>
                       </SmallCaps>
                     </p>
                   </UserStats>

@@ -121,7 +121,7 @@ const PlayGame = () => {
         />
       </GameSidebar>
       <GameContent md={9}>
-        <Navbar/>
+        <Navbar />
         <PageSection
           $marginBottom='var(--space-400)'
           $marginBottomMd='var(--space-400)'
