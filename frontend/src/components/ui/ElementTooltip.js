@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import { Popover, Overlay } from 'react-bootstrap'
 import PropTypes from 'prop-types'
 
-const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) => {
+const ElementTooltip = ({ message, children, placement = 'auto', showDelay = 500, hideDelay = 300 }) => {
   const [show, setShow] = useState(false)
   const target = useRef(null)
 
@@ -14,16 +14,16 @@ const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) =>
     if (!show) {
       showTimeout = setTimeout(() => {
         setShow(true)
-      }, 500)
+      }, showDelay)
     }
   }
-  
+
   const handleMouseOut = () => {
     clearTimeout(showTimeout)
     if (show) {
       hideTimeout = setTimeout(() => {
         setShow(false)
-      }, 300)
+      }, hideDelay)
     }
   }
 
@@ -86,6 +86,8 @@ ElementTooltip.propTypes = {
   message: PropTypes.oneOfType([
     PropTypes.string,
     PropTypes.node
-  ])
+  ]),
+  showDelay: PropTypes.number,
+  hideDelay: PropTypes.number
 }
 export { ElementTooltip }
