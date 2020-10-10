@@ -57,6 +57,9 @@ const PlayerName = styled.p`
     padding: 2px var(--space-100);
     border-radius: var(--space-50);
   }
+  &:hover {
+    text-decoration: underline;
+  }
 `
 
 const PlayerInfo = styled.div`
@@ -140,7 +143,7 @@ const LeaderboardPlayerRow = ({
             />
           )}
         >
-          <PlayerName $color={nameColor} $fontSize={nameFontSize} $isCurrentPlayer={isCurrentPlayer}>
+          <PlayerName $color={nameColor} $fontSize={nameFontSize} $isCurrentPlayer={isCurrentPlayer} className='player-name'>
             {isMarketIndex ? (<SmallCaps>{username}</SmallCaps>) : username}
           </PlayerName>
         </ElementTooltip>
