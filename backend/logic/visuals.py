@@ -1014,7 +1014,7 @@ def serialize_and_pack_rankings():
             INNER JOIN (
               SELECT game_id, MIN(id) AS min_id
               FROM game_status
-              WHERE status = 'active' AND timestamp >= %s
+              WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
             ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
