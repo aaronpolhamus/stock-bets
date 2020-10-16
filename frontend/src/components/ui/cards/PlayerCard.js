@@ -171,8 +171,7 @@ const PlayerCard = ({
           <PlayerInfo>
             {playerStatsList(playerStats)}
           </PlayerInfo>
-        )
-      }
+        )}
       {children}
     </PlayerCardWrapper>
   )

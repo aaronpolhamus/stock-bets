@@ -70,12 +70,12 @@ const GlobalLeaderboard = () => {
       if (player.username === user.username) friendStatus = 'is_you'
 
       const isMarketIndex = player.user_id === null
-      const threeMonthReturn = formatPercentage(player.three_month_return, 2)
+      const threeMonthReturn = formatPercentage(player.three_month_return, 2, 100)
       const nameColor = friendStatus === 'is_you' ? 'var(--color-primary-lighten)' : 'var(--color-light-gray)'
       const playerCardInfo = [
         { type: 'Games Played:', value: player.n_games },
-        { type: 'Rating:', value: player.rating },
-        { type: 'Avg. return:', value: threeMonthReturn }
+        { type: 'Rating:', value: player.rating.toFixed(2) },
+        { type: '3-Month return:', value: threeMonthReturn }
       ]
 
       return (
@@ -89,7 +89,7 @@ const GlobalLeaderboard = () => {
             isCurrentPlayer=''
             nameFontSize='var(--font-size-small)'
             nameColor={nameColor}
-            info={[player.rating, threeMonthReturn]}
+            info={[player.rating.toFixed(2), threeMonthReturn]}
             playerCardInfo={playerCardInfo}
             leaderboardPosition={numberToOrdinal(index + 1)}
           />
@@ -101,7 +101,7 @@ const GlobalLeaderboard = () => {
     <>
       <ListHeader>
         <SmallCaps><NumberHeading>N. </NumberHeading>Player</SmallCaps>
-        <SmallCaps>Rating <span style={{ color: 'var(--color-primary-darken)', fontWeight: 'bold' }}>|</span> Avg. Return</SmallCaps>
+        <SmallCaps>Rating <span style={{ color: 'var(--color-primary-darken)', fontWeight: 'bold' }}>|</span> 3-Month Return</SmallCaps>
       </ListHeader>
       <ListRankingWrapper>
         {listRanking && listBuilder(listRanking)}

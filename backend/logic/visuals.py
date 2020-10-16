@@ -1014,7 +1014,7 @@ def serialize_and_pack_rankings():
             INNER JOIN (
               SELECT game_id, MIN(id) AS min_id
               FROM game_status
-              WHERE status = 'active' AND timestamp >= %s
+              WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
             ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
@@ -1029,7 +1029,7 @@ def serialize_and_pack_rankings():
             INNER JOIN (
               SELECT game_id, MIN(id) AS min_id
               FROM game_status
-              WHERE status = 'active' AND timestamp >= %s
+              WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
             ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
@@ -1042,9 +1042,9 @@ def serialize_and_pack_rankings():
     df["basis_times_return"] = df["total_return"] * df["basis"]
     total_basis_df = df.groupby("username", as_index=False)["basis"].sum().rename(columns={"basis": "total_basis"})
     df = df.merge(total_basis_df, on="username").sort_values(["username", "timestamp"])
-    stats_df = df.groupby("username",as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
-                                                          "n_games": "last", "basis_times_return": "sum",
-                                                          "total_basis": "first"})
+    stats_df = df.groupby("username", as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
+                                                           "n_games": "last", "basis_times_return": "sum",
+                                                           "total_basis": "first"})
     stats_df["three_month_return"] = stats_df["basis_times_return"] / stats_df["total_basis"]
     del stats_df["basis_times_return"]
     del stats_df["total_basis"]
