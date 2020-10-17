@@ -6,7 +6,7 @@ import { Header } from 'components/layout/Layout'
 import { Link } from 'react-router-dom'
 import { numberToOrdinal, daysLeft } from 'components/functions/formattingHelpers'
 import { PlayCircle, Eye } from 'react-feather'
-import { SmallCaps, TextDivider } from 'components/textComponents/Text'
+import { SmallCaps } from 'components/textComponents/Text'
 import { UserContext } from 'Contexts'
 
 const CardMainColumn = styled.div`

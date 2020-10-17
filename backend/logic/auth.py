@@ -3,26 +3,26 @@ import time
 from datetime import datetime as dt, timedelta
 from io import BytesIO
 from random import randint, seed
-import requests
-import jwt
 
+import jwt
+import requests
+from backend.config import Config
 from backend.database.db import engine
 from backend.database.helpers import (
     add_row,
     query_to_dict
 )
+from backend.database.helpers import aws_client
 from backend.logic.base import standardize_email
 from backend.logic.friends import (
     invite_friend,
     get_requester_ids_from_email
 )
+from backend.logic.metrics import STARTING_ELO_SCORE
 from backend.logic.visuals import (
     PLAYER_RANK_PREFIX,
     THREE_MONTH_RETURN_PREFIX
 )
-from backend.logic.metrics import STARTING_ELO_SCORE
-from backend.config import Config
-from backend.database.helpers import aws_client
 from backend.tasks.redis import rds
 
 ADMIN_USERS = ["aaron@stockbets.io", "miguel@ruidovisual.com", "charly@captec.io", "jsanchezcastillejos@gmail.com"]
@@ -62,6 +62,8 @@ def setup_new_user(name: str, email: str, profile_pic: str, created_at: float, p
         invite_friend(requester_id, user_id)
 
     # seed public rank and 3-month return
+    add_row("stockbets_rating", user_id=user_id, index_symbol=None, game_id=None, rating=STARTING_ELO_SCORE,
+            update_type="sign_up", timestamp=time.time(), n_games=0, total_return=0, basis=0)
     rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
     rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
     return user_id
@@ -140,4 +142,4 @@ def make_avatar_url(email: str):
         g = randint(0, 255)
         b = randint(0, 255)
     background = '%02x%02x%02x' % (r, g, b)
-    return f"https://ui-avatars.com/api/?name={email[0].upper()}&background={background}&color={AVATAR_TEXT_COLOR}&size=128&font-size=0.7"
+    return f"https://ui-avatars.com/api/?name={email[ 0].upper()}&background={background}&color={AVATAR_TEXT_COLOR}&size=128&font-size=0.7"

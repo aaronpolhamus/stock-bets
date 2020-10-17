@@ -27,17 +27,15 @@ const Navbar = ({ itemsRight, itemsLeft, homeButton = true }) => {
   return (
     <NavbarWrapper>
       <NavbarLeft>
-        <Logo/>
+        <Logo />
         {homeButton &&
-          <HomeButton/>
-        }
+          <HomeButton />}
         {itemsLeft}
       </NavbarLeft>
       {itemsRight !== undefined &&
         (<NavbarRight>
           {itemsRight}
-        </NavbarRight>)
-      }
+        </NavbarRight>)}
     </NavbarWrapper>
   )
 }

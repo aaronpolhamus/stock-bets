@@ -3,16 +3,13 @@ import { Redirect, useParams } from 'react-router-dom'
 import { fetchGameData, apiPost } from 'components/functions/api'
 import {
   Layout,
-  Sidebar,
   Column,
   Header,
-  PageSection,
-  Breadcrumb
+  PageSection
 } from 'components/layout/Layout'
 import { GameSettings } from 'components/game/GameSettings'
 import { PendingGameParticipants } from 'components/game/PendingGameParticipants'
 import { Button, Modal } from 'react-bootstrap'
-import * as Icon from 'react-feather'
 import { PayPalButton } from 'react-paypal-button-v2'
 import api from 'services/api'
 import { InviteMoreFriends } from 'components/forms/InviteMoreFriends'
@@ -103,9 +100,9 @@ const JoinGame = () => {
       <Loader show={loading} />
       <Layout>
         <Column md={12}>
-          <Navbar/>
+          <Navbar />
         </Column>
-        <Column md={{span: 8, offset: 2}}>
+        <Column md={{ span: 8, offset: 2 }}>
           <PageSection>
             <Header>
               <h1>{gameInfo.title}</h1>

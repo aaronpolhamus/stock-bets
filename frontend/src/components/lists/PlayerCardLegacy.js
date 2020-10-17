@@ -105,8 +105,7 @@ const PlayerCardLegacy = ({ player, type = 'game', show }) => {
                   ${player.portfolio_value.toLocaleString()}
               </small>
             )
-            : null
-          }
+            : null}
         </h2>
       </header>
 
@@ -135,8 +134,7 @@ const PlayerCardLegacy = ({ player, type = 'game', show }) => {
             </PlayerStocks>
           </>
         )
-        : null
-      }
+        : null}
     </PlayerCardWrapper>
   )
 }

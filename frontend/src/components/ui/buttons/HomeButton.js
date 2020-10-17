@@ -9,9 +9,11 @@ const HomeButton = () => {
   if (redirect) return <Redirect to='/' />
 
   return (
-    <AuxiliarButton variant='link' onClick={() => {
-      setRedirect(true)
-    }}>
+    <AuxiliarButton
+      variant='link' onClick={() => {
+        setRedirect(true)
+      }}
+    >
       <ChevronLeft />
       <span> Home</span>
     </AuxiliarButton>

@@ -65,7 +65,7 @@ const AvatarWrapper = styled.div`
   div{
     border-radius: 50%;
     box-sizing: border-box;
-    border: ${props => props.$isCurrentPlayer ? '3px solid var(--color-primary)': ''}
+    border: ${props => props.$isCurrentPlayer ? '3px solid var(--color-primary)' : ''}
   }
 `
 
