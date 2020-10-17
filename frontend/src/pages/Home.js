@@ -218,13 +218,13 @@ const Home = () => {
   const gamesPending = filterEntries(homeData.game_info, {
     game_status: ['pending'],
     invite_status: ['joined'],
-    game_mode: ['multi_player']
+    game_mode: ['multi_player', 'public']
   })
 
   const gamesInvited = filterEntries(homeData.game_info, {
     game_status: ['pending'],
     invite_status: ['invited'],
-    game_mode: ['multi_player']
+    game_mode: ['multi_player', 'public']
   })
 
   const gamesSinglePlayer = filterEntries(homeData.game_info, {

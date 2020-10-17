@@ -246,7 +246,10 @@ MOCK_DATA = {
          "stakes": "monopoly"},  # 7
         {"title": "single player test", "game_mode": "single_player", "duration": 90, "buy_in": None,
          "benchmark": "sharpe_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 1,
-         "invite_window": None, "stakes": "monopoly"}  # 8
+         "invite_window": None, "stakes": "monopoly"},  # 8
+        {"title": "sample public game", "game_mode": "public", "duration": 14, "buy_in": None,  # 9
+         "benchmark": "return_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 5,
+         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, "stakes": "monopoly"}
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
@@ -268,6 +271,7 @@ MOCK_DATA = {
          "users": [1, 4]},
         {"game_id": 8, "status": "pending", "timestamp": simulation_start_time, "users": [1]},
         {"game_id": 8, "status": "active", "timestamp": simulation_start_time, "users": [1]},
+        {"game_id": 9, "status": "pending", "timestamp": simulation_start_time, "users": [5]}
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
@@ -300,6 +304,7 @@ MOCK_DATA = {
         {"game_id": 7, "user_id": 4, "status": "invited", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 7, "user_id": 4, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 8, "user_id": 1, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 9, "user_id": 5, "status": "joined", "timestamp": simulation_start_time, "users": [5]}
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},
