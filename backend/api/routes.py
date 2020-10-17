@@ -300,7 +300,7 @@ def game_defaults():
     user_id = decode_token(request)
     game_mode = request.json.get("game_mode")
     default_title = make_random_game_title()  # TODO: Enforce uniqueness at some point here
-    friend_details = get_friend_details(user_id)
+    friend_details = get_friend_details(user_id)["friends"]
     available_invitees = [x["username"] for x in friend_details]
     resp = dict(
         title=default_title,

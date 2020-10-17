@@ -7,6 +7,8 @@ import { breakpoints } from 'design-tokens'
 
 const PlayerCardWrapper = styled.div`
   width: 100%;
+  cursor: default;
+  user-select: text;
   header {
     display: flex;
     align-items: center;
@@ -35,16 +37,17 @@ const PlayerCardWrapper = styled.div`
     padding: var(--space-200);
     border-radius: 6px;
     top: -999px;
-    left: 120%;
+    left: 100%;
     opacity: 0;
     z-index: 2;
-    transition: top 0s .5s, left .3s .1s, opacity .3s .1s;
-    transform: translateY(-20%);
-    div:hover + & {
+    transition: top 0s .5s, transform .3s .1s, opacity .3s .1s;
+    transform: translateY(-20%) translateX(10%) translate3d(0, 0, 0);
+    div:hover + &,
+    &:hover {
       top: 0;
-      left: 100%;
+      transform: translateY(-20%) translateX(0) translate3d(0, 0, 0);
       opacity: 1;
-      transition: left .3s .1s, opacity .3s .1s;
+      transition: transform .3s .2s, opacity .3s .2s;
     }
   }
 
@@ -87,7 +90,7 @@ const PlayerReturn = styled.ul`
   }
 `
 
-const PlayerCard = ({ player, show }) => {
+const PlayerCardLegacy = ({ player, type = 'game', show }) => {
   return (
     <PlayerCardWrapper $show={show}>
       <header>
@@ -96,38 +99,50 @@ const PlayerCard = ({ player, show }) => {
           <span>
             {player.username}
           </span>
-          <small>
-          ${player.portfolio_value.toLocaleString()}
-          </small>
+          {type === 'game'
+            ? (
+              <small>
+                  ${player.portfolio_value.toLocaleString()}
+              </small>
+            )
+            : null}
         </h2>
       </header>
-      <PlayerReturn>
-        <li>
-          {'Simple Return '}
-          <strong>
-            {player.return_ratio.toFixed(2)}%
-          </strong>
-        </li>
-        <li>
-          {'Sharpe Ratio '}
-          <strong>
-            {player.sharpe_ratio.toFixed(4)}
-          </strong>
-        </li>
-      </PlayerReturn>
-      <PlayerStocks>
-        <p>
-          Stocks held:
-        </p>
-        <span>{player.stocks_held.join(', ')}</span>
-      </PlayerStocks>
+
+      {type === 'game'
+        ? (
+          <>
+            <PlayerReturn>
+              <li>
+                {'Simple Return '}
+                <strong>
+                  {player.return_ratio.toFixed(2)}%
+                </strong>
+              </li>
+              <li>
+                {'Sharpe Ratio '}
+                <strong>
+                  {player.sharpe_ratio.toFixed(4)}
+                </strong>
+              </li>
+            </PlayerReturn>
+            <PlayerStocks>
+              <p>
+                            Stocks held:
+              </p>
+              <span>{player.stocks_held.join(', ')}</span>
+            </PlayerStocks>
+          </>
+        )
+        : null}
     </PlayerCardWrapper>
   )
 }
 
-PlayerCard.propTypes = {
+PlayerCardLegacy.propTypes = {
+  type: PropTypes.string,
   player: PropTypes.object,
   show: PropTypes.bool
 }
 
-export { PlayerCard }
+export { PlayerCardLegacy }

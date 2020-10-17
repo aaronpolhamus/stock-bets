@@ -24,8 +24,7 @@ from backend.logic.stock_data import (
     apply_stock_splits,
     get_most_recent_prices, scrape_dividends,
     insert_dividends_to_db,
-    apply_dividends_to_stocks,
-    get_dividends_for_date
+    apply_dividends_to_stocks
 )
 from backend.tests import BaseTestCase
 

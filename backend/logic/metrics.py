@@ -264,18 +264,19 @@ def log_winners(game_id: int, current_time: float):
         update_performed = True
 
         if stakes == "real":
-            payment_profile = get_payment_profile_uuids([winner_id])[0]
-            send_paypal_payment(
-                uuids=[payment_profile["uuid"]],
-                amount=payout,
-                payment_type="overall",
-                email_subject=f"Congrats on winning the {game_info['title']}!",
-                email_content=f"You were the overall winner of {game_info['title']}. Awesome work. Here's your payment of {USD_FORMAT.format(payout)}. Come back soon!",
-                note_content="Keep on crushing it."
-            )
-            add_row("payments", user_id=winner_id, profile_id=payment_profile["id"], game_id=game_id,
-                    winner_table_id=winner_table_id, type=win_type, amount=payout, currency="USD",
-                    direction="outflow", timestamp=current_time)
+            pass  # TODO: uncomment when we're able to take real money
+            # payment_profile = get_payment_profile_uuids([winner_id])[0]
+            # send_paypal_payment(
+            #     uuids=[payment_profile["uuid"]],
+            #     amount=payout,
+            #     payment_type="overall",
+            #     email_subject=f"Congrats on winning the {game_info['title']}!",
+            #     email_content=f"You were the overall winner of {game_info['title']}. Awesome work. Here's your payment of {USD_FORMAT.format(payout)}. Come back soon!",
+            #     note_content="Keep on crushing it."
+            # )
+            # add_row("payments", user_id=winner_id, profile_id=payment_profile["id"], game_id=game_id,
+            #         winner_table_id=winner_table_id, type=win_type, amount=payout, currency="USD",
+            #         direction="outflow", timestamp=current_time)
 
     return update_performed
 

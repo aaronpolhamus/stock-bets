@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react'
 import PropTypes from 'prop-types'
 import styled from 'styled-components'
 import { UserContext } from 'Contexts'
-import { PlayerCard } from 'components/lists/PlayerCard'
+import { PlayerCardLegacy } from 'components/lists/PlayerCardLegacy'
 import { Info } from 'react-feather'
 
 const LeaderboardList = styled.ol`
@@ -142,7 +142,7 @@ const PlayerLi = ({ player, checked, onSelect }) => {
             color='var(--color-text-gray)'
           />
         </PlayerDetails>
-        <PlayerCard
+        <PlayerCardLegacy
           show={showCard}
           player={player}
         />

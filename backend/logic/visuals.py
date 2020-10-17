@@ -90,7 +90,7 @@ PAYOUTS_PREFIX = "payouts"
 RETURN_RATIO_PREFIX = "return_ratio"
 SHARPE_RATIO_PREFIX = "sharpe_ratio"
 PLAYER_RANK_PREFIX = "player_rank"
-THREE_MONTH_RETURN = "three_month_return"
+THREE_MONTH_RETURN_PREFIX = "three_month_return"
 PUBLIC_LEADERBOARD_PREFIX = "public_leaderboard"
 
 # -------------- #
@@ -248,7 +248,7 @@ def get_user_information(user_id: int):
     sql = "SELECT id, name, email, profile_pic, username, created_at FROM users WHERE id = %s"
     info = query_to_dict(sql, user_id)[0]
     info["rating"] = float(rds.get(f"{PLAYER_RANK_PREFIX}_{user_id}"))
-    info["three_month_return"] = float(rds.get(f"{THREE_MONTH_RETURN}_{user_id}"))
+    info["three_month_return"] = float(rds.get(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}"))
     return info
 
 
@@ -1000,9 +1000,9 @@ def calculate_and_pack_game_metrics(game_id: int, start_time: float = None, end_
 
 def update_player_rank(df: pd.DataFrame):
     for i, row in df.iterrows():
-        if row["user_id"] is not None:
+        if row["user_id"]:
             rds.set(f"{PLAYER_RANK_PREFIX}_{int(row['user_id'])}", row["rating"])
-            rds.set(f"{THREE_MONTH_RETURN}_{int(row['user_id'])}", row["three_month_return"])
+            rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{int(row['user_id'])}", row["three_month_return"])
 
 
 def serialize_and_pack_rankings():
@@ -1014,7 +1014,7 @@ def serialize_and_pack_rankings():
             INNER JOIN (
               SELECT game_id, MIN(id) AS min_id
               FROM game_status
-              WHERE status = 'active' AND timestamp >= %s
+              WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
             ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
@@ -1029,7 +1029,7 @@ def serialize_and_pack_rankings():
             INNER JOIN (
               SELECT game_id, MIN(id) AS min_id
               FROM game_status
-              WHERE status = 'active' AND timestamp >= %s
+              WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
             ) gs ON gs.game_id = sr.game_id
             INNER JOIN (
@@ -1042,9 +1042,9 @@ def serialize_and_pack_rankings():
     df["basis_times_return"] = df["total_return"] * df["basis"]
     total_basis_df = df.groupby("username", as_index=False)["basis"].sum().rename(columns={"basis": "total_basis"})
     df = df.merge(total_basis_df, on="username").sort_values(["username", "timestamp"])
-    stats_df = df.groupby("username",as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
-                                                          "n_games": "last", "basis_times_return": "sum",
-                                                          "total_basis": "first"})
+    stats_df = df.groupby("username", as_index=False).agg({"user_id": "first", "rating": "last", "profile_pic": "first",
+                                                           "n_games": "last", "basis_times_return": "sum",
+                                                           "total_basis": "first"})
     stats_df["three_month_return"] = stats_df["basis_times_return"] / stats_df["total_basis"]
     del stats_df["basis_times_return"]
     del stats_df["total_basis"]

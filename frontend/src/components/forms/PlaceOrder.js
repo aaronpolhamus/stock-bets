@@ -126,11 +126,13 @@ const AmountInput = styled.div`
   .form-check{
     margin-bottom: 0;
     margin-left: var(--space-100);
+
     &:first-child{
       margin-left: 0;
     }
   }
   .form-check-label{
+    height: auto;
     font-size: var(--font-size-min);
     min-width: 0;
     padding: 9px var(--space-50) 0;
@@ -206,7 +208,7 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
       time_in_force: timeInForce,
       stop_limit_price: stopLimitPrice
     }
-    console.log(order)
+
     await api.post('/api/place_order', order)
       .then(request => {
         setShowCollapsible(false)
@@ -214,7 +216,6 @@ const PlaceOrder = ({ gameId, onPlaceOrder, update, cashData }) => {
         setSymbolValue('')
         setSymbolLabel('')
         setPriceData({})
-        console.log(formRef.current)
         formRef.current.reset()
 
         clearInterval(intervalId)

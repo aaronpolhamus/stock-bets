@@ -705,7 +705,7 @@ class TestFriendManagement(BaseTestCase):
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         expected_friends = set(['toofast', 'miguel'] + [f"minion{x}" for x in range(1, 31)])
-        self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
+        self.assertEqual(set([x["username"] for x in res.json()["friends"]]), expected_friends)
 
         # is there anyone that the test user isn't (a) friends with already or (b) hasn't sent him an invite? there
         # should be just one, the dummy user. we'll confirm this, but won't send an invite
@@ -767,7 +767,7 @@ class TestFriendManagement(BaseTestCase):
                                          cookies={"session_token": test_user_session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         expected_friends = set(['toofast', 'miguel', "murcitdev"] + [f"minion{x}" for x in range(1, 31)])
-        self.assertEqual(set([x["username"] for x in res.json()]), expected_friends)
+        self.assertEqual(set([x["username"] for x in res.json()["friends"]]), expected_friends)
 
         # jack sparrow is too cool for the user and rejects his invite. since test user just accepted murcitdev's
         # invite we'll now excepted a list with 2 "suggested" entries, with no outstanding sent or received invitations

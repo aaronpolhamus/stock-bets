@@ -25,8 +25,8 @@ const simplifyCurrency = (value, decimals, dollarSign) => {
   return amount
 }
 
-const formatPercentage = (value, fixedPoints) => {
-  const normalizedValue = parseFloat(value).toFixed(fixedPoints || 3)
+const formatPercentage = (value, fixedPoints, scale = 1) => {
+  const normalizedValue = (scale * parseFloat(value)).toFixed(fixedPoints || 3)
   return `${normalizedValue}%`
 }
 

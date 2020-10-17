@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useContext } from 'react'
+import { UserContext } from 'Contexts'
 import { apiPost } from 'components/functions/api'
-import { PlayerRow } from 'components/lists/PlayerRow'
+import { LeaderboardPlayerRow } from 'components/lists/LeaderboardPlayerRow'
 import { SmallCaps } from 'components/textComponents/Text'
 import styled from 'styled-components'
-import { formatPercentage } from 'components/functions/formattingHelpers'
+import { formatPercentage, numberToOrdinal } from 'components/functions/formattingHelpers'
 
 const ListRankingWrapper = styled.ol`
   font-size: var(--font-size-small);
   padding-inline-start: 30px;
 `
 
-const ListRankingItem = styled.li`
-  padding: var(--space-100) 0;
+const ListRankingItemWrapper = styled.li`
   color: var(--color-text-light-gray);
-  margin-bottom: var(--space-50);
   cursor: pointer;
+  position: relative;
 `
 
 const ListHeader = styled.div`
@@ -33,8 +33,9 @@ const NumberHeading = styled.span`
 `
 
 const GlobalLeaderboard = () => {
-  const [listRanking, setListRanking] = useState({})
-  const [listFriends, setListFriends] = useState({})
+  const [listRanking, setListRanking] = useState(null)
+  const [listsCompound, setListsCompound] = useState(null)
+  const { user } = useContext(UserContext)
 
   const getListRanking = async () => {
     await apiPost('public_leaderboard')
@@ -47,7 +48,7 @@ const GlobalLeaderboard = () => {
   const getListFriends = async () => {
     await apiPost('get_list_of_friends')
       .then((response) => {
-        setListFriends(response)
+        setListsCompound(response.friends.concat(response.you_invited).concat(response.they_invited))
       })
   }
 
@@ -55,42 +56,55 @@ const GlobalLeaderboard = () => {
     getListRanking()
     getListFriends()
   }, [])
+  const listBuilder = (listRanking) => {
+    return listRanking.map((player, index) => {
+      let friendStatus = ''
 
-  console.log(listRanking, listFriends)
-  const listBuilder = (data) => {
-    return data.map((friend, index) => {
-      const isFriend = listFriends.length > 0 && listFriends.findIndex((row) => {
-        return row.id === friend.user_id
-      })
-      const isMarketIndex = friend.user_id === null
-      console.log(isFriend, isMarketIndex)
+      if (listsCompound) {
+        const friendIndex = listsCompound.findIndex(item => {
+          return player.user_id === item.id
+        })
+        friendStatus = friendIndex !== -1 ? listsCompound[friendIndex].label : ''
+      }
+
+      if (player.username === user.username) friendStatus = 'is_you'
+
+      const isMarketIndex = player.user_id === null
+      const threeMonthReturn = formatPercentage(player.three_month_return, 2, 100)
+      const nameColor = friendStatus === 'is_you' ? 'var(--color-primary-lighten)' : 'var(--color-light-gray)'
+      const playerCardInfo = [
+        { type: 'Games Played:', value: player.n_games },
+        { type: 'Rating:', value: player.rating.toFixed(2) },
+        { type: '3-Month return:', value: threeMonthReturn }
+      ]
 
       return (
-        <ListRankingItem key={index}>
-          <PlayerRow
-            avatarSrc={friend.profile_pic}
+        <ListRankingItemWrapper key={index}>
+          <LeaderboardPlayerRow
+            avatarSrc={player.profile_pic}
             avatarSize='24px'
-            username={friend.username}
+            username={player.username}
             isMarketIndex={isMarketIndex}
-            isFriend={isFriend !== -1}
+            friendStatus={friendStatus}
             isCurrentPlayer=''
             nameFontSize='var(--font-size-small)'
-            nameColor='var(--color-light-gray)'
-            info={[friend.rating, formatPercentage(friend.three_month_return, 2)]}
+            nameColor={nameColor}
+            info={[player.rating.toFixed(2), threeMonthReturn]}
+            playerCardInfo={playerCardInfo}
+            leaderboardPosition={numberToOrdinal(index + 1)}
           />
-        </ListRankingItem>
+        </ListRankingItemWrapper>
       )
     })
   }
-
   return (
     <>
       <ListHeader>
         <SmallCaps><NumberHeading>N. </NumberHeading>Player</SmallCaps>
-        <SmallCaps>Rating <span style={{ color: 'var(--color-primary-darken)', fontWeight: 'bold' }}>|</span> Avg. Return</SmallCaps>
+        <SmallCaps>Rating <span style={{ color: 'var(--color-primary-darken)', fontWeight: 'bold' }}>|</span> 3-Month Return</SmallCaps>
       </ListHeader>
       <ListRankingWrapper>
-        {listRanking.length > 0 && listBuilder(listRanking)}
+        {listRanking && listBuilder(listRanking)}
       </ListRankingWrapper>
     </>
   )

@@ -5,7 +5,7 @@ iframe {
 }
 
 body {
-  font-family: "proxima-nova", sans-serif;
+  font-family: var(--font-family-global)
 }
 
 h1 {
@@ -39,10 +39,6 @@ label {
 
 .form-group {
   margin-bottom: var(--space-400);
-}
-
-.form-check {
-  text-align: left;
 }
 
 //Tabs
@@ -154,6 +150,8 @@ input.form-control{
   }
 }
 
+
+
 //Table
 .table {
   thead th {
@@ -187,6 +185,15 @@ input.form-control{
 
 }
 
+//Popovers 
+.popover{
+  font-family: var(--font-family-global)
+}
+.popover-card{
+  .popover-body{
+    padding: var(--space-200);
+  }
+}
 .popover-body p:last-of-type{
   margin-bottom: 0;
 }
@@ -267,7 +274,6 @@ input.form-control{
 }
 
 .form-check-label{
-  font-size: var(--font-size-small);
   color: var(--color-text-primary);
   a{
     color: inherit;
@@ -289,8 +295,16 @@ input.form-control{
   }
 }
 
+.badge{
+  font-family: var(--font-family-global)
+}
+
 .badge-pill{
-  font-size: var(--font-size-min)
+  font-size: var(--font-size-min);
+  font-weight: medium;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-smallcaps);
+  
 }
 
 .annotation{

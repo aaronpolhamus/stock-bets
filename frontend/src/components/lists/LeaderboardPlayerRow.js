@@ -1,9 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
 import styled from 'styled-components'
 import { UserAvatar } from 'components/users/UserAvatar'
 import { SmallCaps } from 'components/textComponents/Text'
 import PropTypes from 'prop-types'
+import { apiPost } from 'components/functions/api'
 import { AvatarFriendBadge } from 'components/ui/badges/AvatarFriendBadge'
+import { ElementTooltip } from 'components/ui/ElementTooltip'
+import { PlayerCard } from 'components/ui/cards/PlayerCard'
 
 const infoBuilder = (info) => {
   return info.map((part, index) => {
@@ -69,7 +72,7 @@ const AvatarWrapper = styled.div`
   }
 `
 
-const PlayerRow = ({
+const LeaderboardPlayerRow = ({
   className,
   name,
   username,
@@ -82,21 +85,65 @@ const PlayerRow = ({
   email,
   isMarketIndex,
   friendStatus,
+  playerCardInfo,
+  leaderboardPosition,
   info
 }) => {
   const isCurrentPlayer = friendStatus === 'is_you'
+  const [localFriendStatus, setLocalFriendStatus] = useState(null)
+
+  const handleFriendAdd = async (invitee) => {
+    await apiPost('send_friend_request', {
+      friend_invitee: invitee
+    }).then((response) => {
+      console.log(invitee, 'invited')
+      setLocalFriendStatus('you_invited')
+    })
+  }
+  const handleRespondFriend = async (requesterUsername, decision) => {
+    // TO DO: find a more elegant solution to waiting for the response and give feedback about it or make the response faster in the backend
+    setLocalFriendStatus(decision === 'accepted' ? 'friend' : '')
+    await apiPost('respond_to_friend_request', {
+      requester_username: requesterUsername,
+      decision: decision
+    }).then((response) => {
+      setLocalFriendStatus(decision === 'accepted' ? 'friend' : '')
+    })
+  }
+
   return (
     <PlayerRowWrapper title={email} className={className}>
       <PlayerInfo>
         <AvatarWrapper $isCurrentPlayer={isCurrentPlayer}>
           <UserAvatar src={avatarSrc} size={avatarSize} />
           <AvatarFriendBadge
-            friendStatus={friendStatus}
+            friendStatus={localFriendStatus || friendStatus}
           />
         </AvatarWrapper>
-        <PlayerName $color={nameColor} $fontSize={nameFontSize} $isCurrentPlayer={isCurrentPlayer}>
-          {isMarketIndex ? (<SmallCaps>{username}</SmallCaps>) : username}
-        </PlayerName>
+        <ElementTooltip
+          message={(
+            <PlayerCard
+              profilePic={avatarSrc}
+              username={username}
+              leaderboardPosition={leaderboardPosition}
+              friendStatus={localFriendStatus || friendStatus}
+              playerStats={playerCardInfo}
+              onFriendAdd={() => {
+                handleFriendAdd(username)
+              }}
+              onInvitationDecline={() => {
+                handleRespondFriend(username, 'declined')
+              }}
+              onInvitationAccept={() => {
+                handleRespondFriend(username, 'accepted')
+              }}
+            />
+          )}
+        >
+          <PlayerName $color={nameColor} $fontSize={nameFontSize} $isCurrentPlayer={isCurrentPlayer}>
+            {isMarketIndex ? (<SmallCaps>{username}</SmallCaps>) : username}
+          </PlayerName>
+        </ElementTooltip>
       </PlayerInfo>
       <PlayerData $color={dataColor} $fontSize={dataFontSize}>
         {info && infoBuilder(info)}
@@ -105,20 +152,22 @@ const PlayerRow = ({
   )
 }
 
-PlayerRow.propTypes = {
-  className: PropTypes.string,
-  name: PropTypes.string,
-  username: PropTypes.string,
-  avatarSrc: PropTypes.string,
+LeaderboardPlayerRow.propTypes = {
   avatarSize: PropTypes.string,
-  isMarketIndex: PropTypes.bool,
-  friendStatus: PropTypes.string,
-  nameColor: PropTypes.string,
-  nameFontSize: PropTypes.string,
+  avatarSrc: PropTypes.string,
   dataColor: PropTypes.string,
   dataFontSize: PropTypes.string,
   email: PropTypes.string,
-  info: PropTypes.array
+  friendStatus: PropTypes.string,
+  info: PropTypes.array,
+  isMarketIndex: PropTypes.bool,
+  name: PropTypes.string,
+  nameColor: PropTypes.string,
+  nameFontSize: PropTypes.string,
+  username: PropTypes.string,
+  playerCardInfo: PropTypes.array,
+  leaderboardPosition: PropTypes.string,
+  className: PropTypes.string
 }
 
-export { PlayerRow }
+export { LeaderboardPlayerRow }
