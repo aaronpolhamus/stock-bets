@@ -32,10 +32,15 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     make_chart_json,
     serialize_and_pack_rankings,
-    TRACKED_INDEXES
+    TRACKED_INDEXES,
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
 )
 from backend.tasks import s3_cache
-from backend.logic.metrics import STARTING_ELO_SCORE
+from backend.tasks.redis import rds
+from backend.logic.metrics import (
+    STARTING_ELO_SCORE
+)
 
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
@@ -168,7 +173,7 @@ def _ratings_builder(user_data):
         ratings_array.append(dict(
             user_id=i+1,
             index_symbol=None,
-            game_id=3,
+            game_id=6,
             rating=rating,
             update_type="game_end",
             timestamp=simulation_end_time,
@@ -198,7 +203,7 @@ def _ratings_builder(user_data):
         ratings_array.append(dict(
             user_id=None,
             index_symbol=index,
-            game_id=3,
+            game_id=6,
             rating=rating,
             update_type="game_end",
             timestamp=simulation_end_time,
@@ -666,6 +671,11 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
+    for i, _ in enumerate(MOCK_DATA["users"]):
+        user_id = int(i + 1)
+        rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+        rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
+
     serialize_and_pack_rankings()
     game_ids = [3, 6, 7, 8]
     for game_id in game_ids:

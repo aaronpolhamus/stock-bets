@@ -206,8 +206,13 @@ const Home = () => {
   }
 
   const gamesActive = filterEntries(homeData.game_info, {
-    game_status: ['active', 'finished'],
+    game_status: ['active'],
     game_mode: ['multi_player']
+  })
+
+  const gamesFinished = filterEntries(homeData.game_info, {
+    game_status: ['finished'],
+    game_mode: ['single_player', 'multi_player', 'public']
   })
 
   const gamesPending = filterEntries(homeData.game_info, {
@@ -223,7 +228,7 @@ const Home = () => {
   })
 
   const gamesSinglePlayer = filterEntries(homeData.game_info, {
-    game_status: ['active', 'finished'],
+    game_status: ['active'],
     game_mode: ['single_player']
   })
 
@@ -341,6 +346,10 @@ const Home = () => {
                 />
                 <GameList
                   games={gamesSinglePlayer}
+                />
+                <GameList
+                  games={gamesFinished}
+                  title='Finished'
                 />
               </Col>
               <Col lg={6} xl={4}>
