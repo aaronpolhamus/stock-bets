@@ -33,7 +33,8 @@ const NewGame = () => {
               <RadioButtons
                 optionsList={{
                   multi_player: 'Play with your friends',
-                  single_player: 'You vs. The Market'
+                  single_player: 'You vs. The Market',
+                  public: 'Public game (up to 10 players)'
                 }}
                 name='invite_type'
                 defaultChecked={gameMode}

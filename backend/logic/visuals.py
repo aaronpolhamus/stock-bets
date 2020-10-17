@@ -1012,7 +1012,7 @@ def serialize_and_pack_rankings():
             SELECT user_id, rating, username, profile_pic, n_games, total_return, basis, sr.timestamp 
             FROM stockbets_rating sr
             INNER JOIN (
-              SELECT game_id, MIN(id) AS min_id
+              SELECT game_id, MAX(id) AS max_id
               FROM game_status
               WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
@@ -1027,7 +1027,7 @@ def serialize_and_pack_rankings():
             SELECT user_id, rating, imd.username, imd.profile_pic, n_games, total_return, basis, sr.timestamp 
             FROM stockbets_rating sr
             INNER JOIN (
-              SELECT game_id, MIN(id) AS min_id
+              SELECT game_id, MAX(id) AS max_id
               FROM game_status
               WHERE status = 'finished' AND timestamp >= %s
               GROUP BY game_id
