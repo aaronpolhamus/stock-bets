@@ -175,10 +175,10 @@ def get_day_start(start_time_dt: dt):
 
 def retrieve_nasdaq_splits(driver, included_symbols, timeout=30) -> pd.DataFrame:
     url = "https://www.nasdaq.com/market-activity/stock-splits"
-    table_xpath = "/html/body/div[1]/div/main/div[2]/div[2]/div[2]/div/div[2]/div/div[3]/div[5]"
     nasdaq_data_column_names = ["symbol", "ratio", "executionDate"]
     driver.get(url)
-    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.XPATH, table_xpath)))
+    table_class_name = "market-calendar-table__table"
+    table = WebDriverWait(driver, timeout).until(EC.visibility_of_element_located((By.CLASS_NAME, table_class_name)))
     rows = table.find_elements_by_tag_name("tr")
     table_data_array = []
     for row in rows[1:]:

@@ -103,7 +103,7 @@ const MakeGame = ({ gameMode }) => {
                   />
                 </Form.Group>
               </Col>
-              {gameMode === 'multi_player' &&
+              {['multi_player', 'public'].includes(gameMode) &&
                 <Col xs={6}>
                   <Form.Group>
                     <Form.Label>

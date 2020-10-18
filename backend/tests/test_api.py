@@ -1,4 +1,3 @@
-from freezegun import freeze_time
 import json
 import time
 
@@ -29,7 +28,6 @@ from backend.logic.base import (
     get_game_start_and_end,
     posix_to_datetime
 )
-from backend.logic.stock_data import fetch_price
 from backend.logic.games import (
     DEFAULT_GAME_DURATION,
     DEFAULT_BUYIN,
@@ -45,6 +43,7 @@ from backend.logic.games import (
     get_current_game_cash_balance,
     get_current_stock_holding
 )
+from backend.logic.stock_data import fetch_price
 from backend.logic.visuals import (
     compile_and_pack_player_leaderboard,
     make_user_balances_chart_data,
@@ -58,17 +57,19 @@ from backend.logic.visuals import (
     FULFILLED_ORDER_PREFIX,
     PAYOUTS_PREFIX,
     BALANCES_CHART_PREFIX,
+    FIELD_CHART_PREFIX,
     no_fulfilled_orders_table,
     serialize_and_pack_portfolio_details,
     add_fulfilled_order_entry
 )
+from backend.tasks import s3_cache
 from backend.tasks.airflow import start_dag
 from backend.tasks.redis import rds
 from backend.tests import (
     BaseTestCase,
     HOST_URL
 )
-from backend.tasks import s3_cache
+from freezegun import freeze_time
 
 
 class TestUserManagement(BaseTestCase):
@@ -791,7 +792,7 @@ class TestHomePage(BaseTestCase):
         # verify that the test page landing looks like we expect it to
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 5)
+        self.assertEqual(len(res.json()["game_info"]), 6)
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
@@ -814,7 +815,8 @@ class TestHomePage(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         for game_entry in res.json()["game_info"]:
-            self.assertEqual(game_entry["invite_status"], "joined")
+            if game_entry["game_id"] == game_id:
+                self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
         """Simulate a world where we have users and friends, but no games. We'll recreate a game from the create_game
@@ -927,3 +929,86 @@ class TestPriceFetching(BaseTestCase):
 
             self.assertNotIn("TSLA", s3_cache.keys())
             self.assertEqual(count, 0)
+
+
+class TestCreatePublicGame(BaseTestCase):
+
+    def test_create_public_game(self):
+        session_token = self.make_test_token_from_email(Config.TEST_CASE_EMAIL)
+        game_duration = 14
+        game_settings = {
+            "benchmark": "return_ratio",
+            "duration": game_duration,
+            "game_mode": "public",
+            "title": "come one and all",
+            "invite_window": DEFAULT_INVITE_OPEN_WINDOW,
+            "stakes": "monopoly"
+        }
+        res = self.requests_session.post(f"{HOST_URL}/create_game", cookies={"session_token": session_token},
+                                         verify=False, json=game_settings)
+        self.assertEqual(res.status_code, 200)
+
+        minion1_token = self.make_test_token_from_email("minion1@despicable.me")
+        minion2_token = self.make_test_token_from_email("minion2@despicable.me")
+        minion3_token = self.make_test_token_from_email("minion3@despicable.me")
+        minion4_token = self.make_test_token_from_email("minion4@despicable.me")
+        minion5_token = self.make_test_token_from_email("minion5@despicable.me")
+        minion6_token = self.make_test_token_from_email("minion6@despicable.me")
+        minion7_token = self.make_test_token_from_email("minion7@despicable.me")
+        minion8_token = self.make_test_token_from_email("minion8@despicable.me")
+        minion9_token = self.make_test_token_from_email("minion9@despicable.me")
+        minion10_token = self.make_test_token_from_email("minion10@despicable.me")
+
+        games_entry = query_to_dict("SELECT * FROM games WHERE title = %s", game_settings["title"])[0]
+        game_id = games_entry["id"]
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                                     game_id)[0]
+        self.assertEqual(status_entry["status"], "pending")
+
+        # verify that the newly created public game is visible to any random participant
+        res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": minion7_token}, verify=False)
+        self.assertEqual(res.status_code, 200)
+        user_landing_info = res.json()
+        self.assertIn(game_id, [x["game_id"] for x in user_landing_info["game_info"]])
+
+        # first minion will decline to play, all others will accept, and the game will kick off once minion 10, the
+        # 10th player to join the game, accepts the invitation
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion1_token},
+                                   json={"game_id": game_id, "decision": "declined"}, verify=False)
+        decoded_session_token = jwt.decode(minion1_token, Config.SECRET_KEY)
+        minion1_user_id = decoded_session_token["user_id"]
+        invite_entry = query_to_dict("""SELECT * FROM game_invites WHERE game_id = %s AND user_id = %s
+                                        ORDER BY id DESC LIMIT 0, 1;""",
+                                     game_id, minion1_user_id)[0]
+        self.assertEqual(invite_entry["status"], "declined")
+
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion2_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion3_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion4_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion5_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion6_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion7_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion8_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion9_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                                     game_id)[0]
+        self.assertEqual(status_entry["status"], "pending")
+
+        self.requests_session.post(f"{HOST_URL}/respond_to_game_invite", cookies={"session_token": minion10_token},
+                                   json={"game_id": game_id, "decision": "joined"}, verify=False)
+        status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s ORDER BY id DESC LIMIT 0, 1;",
+                                     game_id)[0]
+        self.assertEqual(status_entry["status"], "active")
+
+        # verify that we have chart assets ready to go
+        field_chart = s3_cache.unpack_s3_json(f"{game_id}/{FIELD_CHART_PREFIX}")
+        self.assertEqual(len(field_chart["datasets"]), 10)

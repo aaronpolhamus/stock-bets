@@ -28,6 +28,7 @@ class Users(db.Model):
 class GameModes(Enum):
     single_player = "single_player"
     multi_player = "multi_player"
+    public = "public"
 
 
 class Benchmarks(Enum):

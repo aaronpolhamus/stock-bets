@@ -25,7 +25,7 @@ def upgrade():
     sa.Column('timestamp', sa.Float(precision=32), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.add_column('games', sa.Column('game_mode', sa.Enum('single_player', 'multi_player', name='gamemodes'), nullable=True))
+    op.add_column('games', sa.Column('game_mode', sa.Enum('single_player', 'multi_player', 'public', name='gamemodes'), nullable=True))
     op.drop_column('games', 'n_rebuys')
     op.drop_column('games', 'mode')
     # ### end Alembic commands ###

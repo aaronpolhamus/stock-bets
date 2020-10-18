@@ -152,7 +152,7 @@ class TestGameLogic(BaseTestCase):
 
         game_id = 1
         open_game_ids = get_open_game_ids_past_window()
-        self.assertEqual(open_game_ids, [1, 2, 5])
+        self.assertEqual(open_game_ids, [1, 2, 5, 9])
 
         service_open_game(game_id)
         game_status_entry = \
@@ -1062,7 +1062,17 @@ class TestExternalInviteFunctionality(BaseTestCase):
         add_external_game_invites(external_email_2, user_id)
 
         new_user_game_info = get_game_info_for_user(user_id)
-        self.assertEqual(new_user_game_info, [])
+        public_game_invite = [
+            {'creator_avatar': 'http://localhost:4572/stockbets-public/profile_pics/murcitdev.jpg',
+             'creator_id': 5,
+             'creator_username': 'murcitdev',
+             'game_id': 9,
+             'game_mode': 'public',
+             'game_status': 'pending',
+             'invite_status': 'invited',
+             'title': 'sample public game',
+             'users': '[5]'}]
+        self.assertEqual(new_user_game_info, public_game_invite)
 
 
 class TestPayoutTime(TestCase):

@@ -358,10 +358,10 @@ def api_respond_to_game_invite():
 @authenticate
 def get_pending_game_info():
     game_id = request.json.get("game_id")
-
-    records = dict()
-    records["platform_invites"] = get_user_invite_statuses_for_pending_game(game_id)
-    records["email_invites"] = get_external_email_invite_list(game_id)
+    records = dict(
+        platform_invites=get_user_invite_statuses_for_pending_game(game_id),
+        email_invites=get_external_email_invite_list(game_id)
+    )
     return jsonify(records)
 
 

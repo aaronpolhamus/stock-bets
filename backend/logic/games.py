@@ -71,6 +71,7 @@ DEFAULT_SIDEBET_PERIOD = "weekly"
 DEFAULT_INVITE_OPEN_WINDOW = 2  # Number of days for the open invite default
 DEFAULT_N_PARTICIPANTS_TO_START = 2  # Minimum number of participants required to have accepted an invite to start game
 DEFAULT_STAKES = "real"
+DEFAULT_N_PUBLIC_GAMES_PARTICIPANTS = 10
 
 QUANTITY_DEFAULT = "USD"
 QUANTITY_OPTIONS = ["USD", "Shares"]
@@ -138,6 +139,20 @@ def create_game_invites_entries(game_id: int, creator_id: int, user_ids: List[in
         add_row("game_invites", game_id=game_id, user_id=user_id, status=status, timestamp=opened_at)
 
 
+def kick_off_game(game_id: int, user_id_list: List[int], update_time):
+    """Mark a game as active and seed users' virtual cash balances
+    """
+    add_row("game_status", game_id=game_id, status="active", users=user_id_list,
+            timestamp=update_time)
+    for user_id in user_id_list:
+        add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
+                balance=STARTING_VIRTUAL_CASH, transaction_type="kickoff")
+
+    # Mark any outstanding invitations as "expired" now that the game is active
+    mark_invites_expired(game_id, ["invited"], update_time)
+    init_game_assets(game_id)
+
+
 def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchmark: str, stakes: str = None,
              buy_in: float = None, side_bets_perc=None, side_bets_period: str = None, invitees: List[str] = None,
              invite_window: int = None, email_invitees: List[str] = None):
@@ -174,7 +189,7 @@ def add_game(creator_id: int, title: str, game_mode: str, duration: int, benchma
     user_ids = list(set(user_ids).union(set(matched_ids)))
     create_game_invites_entries(game_id, creator_id, user_ids, opened_at)
 
-    if game_mode == "multi_player":
+    if game_mode in ["public", "multi_player"]:
         add_row("game_status", game_id=game_id, status="pending", timestamp=opened_at, users=user_ids)
         for email in email_invitees:
             email_game_invitation(creator_id, email, game_id)
@@ -229,10 +244,37 @@ def update_external_invites(game_id: int, user_id: int, decision: str):
                 status=decision, timestamp=time.time(), game_id=game_id, type="game")
 
 
-def respond_to_game_invite(game_id, user_id, decision, response_time):
+def update_game_if_all_invites_responded(game_id: int):
+    accepted_invite_user_ids = get_invite_list_by_status(game_id)
+    pending_invite_ids = get_invite_list_by_status(game_id, "invited")
+    pending_email_invites = get_external_email_invite_list(game_id)
+    all_pending_invites = pending_invite_ids + pending_email_invites
+    if len(all_pending_invites) == 0:
+        if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
+            kick_off_game(game_id, accepted_invite_user_ids, time.time())
+        else:
+            # if everyone invited declines to join, cancel the game
+            close_open_game(game_id, time.time(), "cancelled")
+            refund_cancelled_game(game_id)
+
+
+def handle_public_game_acceptance(game_id: int):
+    """We'll only invoke this function when a user has accepted a game -- there's no need to do any further work on
+    the game status if they rejected the invitation"""
+    accepted_invite_user_ids = get_invite_list_by_status(game_id)
+    if len(accepted_invite_user_ids) >= DEFAULT_N_PUBLIC_GAMES_PARTICIPANTS:
+        kick_off_game(game_id, accepted_invite_user_ids, time.time())
+
+
+def respond_to_game_invite(game_id: int, user_id: int, decision: str, response_time: float):
     add_row("game_invites", game_id=game_id, user_id=user_id, status=decision, timestamp=response_time)
-    update_external_invites(game_id, user_id, decision)
-    update_game_if_all_invites_responded(game_id)
+    game_info = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
+    if game_info["game_mode"] in ["single_player", "multi_player"]:
+        update_external_invites(game_id, user_id, decision)
+        update_game_if_all_invites_responded(game_id)
+
+    if game_info["game_mode"] == "public" and decision == "joined":
+        handle_public_game_acceptance(game_id)
 
 
 def get_open_game_ids_past_window():
@@ -308,20 +350,6 @@ def get_external_email_invite_list(game_id: int):
               ex.status = 'invited' AND
               platform_ex.status != 'accepted';""", game_id).fetchall()
     return [x[0] for x in result]
-
-
-def kick_off_game(game_id: int, user_id_list: List[int], update_time):
-    """Mark a game as active and seed users' virtual cash balances
-    """
-    add_row("game_status", game_id=game_id, status="active", users=user_id_list,
-            timestamp=update_time)
-    for user_id in user_id_list:
-        add_row("game_balances", user_id=user_id, game_id=game_id, timestamp=update_time, balance_type="virtual_cash",
-                balance=STARTING_VIRTUAL_CASH, transaction_type="kickoff")
-
-    # Mark any outstanding invitations as "expired" now that the game is active
-    mark_invites_expired(game_id, ["invited"], update_time)
-    init_game_assets(game_id)
 
 
 def leave_game(game_id: int, user_id: int):
@@ -407,20 +435,6 @@ def refund_cancelled_game(game_id: int):
                     type="refund", amount=buy, direction="outflow")
 
 
-def update_game_if_all_invites_responded(game_id: int):
-    accepted_invite_user_ids = get_invite_list_by_status(game_id)
-    pending_invite_ids = get_invite_list_by_status(game_id, "invited")
-    pending_email_invites = get_external_email_invite_list(game_id)
-    all_pending_invites = pending_invite_ids + pending_email_invites
-    if len(all_pending_invites) == 0:
-        if len(accepted_invite_user_ids) >= DEFAULT_N_PARTICIPANTS_TO_START:
-            kick_off_game(game_id, accepted_invite_user_ids, time.time())
-        else:
-            # if everyone invited declines to join, cancel the game
-            close_open_game(game_id, time.time(), "cancelled")
-            refund_cancelled_game(game_id)
-
-
 def get_game_info_for_user(user_id: int):
     """This big, ugly SQL query aggregates a bunch of information about a user's game invites and active games for
     display on the home page
@@ -438,7 +452,7 @@ def get_game_info_for_user(user_id: int):
             gi_status.status AS invite_status
         FROM game_status gs
         INNER JOIN
-          (SELECT game_id, max(id) as max_id
+          (SELECT game_id, MAX(id) AS max_id
             FROM game_status
             GROUP BY game_id) grouped_gs
             ON gs.id = grouped_gs.max_id
@@ -446,7 +460,7 @@ def get_game_info_for_user(user_id: int):
           (SELECT gi.game_id, gi.status
             FROM game_invites gi
             INNER JOIN
-            (SELECT game_id, user_id, max(id) as max_id
+            (SELECT game_id, user_id, MAX(id) AS max_id
                 FROM game_invites
                 GROUP BY game_id, user_id) gg_invites
                 ON gi.id = gg_invites.max_id
@@ -459,8 +473,48 @@ def get_game_info_for_user(user_id: int):
           users creator_info ON creator_info.id = g.creator_id
         WHERE gs.status IN ('active', 'pending', 'finished');
     """
-    with engine.connect() as conn:
-        return pd.read_sql(sql, conn, params=[str(user_id)]).to_dict(orient="records")
+    most_game_info = query_to_dict(sql, user_id)
+
+    # special handling for public game invites. instead of printing thousands of invite entries to the game invites
+    # table, we'll use special logic such that all open public games that the user hasn't responded to appear as
+    # invites.
+    public_invites_sql = """
+        SELECT
+            g.id as game_id,
+            g.title,
+            g.creator_id,
+            g.game_mode,
+            creator_info.profile_pic AS creator_avatar,
+            creator_info.username AS creator_username,
+            gs.users,
+            gs.status AS game_status,
+            'invited' AS invite_status
+        FROM games g
+        INNER JOIN
+          (SELECT * FROM game_status gs
+            INNER JOIN (
+              SELECT MAX(id) AS max_id
+              FROM game_status
+              GROUP BY game_id
+            ) grouped_gs ON grouped_gs.max_id = gs.id
+          ) gs ON gs.game_id = g.id
+        INNER JOIN
+          users creator_info ON creator_info.id = g.creator_id
+        LEFT OUTER JOIN
+          (SELECT gi.game_id, gi.status
+            FROM game_invites gi
+            INNER JOIN
+            (SELECT game_id, user_id, MAX(id) AS max_id
+                FROM game_invites
+                GROUP BY game_id, user_id) gg_invites
+                ON gi.id = gg_invites.max_id
+                WHERE gi.user_id = %s) gi_status
+            ON gi_status.game_id = gs.game_id
+        WHERE
+            g.game_mode = 'public' AND
+            gs.status = 'pending' AND gi_status.status IS NULL;"""
+    public_game_invites = query_to_dict(public_invites_sql, user_id)
+    return most_game_info + public_game_invites
 
 
 def get_user_invite_statuses_for_pending_game(game_id: int):
@@ -842,8 +896,7 @@ def cancel_order(order_id: int):
 
 
 def get_user_invite_status_for_game(game_id: int, user_id: int):
-    with engine.connect() as conn:
-        status = conn.execute("""
+    sql = """
             SELECT gi.status
             FROM game_invites gi
             INNER JOIN
@@ -853,8 +906,14 @@ def get_user_invite_status_for_game(game_id: int, user_id: int):
             ON
               gi.id = grouped_gi.max_id
             WHERE gi.game_id = %s AND gi.user_id = %s;
-        """, game_id, user_id).fetchone()[0]
-    return status
+        """
+    entry = query_to_dict(sql, game_id, user_id)
+    if entry:
+        return entry[0]["status"]
+
+    game_mode = query_to_dict("SELECT game_mode FROM games WHERE id = %s;", game_id)[0]["game_mode"]
+    assert game_mode == "public"
+    return "invited"
 
 
 def get_downloadable_transactions_table(game_id: int, user_id: int):

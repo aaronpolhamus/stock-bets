@@ -32,10 +32,15 @@ from backend.logic.games import (
 from backend.logic.visuals import (
     make_chart_json,
     serialize_and_pack_rankings,
-    TRACKED_INDEXES
+    TRACKED_INDEXES,
+    PLAYER_RANK_PREFIX,
+    THREE_MONTH_RETURN_PREFIX
 )
 from backend.tasks import s3_cache
-from backend.logic.metrics import STARTING_ELO_SCORE
+from backend.tasks.redis import rds
+from backend.logic.metrics import (
+    STARTING_ELO_SCORE
+)
 
 price_records, index_records = make_stock_data_records()
 simulation_start_time = min([record["timestamp"] for record in price_records])
@@ -168,7 +173,7 @@ def _ratings_builder(user_data):
         ratings_array.append(dict(
             user_id=i+1,
             index_symbol=None,
-            game_id=3,
+            game_id=6,
             rating=rating,
             update_type="game_end",
             timestamp=simulation_end_time,
@@ -198,7 +203,7 @@ def _ratings_builder(user_data):
         ratings_array.append(dict(
             user_id=None,
             index_symbol=index,
-            game_id=3,
+            game_id=6,
             rating=rating,
             update_type="game_end",
             timestamp=simulation_end_time,
@@ -241,7 +246,10 @@ MOCK_DATA = {
          "stakes": "monopoly"},  # 7
         {"title": "single player test", "game_mode": "single_player", "duration": 90, "buy_in": None,
          "benchmark": "sharpe_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 1,
-         "invite_window": None, "stakes": "monopoly"}  # 8
+         "invite_window": None, "stakes": "monopoly"},  # 8
+        {"title": "sample public game", "game_mode": "public", "duration": 14, "buy_in": None,  # 9
+         "benchmark": "return_ratio", "side_bets_perc": None, "side_bets_period": None, "creator_id": 5,
+         "invite_window": simulation_start_time + DEFAULT_INVITE_OPEN_WINDOW * SECONDS_IN_A_DAY, "stakes": "monopoly"}
     ],
     "game_status": [
         {"game_id": 1, "status": "pending", "timestamp": 1589195580.0, "users": [1, 3, 4, 5]},
@@ -263,6 +271,7 @@ MOCK_DATA = {
          "users": [1, 4]},
         {"game_id": 8, "status": "pending", "timestamp": simulation_start_time, "users": [1]},
         {"game_id": 8, "status": "active", "timestamp": simulation_start_time, "users": [1]},
+        {"game_id": 9, "status": "pending", "timestamp": simulation_start_time, "users": [5]}
     ],
     "game_invites": [
         {"game_id": 1, "user_id": 4, "status": "joined", "timestamp": 1589195580.0},
@@ -295,6 +304,7 @@ MOCK_DATA = {
         {"game_id": 7, "user_id": 4, "status": "invited", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 7, "user_id": 4, "status": "joined", "timestamp": simulation_start_time - 14 * SECONDS_IN_A_DAY},
         {"game_id": 8, "user_id": 1, "status": "joined", "timestamp": simulation_start_time},
+        {"game_id": 9, "user_id": 5, "status": "joined", "timestamp": simulation_start_time, "users": [5]}
     ],
     "symbols": [
         {"symbol": "MSFT", "name": "MICROSOFT"},
@@ -666,6 +676,11 @@ def make_s3_mocks():
 
 
 def make_redis_mocks():
+    for i, _ in enumerate(MOCK_DATA["users"]):
+        user_id = int(i + 1)
+        rds.set(f"{PLAYER_RANK_PREFIX}_{user_id}", STARTING_ELO_SCORE)
+        rds.set(f"{THREE_MONTH_RETURN_PREFIX}_{user_id}", 0)
+
     serialize_and_pack_rankings()
     game_ids = [3, 6, 7, 8]
     for game_id in game_ids:
