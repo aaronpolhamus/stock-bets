@@ -147,6 +147,9 @@ def get_next_trading_day_schedule(reference_day: dt):
 def make_date_offset(side_bets_period):
     """date offset calculator for when working with sidebets
     """
+    if side_bets_period is None:
+        return side_bets_period
+
     assert side_bets_period in ["weekly", "monthly"]
     offset = DateOffset(days=7)
     if side_bets_period == "monthly":

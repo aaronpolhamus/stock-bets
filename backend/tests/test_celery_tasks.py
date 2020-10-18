@@ -164,7 +164,7 @@ class TestGameIntegration(BaseTestCase):
             "stakes": "monopoly"
         }
 
-        add_game(
+        game_id = add_game(
             mock_game["creator_id"],
             mock_game["title"],
             mock_game["game_mode"],
@@ -182,7 +182,6 @@ class TestGameIntegration(BaseTestCase):
 
         # Check the game entry table
         # OK for these results to shift with the test fixtures
-        game_id = 9
         self.assertEqual(game_entry["id"], game_id)
         for k, v in mock_game.items():
             if k == "invitees":
@@ -197,7 +196,7 @@ class TestGameIntegration(BaseTestCase):
         # Confirm that game status was updated as expected
         # ------------------------------------------------
         game_status_entry = query_to_dict("SELECT * FROM game_status WHERE game_id = %s", game_id)[0]
-        self.assertEqual(game_status_entry["id"], 16)
+        self.assertEqual(game_status_entry["id"], 17)
         self.assertEqual(game_status_entry["game_id"], game_id)
         self.assertEqual(game_status_entry["status"], "pending")
         users_from_db = json.loads(game_status_entry["users"])

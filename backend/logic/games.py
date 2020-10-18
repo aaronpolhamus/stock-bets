@@ -273,8 +273,7 @@ def respond_to_game_invite(game_id: int, user_id: int, decision: str, response_t
         update_external_invites(game_id, user_id, decision)
         update_game_if_all_invites_responded(game_id)
 
-    assert game_info["game_mode"] == "public"
-    if decision == "joined":
+    if game_info["game_mode"] == "public" and decision == "joined":
         handle_public_game_acceptance(game_id)
 
 

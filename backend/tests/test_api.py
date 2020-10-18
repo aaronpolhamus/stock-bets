@@ -792,7 +792,7 @@ class TestHomePage(BaseTestCase):
         # verify that the test page landing looks like we expect it to
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.json()["game_info"]), 5)
+        self.assertEqual(len(res.json()["game_info"]), 6)
         for game_entry in res.json()["game_info"]:
             if game_entry["title"] == "test game":
                 self.assertEqual(game_entry["invite_status"], "joined")
@@ -815,7 +815,8 @@ class TestHomePage(BaseTestCase):
         res = self.requests_session.post(f"{HOST_URL}/home", cookies={"session_token": session_token}, verify=False)
         self.assertEqual(res.status_code, 200)
         for game_entry in res.json()["game_info"]:
-            self.assertEqual(game_entry["invite_status"], "joined")
+            if game_entry["game_id"] == game_id:
+                self.assertEqual(game_entry["invite_status"], "joined")
 
     def test_home_first_landing(self):
         """Simulate a world where we have users and friends, but no games. We'll recreate a game from the create_game
