@@ -220,6 +220,7 @@ const Home = () => {
     }
   }
 
+  console.log(gameInfo)
   const gamesActive = filterEntries(gameInfo, {
     game_status: ['active'],
     game_mode: ['multi_player']

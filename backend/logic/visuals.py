@@ -117,6 +117,8 @@ FULFILLED_ORDER_MAPPINGS = {
     "fifo_balance": "Balance (FIFO)",
     "realized_pl": "Realized P&L",
     "unrealized_pl": "Unrealized P&L",
+    "realized_pl_percent": "Realized P&L (%)",
+    "unrealized_pl_percent": "Unrealized P&L (%)",
     "Market price": "Market price",
     "as of": "as of"
 }
@@ -786,6 +788,8 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     sold_df["basis"] = -1 * sold_df["basis"]
     tab = pd.concat([tab, sold_df], axis=0)
     tab.sort_values("timestamp", inplace=True)
+    tab["realized_pl_percent"] = tab["realized_pl"] / tab["basis"]
+    tab["unrealized_pl_percent"] = tab["unrealized_pl"] / tab["basis"]
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab.fillna(NA_NUMERIC_VAL, inplace=True)
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))
