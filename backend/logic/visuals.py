@@ -116,8 +116,8 @@ FULFILLED_ORDER_MAPPINGS = {
     "basis": "Basis",
     "fifo_balance": "Balance (FIFO)",
     "realized_pl": "Realized P&L",
-    "unrealized_pl": "Unrealized P&L",
     "realized_pl_percent": "Realized P&L (%)",
+    "unrealized_pl": "Unrealized P&L",
     "unrealized_pl_percent": "Unrealized P&L (%)",
     "Market price": "Market price",
     "as of": "as of"

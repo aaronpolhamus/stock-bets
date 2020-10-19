@@ -240,7 +240,9 @@ const PlayGame = () => {
                         'Order type',
                         'Balance (FIFO)',
                         'Realized P&L',
-                        'Unrealized P&L'
+                        'Unrealized P&L',
+                        'Realized P&L (%)',
+                        'Unrealized P&L (%)'
                       ]}
                       order='DESC'
                       showColumns={{
@@ -293,6 +295,8 @@ const PlayGame = () => {
                         'Balance (FIFO)': ['currency'],
                         'Realized P&L': ['currency'],
                         'Unrealized P&L': ['currency'],
+                        'Realized P&L (%)': ['percentage'],
+                        'Unrealized P&L (%)': ['percentage'],
                         Basis: ['currency', 'bold']
                       }}
                       formatCells={{

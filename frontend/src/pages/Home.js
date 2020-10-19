@@ -148,6 +148,7 @@ const Home = () => {
         setLoading(true)
         await api.post('/api/home')
           .then((r) => {
+            setUserName(r.data.username)
             setUserId(r.data.id)
             setName(r.data.name)
             setUserEmail(r.data.email)
@@ -220,7 +221,6 @@ const Home = () => {
     }
   }
 
-  console.log(gameInfo)
   const gamesActive = filterEntries(gameInfo, {
     game_status: ['active'],
     game_mode: ['multi_player']
