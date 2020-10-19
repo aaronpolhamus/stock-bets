@@ -753,11 +753,13 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
             "Clear price": clear_price,
             "Basis": quantity * clear_price if buy_or_sell == "buy" else NA_TEXT_SYMBOL,
             "Balance (FIFO)": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Realized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Unrealized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Market price": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "as of": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "color": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL
+            "Realized P&L": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Realized P&L (%)": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L (%)": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Market price": clear_price,
+            "as of": timestamp,
+            "color": NULL_RGBA
         }
         assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
