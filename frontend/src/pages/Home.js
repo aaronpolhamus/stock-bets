@@ -130,17 +130,32 @@ const Home = () => {
   const [showWelcome, setShowWelcome] = useState(true)
   const [showStartGame, setShowStartGame] = useState(false)
   const [pilotGameFinished, setPilotGameFinished] = useState(false)
-  const [homeData, setHomeData] = useState({})
   const [loading, setLoading] = useState(true)
   const [friendInvites, setFriendInvites] = useState(0)
+  const [userId, setUserId] = useState(null)
+  const [name, setName] = useState(null)
+  const [userEmail, setUserEmail] = useState(null)
+  const [profilePic, setProfilePic] = useState(null)
+  const [gameInfo, setGameInfo] = useState({})
+  const [rating, setRating] = useState(null)
+  const [threeMonthReturn, setThreeMonthReturn] = useState(null)
+
   const { setUser } = useContext(UserContext)
 
   useEffect(() => {
     const getHomeData = async () => {
       try {
         setLoading(true)
-        const response = await api.post('/api/home')
-        setHomeData(response.data)
+        await api.post('/api/home')
+          .then((r) => {
+            setUserId(r.data.id)
+            setName(r.data.name)
+            setUserEmail(r.data.email)
+            setProfilePic(r.data.profile_pic)
+            setGameInfo(r.data.game_info)
+            setRating(r.data.rating)
+            setThreeMonthReturn(r.data.three_month_return)
+          })
       } catch (e) {
         console.log(e)
       } finally {
@@ -168,25 +183,25 @@ const Home = () => {
 
   useEffect(() => {
     // identify user once they've hit the homepage
-    LogRocket.identify(homeData.id, {
-      name: homeData.name,
-      email: homeData.email
+    LogRocket.identify(userId, {
+      name: username,
+      email: userEmail
     })
 
     // Set user info to persist in all app while the session is active.
     setUser({
-      username: homeData.username,
-      name: homeData.name,
-      email: homeData.email,
-      profile_pic: homeData.profile_pic
+      username: username,
+      name: name,
+      email: userEmail,
+      profile_pic: profilePic
     })
-  }, [homeData])
+  }, [loading])
 
   if (loading) {
     return <p>Loading...</p>
   }
 
-  if (homeData.username !== null) window.heap.identify(homeData.username)
+  if (username !== null) window.heap.identify(username)
 
   const handleChange = (e) => {
     setUserName(e.target.value)
@@ -205,29 +220,29 @@ const Home = () => {
     }
   }
 
-  const gamesActive = filterEntries(homeData.game_info, {
+  const gamesActive = filterEntries(gameInfo, {
     game_status: ['active'],
     game_mode: ['multi_player']
   })
 
-  const gamesFinished = filterEntries(homeData.game_info, {
+  const gamesFinished = filterEntries(gameInfo, {
     game_status: ['finished'],
     game_mode: ['single_player', 'multi_player', 'public']
   })
 
-  const gamesPending = filterEntries(homeData.game_info, {
+  const gamesPending = filterEntries(gameInfo, {
     game_status: ['pending'],
     invite_status: ['joined'],
     game_mode: ['multi_player', 'public']
   })
 
-  const gamesInvited = filterEntries(homeData.game_info, {
+  const gamesInvited = filterEntries(gameInfo, {
     game_status: ['pending'],
     invite_status: ['invited'],
     game_mode: ['multi_player', 'public']
   })
 
-  const gamesSinglePlayer = filterEntries(homeData.game_info, {
+  const gamesSinglePlayer = filterEntries(gameInfo, {
     game_status: ['active'],
     game_mode: ['single_player']
   })
@@ -311,20 +326,20 @@ const Home = () => {
             <Header>
               <UserCard>
                 <UserAvatar
-                  src={homeData.profile_pic}
+                  src={profilePic}
                   size='big'
                 />
                 <UserInfo>
                   <UserInfoName>
-                    {homeData.username}
+                    {username}
                   </UserInfoName>
                   <UserStats>
                     <p>
                       <SmallCaps>
-                        Global Rating: <strong>{homeData.rating.toFixed(2)}</strong>
+                        Global Rating: <strong>{rating.toFixed(2)}</strong>
                       </SmallCaps>
                       <SmallCaps>
-                        3-Month Return: <strong>{formatPercentage(homeData.three_month_return)}</strong>
+                        3-Month Return: <strong>{formatPercentage(threeMonthReturn)}</strong>
                       </SmallCaps>
                     </p>
                   </UserStats>
@@ -368,7 +383,7 @@ const Home = () => {
           </PageSection>
         </GameContent>
       </Layout>
-      <Modal show={homeData.username === null && showWelcome} onHide={() => {}} centered>
+      <Modal show={username === null && showWelcome} onHide={() => {}} centered>
         <Modal.Header>
         Welcome! Let&apos;s get started.
         </Modal.Header>

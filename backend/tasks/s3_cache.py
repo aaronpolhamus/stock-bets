@@ -9,10 +9,12 @@ from backend.database.helpers import aws_client
 from config import Config
 
 
-def set(name: str, value, endpoint_url: str = Config.AWS_ENDPOINT_URL, *_args, **_kwargs) -> None:
+s3_client = aws_client()
+
+
+def set(name: str, value, *_args, **_kwargs) -> None:
     bucket = Config.AWS_PRIVATE_BUCKET_NAME
     value = str.encode(str(value))
-    s3_client = aws_client(endpoint_url=endpoint_url)
     s3_client.put_object(Body=value, Bucket=bucket, Key=f"cache/{name}")
 
 
@@ -22,9 +24,8 @@ def unpack_s3_json(key: str):
         return json.loads(value)
 
 
-def get(key: str, endpoint_url: str = Config.AWS_ENDPOINT_URL):
+def get(key: str):
     bucket = Config.AWS_PRIVATE_BUCKET_NAME
-    s3_client = aws_client(endpoint_url=endpoint_url)
     if s3_client.list_objects_v2(Bucket=bucket, Prefix=f"cache/{key}")["KeyCount"] > 0:
         object_info = s3_client.get_object(Bucket=bucket, Key=f"cache/{key}")
         value = object_info['Body'].read().decode()
@@ -48,9 +49,8 @@ def keys():
     return []
 
 
-def get_objects(endpoint_url: str = Config.AWS_ENDPOINT_URL,):
+def get_objects():
     bucket = Config.AWS_PRIVATE_BUCKET_NAME
-    s3_client = aws_client(endpoint_url=endpoint_url)
     objects = s3_client.list_objects_v2(Bucket=bucket, Prefix='cache/')
     if 'Contents' in objects:
         objects = objects['Contents']
