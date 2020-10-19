@@ -2,9 +2,31 @@ import React, { useState, useRef } from 'react'
 import { Popover, Overlay } from 'react-bootstrap'
 import PropTypes from 'prop-types'
 
-const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) => {
+const ElementTooltip = ({ message, children, placement = 'auto', showDelay = 500, hideDelay = 300 }) => {
   const [show, setShow] = useState(false)
   const target = useRef(null)
+
+  let hideTimeout = null
+  let showTimeout = null
+
+  const handleMouseEnter = () => {
+    clearTimeout(hideTimeout)
+    if (!show) {
+      showTimeout = setTimeout(() => {
+        setShow(true)
+      }, showDelay)
+    }
+  }
+
+  const handleMouseOut = () => {
+    clearTimeout(showTimeout)
+    if (show) {
+      hideTimeout = setTimeout(() => {
+        setShow(false)
+      }, hideDelay)
+    }
+  }
+
   return (
     <>
       <div
@@ -12,12 +34,8 @@ const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) =>
         onClick={() => {
           setShow(!show)
         }}
-        onMouseEnter={() => {
-          setShow(true)
-        }}
-        onMouseLeave={() => {
-          setShow(false)
-        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseOut}
       >
         {children}
       </div>
@@ -44,12 +62,8 @@ const ElementTooltip = ({ message, children, placement = 'auto', delay = 0 }) =>
           <Popover
             {...props}
             className='popover-card'
-            onMouseEnter={() => {
-              setShow(true)
-            }}
-            onMouseLeave={() => {
-              setShow(false)
-            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseOut}
           >
             <Popover.Content>
               {message}
@@ -72,6 +86,8 @@ ElementTooltip.propTypes = {
   message: PropTypes.oneOfType([
     PropTypes.string,
     PropTypes.node
-  ])
+  ]),
+  showDelay: PropTypes.number,
+  hideDelay: PropTypes.number
 }
 export { ElementTooltip }

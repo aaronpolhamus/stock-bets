@@ -269,8 +269,10 @@ input.form-control{
   }
 }
 
-.form-check input{
-  margin-top: var(--space-50);
+.form-check-input{
+  margin-top: .35rem;
+  left: 0;
+  margin-left: 0;
 }
 
 .form-check-label{
