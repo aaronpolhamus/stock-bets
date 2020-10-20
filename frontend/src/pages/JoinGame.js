@@ -122,6 +122,7 @@ const JoinGame = () => {
             <PendingGameParticipants
               participants={gameParticipants}
               invitees={gameInvitees}
+              gameMode={gameInfo.game_mode}
             />
           </PageSection>
         </Column>

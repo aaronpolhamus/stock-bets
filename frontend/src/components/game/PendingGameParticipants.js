@@ -24,25 +24,27 @@ const setPillVariant = (status) => {
   }
 }
 
-const PendingGameParticipants = ({ participants, invitees }) => {
+const PendingGameParticipants = ({ participants, invitees, gameMode = 'multi_player' }) => {
   const participantsBuilder = (participants) => {
     return participants.map((participant, index) => {
-      return (
-        <tr key={index}>
-          <td>
-            <PlayerRow
-              avatarSrc={participant.profile_pic}
-              avatarSize='small'
-              username={participant.username}
-            />
-          </td>
-          <td>
-            <StyledBadge pill variant={setPillVariant(participant.status)}>
-              {participant.status}
-            </StyledBadge>
-          </td>
-        </tr>
-      )
+      if (participant.status === 'joined' || gameMode !== 'public') {
+        return (
+          <tr key={index}>
+            <td>
+              <PlayerRow
+                avatarSrc={participant.profile_pic}
+                avatarSize='small'
+                username={participant.username}
+              />
+            </td>
+            <td>
+              <StyledBadge pill variant={setPillVariant(participant.status)}>
+                {participant.status}
+              </StyledBadge>
+            </td>
+          </tr>
+        )
+      }
     })
   }
 
