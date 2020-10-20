@@ -1062,17 +1062,8 @@ class TestExternalInviteFunctionality(BaseTestCase):
         add_external_game_invites(external_email_2, user_id)
 
         new_user_game_info = get_game_info_for_user(user_id)
-        public_game_invite = [
-            {'creator_avatar': 'http://localhost:4572/stockbets-public/profile_pics/murcitdev.jpg',
-             'creator_id': 5,
-             'creator_username': 'murcitdev',
-             'game_id': 9,
-             'game_mode': 'public',
-             'game_status': 'pending',
-             'invite_status': 'invited',
-             'title': 'sample public game',
-             'users': '[5]'}]
-        self.assertEqual(new_user_game_info, public_game_invite)
+        self.assertEqual(len(new_user_game_info), 1)
+        self.assertEqual(new_user_game_info[0]["game_mode"], "public")
 
 
 class TestPayoutTime(TestCase):

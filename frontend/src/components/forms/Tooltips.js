@@ -30,7 +30,7 @@ const Tooltip = ({ message, showDelay = 300, hideDelay = 300 }) => {
     <>
       <HelpCircle
         size={14}
-        style={{ marginTop: '2px', cursor: 'pointer'}}
+        style={{ marginTop: '2px', cursor: 'pointer' }}
         ref={target}
         onClick={() => {
           setShow(!show)

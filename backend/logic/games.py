@@ -439,82 +439,88 @@ def get_game_info_for_user(user_id: int):
     """This big, ugly SQL query aggregates a bunch of information about a user's game invites and active games for
     display on the home page
     """
-    sql = """
-        SELECT 
-            gs.game_id, 
-            g.title,
-            g.creator_id,
-            g.game_mode,
-            creator_info.profile_pic AS creator_avatar,
-            creator_info.username AS creator_username,
-            gs.users,
-            gs.status AS game_status,
-            gi_status.status AS invite_status
-        FROM game_status gs
-        INNER JOIN
-          (SELECT game_id, MAX(id) AS max_id
-            FROM game_status
-            GROUP BY game_id) grouped_gs
-            ON gs.id = grouped_gs.max_id
-        INNER JOIN
-          (SELECT gi.game_id, gi.status
-            FROM game_invites gi
+    with engine.connect() as conn:
+        sql = """
+            SELECT 
+                gs.game_id, 
+                g.title,
+                g.creator_id,
+                g.game_mode,
+                g.invite_window,
+                creator_info.profile_pic AS creator_avatar,
+                creator_info.username AS creator_username,
+                gs.users,
+                gs.status AS game_status,
+                gi_status.status AS invite_status
+            FROM game_status gs
             INNER JOIN
-            (SELECT game_id, user_id, MAX(id) AS max_id
-                FROM game_invites
-                GROUP BY game_id, user_id) gg_invites
-                ON gi.id = gg_invites.max_id
-                WHERE gi.user_id = %s AND
-                gi.status IN ('invited', 'joined')) gi_status
-            ON gi_status.game_id = gs.game_id
-        INNER JOIN
-          games g on gs.game_id = g.id
-        INNER JOIN
-          users creator_info ON creator_info.id = g.creator_id
-        WHERE gs.status IN ('active', 'pending', 'finished');
-    """
-    most_game_info = query_to_dict(sql, user_id)
+              (SELECT game_id, MAX(id) AS max_id
+                FROM game_status
+                GROUP BY game_id) grouped_gs
+                ON gs.id = grouped_gs.max_id
+            INNER JOIN
+              (SELECT gi.game_id, gi.status
+                FROM game_invites gi
+                INNER JOIN
+                (SELECT game_id, user_id, MAX(id) AS max_id
+                    FROM game_invites
+                    GROUP BY game_id, user_id) gg_invites
+                    ON gi.id = gg_invites.max_id
+                    WHERE gi.user_id = %s AND
+                    gi.status IN ('invited', 'joined')) gi_status
+                ON gi_status.game_id = gs.game_id
+            INNER JOIN
+              games g on gs.game_id = g.id
+            INNER JOIN
+              users creator_info ON creator_info.id = g.creator_id
+            WHERE gs.status IN ('active', 'pending', 'finished');
+        """
+        most_game_info = pd.read_sql(sql, conn, params=[user_id])
 
-    # special handling for public game invites. instead of printing thousands of invite entries to the game invites
-    # table, we'll use special logic such that all open public games that the user hasn't responded to appear as
-    # invites.
-    public_invites_sql = """
-        SELECT
-            g.id as game_id,
-            g.title,
-            g.creator_id,
-            g.game_mode,
-            creator_info.profile_pic AS creator_avatar,
-            creator_info.username AS creator_username,
-            gs.users,
-            gs.status AS game_status,
-            'invited' AS invite_status
-        FROM games g
-        INNER JOIN
-          (SELECT * FROM game_status gs
-            INNER JOIN (
-              SELECT MAX(id) AS max_id
-              FROM game_status
-              GROUP BY game_id
-            ) grouped_gs ON grouped_gs.max_id = gs.id
-          ) gs ON gs.game_id = g.id
-        INNER JOIN
-          users creator_info ON creator_info.id = g.creator_id
-        LEFT OUTER JOIN
-          (SELECT gi.game_id, gi.status
-            FROM game_invites gi
+        # special handling for public game invites. instead of printing thousands of invite entries to the game invites
+        # table, we'll use special logic such that all open public games that the user hasn't responded to appear as
+        # invites.
+        public_invites_sql = """
+            SELECT
+                g.id as game_id,
+                g.title,
+                g.creator_id,
+                g.game_mode,
+                g.invite_window,
+                creator_info.profile_pic AS creator_avatar,
+                creator_info.username AS creator_username,
+                gs.users,
+                gs.status AS game_status,
+                'invited' AS invite_status
+            FROM games g
             INNER JOIN
-            (SELECT game_id, user_id, MAX(id) AS max_id
-                FROM game_invites
-                GROUP BY game_id, user_id) gg_invites
-                ON gi.id = gg_invites.max_id
-                WHERE gi.user_id = %s) gi_status
-            ON gi_status.game_id = gs.game_id
-        WHERE
-            g.game_mode = 'public' AND
-            gs.status = 'pending' AND gi_status.status IS NULL;"""
-    public_game_invites = query_to_dict(public_invites_sql, user_id)
-    return most_game_info + public_game_invites
+              (SELECT * FROM game_status gs
+                INNER JOIN (
+                  SELECT MAX(id) AS max_id
+                  FROM game_status
+                  GROUP BY game_id
+                ) grouped_gs ON grouped_gs.max_id = gs.id
+              ) gs ON gs.game_id = g.id
+            INNER JOIN
+              users creator_info ON creator_info.id = g.creator_id
+            LEFT OUTER JOIN
+              (SELECT gi.game_id, gi.status
+                FROM game_invites gi
+                INNER JOIN
+                (SELECT game_id, user_id, MAX(id) AS max_id
+                    FROM game_invites
+                    GROUP BY game_id, user_id) gg_invites
+                    ON gi.id = gg_invites.max_id
+                    WHERE gi.user_id = %s) gi_status
+                ON gi_status.game_id = gs.game_id
+            WHERE
+                g.game_mode = 'public' AND
+                gs.status = 'pending' AND gi_status.status IS NULL;"""
+        public_game_invites = pd.read_sql(public_invites_sql, conn, params=[user_id])
+
+    df = pd.concat([most_game_info, public_game_invites])
+    df = df.where(df.notnull(), None)
+    return df.to_dict(orient="records")
 
 
 def get_user_invite_statuses_for_pending_game(game_id: int):

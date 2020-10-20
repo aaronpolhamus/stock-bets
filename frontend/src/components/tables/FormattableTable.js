@@ -305,7 +305,6 @@ const FormattableTable = (props) => {
       return props.formatOutput ? props.formatOutput(row) : row
     })
 
-    // console.log(props.name, tableData)
     return (
       <StyledTable
         hover={props.hover}

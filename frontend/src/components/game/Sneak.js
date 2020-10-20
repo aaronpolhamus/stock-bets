@@ -131,6 +131,8 @@ const Sneak = props => {
                           'Balance (FIFO)': ['currency'],
                           'Realized P&L': ['currency'],
                           'Unrealized P&L': ['currency'],
+                          'Realized P&L (%)': ['percentage'],
+                          'Unrealized P&L (%)': ['percentage'],
                           Basis: ['currency', 'bold']
                         }}
                         formatCells={{

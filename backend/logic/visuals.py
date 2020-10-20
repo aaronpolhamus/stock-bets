@@ -116,7 +116,9 @@ FULFILLED_ORDER_MAPPINGS = {
     "basis": "Basis",
     "fifo_balance": "Balance (FIFO)",
     "realized_pl": "Realized P&L",
+    "realized_pl_percent": "Realized P&L (%)",
     "unrealized_pl": "Unrealized P&L",
+    "unrealized_pl_percent": "Unrealized P&L (%)",
     "Market price": "Market price",
     "as of": "as of"
 }
@@ -751,11 +753,13 @@ def add_fulfilled_order_entry(game_id: int, user_id: int, order_id: int):
             "Clear price": clear_price,
             "Basis": quantity * clear_price if buy_or_sell == "buy" else NA_TEXT_SYMBOL,
             "Balance (FIFO)": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Realized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Unrealized P&L": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "Market price": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "as of": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL,
-            "color": quantity if buy_or_sell == "buy" else NA_NUMERIC_VAL
+            "Realized P&L": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Realized P&L (%)": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Unrealized P&L (%)": 0 if buy_or_sell == "buy" else NA_NUMERIC_VAL,
+            "Market price": clear_price,
+            "as of": timestamp,
+            "color": NULL_RGBA
         }
         assert set(FULFILLED_ORDER_MAPPINGS.values()) - set(new_entry.keys()) == set()
         fulfilled_order_table = s3_cache.unpack_s3_json(f"{game_id}/{user_id}/{FULFILLED_ORDER_PREFIX}")
@@ -786,6 +790,8 @@ def serialize_and_pack_order_performance_table(df: pd.DataFrame, game_id: int, u
     sold_df["basis"] = -1 * sold_df["basis"]
     tab = pd.concat([tab, sold_df], axis=0)
     tab.sort_values("timestamp", inplace=True)
+    tab["realized_pl_percent"] = tab["realized_pl"] / tab["basis"]
+    tab["unrealized_pl_percent"] = tab["unrealized_pl"] / tab["basis"]
     tab.rename(columns=FULFILLED_ORDER_MAPPINGS, inplace=True)
     tab.fillna(NA_NUMERIC_VAL, inplace=True)
     fulfilled_order_table = dict(data=tab.to_dict(orient="records"), headers=list(FULFILLED_ORDER_MAPPINGS.values()))

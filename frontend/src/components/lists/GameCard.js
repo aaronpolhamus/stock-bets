@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { fetchGameData } from 'components/functions/api'
 import { Header } from 'components/layout/Layout'
 import { Link } from 'react-router-dom'
-import { numberToOrdinal, daysLeft } from 'components/functions/formattingHelpers'
+import { numberToOrdinal, daysLeft, toFormattedDate } from 'components/functions/formattingHelpers'
 import { PlayCircle, Eye } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import { UserContext } from 'Contexts'
@@ -130,7 +130,7 @@ const GameCardPending = ({ gameData }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {`By: ${gameData.creator_username}`}
+              {`By: ${gameData.creator_username}, starts on ${toFormattedDate(gameData.invite_window)}`}
             </SmallCaps>
           </div>
           <Eye

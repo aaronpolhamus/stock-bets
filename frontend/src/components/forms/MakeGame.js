@@ -189,6 +189,17 @@ const MakeGame = ({ gameMode }) => {
               </div>
             </div>
           </Modal.Body>}
+        {gameMode === 'public' &&
+          <Modal.Body>
+            <div className='text-center'>
+            Your game is visible to everyone on stockbets 👍
+              <div>
+                <small>
+                It will kick off after either 9 more people join or the invite window runs out
+                </small>
+              </div>
+            </div>
+          </Modal.Body>}
         <Modal.Footer className='centered'>
           <Button
             variant='primary' onClick={() => {
