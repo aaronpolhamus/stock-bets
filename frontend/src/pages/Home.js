@@ -207,7 +207,7 @@ const Home = () => {
 
   const gamesActive = filterEntries(homeData.game_info, {
     game_status: ['active'],
-    game_mode: ['multi_player']
+    game_mode: ['multi_player', 'public']
   })
 
   const gamesFinished = filterEntries(homeData.game_info, {
@@ -224,14 +224,18 @@ const Home = () => {
   const gamesInvited = filterEntries(homeData.game_info, {
     game_status: ['pending'],
     invite_status: ['invited'],
-    game_mode: ['multi_player', 'public']
+    game_mode: ['multi_player']
+  })
+
+  const gamesPublic = filterEntries(homeData.game_info, {
+    game_status: ['pending'],
+    game_mode: ['public']
   })
 
   const gamesSinglePlayer = filterEntries(homeData.game_info, {
     game_status: ['active'],
     game_mode: ['single_player']
   })
-
   return (
     <>
       <Layout
@@ -339,29 +343,34 @@ const Home = () => {
           </PageSection>
           <PageSection>
             <Row>
-              <Col lg={6} xl={8}>
+              <Col lg={6} xl={7}>
                 <GameList
                   games={gamesActive}
-                  title='Games'
+                  title='Your Games'
                 />
                 <GameList
                   games={gamesSinglePlayer}
                 />
                 <GameList
-                  games={gamesFinished}
-                  title='Finished'
-                />
-              </Col>
-              <Col lg={6} xl={4}>
-                <GameList
                   games={gamesPending}
                   cardType='pending'
-                  title='Pending'
                 />
                 <GameList
                   games={gamesInvited}
                   cardType='pending'
-                  title='Invited'
+                />
+                <GameList
+                  games={gamesFinished}
+                  title='Your Finished Games'
+                  hide={true}
+                />
+              </Col>
+              <Col lg={6} xl={5}>
+                <GameList
+                  games={gamesPublic}
+                  cardType='pending'
+                  isPublic={true}
+                  title='Public Games'
                 />
               </Col>
             </Row>

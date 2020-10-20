@@ -5,7 +5,7 @@ import { fetchGameData } from 'components/functions/api'
 import { Header } from 'components/layout/Layout'
 import { Link } from 'react-router-dom'
 import { numberToOrdinal, daysLeft } from 'components/functions/formattingHelpers'
-import { PlayCircle, Eye } from 'react-feather'
+import { PlayCircle, Globe, Clock } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import { UserContext } from 'Contexts'
 
@@ -118,7 +118,7 @@ const GameCard = ({ gameId }) => {
   )
 }
 
-const GameCardPending = ({ gameData }) => {
+const GameCardPending = ({ gameData, currentUser, isPublic }) => {
   return (
     <GameCardWrapper to={`/join/${gameData.game_id}`}>
       <CardMainColumn>
@@ -130,14 +130,25 @@ const GameCardPending = ({ gameData }) => {
             <SmallCaps
               color='var(--color-text-gray)'
             >
-              {`By: ${gameData.creator_username}`}
+              {isPublic
+                ? `Host: ${gameData.creator_username}`
+                : `Invited by: ${gameData.creator_username}`
+              }
             </SmallCaps>
           </div>
-          <Eye
-            color='var(--color-primary-darken)'
-            size={24}
-            style={{ marginTop: '-3px', marginRight: '4px' }}
-          />
+          {
+            isPublic
+              ? <Globe
+                color='var(--color-primary-darken)'
+                size={24}
+                style={{ marginTop: '-3px', marginRight: '4px' }}
+              />
+              : <Clock
+                color='var(--color-primary-darken)'
+                size={24}
+                style={{ marginTop: '-3px', marginRight: '4px' }}
+              />
+          }
         </Header>
       </CardMainColumn>
     </GameCardWrapper>
@@ -150,7 +161,9 @@ GameCard.propTypes = {
 }
 
 GameCardPending.propTypes = {
-  gameData: PropTypes.object
+  gameData: PropTypes.object,
+  currentUser: PropTypes.string,
+  isPublic: PropTypes.bool
 }
 
 export { GameCard, GameCardPending }

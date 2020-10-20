@@ -28,6 +28,8 @@ const SectionTitle = styled.h2`
   margin-bottom: var(--space-200);
 `
 
+
+
 const TitlePage = styled.h1`
   font-size: var(--font-size-xlarge)
 `

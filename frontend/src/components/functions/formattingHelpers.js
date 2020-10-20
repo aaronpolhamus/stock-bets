@@ -60,7 +60,6 @@ const daysLeft = endTimePosix => {
   const timeleft = endMilliseconds - today
 
   const days = msToDays(timeleft)
-
   if (days < 0) return 'Game ended'
 
   switch (days) {
