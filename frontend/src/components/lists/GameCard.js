@@ -8,6 +8,7 @@ import { numberToOrdinal, daysLeft } from 'components/functions/formattingHelper
 import { PlayCircle, Globe, Clock } from 'react-feather'
 import { SmallCaps } from 'components/textComponents/Text'
 import { UserContext } from 'Contexts'
+import { XsButton } from 'components/ui/buttons/XsButton'
 
 const CardMainColumn = styled.div`
   flex-grow: 1;
@@ -138,16 +139,23 @@ const GameCardPending = ({ gameData, currentUser, isPublic }) => {
           </div>
           {
             isPublic
-              ? <Globe
-                color='var(--color-primary-darken)'
-                size={24}
-                style={{ marginTop: '-3px', marginRight: '4px' }}
-              />
-              : <Clock
-                color='var(--color-primary-darken)'
-                size={24}
-                style={{ marginTop: '-3px', marginRight: '4px' }}
-              />
+              ? <div>
+                  <XsButton>Check</XsButton>
+                  <Globe
+                    color='var(--color-primary-darken)'
+                    size={24}
+                    style={{ marginTop: '-3px', marginRight: '4px' }}
+                  />
+                 </div>
+              : <div>
+                <XsButton>Respond to invitation</XsButton>
+                <Clock
+                  color='var(--color-primary-darken)'
+                  size={24}
+                  style={{ marginTop: '-3px', marginRight: '4px' }}
+                />
+              </div>
+
           }
         </Header>
       </CardMainColumn>

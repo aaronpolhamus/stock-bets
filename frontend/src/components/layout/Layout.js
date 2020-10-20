@@ -67,9 +67,6 @@ const Header = styled.header`
   align-items: ${(props) => props.alignItems || 'center'};
   flex-wrap: wrap;
   margin-bottom: ${(props) => props.marginBottom || 0};
-  & > * {
-    margin-bottom: var(--space-200);
-  }
   h2{
     flex-shrink: 0;
     margin-right: var(--space-200)
