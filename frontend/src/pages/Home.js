@@ -125,6 +125,7 @@ const AddFriendsWrapper = styled.div`
 
 const Home = () => {
   const [username, setUserName] = useState('')
+  const [newUsername, setNewUsername] = useState(null)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
   const [showWelcome, setShowWelcome] = useState(true)
@@ -204,20 +205,20 @@ const Home = () => {
 
   if (username !== null) window.heap.identify(username)
 
-  const handleChange = (e) => {
-    setUserName(e.target.value)
+  const handleUsernameChange = (e) => {
+    setNewUsername(e.target.value)
   }
 
-  const setUsername = async (e) => {
+  const setOnboardingUsername = async (e) => {
     e.preventDefault()
     try {
       await api.post('/api/set_username', {
-        username: username
+        username: newUsername
       })
       setShowWelcome(false)
       setShowStartGame(true)
     } catch (error) {
-      window && window.alert(`Looks like '${username}' is taken, try another one`)
+      window && window.alert(`Looks like '${newUsername}' is taken, try another one`)
     }
   }
 
@@ -396,7 +397,7 @@ const Home = () => {
               Pick a username
                 </Form.Label>
                 <Form.Control
-                  onChange={handleChange}
+                  onChange={handleUsernameChange}
                   type='input'
                   name='username'
                   placeholder='Your username'
@@ -433,7 +434,7 @@ const Home = () => {
             <Button onClick={() => window.history.go(-2)} variant='light'>
             I&apos;ll come back later
             </Button>
-            <Button onClick={setUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
+            <Button onClick={setOnboardingUsername} variant='primary' type='submit' disabled={!acceptedTerms || !acceptedPrivacy}>
             Submit
             </Button>
           </Modal.Footer>

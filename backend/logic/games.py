@@ -415,24 +415,25 @@ def service_open_game(game_id: int):
 
 
 def refund_cancelled_game(game_id: int):
-    game_info = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
+    pass
+    # game_info = query_to_dict("SELECT * FROM games WHERE id = %s", game_id)[0]
     # if this is a paid game, refund any users who joined and put money in
-    if game_info["stakes"] == "real":
-        buy = game_info["buy_in"]
-        joined_ids = get_invite_list_by_status(game_id, "joined")
-        payment_profiles = get_payment_profile_uuids(joined_ids)
-        profile_ids = [x["uuid"] for x in payment_profiles]
-        send_paypal_payment(
-            uuids=profile_ids,
-            amount=buy,
-            payment_type="refund",
-            email_subject=f"Refund for '{game_info['title']}'",
-            email_content=f"Your game '{game_info['title']}' didn't kick off after all, so we're sending you back your buy-in. Hope to see you again soon!",
-            note_content="Your friends missed out! Hope to see you out here soon"
-        )
-        for profile in payment_profiles:
-            add_row("payments", user_id=profile["user_id"], profile_id=profile["id"], game_id=game_id,
-                    type="refund", amount=buy, direction="outflow")
+    # if game_info["stakes"] == "real":
+    #     buy = game_info["buy_in"]
+    #     joined_ids = get_invite_list_by_status(game_id, "joined")
+    #     payment_profiles = get_payment_profile_uuids(joined_ids)
+    #     profile_ids = [x["uuid"] for x in payment_profiles]
+    #     send_paypal_payment(
+    #         uuids=profile_ids,
+    #         amount=buy,
+    #         payment_type="refund",
+    #         email_subject=f"Refund for '{game_info['title']}'",
+    #         email_content=f"Your game '{game_info['title']}' didn't kick off after all, so we're sending you back your buy-in. Hope to see you again soon!",
+    #         note_content="Your friends missed out! Hope to see you out here soon"
+    #     )
+    #     for profile in payment_profiles:
+    #         add_row("payments", user_id=profile["user_id"], profile_id=profile["id"], game_id=game_id,
+    #                 type="refund", amount=buy, direction="outflow")
 
 
 def get_game_info_for_user(user_id: int):
