@@ -223,7 +223,7 @@ const Home = () => {
 
   const gamesActive = filterEntries(gameInfo, {
     game_status: ['active'],
-    game_mode: ['multi_player']
+    game_mode: ['multi_player', 'public']
   })
 
   const gamesFinished = filterEntries(gameInfo, {
