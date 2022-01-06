@@ -1,7 +1,7 @@
 apache-airflow[celery,redis,rabbitmq]==1.10.11
 awscli==1.18.101
 boto3==1.14.24
-celery==4.4.2
+celery==5.2.2
 Flask==1.0.2
 Flask_Cors==3.0.8
 Flask-Migrate==2.5.3
