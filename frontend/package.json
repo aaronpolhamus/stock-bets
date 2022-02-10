@@ -28,7 +28,7 @@
     "mathjs": "^7.2.0",
     "moment": "^2.27.0",
     "moment-timezone": "^0.5.31",
-    "node-sass": "^4.14.1",
+    "node-sass": "^7.0.0",
     "prettier": "^2.0.5",
     "react": "^16.13.1",
     "react-autosuggest": "^10.0.2",
